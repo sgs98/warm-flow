@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.dromara.warm</groupId>
+        <artifactId>warm-flow-plugin</artifactId>
+        <version>1.8.9</version>
+    </parent>
+
+    <name>warm-flow-plugin-json</name>
+    <artifactId>warm-flow-plugin-json</artifactId>
+    <packaging>pom</packaging>
+    <url>https://github.com/dromara/warm-flow</url>
+
+    <modules>
+        <module>warm-flow-plugin-json-v1</module>
+        <module>warm-flow-plugin-json-jackson3</module>
+    </modules>
+
+</project>

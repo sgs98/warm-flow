@@ -1,0 +1,156 @@
+import type { App, Plugin } from 'vue'
+import '@/icons'
+
+import FlowDesigner from '@/components/design/FlowDesigner.vue'
+import SvgIcon from '@/components/SvgIcon/index.vue'
+// 设计器可组合子组件（高级用法：自行编排基础信息 / 节点属性面板 / 拖拽侧边栏）
+import BaseInfo from '@/components/design/common/vue/baseInfo.vue'
+import PropertySetting from '@/components/design/common/vue/propertySetting.vue'
+import DiagramSidebar from '@/components/design/common/vue/DiagramSidebar.vue'
+import {
+  setupDataProvider,
+  setDataProvider,
+  getDataProvider,
+  createHttpProvider,
+  createMockProvider,
+  isMockEnabled
+} from '@/data'
+import type { DataProvider } from '@/data'
+import { setUiAdapter, getUiAdapter, hasUiAdapter } from '@/ui/uiAdapter'
+import type { UiAdapter, UiFeedbackType, UiFeedbackOptions, UiLoadingHandle, UiComponents } from '@/ui/uiAdapter'
+import { registerWfComponents } from '@/ui/components'
+import { setComponentSize, getComponentSize } from '@/ui/designerOptions'
+import type { ComponentSize } from '@/ui/designerOptions'
+// 组合式 API（hooks）
+import { useFlowDesigner } from '@/composables/useFlowDesigner'
+import type { UseFlowDesignerReturn } from '@/composables/useFlowDesigner'
+import { useFlowJson } from '@/composables/useFlowJson'
+import type { UseFlowJsonReturn } from '@/composables/useFlowJson'
+import { useDark } from '@/composables/useDark'
+// 国际化（i18n）：轻量内置 catalog + setLocale，零依赖，默认中文向后兼容
+import { setLocale, getLocale, useI18n, setMessages, translate } from '@/i18n'
+import type { WfLocale, WfMessageTree, UseI18nReturn } from '@/i18n'
+// 公共类型（消费方可直接 import 用于模板 ref / 事件回调标注）
+import type {
+  FlowDesignerProps,
+  FlowDesignerInstance,
+  FlowDesignerSavedPayload,
+  FlowDesignerReadyPayload,
+  FlowDesignerBeforeSavePayload,
+  FlowDesignerChangePayload,
+  FlowDesignerValidateErrorPayload,
+  FlowDesignerNodeClickPayload,
+  FlowStructureValidateResult,
+  PaletteNode,
+  FlowDesignerPaletteNodes
+} from '@/designer/types'
+
+/** WarmFlowDesigner 插件安装选项。 */
+export interface WarmFlowDesignerOptions {
+  /** 全局组件尺寸（small / default / large）；等价于安装前调用 setComponentSize(size)。 */
+  size?: ComponentSize
+}
+
+/**
+ * Warm-Flow 设计器「可复用层」统一出口（组件库 / npm 包入口）。
+ *
+ * 主入口 UI 库无关：不静态引入任何 UI 组件库（element-plus），
+ * 消费方须显式注册一个 UI 适配器后再渲染设计器：
+ *   import { WarmFlowDesigner, FlowDesigner, setUiAdapter, setDataProvider, createMockProvider } from '@dromara/warm-flow-designer'
+ *   import { elementPlusAdapter } from '@dromara/warm-flow-designer/element-plus'
+ *   import '@dromara/warm-flow-designer/style'
+ *   setUiAdapter(elementPlusAdapter)  // 选择 UI 库适配器，须在渲染 FlowDesigner 前调用
+ *   app.use(WarmFlowDesigner)         // 注册 svg-icon + 中性组件 wf-*，图标零配置可用
+ *   setDataProvider(myProvider)       // 注入自定义后端 / mock，实现数据层与具体后端解耦
+ *
+ * 该入口对外只暴露这一稳定门面，内部目录结构调整不影响下游 import 路径。
+ *
+ * @author warm
+ */
+
+/**
+ * 安装为 Vue 插件：注册全局 svg-icon 组件与中性组件 wf-*。
+ *
+ * 主入口 UI 库无关，不在此注册任何 UI 适配器；消费方须在渲染前显式 setUiAdapter(...)
+ * 选择 element-plus（@dromara/warm-flow-designer/element-plus）适配器。
+ * 图标走离线 iconify 集（ep + wf，见 src/icons），已在本模块加载时注册，零配置渲染，不依赖具体 UI 库图标。
+ */
+const install = (app: App, options: WarmFlowDesignerOptions = {}): void => {
+  // 全局组件尺寸：安装时可一次性指定（small / default / large），运行期亦可 setComponentSize 调整
+  if (options.size) setComponentSize(options.size)
+  app.component('svg-icon', SvgIcon)
+  // 全局注册中性组件 wf-*（设计器视图与 UI 库解耦，渲染时按已注册的适配器映射到具体 UI 库组件）
+  registerWfComponents(app)
+  // 注册 v-loading 指令（区域加载遮罩）：由当前 UI 适配器提供（EP 用内置 vLoading、antd 自实现），
+  // 使设计器内组件（如 selectUser）的 v-loading 与具体 UI 库解耦。须在 app.use 前先 setUiAdapter。
+  // 仅在宿主 app 尚未注册同名指令时才注册：避免与消费方 app.use(ElementPlus)（已自带 loading）重复注册告警。
+  if (hasUiAdapter() && !app.directive('loading')) {
+    const loadingDirective = getUiAdapter().loadingDirective
+    if (loadingDirective) app.directive('loading', loadingDirective)
+  }
+}
+
+const WarmFlowDesigner: Plugin = { install }
+
+export {
+  // 可复用画布组件（props 驱动，详见组件内 defineProps）
+  FlowDesigner,
+  // 全局图标组件（通常由 WarmFlowDesigner 插件自动注册，单独导出便于按需使用）
+  SvgIcon,
+  // Vue 插件：app.use 后自动注册图标
+  WarmFlowDesigner,
+  install,
+  // 数据层：注入 / 获取数据源、内置 http 与 mock 实现、mock 开关、按环境装配
+  setupDataProvider,
+  setDataProvider,
+  getDataProvider,
+  createHttpProvider,
+  createMockProvider,
+  isMockEnabled,
+  // UI 适配层：注册 / 获取 UI 库适配器。主入口 UI 无关，消费方须显式注册一个适配器：
+  //   element-plus 适配器 import 自 @dromara/warm-flow-designer/element-plus
+  setUiAdapter,
+  getUiAdapter,
+  // 全局 UI 选项：设置 / 获取设计器组件尺寸（small / default / large）
+  setComponentSize,
+  getComponentSize,
+  // 组合式 API：命令式操控设计器（save / zoom / getFlowJson 等，空安全包装）
+  useFlowDesigner,
+  // 组合式 API：流程 json 响应式只读视图（json / data / dirty + sync + bind）
+  useFlowJson,
+  // 组合式 API：暗黑模式与主题颜色（isDark / themeColors / setCustomThemeColors 等）
+  useDark,
+  // 国际化：切换 / 获取语言、组合式 useI18n、扩展语言包 setMessages、独立翻译函数 translate
+  setLocale,
+  getLocale,
+  useI18n,
+  setMessages,
+  translate,
+  // 设计器可组合子组件（高级用法）：基础信息表单 / 节点属性面板 / 拖拽侧边栏
+  // 需先 app.use(WarmFlowDesigner) + setUiAdapter，依赖全局 wf-* 组件与 svg-icon
+  BaseInfo,
+  PropertySetting,
+  DiagramSidebar
+}
+export type { DataProvider }
+export type { UiAdapter, UiFeedbackType, UiFeedbackOptions, UiLoadingHandle, UiComponents }
+export type { ComponentSize }
+export type { WfLocale, WfMessageTree, UseI18nReturn }
+// FlowDesigner 相关公共类型：props / 命令式实例 / 事件 payload / 拖拽面板节点 / hook 返回值
+export type {
+  FlowDesignerProps,
+  FlowDesignerInstance,
+  FlowDesignerSavedPayload,
+  FlowDesignerReadyPayload,
+  FlowDesignerBeforeSavePayload,
+  FlowDesignerChangePayload,
+  FlowDesignerValidateErrorPayload,
+  FlowDesignerNodeClickPayload,
+  FlowStructureValidateResult,
+  PaletteNode,
+  FlowDesignerPaletteNodes,
+  UseFlowDesignerReturn,
+  UseFlowJsonReturn
+}
+
+export default WarmFlowDesigner

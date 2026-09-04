@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.dromara.warm</groupId>
+        <artifactId>warm-flow</artifactId>
+        <version>1.8.9</version>
+    </parent>
+
+    <name>warm-flow-orm</name>
+    <artifactId>warm-flow-orm</artifactId>
+    <packaging>pom</packaging>
+    <url>https://github.com/dromara/warm-flow</url>
+
+    <modules>
+        <module>warm-flow-mybatis</module>
+        <module>warm-flow-mybatis-plus</module>
+        <module>warm-flow-easy-query</module>
+    </modules>
+
+</project>

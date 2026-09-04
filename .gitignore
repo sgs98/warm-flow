@@ -1,0 +1,60 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### IntelliJ IDEA ###
+.idea
+*.iml
+*.ipr
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+/warm-flow-ui/.qoder/
+
+### Node / pnpm（warm-flow-vue-designer + warm-flow-designer-demo 工作区） ###
+node_modules/
+dist-lib/
+.pnpm-store/
+*.local
+**/*.log
+/.playwright-cli/
+
+/.qoder/
+/.cursor/rules/qingtian-mcp.mdc
+/.cursor/mcp.json
+/.playwright-cli/
+/output/
+/warm-flow-designer-demo/warm-flow-ep-designer-demo/.playwright-cli/
+/warm-flow-designer-demo/warm-flow-ep-designer-demo/dist/
+/warm-flow-designer-demo/warm-flow-ep-designer-demo/node_modules/
+/warm-flow-vue-designer/node_modules/
+/warm-flow-vue-designer/output/
+/warm-flow-vue-designer/dist/
+/node_modules/
+/.codex/
+/warm-flow-vue-designer/.playwright-cli/
+/warm-flow-vue-designer/dist-lib/
+/.codex/
