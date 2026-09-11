@@ -1,0 +1,20 @@
+# java
+target/
+*.class
+*.log
+
+# frontend
+node_modules/
+dist/
+dist-lib/
+dist-ssr/
+*.local
+.vite/
+
+# idea / vscode
+.idea/
+*.iml
+.vscode/
+
+# os
+.DS_Store

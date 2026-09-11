@@ -78,6 +78,8 @@ export function useDark() {
 
   /** 监听父页面 postMessage 主题切换（支持携带自定义颜色） */
   function listeningMessage(e) {
+    if (e.source !== window.parent) return;
+    if (!e.data || typeof e.data !== 'object') return;
     const { data } = e
     switch (data.type) {
       case 'theme-dark':

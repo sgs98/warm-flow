@@ -1,5 +1,7 @@
 # Element Plus Only UI Implementation Plan
 
+> 历史执行计划，仅用于审计删除过程；当前生产支持范围以 `warm-flow-vue-designer/AGENTS.md` 和 README 为准，只有 Element Plus。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 保留 iframe 与 npm 两条交付链路，但统一只支持 Element Plus，移除 Ant Design Vue 与 Naive UI 适配器、示例和构建入口。

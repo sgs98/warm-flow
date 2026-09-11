@@ -1,0 +1,33 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: warm-flow-demo
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 允许通过环境变量覆盖数据库连接
+    url: ${WARM_DEMO_DB_URL:jdbc:mysql://localhost:3306/warm-flow?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    username: ${WARM_DEMO_DB_USERNAME:root}
+    password: ${WARM_DEMO_DB_PASSWORD:root}
+  sql:
+    init:
+      # 不使用应用启动自动建表，由 README 中的 SQL 初始化步骤负责
+      mode: never
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    deserialization:
+      fail-on-unknown-properties: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+
+warm-flow:
+  enabled: true
+  global-listener-path: org.dromara.warm.demo.listener.DemoGlobalListener
+  data-source-type: mysql
+  banner: true
