@@ -39,12 +39,16 @@ const data = reactive({
 const { formData, rule, option, form, rules } = toRefs(data);
 
 window.addEventListener("message", handleMessage);
-window.parent.postMessage({ method: "formInit" }, "*");
+if (window.parent !== window) {
+  window.parent.postMessage({ method: "formInit" }, "*");
+}
 onBeforeUnmount(() => {
   window.removeEventListener('message', handleMessage);
 });
 
 function handleMessage(event) {
+  if (event.source !== window.parent) return;
+  if (!event.data || typeof event.data !== 'object') return;
   switch (event.data.method) {
     case "formInit":
       formInit(event.data.data);
@@ -73,6 +77,22 @@ function handleBtn(skipType) {
 }
 // 设计表单反显
 async function formInit(data) {
+  if (!data || typeof data !== 'object') {
+    proxy.$modal.alertWarning("表单初始化参数不能为空");
+    return;
+  }
+  if (!['0', '1', '2'].includes(data.type)) {
+    proxy.$modal.alertWarning("表单初始化类型无效");
+    return;
+  }
+  if ((data.type === '0' || data.type === '1') && !data.taskId) {
+    proxy.$modal.alertWarning("任务ID不能为空");
+    return;
+  }
+  if (data.type === '2' && !data.formId) {
+    proxy.$modal.alertWarning("表单ID不能为空");
+    return;
+  }
   let response;
   let formContent;
   taskId.value = data.taskId;

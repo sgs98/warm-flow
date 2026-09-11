@@ -1,0 +1,285 @@
+/* ============================================================
+   warm-flow-demo 全局设计令牌与 Element Plus 主题覆盖
+   ============================================================ */
+:root {
+  /* 主色（单一声明，全站一致，避免多色漂移） */
+  --wf-primary: #2f6bf0;
+  --wf-primary-strong: #2457cf;
+  --wf-primary-soft: #eaf1fe;
+  --wf-accent-line: #2f6bf0;
+
+  /* 中性背景与边框 */
+  --wf-bg: #f3f6fb;
+  --wf-surface: #ffffff;
+  --wf-border: #e6ebf4;
+  --wf-border-strong: #d7dfec;
+  --wf-text: #1e2633;
+  --wf-text-muted: #6b7688;
+
+  /* 侧栏（深色导航） */
+  --wf-sidebar-1: #0d1530;
+  --wf-sidebar-2: #131f42;
+  --wf-sidebar-text: #9fb1d2;
+  --wf-sidebar-active: #eef3ff;
+  --wf-sidebar-hover: rgba(255, 255, 255, 0.06);
+
+  /* 圆角与阴影 */
+  --wf-radius-lg: 14px;
+  --wf-radius-md: 10px;
+  --wf-shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 6px 20px rgba(16, 24, 40, 0.05);
+
+  /* Element Plus 令牌对齐主色 */
+  --el-color-primary: var(--wf-primary);
+  --el-color-primary-light-3: #6d9bf5;
+  --el-color-primary-light-5: #9dbbf8;
+  --el-color-primary-light-7: #cddcfb;
+  --el-color-primary-light-8: #dfe9fd;
+  --el-color-primary-light-9: #eff4ff;
+  --el-color-primary-dark-2: var(--wf-primary-strong);
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 20px;
+  --el-text-color-primary: var(--wf-text);
+  --el-text-color-regular: #3d4757;
+  --el-text-color-secondary: var(--wf-text-muted);
+  --el-border-color: var(--wf-border);
+  --el-border-color-lighter: #eef2f9;
+  --el-border-color-light: #e4e9f2;
+  --el-fill-color-light: #f6f8fc;
+  --el-fill-color-lighter: #f8fafd;
+  --el-box-shadow-light: 0 2px 10px rgba(16, 24, 40, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--wf-bg);
+  color: var(--wf-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ===================== 应用骨架 ===================== */
+.app-shell {
+  height: 100%;
+}
+
+/* 侧栏 */
+.app-aside {
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--wf-sidebar-1) 0%, var(--wf-sidebar-2) 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--wf-primary) 0%, #5b8cff 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 17px;
+  box-shadow: 0 4px 12px rgba(47, 107, 240, 0.4);
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.brand-text b {
+  color: #fff;
+  font-size: 16px;
+  letter-spacing: 0.2px;
+}
+
+.brand-text span {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+/* 侧栏菜单 */
+.side-menu {
+  --el-menu-bg-color: transparent;
+  --el-menu-text-color: var(--wf-sidebar-text);
+  --el-menu-active-color: #fff;
+  --el-menu-hover-bg-color: var(--wf-sidebar-hover);
+  --el-menu-item-height: 46px;
+  flex: 1;
+  border-right: none;
+  padding: 14px 10px;
+  overflow-y: auto;
+}
+
+.side-menu .el-menu-item {
+  margin-bottom: 4px;
+  border-radius: 10px;
+  font-size: 14px;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.side-menu .el-menu-item.is-active {
+  background: linear-gradient(90deg, rgba(47, 107, 240, 0.34), rgba(47, 107, 240, 0.12));
+  color: #fff;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 0 var(--wf-primary);
+}
+
+.side-menu .el-menu-item:not(.is-active):hover {
+  color: #fff;
+}
+
+.aside-foot {
+  padding: 14px 18px;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* 右侧列 */
+.app-right {
+  min-width: 0;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 60px;
+  padding: 0 24px;
+  background: var(--wf-surface);
+  border-bottom: 1px solid var(--wf-border);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+}
+
+.page-crumb {
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--wf-text);
+  letter-spacing: 0.2px;
+}
+
+.user-session {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--wf-primary-soft);
+  color: var(--wf-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.user-name {
+  color: var(--wf-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.app-main {
+  padding: 20px;
+  overflow: auto;
+  background: var(--wf-bg);
+}
+
+/* ===================== 页面卡片与工具栏 ===================== */
+.page-card {
+  padding: 18px 20px 20px;
+  background: var(--wf-surface);
+  border: 1px solid var(--wf-border);
+  border-radius: var(--wf-radius-lg);
+  box-shadow: var(--wf-shadow-card);
+}
+
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* ===================== 表格润色 ===================== */
+.el-table {
+  --el-table-header-bg-color: #f6f8fd;
+  --el-table-header-text-color: #3a4658;
+  --el-table-border-color: #eef1f7;
+  --el-table-row-hover-bg-color: #f6f9ff;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.el-table th.el-table__cell {
+  font-weight: 600;
+  background: var(--el-table-header-bg-color);
+}
+
+.el-table .cell {
+  line-height: 1.5;
+}
+
+.el-pagination {
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* ===================== 其他通用 ===================== */
+.el-button {
+  font-weight: 500;
+}
+
+.el-tag {
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cfd6e2;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b8c1d1;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

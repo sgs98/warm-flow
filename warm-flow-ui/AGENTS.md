@@ -22,6 +22,7 @@ Warm-Flow 流程设计器前端（经典 + 仿钉钉双模式），构建产物�
 yarn --registry=https://registry.npmmirror.com   # 安装依赖
 yarn dev                                          # 本地开发（vite）
 yarn build:prod                                   # 生产构建（vite build）
+yarn sync:plugin                                  # 构建后同步 dist 到插件静态资源
 yarn preview                                      # 预览构建产物
 ```
 

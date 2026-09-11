@@ -34,9 +34,8 @@ build/
 .DS_Store
 /warm-flow-ui/.qoder/
 
-### Node / pnpm（warm-flow-vue-designer + warm-flow-designer-demo 工作区） ###
+### Node / pnpm ###
 node_modules/
-dist-lib/
 .pnpm-store/
 *.local
 **/*.log
@@ -47,14 +46,5 @@ dist-lib/
 /.cursor/mcp.json
 /.playwright-cli/
 /output/
-/warm-flow-designer-demo/warm-flow-ep-designer-demo/.playwright-cli/
-/warm-flow-designer-demo/warm-flow-ep-designer-demo/dist/
-/warm-flow-designer-demo/warm-flow-ep-designer-demo/node_modules/
-/warm-flow-vue-designer/node_modules/
-/warm-flow-vue-designer/output/
-/warm-flow-vue-designer/dist/
 /node_modules/
-/.codex/
-/warm-flow-vue-designer/.playwright-cli/
-/warm-flow-vue-designer/dist-lib/
 /.codex/
