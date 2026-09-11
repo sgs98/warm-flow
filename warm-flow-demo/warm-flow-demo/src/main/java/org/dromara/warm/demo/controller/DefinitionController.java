@@ -2,6 +2,7 @@ package org.dromara.warm.demo.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.ApiResponse;
+import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.service.DefinitionService;
 import org.dromara.warm.demo.vo.DefinitionSummaryVo;
 import org.dromara.warm.demo.vo.PageVo;
@@ -32,8 +33,7 @@ public class DefinitionController {
     /**
      * 分页查询流程定义。
      *
-     * @param pageNum   页码
-     * @param pageSize  每页条数
+     * @param pageQuery 分页参数
      * @param keyword   流程名称或编码关键字
      * @param category  流程分类
      * @param isPublish 发布状态
@@ -41,12 +41,11 @@ public class DefinitionController {
      */
     @GetMapping
     public ApiResponse<PageVo<DefinitionSummaryVo>> page(
-        @RequestParam(defaultValue = "1") Integer pageNum,
-        @RequestParam(defaultValue = "10") Integer pageSize,
+        PageQuery pageQuery,
         @RequestParam(required = false) String keyword,
         @RequestParam(required = false) String category,
         @RequestParam(required = false) Integer isPublish) {
-        return ApiResponse.ok(definitionService.page(pageNum, pageSize, keyword, category, isPublish));
+        return ApiResponse.ok(definitionService.page(pageQuery, keyword, category, isPublish));
     }
 
     /**

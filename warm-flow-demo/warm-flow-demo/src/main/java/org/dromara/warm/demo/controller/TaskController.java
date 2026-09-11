@@ -3,6 +3,7 @@ package org.dromara.warm.demo.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.ApiResponse;
+import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.dto.TaskActionRequest;
 import org.dromara.warm.demo.service.WorkflowService;
 import org.dromara.warm.demo.vo.ButtonPermissionVo;
@@ -16,7 +17,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -38,32 +38,28 @@ public class TaskController {
      * 分页查询当前用户待办任务。
      *
      * @param user     当前用户名
-     * @param pageNum  页码
-     * @param pageSize 每页条数
+     * @param pageQuery 分页参数
      * @return 待办任务分页数据
      */
     @GetMapping("/tasks/todo")
     public ApiResponse<PageVo<TaskVo>> todo(
         @RequestHeader("X-User-Name") String user,
-        @RequestParam(defaultValue = "1") Integer pageNum,
-        @RequestParam(defaultValue = "10") Integer pageSize) {
-        return ApiResponse.ok(workflowService.todo(user, pageNum, pageSize));
+        PageQuery pageQuery) {
+        return ApiResponse.ok(workflowService.todo(user, pageQuery));
     }
 
     /**
      * 分页查询当前用户已办任务。
      *
      * @param user     当前用户名
-     * @param pageNum  页码
-     * @param pageSize 每页条数
+     * @param pageQuery 分页参数
      * @return 已办任务分页数据
      */
     @GetMapping("/tasks/done")
     public ApiResponse<PageVo<TaskVo>> done(
         @RequestHeader("X-User-Name") String user,
-        @RequestParam(defaultValue = "1") Integer pageNum,
-        @RequestParam(defaultValue = "10") Integer pageSize) {
-        return ApiResponse.ok(workflowService.done(user, pageNum, pageSize));
+        PageQuery pageQuery) {
+        return ApiResponse.ok(workflowService.done(user, pageQuery));
     }
 
     /**
@@ -103,16 +99,14 @@ public class TaskController {
      * 分页查询当前用户收到的抄送。
      *
      * @param user     当前用户名
-     * @param pageNum  页码
-     * @param pageSize 每页条数
+     * @param pageQuery 分页参数
      * @return 抄送分页数据
      */
     @GetMapping("/tasks/copy")
     public ApiResponse<PageVo<TaskVo>> copy(
         @RequestHeader("X-User-Name") String user,
-        @RequestParam(defaultValue = "1") Integer pageNum,
-        @RequestParam(defaultValue = "10") Integer pageSize) {
-        return ApiResponse.ok(workflowService.copy(user, pageNum, pageSize));
+        PageQuery pageQuery) {
+        return ApiResponse.ok(workflowService.copy(user, pageQuery));
     }
 
     /**

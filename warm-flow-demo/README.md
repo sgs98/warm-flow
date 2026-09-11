@@ -38,7 +38,6 @@ mysql -uroot -p warm-flow < warm-flow-demo/src/main/resources/sql/data.sql
 ```bash
 cd warm-flow-demo
 mvn spring-boot:run            # 或打包 java -jar target/warm-flow-demo-1.8.9.jar
-curl http://localhost:8080/api/health
 ```
 
 前端：

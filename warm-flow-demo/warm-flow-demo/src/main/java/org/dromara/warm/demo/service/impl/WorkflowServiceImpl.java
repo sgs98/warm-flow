@@ -2,6 +2,7 @@ package org.dromara.warm.demo.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.BizException;
+import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.dto.StartInstanceRequest;
 import org.dromara.warm.demo.dto.TaskActionRequest;
 import org.dromara.warm.demo.enums.BusinessStatusEnum;
@@ -118,18 +119,15 @@ public class WorkflowServiceImpl implements WorkflowService {
      * 分页查询当前用户发起的流程实例。
      *
      * @param user         当前用户名
-     * @param pageNum      页码
-     * @param pageSize     每页条数
+     * @param pageQuery    分页参数
      * @param definitionId 流程定义主键
      * @param flowStatus   流程状态
      * @param businessId   业务主键
      * @return 流程实例分页数据
      */
     @Override
-    public PageVo<InstanceVo> pageInstances(String user, Integer pageNum, Integer pageSize,
+    public PageVo<InstanceVo> pageInstances(String user, PageQuery pageQuery,
                                             Long definitionId, String flowStatus, String businessId) {
-        int pn = normalizePage(pageNum);
-        int ps = normalizeSize(pageSize);
         Instance query = FlowEngine.newIns();
         query.setDefinitionId(definitionId);
         if (StringUtils.isNotEmpty(flowStatus)) {
@@ -141,7 +139,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         if (StringUtils.isNotEmpty(user)) {
             query.setCreateBy(user);
         }
-        Page<Instance> page = FlowEngine.insService().page(query, new Page<>(pn, ps, "id", "DESC"));
+        Page<Instance> page = FlowEngine.insService().page(query, pageQuery.build("id", "DESC"));
         return toPage(page, this::toInstanceVo);
     }
 
@@ -192,44 +190,38 @@ public class WorkflowServiceImpl implements WorkflowService {
      * 分页查询当前用户待办任务。
      *
      * @param user     当前用户名
-     * @param pageNum  页码
-     * @param pageSize 每页条数
+     * @param pageQuery 分页参数
      * @return 待办任务分页数据
      */
     @Override
-    public PageVo<TaskVo> todo(String user, Integer pageNum, Integer pageSize) {
-        int pn = normalizePage(pageNum);
-        int ps = normalizeSize(pageSize);
+    public PageVo<TaskVo> todo(String user, PageQuery pageQuery) {
         List<String> permissions = StringUtils.isEmpty(user)
             ? new ArrayList<>() : userService.permissionFlags(user);
         if (permissions.isEmpty()) {
-            return new PageVo<>(0, pn, ps, new ArrayList<>());
+            return new PageVo<>(0, pageQuery.normalizedPageNum(), pageQuery.normalizedPageSize(), new ArrayList<>());
         }
-        com.baomidou.mybatisplus.extension.plugins.pagination.Page<FlowTask> page =
-            new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(pn, ps);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<FlowTask> page = pageQuery.build();
         List<TaskVo> rows = taskQueryMapper.selectTodoPage(page, permissions).stream()
             .map(this::toTodoVo)
             .collect(Collectors.toList());
-        return new PageVo<>(page.getTotal(), pn, ps, rows);
+        return new PageVo<>(page.getTotal(),
+            pageQuery.normalizedPageNum(), pageQuery.normalizedPageSize(), rows);
     }
 
     /**
      * 分页查询当前用户已办任务。
      *
      * @param user     当前用户名
-     * @param pageNum  页码
-     * @param pageSize 每页条数
+     * @param pageQuery 分页参数
      * @return 已办任务分页数据
      */
     @Override
-    public PageVo<TaskVo> done(String user, Integer pageNum, Integer pageSize) {
-        int pn = normalizePage(pageNum);
-        int ps = normalizeSize(pageSize);
+    public PageVo<TaskVo> done(String user, PageQuery pageQuery) {
         if (StringUtils.isEmpty(user)) {
-            return new PageVo<>(0, pn, ps, new ArrayList<>());
+            return new PageVo<>(0, pageQuery.normalizedPageNum(), pageQuery.normalizedPageSize(), new ArrayList<>());
         }
         Page<HisTask> page = FlowEngine.hisTaskService().page(
-            FlowEngine.newHisTask().setApprover(user), new Page<>(pn, ps, "id", "DESC"));
+            FlowEngine.newHisTask().setApprover(user), pageQuery.build("id", "DESC"));
         return toPage(page, this::toDoneVo);
     }
 
@@ -237,25 +229,22 @@ public class WorkflowServiceImpl implements WorkflowService {
      * 分页查询当前用户收到的抄送。
      *
      * @param user     当前用户名
-     * @param pageNum  页码
-     * @param pageSize 每页条数
+     * @param pageQuery 分页参数
      * @return 抄送分页数据
      */
     @Override
-    public PageVo<TaskVo> copy(String user, Integer pageNum, Integer pageSize) {
-        int pn = normalizePage(pageNum);
-        int ps = normalizeSize(pageSize);
+    public PageVo<TaskVo> copy(String user, PageQuery pageQuery) {
         List<String> permissions = StringUtils.isEmpty(user)
             ? new ArrayList<>() : userService.permissionFlags(user);
         if (permissions.isEmpty()) {
-            return new PageVo<>(0, pn, ps, new ArrayList<>());
+            return new PageVo<>(0, pageQuery.normalizedPageNum(), pageQuery.normalizedPageSize(), new ArrayList<>());
         }
-        com.baomidou.mybatisplus.extension.plugins.pagination.Page<FlowHisTask> page =
-            new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(pn, ps);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<FlowHisTask> page = pageQuery.build();
         List<TaskVo> rows = taskQueryMapper.selectCopyPage(page, permissions).stream()
             .map(this::toDoneVo)
             .collect(Collectors.toList());
-        return new PageVo<>(page.getTotal(), pn, ps, rows);
+        return new PageVo<>(page.getTotal(),
+            pageQuery.normalizedPageNum(), pageQuery.normalizedPageSize(), rows);
     }
 
     /**
@@ -803,11 +792,4 @@ public class WorkflowServiceImpl implements WorkflowService {
         }
     }
 
-    private int normalizePage(Integer pageNum) {
-        return pageNum == null || pageNum < 1 ? 1 : pageNum;
-    }
-
-    private int normalizeSize(Integer pageSize) {
-        return pageSize == null || pageSize < 1 ? 10 : Math.min(pageSize, 100);
-    }
 }

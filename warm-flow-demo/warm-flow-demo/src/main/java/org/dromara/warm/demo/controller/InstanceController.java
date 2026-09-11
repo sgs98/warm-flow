@@ -3,6 +3,7 @@ package org.dromara.warm.demo.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.ApiResponse;
+import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.dto.StartInstanceRequest;
 import org.dromara.warm.demo.service.WorkflowService;
 import org.dromara.warm.demo.vo.HistoryVo;
@@ -50,8 +51,7 @@ public class InstanceController {
     /**
      * 分页查询流程实例。
      *
-     * @param pageNum      页码
-     * @param pageSize     每页条数
+     * @param pageQuery    分页参数
      * @param definitionId 流程定义主键
      * @param flowStatus   流程状态
      * @param businessId   业务主键
@@ -60,13 +60,13 @@ public class InstanceController {
      */
     @GetMapping("/instances")
     public ApiResponse<PageVo<InstanceVo>> page(
-        @RequestParam(defaultValue = "1") Integer pageNum,
-        @RequestParam(defaultValue = "10") Integer pageSize,
+        PageQuery pageQuery,
         @RequestParam(required = false) Long definitionId,
         @RequestParam(required = false) String flowStatus,
         @RequestParam(required = false) String businessId,
         @RequestHeader(value = "X-User-Name", required = false) String user) {
-        return ApiResponse.ok(workflowService.pageInstances(user, pageNum, pageSize, definitionId, flowStatus, businessId));
+        return ApiResponse.ok(workflowService.pageInstances(
+            user, pageQuery, definitionId, flowStatus, businessId));
     }
 
     /**

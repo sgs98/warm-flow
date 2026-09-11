@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.warm.demo.common.BizException;
+import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.mapper.DemoFlowDefinitionMapper;
 import org.dromara.warm.demo.service.DefinitionService;
 import org.dromara.warm.demo.vo.DefinitionSummaryVo;
@@ -36,10 +37,8 @@ public class DefinitionServiceImpl implements DefinitionService {
 
     private final DemoFlowDefinitionMapper flowDefinitionMapper;
 
-    public PageVo<DefinitionSummaryVo> page(Integer pageNum, Integer pageSize, String keyword,
+    public PageVo<DefinitionSummaryVo> page(PageQuery pageQuery, String keyword,
                                             String category, Integer isPublish) {
-        int pn = pageNum == null || pageNum < 1 ? 1 : pageNum;
-        int ps = pageSize == null || pageSize < 1 ? 10 : Math.min(pageSize, 100);
         LambdaQueryWrapper<FlowDefinition> query = Wrappers.lambdaQuery();
         if (StringUtils.isNotEmpty(keyword)) {
             String like = keyword.trim();
@@ -53,12 +52,13 @@ public class DefinitionServiceImpl implements DefinitionService {
             query.eq(FlowDefinition::getIsPublish, isPublish);
         }
         query.orderByDesc(FlowDefinition::getId);
-        Page<FlowDefinition> result = flowDefinitionMapper.selectPage(new Page<>(pn, ps), query);
+        Page<FlowDefinition> result = flowDefinitionMapper.selectPage(pageQuery.build(), query);
 
         List<DefinitionSummaryVo> rows = result.getRecords().stream()
             .map(this::toSummary)
             .collect(Collectors.toList());
-        return new PageVo<>(result.getTotal(), pn, ps, rows);
+        return new PageVo<>(result.getTotal(),
+            pageQuery.normalizedPageNum(), pageQuery.normalizedPageSize(), rows);
     }
 
     public DefJson detail(Long id) {
