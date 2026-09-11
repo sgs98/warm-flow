@@ -71,12 +71,7 @@ public class UserServiceImpl implements UserService {
         return new ArrayList<>(flags);
     }
 
-    /**
-     * 按权限标识查询可选办理用户。
-     *
-     * @param permissionFlags 权限标识集合
-     * @return 可选办理用户集合
-     */
+    /** {@inheritDoc} */
     @Override
     public List<DemoUserVo> listByPermissionFlags(List<String> permissionFlags) {
         if (permissionFlags == null || permissionFlags.isEmpty()) {

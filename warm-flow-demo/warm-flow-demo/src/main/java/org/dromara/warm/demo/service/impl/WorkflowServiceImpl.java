@@ -85,13 +85,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     private final DemoInstanceDeleteMapper instanceDeleteMapper;
     private final UserService userService;
 
-    /**
-     * 发起流程，并返回当前用户需要办理的首个待办任务。
-     *
-     * @param user    当前用户名
-     * @param request 发起请求
-     * @return 发起结果
-     */
+    /** {@inheritDoc} */
     @Override
     public StartInstanceVo start(String user, StartInstanceRequest request) {
         try {
@@ -114,17 +108,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         }
     }
 
-    /**
-     * 分页查询当前用户发起的流程实例。
-     *
-     * @param user         当前用户名
-     * @param pageNum      页码
-     * @param pageSize     每页条数
-     * @param definitionId 流程定义主键
-     * @param flowStatus   流程状态
-     * @param businessId   业务主键
-     * @return 流程实例分页数据
-     */
+    /** {@inheritDoc} */
     @Override
     public PageVo<InstanceVo> pageInstances(String user, Integer pageNum, Integer pageSize,
                                             Long definitionId, String flowStatus, String businessId) {
@@ -145,23 +129,13 @@ public class WorkflowServiceImpl implements WorkflowService {
         return toPage(page, this::toInstanceVo);
     }
 
-    /**
-     * 查询流程实例详情。
-     *
-     * @param id 流程实例主键
-     * @return 流程实例详情
-     */
+    /** {@inheritDoc} */
     @Override
     public InstanceVo detailInstance(Long id) {
         return toInstanceVo(requireInstance(id));
     }
 
-    /**
-     * 查询流程实例审批历史。
-     *
-     * @param instanceId 流程实例主键
-     * @return 审批历史集合
-     */
+    /** {@inheritDoc} */
     @Override
     public List<HistoryVo> history(Long instanceId) {
         List<HisTask> list = FlowEngine.hisTaskService()
@@ -170,11 +144,9 @@ public class WorkflowServiceImpl implements WorkflowService {
     }
 
     /**
-     * 物理删除流程实例及其关联数据。
-     * <p>按流程用户、待办、历史任务、流程实例的顺序删除；方法运行在事务内，
+     * {@inheritDoc}
+     * <p>按流程用户、待办、历史任务、流程实例的顺序物理删除；方法运行在事务内，
      * 任意删除失败都会回滚已删除数据。</p>
-     *
-     * @param instanceId 流程实例主键
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -188,14 +160,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         }
     }
 
-    /**
-     * 分页查询当前用户待办任务。
-     *
-     * @param user     当前用户名
-     * @param pageNum  页码
-     * @param pageSize 每页条数
-     * @return 待办任务分页数据
-     */
+    /** {@inheritDoc} */
     @Override
     public PageVo<TaskVo> todo(String user, Integer pageNum, Integer pageSize) {
         int pn = normalizePage(pageNum);
@@ -213,14 +178,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         return new PageVo<>(page.getTotal(), pn, ps, rows);
     }
 
-    /**
-     * 分页查询当前用户已办任务。
-     *
-     * @param user     当前用户名
-     * @param pageNum  页码
-     * @param pageSize 每页条数
-     * @return 已办任务分页数据
-     */
+    /** {@inheritDoc} */
     @Override
     public PageVo<TaskVo> done(String user, Integer pageNum, Integer pageSize) {
         int pn = normalizePage(pageNum);
@@ -233,14 +191,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         return toPage(page, this::toDoneVo);
     }
 
-    /**
-     * 分页查询当前用户收到的抄送。
-     *
-     * @param user     当前用户名
-     * @param pageNum  页码
-     * @param pageSize 每页条数
-     * @return 抄送分页数据
-     */
+    /** {@inheritDoc} */
     @Override
     public PageVo<TaskVo> copy(String user, Integer pageNum, Integer pageSize) {
         int pn = normalizePage(pageNum);
@@ -258,12 +209,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         return new PageVo<>(page.getTotal(), pn, ps, rows);
     }
 
-    /**
-     * 查询待办任务所在节点的按钮权限。
-     *
-     * @param taskId 待办任务主键
-     * @return 按钮权限集合
-     */
+    /** {@inheritDoc} */
     @Override
     public List<ButtonPermissionVo> buttonPermissions(Long taskId) {
         Task task = requireTask(taskId);
@@ -271,11 +217,8 @@ public class WorkflowServiceImpl implements WorkflowService {
     }
 
     /**
-     * 查询待办任务按实例变量可达的下一审批节点。
-     * <p>仅对下一审批节点解析可选办理用户。</p>
-     *
-     * @param taskId 待办任务主键
-     * @return 下一审批节点及可选办理用户集合
+     * {@inheritDoc}
+     * <p>使用实例变量计算条件跳转；仅对下一审批节点解析可选办理用户。</p>
      */
     @Override
     public List<TaskNodeVo> nextNodes(Long taskId) {
@@ -283,11 +226,8 @@ public class WorkflowServiceImpl implements WorkflowService {
     }
 
     /**
-     * 查询流程图中当前节点的前置审批节点。
-     * <p>仅用于选择退回目标，不解析可选办理用户。</p>
-     *
-     * @param taskId 待办任务主键
-     * @return 可退回审批节点集合
+     * {@inheritDoc}
+     * <p>返回流程图上的前置审批节点，仅用于选择退回目标，不解析可选办理用户。</p>
      */
     @Override
     public List<TaskNodeVo> backNodes(Long taskId) {
@@ -303,12 +243,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         }
     }
 
-    /**
-     * 通过待办任务，并按需保存抄送人。
-     *
-     * @param req 办理请求
-     * @return 办理后的流程实例
-     */
+    /** {@inheritDoc} */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public InstanceVo pass(TaskActionRequest req) {
@@ -324,12 +259,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         return instance;
     }
 
-    /**
-     * 退回待办任务到指定节点，并按需保存抄送人。
-     *
-     * @param req 办理请求
-     * @return 办理后的流程实例
-     */
+    /** {@inheritDoc} */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public InstanceVo reject(TaskActionRequest req) {
@@ -345,11 +275,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         return instance;
     }
 
-    /**
-     * 转办待办任务给指定办理人。
-     *
-     * @param req 办理请求
-     */
+    /** {@inheritDoc} */
     @Override
     public void transfer(TaskActionRequest req) {
         checkTaskAction(req);
@@ -368,11 +294,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         });
     }
 
-    /**
-     * 委派待办任务给指定办理人。
-     *
-     * @param req 办理请求
-     */
+    /** {@inheritDoc} */
     @Override
     public void depute(TaskActionRequest req) {
         checkTaskAction(req);
@@ -391,11 +313,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         });
     }
 
-    /**
-     * 给待办任务增加办理人。
-     *
-     * @param req 办理请求
-     */
+    /** {@inheritDoc} */
     @Override
     public void addSignature(TaskActionRequest req) {
         checkTaskAction(req);
@@ -405,11 +323,7 @@ public class WorkflowServiceImpl implements WorkflowService {
             FlowEngine.taskService().addSignature(task.getId(), flowParams.addHandlers(req.getAddHandlers())));
     }
 
-    /**
-     * 减少待办任务办理人。
-     *
-     * @param req 办理请求
-     */
+    /** {@inheritDoc} */
     @Override
     public void reductionSignature(TaskActionRequest req) {
         checkTaskAction(req);
@@ -420,23 +334,13 @@ public class WorkflowServiceImpl implements WorkflowService {
                 flowParams.reductionHandlers(req.getReductionHandlers())));
     }
 
-    /**
-     * 撤回当前用户发起的流程实例。
-     *
-     * @param user       当前用户名
-     * @param instanceId 流程实例主键
-     */
+    /** {@inheritDoc} */
     @Override
     public void revoke(String user, Long instanceId) {
         run(user, flowParams -> FlowEngine.taskService().revoke(instanceId, flowParams));
     }
 
-    /**
-     * 终止流程实例。
-     *
-     * @param user       当前用户名
-     * @param instanceId 流程实例主键
-     */
+    /** {@inheritDoc} */
     @Override
     public void termination(String user, Long instanceId) {
         Instance instance = requireInstance(instanceId);
