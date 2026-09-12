@@ -40,7 +40,7 @@
     </div>
 
     <el-header :style="headerStyle">
-      <div class="design-toolbar" style="padding: 5px 0; text-align: right;">
+      <div class="design-toolbar">
         <div v-if="activeStep === 1">
           <span class="toolbar-group">
             <el-tooltip content="缩小" placement="bottom"><el-button size="small" icon="ZoomOut" @click="zoomViewport(false)"></el-button></el-tooltip>
@@ -192,17 +192,14 @@ const onlyDesignShow = ref(false);
 
 const headerStyle = computed(() => {
   return {
-    top: "5px",
-    right: "50px",
-    left: isClassics(logicJson.value.modelValue) ? "60px" : "50px",
+    position: "relative",
     zIndex: "2",
     height: "auto",
-    backgroundColor: "var(--wf-bg-white, #fff)",
-    border: "1px solid var(--wf-border-light, #e2e8f0)",
-    borderRadius: "6px",
-    margin: "5px",
+    padding: "0",
+    backgroundColor: "transparent",
+    border: "none",
+    margin: "0",
     color: "var(--wf-text-primary, #303133)",
-    transition: "left 0.3s ease",
   };
 });
 const baseInfoStyle = computed(() => {
@@ -214,7 +211,7 @@ const baseInfoStyle = computed(() => {
 
 const headerDiv = computed(() => {
     return {
-        backgroundColor: "var(--wf-bg-white, #fff)",
+        backgroundColor: activeStep.value === 1 ? "var(--wf-bg-page, #eef1f6)" : "var(--wf-bg-white, #fff)",
         minHeight: "100vh",
         position: "relative",
     };
@@ -313,11 +310,11 @@ function initLogicFlow() {
       container: proxy.$refs.containerRef,
       textEdit: false,      // 是否开启文本编辑。
       snapToGrid: true,   // 是否开启网格吸附，开启后拖动节点会有以网格大小为补步长移动
-      hideAnchors: !isClassics(logicJson.value.modelValue),   // 是否隐藏节点的锚点，静默模式下默认隐藏。
-      adjustNodePosition: isClassics(logicJson.value.modelValue),   // 是否允许拖动节点。
-      hoverOutline: isClassics(logicJson.value.modelValue),   // 鼠标 hover 的时候是否显示节点的外框。
-      nodeSelectedOutline: isClassics(logicJson.value.modelValue),    // 节点被选中时是否显示节点的外框。
-      edgeSelectedOutline: isClassics(logicJson.value.modelValue),    //	边被选中时是否显示边的外框。
+      hideAnchors: !isClassics(logicJson.value.modelValue) || disabled.value,   // 是否隐藏节点的锚点，静默模式下默认隐藏。
+      adjustNodePosition: isClassics(logicJson.value.modelValue) && !disabled.value,   // 是否允许拖动节点。
+      hoverOutline: isClassics(logicJson.value.modelValue) && !disabled.value,   // 鼠标 hover 的时候是否显示节点的外框。
+      nodeSelectedOutline: isClassics(logicJson.value.modelValue) && !disabled.value,    // 节点被选中时是否显示节点的外框。
+      edgeSelectedOutline: isClassics(logicJson.value.modelValue) && !disabled.value,    //	边被选中时是否显示边的外框。
       grid: {
         size: 20,
         visible: 'true' === appParams.value.showGrid,
@@ -330,7 +327,7 @@ function initLogicFlow() {
           backgroundColor: themeColors.value.bgPage,
         },
       },
-      keyboard: isClassics(logicJson.value.modelValue) ? {
+      keyboard: isClassics(logicJson.value.modelValue) && !disabled.value ? {
         enabled: true,
         shortcuts: [
           {
@@ -1089,15 +1086,21 @@ async function downJson() {
 <style>
 
 
-/* ========== 画布容器 ========== */
+/* el-header 包着画布：不要自带白底，否则浅灰画布会被一圈白边框住 */
+.el-header {
+  --el-header-padding: 0;
+  background: transparent !important;
+  padding: 0 !important;
+  height: auto !important;
+}
 .container {
   flex: 1;
   width: 100%;
   /* 真机兼容：使用 dvh（动态视口高度）+ vh 兜底，解决移动端地址栏导致 100vh 不准确的问题 */
   height: calc(100dvh - 100px);
   min-height: 400px;
-  border-radius: var(--wf-radius, 8px);
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.04);
+  border-radius: 0;
+  background: var(--wf-bg-page, #eef1f6);
   overflow: hidden;
   /* 关键：禁止浏览器默认触摸手势，让 LogicFlow 接管画布拖动 */
   touch-action: none;
@@ -1133,12 +1136,15 @@ async function downJson() {
 
 .container :deep(.lf-container-bg) {
   display: block !important;
+  background-color: var(--wf-bg-page, #eef1f6) !important;
 }
 
 html.dark .container {
-  background-color: var(--wf-bg-color) !important;
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.25) !important;
-  border: 1px solid var(--wf-border-color) !important;
+  background-color: var(--wf-bg-color, #141414) !important;
+}
+
+html.dark .container :deep(.lf-container-bg) {
+  background-color: var(--wf-bg-color, #141414) !important;
 }
 
 /* ========== Logo 水印 ========== */
@@ -1329,29 +1335,31 @@ html.dark .toolbar-save-btn:hover {
   background: var(--wf-primary-dark, #2b7de9) !important;
 }
 
-/* 工具栏区域（el-header 第二行）暗黑模式 */
+/* 工具栏区域（el-header 包着画布）保持透明，避免盖住浅灰画布 */
 html.dark .el-header {
-  --el-bg-color: var(--wf-bg-white);
-  background-color: var(--wf-bg-white);
+  --el-bg-color: transparent;
+  background-color: transparent;
+}
+
+html.dark .design-toolbar {
+  background: var(--wf-bg-white, #1d1e1f);
+  border-color: var(--wf-border-color, #333);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
 html.dark .toolbar-group {
-  border-right-color: var(--wf-border-color);
+  border-right-color: var(--wf-border-color, #333);
 
-  /* 工具栏内按钮暗黑模式 */
   .el-button {
-    --el-button-bg-color: var(--wf-bg-color);
-    --el-button-text-color: var(--wf-text-primary);
-    --el-border-color: var(--wf-border-color);
-    color: var(--wf-text-primary);
+    color: var(--wf-text-regular, #b0b0b0);
     background-color: transparent;
-    border-color: var(--wf-border-color);
+    border: none;
 
     &:hover,
     &:focus {
       color: var(--wf-primary);
-      background-color: rgba(64,158,255,.12);
-      border-color: var(--wf-primary);
+      background-color: rgba(64, 158, 255, 0.12);
+      border: none;
     }
   }
 }
@@ -1376,26 +1384,51 @@ html.dark .logo-text {
   color: var(--wf-text-secondary);
 }
 
-/* ========== 工具栏分组 ========== */
+/* ========== 工具栏：浮在画布右上的图标组 ========== */
+.design-toolbar {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  background: var(--wf-bg-white, #fff);
+  border: 1px solid var(--wf-border-lighter, #ebeef5);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(29, 33, 41, 0.08);
+}
+
 .toolbar-group {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding-right: 12px;
-  margin-right: 12px;
-  border-right: 1px solid #e2e8f0;
+  gap: 2px;
+  padding: 0 4px;
+  margin: 0;
+  border-right: 1px solid var(--wf-border-lighter, #ebeef5);
 }
 
-/* 纯图标按钮紧凑化 */
 .toolbar-group .el-button {
-  padding: 6px 8px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--wf-text-regular, #606266);
+  border-radius: 8px;
 }
 
+.toolbar-group .el-button:hover,
+.toolbar-group .el-button:focus {
+  color: var(--wf-primary, #409eff);
+  background: var(--wf-primary-light, #ecf5ff);
+  border: none;
+}
 
 .toolbar-group:last-child {
   border-right: none;
   padding-right: 0;
-  margin-right: 0;
 }
 
 /* ========== 工具栏内保存按钮 ========== */
@@ -1464,11 +1497,11 @@ html.dark .logo-text {
     margin-right: 8px;
   }
 
-  /* 平板端工具栏也居右显示 */
+  /* 平板端工具栏仍浮在右上 */
   .design-toolbar {
-    text-align: right !important;
-    padding-right: 8px !important;
-    padding-left: 0 !important;
+    top: 8px;
+    right: 8px;
+    padding: 3px;
   }
 
   /* Logo 水印隐藏，避免遮挡 */
@@ -1550,35 +1583,24 @@ html.dark .logo-text {
     height: 14px;
   }
 
-  /* 工具栏：单行显示，居右布局 */
+  /* 工具栏：保持右上浮层，窄屏可横向滑 */
   .design-toolbar {
-    text-align: right !important;
-    white-space: nowrap !important;
-    display: block !important;
+    top: 8px;
+    right: 8px;
+    max-width: calc(100% - 16px);
+    white-space: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; /* Firefox 隐藏滚动条 */
+    scrollbar-width: none;
     -ms-overflow-style: none;
-    padding-right: 16px !important;
-    padding-left: 0 !important;
   }
   .design-toolbar::-webkit-scrollbar {
-    display: none; /* Safari/Chrome 隐藏滚动条 */
-  }
-
-  /* 工具栏按钮组：去掉右边框分隔线，紧凑排列，强制不换行 */
-  .toolbar-group {
-    display: inline-flex;
-    flex-wrap: nowrap;
-    gap: 0;
-    padding-right: 0;
-    margin-right: 0;
-    border-right: none;
-    vertical-align: middle;
+    display: none;
   }
 
   .toolbar-group .el-button {
-    padding: 4px 4px !important;
+    width: 28px;
+    height: 28px;
   }
 
   /* 画布容器高度调整 */
@@ -1639,12 +1661,6 @@ html.dark .logo-text {
     margin-right: 2px;
     border-right: none;
     gap: 2px;
-  }
-
-  /* 工具栏 el-header 缩进减少，给画布更多空间 */
-  .el-header[style*="right"] {
-    right: 8px !important;
-    left: 44px !important;
   }
 
   /* 画布容器更矮 */

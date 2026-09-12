@@ -1,6 +1,6 @@
 <template>
     <el-form ref="nodeExtRef" class="nodeExtForm" :model="form" label-width="140px" size="small" :disabled="disabled"
-             label-position="left">
+             label-position="right">
         <el-form-item :label="`${item.label}：`" :prop="item.code" v-for="(item, index) in formList" :key="index"
                       :rules="[{ required: item.must, message: `${item.label}不能为空`, trigger: ['blur', 'change'] }]">
             <template #label>
@@ -23,20 +23,18 @@
             </el-select>
             <div v-else-if="item.type === 4">
                 <el-radio-group v-if="!item.multiple" v-model="form[item.code]" placeholder="请输入">
-                    <el-row :gutter="20">
-                        <el-col :span="item.dict.length < 3 ? null :8" v-for="(dItem, dIndex) in item.dict"
-                                :key="dIndex">
-                            <el-radio :label="String(dItem.value)">{{ dItem.label }}</el-radio>
-                        </el-col>
-                    </el-row>
+                    <div class="ext-option-grid">
+                        <el-radio v-for="(dItem, dIndex) in item.dict" :key="dIndex" :label="String(dItem.value)">
+                            {{ dItem.label }}
+                        </el-radio>
+                    </div>
                 </el-radio-group>
                 <el-checkbox-group v-else v-model="form[item.code]" :placeholder="item.desc">
-                    <el-row :gutter="20">
-                        <el-col :span="item.dict.length < 3 ? null :8" v-for="(dItem, dIndex) in item.dict"
-                                :key="dIndex">
-                            <el-checkbox :label="String(dItem.value)">{{ dItem.label }}</el-checkbox>
-                        </el-col>
-                    </el-row>
+                    <div class="ext-option-grid">
+                        <el-checkbox v-for="(dItem, dIndex) in item.dict" :key="dIndex" :label="String(dItem.value)">
+                            {{ dItem.label }}
+                        </el-checkbox>
+                    </div>
                 </el-checkbox-group>
             </div>
             <div v-else-if="item.type === 5">
@@ -50,7 +48,7 @@
                         <svg-icon :icon-class="'close'"/>
                     </i>
                 </span>
-                <el-button type="primary" @click="openSelectDialog(item.code)">选择</el-button>
+                <el-button type="primary" size="small" @click="openSelectDialog(item.code)">选择</el-button>
             </div>
             <el-input-number
                 v-else-if="item.type === 6"
@@ -201,14 +199,14 @@ defineExpose({
 <style scoped lang="scss">
 /* ========== 1. 表单整体 ========== */
 .nodeExtForm {
-  padding: 8px 16px;
+  padding: 4px 0;
   html.dark & { background: var(--wf-bg-color, #141414); border-radius: var(--wf-radius-lg, 12px); }
 }
 
 /* ========== 2. 表单项通用样式 ========== */
 .nodeExtForm :deep(.el-form-item) {
-  margin-bottom: 20px;
-  padding-bottom: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--wf-border-lighter, #ebeef5);
   transition: var(--wf-transition, all 0.3s ease);
 
@@ -225,9 +223,9 @@ defineExpose({
   letter-spacing: 0.3px;
   padding-right: 8px;
   /* 固定宽度，统一对齐，长标签不换行 */
-  width: 132px !important;
-  min-width: 132px !important;
-  max-width: 132px !important;
+  width: 120px !important;
+  min-width: 120px !important;
+  max-width: 120px !important;
   white-space: nowrap;
 }
 
@@ -257,7 +255,7 @@ html.dark .nodeExtForm .nodeExtForm :deep(.el-textarea__inner.is-disabled) {
 }
 
 .nodeExtForm :deep(.el-textarea__inner) {
-  min-height: 80px !important;
+  min-height: 48px !important;
 }
 
 /* ========== 4. 下拉选择框 (type 3) ========== */
@@ -278,22 +276,11 @@ html.dark .nodeExtForm .nodeExtForm :deep(.el-textarea__inner.is-disabled) {
   width: 100%;
 }
 
-.nodeExtForm :deep(.el-radio-group .el-row),
-.nodeExtForm :deep(.el-checkbox-group .el-row) {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-}
-
-.nodeExtForm :deep(.el-radio-group .el-col),
-.nodeExtForm :deep(.el-checkbox-group .el-col) {
-  flex: 0 0 auto;
-  min-width: 120px;
-  max-width: 100%;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
+.nodeExtForm :deep(.ext-option-grid) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
 }
 
 /* Radio 卡片 */
@@ -302,23 +289,29 @@ html.dark .nodeExtForm .nodeExtForm :deep(.el-textarea__inner.is-disabled) {
   align-items: center;
   border: 1.5px solid var(--wf-border-color, #dcdfe6);
   border-radius: var(--wf-radius, 8px);
-  padding: 8px 16px;
+  padding: 4px 8px;
   margin-right: 0;
-  background: var(--wf-bg-white, #ffffff);
+  background: transparent;
   transition: all 0.3s ease;
-  height: auto;
+  min-height: 28px;
   width: 100%;
   box-sizing: border-box;
 
+  .el-radio__label {
+    padding-left: 6px;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
   &:hover {
     border-color: var(--wf-primary, #409eff);
-    box-shadow: var(--wf-shadow-sm, 0 1px 4px rgba(0, 0, 0, 0.04));
+    background: var(--wf-primary-lighter, #f0f7ff);
   }
 
   &.is-checked {
     border-color: var(--wf-primary, #409eff);
     background: var(--wf-primary-light, #ecf5ff);
-    box-shadow: var(--wf-shadow-primary, 0 2px 8px rgba(64, 158, 255, 0.3));
+    box-shadow: none;
 
     .el-radio__label {
       color: var(--wf-primary, #409eff);
@@ -332,23 +325,29 @@ html.dark .nodeExtForm .nodeExtForm :deep(.el-textarea__inner.is-disabled) {
   align-items: center;
   border: 1.5px solid var(--wf-border-color, #dcdfe6);
   border-radius: var(--wf-radius, 8px);
-  padding: 8px 16px;
+  padding: 4px 8px;
   margin-right: 0;
-  background: var(--wf-bg-white, #ffffff);
+  background: transparent;
   transition: all 0.3s ease;
-  height: auto;
+  min-height: 28px;
   width: 100%;
   box-sizing: border-box;
 
+  .el-checkbox__label {
+    padding-left: 6px;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
   &:hover {
     border-color: var(--wf-primary, #409eff);
-    box-shadow: var(--wf-shadow-sm, 0 1px 4px rgba(0, 0, 0, 0.04));
+    background: var(--wf-primary-lighter, #f0f7ff);
   }
 
   &.is-checked {
     border-color: var(--wf-primary, #409eff);
     background: var(--wf-primary-light, #ecf5ff);
-    box-shadow: var(--wf-shadow-primary, 0 2px 8px rgba(64, 158, 255, 0.3));
+    box-shadow: none;
 
     .el-checkbox__label {
       color: var(--wf-primary, #409eff);
@@ -518,7 +517,7 @@ html.dark .nodeExtForm :deep(.el-input-number__increase.is-disabled) {
 /* ========== 12. 手机端响应式适配 ========== */
 @media (max-width: 768px) {
   .nodeExtForm {
-    padding: 6px 10px !important;
+    padding: 4px 0 !important;
   }
 
   .nodeExtForm :deep(.el-form-item) {
@@ -541,11 +540,8 @@ html.dark .nodeExtForm :deep(.el-input-number__increase.is-disabled) {
   }
 
   /* radio/checkbox 卡片：手机端保持一行横向排列，紧凑间距 */
-  .nodeExtForm :deep(.el-radio-group .el-col),
-  .nodeExtForm :deep(.el-checkbox-group .el-col) {
-    flex: 0 0 auto;
-    min-width: unset;
-    max-width: none;
+  .nodeExtForm :deep(.ext-option-grid) {
+    grid-template-columns: 1fr;
   }
 
   /* tag 标签紧凑 */

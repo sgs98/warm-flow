@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <el-form ref="formRef" :model="form" class="dialogForm" :rules="rules" label-width="150px" :disabled="disabled">
+    <el-form ref="formRef" :model="form" class="dialogForm" :rules="rules" label-width="150px" :disabled="disabled" size="small">
       <div class="form-section">
         <div class="section-title">基本配置</div>
         <el-form-item label="流程编码" prop="flowCode">
@@ -53,7 +53,7 @@
         <el-form-item label="自定义表单" prop="formCustom">
           <el-switch
             v-model="form.formCustom"
-            size="large"
+            size="small"
             active-value="Y"
             inactive-value="N"
             active-text="是"
@@ -120,7 +120,7 @@
               </template>
             </el-table-column>
           </el-table>
-          <el-button v-if="!disabled" class="add-row-btn" @click="handleAddRow">增加行</el-button>
+          <el-button v-if="!disabled" size="small" class="add-row-btn" @click="handleAddRow">增加行</el-button>
         </el-form-item>
       </div>
     </el-form>
@@ -672,10 +672,11 @@ getListenerList()
   border: 1.5px dashed var(--wf-primary, #409eff) !important;
   color: var(--wf-primary, #409eff) !important;
   background: transparent !important;
-  border-radius: 10px;
+  border-radius: 8px;
   transition: all 0.3s ease;
-  height: 40px;
-  letter-spacing: 2px;
+  height: 24px;
+  font-size: 12px;
+  letter-spacing: 1px;
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -1054,8 +1055,8 @@ getListenerList()
   }
 
   .add-row-btn {
-    height: 34px;
-    font-size: 13px;
+    height: 24px;
+    font-size: 12px;
     letter-spacing: 1px;
     margin-top: 8px;
   }
@@ -1164,7 +1165,7 @@ getListenerList()
   }
 
   .add-row-btn {
-    height: 30px;
+    height: 24px;
     font-size: 12px;
   }
 }

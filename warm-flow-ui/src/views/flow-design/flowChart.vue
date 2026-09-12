@@ -308,11 +308,12 @@ onMounted(async () => {
               plugins: [Snapshot],
               textEdit: false,
               snapToGrid: true,   // 是否开启网格吸附，开启后拖动节点会有以网格大小为步长移动
-              hideAnchors: !isClassics(defJson.value.modelValue),   // 是否隐藏节点的锚点，静默模式下默认隐藏。
-              adjustNodePosition: isClassics(defJson.value.modelValue),   // 是否允许拖动节点。
-              hoverOutline: isClassics(defJson.value.modelValue),   // 鼠标 hover 的时候是否显示节点的外框。
-              nodeSelectedOutline: isClassics(defJson.value.modelValue),    // 节点被选中时是否显示节点的外框。
-              edgeSelectedOutline: isClassics(defJson.value.modelValue),    //	边被选中时是否显示边的外框。
+              // 实例进度图只读：不允许拖节点、改边、删元素，画布缩放/平移仍可用
+              hideAnchors: true,
+              adjustNodePosition: false,
+              hoverOutline: false,
+              nodeSelectedOutline: false,
+              edgeSelectedOutline: false,
               grid: {
                 size: 20,
                 visible: 'true' === appParams.value.showGrid,
@@ -325,20 +326,7 @@ onMounted(async () => {
                   backgroundColor: themeColors.value.bgPage,
                 },
               },
-              keyboard: isClassics(defJson.value.modelValue) ? {
-                enabled: true,
-                shortcuts: [
-                  {
-                    keys: ["delete"],
-                    callback: () => {
-                      const elements = lf.value.getSelectElements(true);
-                      lf.value.clearSelectElements();
-                      elements.edges.forEach((edge) => lf.value.deleteEdge(edge.id));
-                      elements.nodes.forEach((node) => lf.value.deleteNode(node.id));
-                    },
-                  },
-                ],
-              } : {},
+              keyboard: {},
             });
             register();
             initEvent();
@@ -633,6 +621,7 @@ onUnmounted(() => {
   width: 100%;
   flex: 1;
   min-height: 0;
+  background: var(--wf-bg-page, #eef1f6);
   /* 关键：禁止浏览器默认触摸手势，让 LogicFlow 接管画布拖动 */
   touch-action: none;
 }

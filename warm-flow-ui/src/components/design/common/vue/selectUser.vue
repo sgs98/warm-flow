@@ -39,7 +39,7 @@
               placeholder="搜索部门名称"
               clearable
               prefix-icon="Search"
-              size="default"
+              size="small"
             />
           </div>
           <div class="tree-body">
@@ -73,7 +73,7 @@
         </div>
         <div class="section-card search-card" v-show="showSearch && !searchCollapsed">
           <div class="search-card-body">
-            <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="88px">
+            <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="88px" size="small">
               <el-form-item label="权限编码" prop="handlerCode">
                 <el-input
                   v-model="queryParams.handlerCode"

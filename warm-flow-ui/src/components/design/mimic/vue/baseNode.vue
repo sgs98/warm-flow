@@ -1,26 +1,43 @@
 <template>
-  <div :style="baseNodeColor" class="base-node" ref="baseNodeDiv">
-    <div :style="topSectionColor" class="top-section" v-click-outside="handleLeave">
-      <span v-show="showSpan" @click="editNodeName">{{ nodeName }}
-        <svg t="1753861236923" class="edit-icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="1784"
-                     width="16" height="16" v-show="!chartStatusColor || chartStatusColor.length === 0">
-            <path d="M469.333333 128a42.666667 42.666667 0 0 1 0 85.333333H213.333333v597.333334h597.333334v-256l0.298666-4.992A42.666667 42.666667 0 0 1 896 554.666667v256a85.333333 85.333333 0 0 1-85.333333 85.333333H213.333333a85.333333 85.333333 0 0 1-85.333333-85.333333V213.333333a85.333333 85.333333 0 0 1 85.333333-85.333333z m414.72 12.501333a42.666667 42.666667 0 0 1 0 60.330667L491.861333 593.066667a42.666667 42.666667 0 0 1-60.330666-60.330667l392.192-392.192a42.666667 42.666667 0 0 1 60.330666 0z"
-                  fill="#000000" p-id="1785"></path>
-        </svg>
-      </span>
-      <input
-          v-show="editingNodeName"
-          ref="nodeNameInput"
-          v-model="nodeName"
-          @blur="saveNodeName"/>
-      <span v-show="props.type === 'between' && (!chartStatusColor || chartStatusColor.length === 0)" class="delete-btn" @click.stop="deleteNode">✕</span>
+  <div
+      class="mimic-node"
+      :class="{ 'is-runtime': isRuntime }"
+      :style="nodeStyle"
+      ref="baseNodeDiv"
+      @click="editNode">
+    <div class="mimic-icon" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="9" r="3.1" stroke="currentColor" stroke-width="1.7"/>
+        <path d="M6.6 18.2c.9-2.5 2.8-3.8 5.4-3.8s4.5 1.3 5.4 3.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+      </svg>
     </div>
-    <div class="bottom-section" @click="editNode" :title="handler">{{ handler }}</div>
+    <div class="mimic-meta">
+      <div class="mimic-title" v-click-outside="handleLeave">
+        <span v-show="showSpan" class="mimic-title-text" @click.stop="editNodeName">{{ nodeName }}</span>
+        <input
+            v-show="editingNodeName"
+            ref="nodeNameInput"
+            class="mimic-title-input"
+            v-model="nodeName"
+            @click.stop
+            @keyup.enter="saveNodeName"
+            @blur="saveNodeName"/>
+      </div>
+      <div class="mimic-who" :title="handler">
+        <span class="mimic-av">{{ handlerChar }}</span>
+        <span class="mimic-handler">{{ handler }}</span>
+      </div>
+    </div>
+    <span class="mimic-go" aria-hidden="true">›</span>
+    <span
+        v-show="props.type === 'between' && !isRuntime"
+        class="mimic-del"
+        @click.stop="deleteNode">×</span>
   </div>
 </template>
 
 <script setup name="BaseInfo">
-import {computed, ref} from 'vue';
+import {computed, nextTick, ref} from 'vue';
 import {handlerFeedback} from "@/api/flow/definition.js";
 
 const props = defineProps({
@@ -74,39 +91,28 @@ const nodeName = ref('发起人');
 const handler = ref('所有人');
 const nodeNameInput = ref(null);
 const editingNodeName = ref(false);
-const emit = defineEmits(['updateNodeName', 'deleteNode', 'editNode']); // 添加 deleteNode 事件
+const emit = defineEmits(['updateNodeName', 'deleteNode', 'editNode']);
 
-// 运行态（流程实例查看，chartStatusColor 有三原色）保留状态语义色；设计态走钉钉蓝卡片风格
 const isRuntime = computed(() => props.chartStatusColor && props.chartStatusColor.length > 0);
 
-const baseNodeColor = computed(() => {
-  if (isRuntime.value) {
-    return {
-      border: (props.status === 1 ? "2px dashed " : "1px solid ") + (props.stroke || "rgb(166,178,189)"),
-    };
+const handlerChar = computed(() => {
+  if (!handler.value || handler.value === '所有人') {
+    return '全';
   }
-  // 设计态：无边框卡片，仅靠柔和阴影区分层次；背景跟随主题变量（暗黑模式自动变深）
-  return {
-    background: "var(--wf-bg-white, #fff)",
-  };
+  return handler.value.charAt(0);
 });
 
-// 设计态头部按节点类型区分（开始=绿 / 结束=红 / 其余审批=蓝），不再全蓝
-const DESIGN_HEADER_GRADIENT = {
-  start: "linear-gradient(135deg, #67c23a 0%, #5daf34 100%)",
-  end: "linear-gradient(135deg, #f56c6c 0%, #e85c5c 100%)",
-};
-
-const topSectionColor = computed(() => {
+const nodeStyle = computed(() => {
+  const statusColor = props.stroke || 'rgb(107,114,128)';
+  const style = { '--mimic-status': statusColor };
   if (isRuntime.value) {
-    return { backgroundColor: props.stroke || "rgb(166,178,189)" };
+    style.border = (props.status === 1 ? '2px dashed ' : '1px solid ') + statusColor;
   }
-  // 设计态：按节点类型着色头部，默认审批蓝
-  return { background: DESIGN_HEADER_GRADIENT[props.type] || "linear-gradient(135deg, #409eff 0%, #2b7de9 100%)" };
+  return style;
 });
 
 const deleteNode = () => {
-  emit('deleteNode'); // 触发删除事件，由父组件处理
+  emit('deleteNode');
 };
 
 watch(
@@ -125,7 +131,6 @@ watch(
       if (newVal) {
         handlerFeedback({storageIds: newVal.split("@@")}).then(response => {
           if (response.code === 200 && response.data) {
-            // 遍历response.data数组，数组中每个元素都是对象，获取每个对象中handlerName的值，并且用、拼接
             handler.value = response.data.map(item => item.handlerName).join('、');
           }
         });
@@ -137,15 +142,21 @@ watch(
 );
 
 const editNodeName = () => {
-  if (props.chartStatusColor && props.chartStatusColor.length > 0) {
+  if (isRuntime.value) {
     return
   }
   editingNodeName.value = true;
   showSpan.value = false;
+  nextTick(() => {
+    if (nodeNameInput.value) {
+      nodeNameInput.value.focus();
+      nodeNameInput.value.select();
+    }
+  });
 };
 
 const saveNodeName = () => {
-  if (props.chartStatusColor && props.chartStatusColor.length > 0) {
+  if (isRuntime.value) {
     return
   }
   editingNodeName.value = false;
@@ -165,51 +176,169 @@ function handleLeave() {
 </script>
 
 <style scoped>
-.base-node {
+.mimic-node {
   width: 100%;
-  height: 80px;
+  height: 76px;
   box-sizing: border-box;
-  border-radius: 10px;
-  background: var(--wf-bg-white, #fff);
-  /* 去边框，仅用多层柔和阴影区分层次（现代卡片质感） */
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.10), 0 1px 4px rgba(0, 0, 0, 0.05);
-  overflow: hidden; /* 让头部跟随卡片圆角 */
-}
-
-.top-section {
-  position: relative; /* 用于绝对定位子元素 */
-  font-size: 13px;
-  padding: 10px;
-  height: 25px;
   display: flex;
   align-items: center;
-  color: #fff; /* 彩色头部，文字/图标统一白色 */
-}
-
-/* 头部为彩色底，编辑图标改白色（原 svg 写死黑色） */
-.top-section .edit-icon path {
-  fill: #fff;
-}
-
-.delete-btn {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: block;
-  color: #fff;
-}
-
-.bottom-section {
-  padding: 10px;
-  height: calc(100%);
-  font-size: 14px;
+  gap: 12px;
+  padding: 0 12px;
+  position: relative;
+  border-radius: 14px;
+  background: var(--wf-bg-white, #fff);
+  border: 1px solid rgba(64, 158, 255, 0.18);
+  box-shadow: 0 8px 24px rgba(29, 33, 41, 0.06), 0 2px 8px rgba(64, 158, 255, 0.08);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
   color: var(--wf-text-primary, #303133);
+  cursor: pointer;
+  transition: border-color .18s ease, box-shadow .18s ease;
 }
 
-.edit-icon {
-  vertical-align: middle;
-  margin: 3px;
+.mimic-node:hover {
+  border-color: rgba(64, 158, 255, 0.4);
+  box-shadow: 0 10px 28px rgba(29, 33, 41, 0.08), 0 4px 12px rgba(64, 158, 255, 0.12);
 }
 
+.mimic-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex: 0 0 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(180deg, #5aa2ff, var(--wf-primary, #409eff));
+  box-shadow: 0 6px 12px rgba(64, 158, 255, 0.28);
+}
+
+.mimic-node.is-runtime .mimic-icon {
+  background: var(--mimic-status, #909399);
+  box-shadow: none;
+}
+
+.mimic-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.mimic-title {
+  min-width: 0;
+}
+
+.mimic-title-text {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mimic-title-input {
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  padding: 0 4px;
+  border: 1px solid var(--wf-primary, #409eff);
+  border-radius: 6px;
+  outline: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--wf-text-primary, #303133);
+  background: var(--wf-bg-white, #fff);
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.12);
+}
+
+.mimic-who {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mimic-av {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border-radius: 50%;
+  background: var(--wf-primary, #409eff);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.mimic-handler {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--wf-text-regular, #4e5969);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mimic-go {
+  flex: 0 0 auto;
+  color: var(--wf-primary, #409eff);
+  opacity: 0.55;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1;
+  transition: opacity .18s ease;
+}
+
+.mimic-node:hover .mimic-go {
+  opacity: 1;
+}
+
+.mimic-del {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--wf-text-secondary, #909399);
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity .18s ease, color .18s ease, background-color .18s ease;
+}
+
+.mimic-node:hover .mimic-del { opacity: 1; }
+
+.mimic-del:hover {
+  color: var(--wf-danger, #f56c6c);
+  background: rgba(245, 108, 108, 0.12);
+}
+
+:global(html.dark) .mimic-node {
+  background: var(--wf-bg-color, #1d1e1f);
+  border-color: rgba(64, 158, 255, 0.28);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  color: var(--wf-text-primary, #e5eaf3);
+}
+
+:global(html.dark) .mimic-node:hover {
+  border-color: rgba(64, 158, 255, 0.5);
+}
+
+:global(html.dark) .mimic-title-input {
+  background: var(--wf-bg-color, #1d1e1f);
+  color: var(--wf-text-primary, #e5eaf3);
+}
+
+:global(html.dark) .mimic-handler {
+  color: var(--wf-text-regular, #a3a6ad);
+}
 </style>

@@ -1,6 +1,6 @@
 <template>
   <div class="end-wrapper">
-    <el-form ref="formRef" class="endForm" :model="form" label-width="110px" :disabled="disabled">
+    <el-form ref="formRef" class="endForm" :model="form" label-width="110px" :disabled="disabled" size="small">
       <div class="base-settings-section">
         <div class="base-settings-content">
           <el-form-item label="节点编码：" prop="nodeCode">

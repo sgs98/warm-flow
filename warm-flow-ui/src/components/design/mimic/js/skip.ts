@@ -9,8 +9,14 @@ class SkipModel extends CurvedEdgeModel  {
   }
 
   getEdgeStyle() {
-    return setCommonStyle(super.getEdgeStyle(), this.properties, "skip", "mimic");
-
+    const style = setCommonStyle(super.getEdgeStyle(), this.properties, "skip", "mimic");
+    const inDesigner = typeof window !== 'undefined' && (window as any).__WF_FLOW_DESIGN_MODE__;
+    const isRuntime = this.properties.chartStatusColor && this.properties.chartStatusColor.length > 0;
+    if (inDesigner && !isRuntime) {
+      style.stroke = 'rgba(64, 158, 255, 0.55)';
+      style.strokeWidth = 2;
+    }
+    return style;
   }
 
   // getTextPosition() {
@@ -187,28 +193,33 @@ class SkipView extends CurvedEdge {
     if (!obj) {
       const x = midPoint[0]
       const y = midPoint[1]
+      const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
       obj = [
         h('circle', {
           cx: x,
           cy: y,
-          r: 13,
-          fill: '#409eff',
+          r: 12,
+          fill: isDark ? '#1d1e1f' : '#ffffff',
+          stroke: '#409eff',
+          'stroke-width': 1.5,
         }),
         h('line', {
-          x1: x - 8,
+          x1: x - 6,
           y1: y,
-          x2: x + 8,
+          x2: x + 6,
           y2: y,
-          stroke: 'white',
+          stroke: '#409eff',
           'stroke-width': '2',
+          'stroke-linecap': 'round',
         }),
         h('line', {
           x1: x,
-          y1: y - 8,
+          y1: y - 6,
           x2: x,
-          y2: y + 8,
-          stroke: 'white',
+          y2: y + 6,
+          stroke: '#409eff',
           'stroke-width': '2',
+          'stroke-linecap': 'round',
         })
       ]
     }

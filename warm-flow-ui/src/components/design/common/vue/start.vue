@@ -18,7 +18,7 @@
 
     <!-- 基础设置 -->
     <div v-show="tabsValue === '1'" class="tabPane">
-      <el-form ref="formRef" class="startForm" :model="form" label-width="110px" :disabled="disabled">
+      <el-form ref="formRef" class="startForm" :model="form" label-width="110px" :disabled="disabled" size="small">
         <div class="base-settings-section">
           <div class="base-settings-content">
             <slot name="form-item-task-name" :model="form" field="nodeCode">
@@ -69,7 +69,7 @@
             </el-table>
           </slot>
           <div class="action-buttons">
-            <el-button v-if="!disabled" class="add-row-btn" @click="handleAddRow">增加行</el-button>
+            <el-button v-if="!disabled" size="small" class="add-row-btn" @click="handleAddRow">增加行</el-button>
           </div>
         </div>
       </div>
@@ -176,10 +176,11 @@ function handleDeleteRow(index) {
   border: 1.5px dashed var(--wf-primary, #409eff) !important;
   color: var(--wf-primary, #409eff) !important;
   background: transparent !important;
-  border-radius: 10px;
+  border-radius: 8px;
   transition: all 0.3s ease;
-  height: 40px;
-  letter-spacing: 2px;
+  height: 24px;
+  font-size: 12px;
+  letter-spacing: 1px;
   font-weight: 500;
   display: flex;
   align-items: center;

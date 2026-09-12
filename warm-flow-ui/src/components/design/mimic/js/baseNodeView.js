@@ -8,14 +8,15 @@ export class BaseNodeView extends HtmlNode {
   constructor(props) {
     super(props)
     this.isMounted = false
+    const nodeStyle = props.model.getNodeStyle()
     this.r = h(baseNode, {
       text: props.model.inputData,
       permissionFlag: props.model.properties.permissionFlag,
       chartStatusColor: props.model.properties.chartStatusColor,
       status: props.model.properties.status,
       type: props.model.type,
-      fill: props.model.getNodeStyle().fill,
-      stroke: props.model.getNodeStyle().stroke,
+      fill: nodeStyle.fill,
+      stroke: nodeStyle._statusHex || nodeStyle.stroke,
       onUpdateNodeName: (nodeName) => {
         props.model.text.value = nodeName
         props.graphModel.eventCenter.emit("update:nodeName", {id: props.model.id, nodeName: nodeName});
@@ -59,6 +60,8 @@ export class BaseNodeView extends HtmlNode {
     if (!this.isMounted) {
       this.isMounted = true
       const node = document.createElement('div')
+      node.style.width = '100%'
+      node.style.height = '100%'
       rootEl.appendChild(node)
       this.app.mount(node)
     } else {

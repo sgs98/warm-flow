@@ -429,11 +429,18 @@ function moveLevelNode(nodes, edges, targetEdges, lf, betweenLeft, betweenRight,
 
 function getMoveY(sourceNode, targetType) {
   let moveY;
-  if (['start', 'between'].includes(sourceNode.type) && targetType === 'between') {
+  // 开始 / 结束都是 40 高胶囊，审批卡 76 高；OFFSET_Y=150 以审批卡为基准，开始作源时减 18 对齐视觉间距
+  if (sourceNode.type === 'start' && targetType === 'between') {
+    moveY = sourceNode.y + OFFSET_Y - 18;
+  } else if (sourceNode.type === 'start' && targetType === 'end') {
+    moveY = sourceNode.y + OFFSET_Y - 36;
+  } else if (sourceNode.type === 'start' && isGateWay(targetType)) {
+    moveY = sourceNode.y + OFFSET_Y - 43;
+  } else if (sourceNode.type === 'between' && targetType === 'between') {
     moveY = sourceNode.y + OFFSET_Y;
-  } else if (['start', 'between'].includes(sourceNode.type) && targetType === 'end') {
+  } else if (sourceNode.type === 'between' && targetType === 'end') {
     moveY = sourceNode.y + OFFSET_Y - 20;
-  } else if (['start', 'between'].includes(sourceNode.type) && isGateWay(targetType)) {
+  } else if (sourceNode.type === 'between' && isGateWay(targetType)) {
     moveY = sourceNode.y + OFFSET_Y - 25;
   } else if (isGateWay(sourceNode.type) && isGateWay(targetType)) {
     moveY = sourceNode.y + OFFSET_Y - 50;

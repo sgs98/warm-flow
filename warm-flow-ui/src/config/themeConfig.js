@@ -36,7 +36,7 @@ export const lightColors = {
   // ---- 背景颜色 ----
   bgColor: '#f5f7fa',
   bgWhite: '#ffffff',
-  bgPage: '#ffffff',         // 页面/画布背景
+  bgPage: '#eef1f6',         // 画布背景（浅灰，让白卡片/胶囊立住）
   bgContainer: '#f5f7fa',    // 容器背景
 
   // ---- LogicFlow 专用 ----

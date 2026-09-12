@@ -1,13 +1,3 @@
-import {BaseNodeModel} from "@/components/design/mimic/js/baseNodeModel";
-import {BaseNodeView} from "@/components/design/mimic/js/baseNodeView";
+import {createTerminal} from "@/components/design/mimic/js/terminalNode";
 
-class StartModel extends BaseNodeModel {}
-
-class StartView extends BaseNodeView {}
-
-export default {
-  type: "start",
-  model: StartModel,
-  view: StartView,
-};
-
+export default createTerminal('start', 'start', '开始');

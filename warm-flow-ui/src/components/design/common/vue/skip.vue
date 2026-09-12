@@ -1,6 +1,6 @@
 <template>
   <div class="skip-wrapper">
-    <el-form ref="formRef" class="skipForm" :model="form" label-width="110px" :rules="rules" :disabled="disabled">
+    <el-form ref="formRef" class="skipForm" :model="form" label-width="110px" :rules="rules" :disabled="disabled" size="small">
       <div class="base-settings-section">
         <div class="base-settings-content">
           <el-form-item label="跳转名称：" v-if="skipConditionShow" prop="skipName">

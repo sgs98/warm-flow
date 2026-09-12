@@ -4,14 +4,20 @@ import {setCommonStyle} from "@/components/design/common/js/tool";
 export class BaseNodeModel extends HtmlNodeModel {
 
   setAttributes() {
-    this.width = 220;
-    this.height = 80;
-    this.radius = 20;
+    this.width = 260;
+    this.height = 76;
+    this.radius = 14;
+    this.properties.width = 260;
+    this.properties.height = 76;
     this.inputData = this.text.value
 
   }
   getNodeStyle() {
-    return setCommonStyle(super.getNodeStyle(), this.properties, "node", "mimic");
+    const style = setCommonStyle(super.getNodeStyle(), this.properties, "node", "mimic");
+    // 视觉由 Vue 卡片承担，避免 HtmlNode 再描一层灰框
+    style.fill = 'transparent';
+    style.stroke = 'transparent';
+    return style;
   }
 
   getData () {

@@ -1,6 +1,6 @@
 <template>
   <div class="between">
-    <el-form ref="formRef" class="betweenForm" :model="form" label-width="110px" :rules="rules" :disabled="disabled">
+    <el-form ref="formRef" class="betweenForm" :model="form" label-width="110px" :rules="rules" :disabled="disabled" size="small">
       <!-- 页签区域 -->
       <div class="modern-tabs-wrapper">
         <div class="modern-tabs">
@@ -27,7 +27,7 @@
           <el-input v-model="form.nodeCode" :disabled="disabled"></el-input>
         </el-form-item>
         <el-form-item label="节点名称：" prop="nodeName">
-          <el-input v-model="form.nodeName" type="textarea" :disabled="disabled"></el-input>
+          <el-input v-model="form.nodeName" :disabled="disabled"></el-input>
         </el-form-item>
 
         <!-- 协作方式 - 卡片式单选 -->
@@ -72,22 +72,20 @@
           </div>
         </el-form-item>
 
-        <el-form-item label="票签策略：" prop="nodeRatio" v-if="form.collaborativeWay === '2'">
-          <el-select v-model="form.nodeRatioType" placeholder="请选择策略类型" style="width: 25%"
-                     clearable @clear="handleClear">
-              <el-option label="通过率" value="passRatio"/>
-              <el-option label="固定通过人数" value="passCount"/>
-              <el-option label="固定驳回人数" value="rejectCount"/>
-              <el-option label="默认表达式" value="default" v-if="framework ==='SPRING_BOOT'"/>
-              <el-option label="spel表达式" value="spel" v-if="framework ==='SPRING_BOOT'"/>
-          </el-select>
-          <el-input v-model="form.nodeRatioValue" :placeholder="getNodeRatioDescription()" style="width: 74%; margin-left: 1%"/>
+        <el-form-item label="票签策略：" prop="nodeRatio" v-if="form.collaborativeWay === '2'" class="ratio-item">
+          <div class="ratio-row">
+            <el-select v-model="form.nodeRatioType" class="ratio-type" placeholder="策略类型" clearable @clear="handleClear">
+                <el-option label="通过率" value="passRatio"/>
+                <el-option label="固定通过人数" value="passCount"/>
+                <el-option label="固定驳回人数" value="rejectCount"/>
+                <el-option label="默认表达式" value="default" v-if="framework ==='SPRING_BOOT'"/>
+                <el-option label="spel表达式" value="spel" v-if="framework ==='SPRING_BOOT'"/>
+            </el-select>
+            <el-input v-model="form.nodeRatioValue" class="ratio-value" :placeholder="getNodeRatioDescription()"/>
+          </div>
         </el-form-item>
-        <el-form-item label="驳回到指定节点" prop="formCustom">
-          <template #label>
-            <span v-if="form.collaborativeWay === '2'"  class="mr5" style="color: red;">*</span>驳回到指定节点
-          </template>
-          <el-select v-model="form.anyNodeSkip" style="width: 80%" clearable>
+        <el-form-item label="驳回节点：" prop="formCustom" class="reject-item" :required="form.collaborativeWay === '2'">
+          <el-select v-model="form.anyNodeSkip" placeholder="请选择驳回到的节点" clearable>
             <el-option
                 v-for="dict in filteredNodes"
                 :key="dict.id"
@@ -95,7 +93,7 @@
                 :value="dict.id"
             />
           </el-select>
-          <div class="placeholder mt5">【票签】必须选择驳到指定节点！</div>
+          <div v-if="form.collaborativeWay === '2'" class="field-hint">票签必须指定驳回节点</div>
         </el-form-item>
 
         <!-- 自定义表单 - 卡片式单选 -->
@@ -187,8 +185,8 @@
                   </el-table-column>
               </el-table>
               <div class="action-buttons">
-                <el-button v-if="!disabled" class="add-row-btn" @click="addPermission">添加行</el-button>
-                <el-button v-if="!disabled" class="add-row-btn add-row-btn-secondary" @click="initUser">选择</el-button>
+                <el-button v-if="!disabled" size="small" class="add-row-btn" @click="addPermission">添加行</el-button>
+                <el-button v-if="!disabled" size="small" class="add-row-btn add-row-btn-secondary" @click="initUser">选择</el-button>
               </div>
           </div>
         </div>
@@ -238,7 +236,7 @@
               </el-table-column>
             </el-table>
             <div class="action-buttons">
-              <el-button v-if="!disabled" class="add-row-btn" @click="handleAddRow">增加行</el-button>
+              <el-button v-if="!disabled" size="small" class="add-row-btn" @click="handleAddRow">增加行</el-button>
             </div>
           </div>
         </div>
@@ -716,6 +714,63 @@ defineExpose({
 .betweenForm {
   border-top: 0;
   width: 100%;
+
+  :deep(.el-form-item) {
+    margin-bottom: 22px;
+  }
+
+  :deep(.el-form-item__label) {
+    width: 110px !important;
+    min-width: 110px !important;
+    max-width: 110px !important;
+    padding-right: 12px;
+    font-size: 13px;
+    line-height: 24px;
+    white-space: nowrap;
+  }
+
+  .base-settings-content :deep(.el-form-item__error) {
+    position: static;
+    padding-top: 4px;
+    line-height: 1.3;
+  }
+}
+
+.ratio-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.ratio-type {
+  flex: 0 1 38%;
+  width: 38%;
+  min-width: 96px;
+  max-width: 140px;
+}
+
+.ratio-value {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.field-hint {
+  margin-top: 6px;
+  color: var(--wf-text-secondary, #909399);
+  font-size: 12px;
+  line-height: 1.4;
+  width: 100%;
+}
+
+.reject-item :deep(.el-form-item__content) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.reject-item :deep(.el-select) {
+  width: 100%;
 }
 
 /* 引入公共样式：现代化页签 + 基础配置卡片 + 监听器/办理人卡片 + 表格表单左对齐 */
@@ -741,13 +796,23 @@ defineExpose({
     flex-shrink: 0;
   }
 
-  /* 基础设置表单 label 缩减（匹配 label-width=120px） */
+  /* 基础设置表单 label：手机端仍单行，略缩字号 */
   .betweenForm::v-deep(.el-form-item__label) {
-    min-width: 95px !important;
-    max-width: 115px !important;
+    min-width: 108px !important;
+    max-width: 108px !important;
+    width: 108px !important;
     font-size: 12px !important;
-    white-space: normal !important;
-    word-break: break-word !important;
+    white-space: nowrap !important;
+    line-height: 24px;
+  }
+
+  .ratio-row {
+    flex-wrap: wrap;
+  }
+  .ratio-type,
+  .ratio-value {
+    flex: 1 1 100%;
+    width: 100%;
   }
 
   /* 票签策略：select + input 堆叠显示 */
@@ -850,9 +915,11 @@ defineExpose({
 
 @media (max-width: 480px) {
   .betweenForm::v-deep(.el-form-item__label) {
-    min-width: 80px !important;
-    font-size: 11px !important;
-    white-space: normal !important;
+    min-width: 96px !important;
+    max-width: 96px !important;
+    width: 96px !important;
+    font-size: 12px !important;
+    white-space: nowrap !important;
   }
   .radio-card-text {
     font-size: 12px;
@@ -878,10 +945,11 @@ defineExpose({
   border: 1.5px dashed var(--wf-primary, #409eff) !important;
   color: var(--wf-primary, #409eff) !important;
   background: transparent !important;
-  border-radius: 10px;
+  border-radius: 8px;
   transition: all 0.3s ease;
-  height: 40px;
-  letter-spacing: 2px;
+  height: 24px;
+  font-size: 12px;
+  letter-spacing: 1px;
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -998,15 +1066,15 @@ defineExpose({
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: 6px;
+  padding: 5px 10px;
   border-radius: var(--wf-radius, 8px);
   border: 1.5px solid var(--wf-border-color, #dcdfe6);
   background: var(--wf-bg-white, #fff);
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--wf-text-regular, #606266);
   html.dark & {
     background: var(--wf-bg-color, #1a1a1a);
@@ -1034,7 +1102,7 @@ defineExpose({
     }
   }
   .radio-card-dot {
-    width: 16px; height: 16px; min-width: 16px;
+    width: 14px; height: 14px; min-width: 14px;
     border-radius: 50%; border: 2px solid var(--wf-border-color, #dcdfe6);
     transition: all 0.25s ease; background: var(--wf-bg-white, #fff);
     html.dark & { border-color: var(--wf-border-color, #444444); background: var(--wf-bg-color, #1a1a1a); }
@@ -1044,6 +1112,31 @@ defineExpose({
     color: var(--wf-text-placeholder, #c0c4cc); transition: color 0.25s ease;
     .is-checked & { color: var(--wf-primary, #409eff); opacity: 0.7; }
   }
+}
+
+/* 属性面板中的紧凑选择项 */
+.betweenForm .radio-card-group {
+  gap: 6px;
+  align-items: center;
+}
+
+.betweenForm .radio-card-item {
+  min-height: 28px;
+  padding: 4px 9px;
+  gap: 5px;
+  font-size: 12px;
+  border-width: 1px;
+}
+
+.betweenForm .radio-card-dot {
+  width: 13px;
+  height: 13px;
+  min-width: 13px;
+  border-width: 1.5px;
+}
+
+.betweenForm .radio-card-tip {
+  font-size: 12px;
 }
 
 /* ========== 节点扩展属性区域（基础设置内 - 蓝色主题） ========== */

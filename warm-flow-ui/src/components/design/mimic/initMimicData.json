@@ -6,8 +6,8 @@
       "x": 700,
       "y": 100,
       "properties": {
-        "width": 220,
-        "height": 80
+        "width": 76,
+        "height": 40
       },
       "text": {
         "x": 700,
@@ -19,15 +19,15 @@
       "id": "betweenId",
       "type": "between",
       "x": 700,
-      "y": 250,
+      "y": 232,
       "properties": {
         "collaborativeWay": "1",
-        "width": 220,
-        "height": 80
+        "width": 260,
+        "height": 76
       },
       "text": {
         "x": 700,
-        "y": 250,
+        "y": 232,
         "value": "中间节点"
       }
     },
@@ -35,14 +35,14 @@
       "id": "endId",
       "type": "end",
       "x": 700,
-      "y": 380,
+      "y": 362,
       "properties": {
-        "width": 40,
+        "width": 76,
         "height": 40
       },
       "text": {
         "x": 700,
-        "y": 380,
+        "y": 362,
         "value": "结束"
       }
     }
@@ -60,20 +60,20 @@
       "targetAnchorId": "betweenId_0",
       "startPoint": {
         "x": 700,
-        "y": 140
+        "y": 120
       },
       "endPoint": {
         "x": 700,
-        "y": 210
+        "y": 194
       },
       "pointsList": [
         {
           "x": 700,
-          "y": 140
+          "y": 120
         },
         {
           "x": 700,
-          "y": 210
+          "y": 194
         }
       ]
     },
@@ -89,20 +89,20 @@
       "targetAnchorId": "endId_0",
       "startPoint": {
         "x": 700,
-        "y": 290
+        "y": 270
       },
       "endPoint": {
         "x": 700,
-        "y": 360
+        "y": 342
       },
       "pointsList": [
         {
           "x": 700,
-          "y": 290
+          "y": 270
         },
         {
           "x": 700,
-          "y": 360
+          "y": 342
         }
       ]
     }

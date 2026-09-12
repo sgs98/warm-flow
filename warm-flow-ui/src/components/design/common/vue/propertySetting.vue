@@ -364,6 +364,10 @@ defineExpose({
 <style lang="scss">
 /* ========== 现代化属性面板抽屉 ========== */
 .property-drawer-modern {
+  max-width: 560px;
+  @media (min-width: 769px) {
+    min-width: 440px;
+  }
   /* 与基础信息页统一：系统字体栈 + 字形平滑 */
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -390,11 +394,31 @@ defineExpose({
 
   /* 正文上内边距收紧，让 tab 紧跟头部 */
   .el-drawer__body {
-    padding-top: 12px !important;
+    padding: 12px 16px 16px !important;
   }
   /* 含 Tab 的面板（开始/中间节点）：tab 栏紧贴抽屉标题，去掉上方间距，对齐更自然 */
   .el-drawer__body:has(.modern-tabs-wrapper) {
     padding-top: 0 !important;
+  }
+
+  .modern-tabs-wrapper {
+    margin: 0 -2px 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  .modern-tabs {
+    min-width: max-content;
+    gap: 4px !important;
+  }
+
+  .modern-tab-item {
+    min-height: 40px !important;
+    padding: 8px 12px !important;
+    gap: 6px !important;
+    font-size: 13px !important;
+    white-space: nowrap;
   }
 
   .el-drawer__close-btn {
