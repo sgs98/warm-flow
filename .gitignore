@@ -48,3 +48,5 @@ node_modules/
 /output/
 /node_modules/
 /.codex/
+/.superpowers/
+/.workbuddy/

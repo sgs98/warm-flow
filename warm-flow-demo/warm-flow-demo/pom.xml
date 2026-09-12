@@ -18,7 +18,7 @@
     <description>Warm-Flow 全栈集成演示（Spring Boot 3 + MyBatis-Plus + MySQL），非正式发布工程</description>
 
     <properties>
-        <java.version>1.8</java.version>
+        <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <warm-flow.version>1.8.9</warm-flow.version>
         <lombok.version>1.18.24</lombok.version>
