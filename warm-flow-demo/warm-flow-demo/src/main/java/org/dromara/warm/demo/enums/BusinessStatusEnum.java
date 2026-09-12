@@ -1,7 +1,6 @@
 package org.dromara.warm.demo.enums;
 
 import lombok.Getter;
-import org.dromara.warm.flow.core.enums.FlowStatus;
 
 /**
  * BusinessStatusEnum
@@ -32,18 +31,17 @@ public enum BusinessStatusEnum {
     }
 
     /**
-     * 将 Warm-Flow 内部状态映射为业务状态。
+     * 按业务状态编码获取枚举。
+     *
+     * @param status 业务状态编码
+     * @return 业务状态枚举
      */
-    public static BusinessStatusEnum fromFlowStatus(String flowStatus) {
-        if (FlowStatus.CANCEL.getKey().equals(flowStatus)) return CANCEL;
-        if (FlowStatus.REJECT.getKey().equals(flowStatus)) return BACK;
-        if (FlowStatus.TERMINATE.getKey().equals(flowStatus)) return TERMINATION;
-        if (FlowStatus.NULLIFY.getKey().equals(flowStatus) || FlowStatus.INVALID.getKey().equals(flowStatus))
-            return INVALID;
-        if (FlowStatus.PASS.getKey().equals(flowStatus) || FlowStatus.AUTO_PASS.getKey().equals(flowStatus)
-            || FlowStatus.FINISHED.getKey().equals(flowStatus)) return FINISH;
-        if (FlowStatus.TOBESUBMIT.getKey().equals(flowStatus) || FlowStatus.PENDING.getKey().equals(flowStatus))
-            return DRAFT;
-        return WAITING;
+    public static BusinessStatusEnum getByStatus(String status) {
+        for (BusinessStatusEnum item : values()) {
+            if (item.status.equals(status)) {
+                return item;
+            }
+        }
+        return null;
     }
 }

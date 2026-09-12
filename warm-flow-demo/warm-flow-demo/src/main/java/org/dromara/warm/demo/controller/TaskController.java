@@ -7,6 +7,7 @@ import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.dto.TaskActionRequest;
 import org.dromara.warm.demo.service.WorkflowService;
 import org.dromara.warm.demo.vo.ButtonPermissionVo;
+import org.dromara.warm.demo.vo.DemoUserVo;
 import org.dromara.warm.demo.vo.InstanceVo;
 import org.dromara.warm.demo.vo.PageVo;
 import org.dromara.warm.demo.vo.TaskNodeVo;
@@ -71,6 +72,28 @@ public class TaskController {
     @GetMapping("/tasks/{taskId}/button-permissions")
     public ApiResponse<List<ButtonPermissionVo>> buttonPermissions(@PathVariable("taskId") Long taskId) {
         return ApiResponse.ok(workflowService.buttonPermissions(taskId));
+    }
+
+    /**
+     * 查询加签可选办理人，排除流程实例当前已有办理人。
+     *
+     * @param instanceId 流程实例主键
+     * @return 加签可选办理人集合
+     */
+    @GetMapping("/tasks/instances/{instanceId}/add-signature-handlers")
+    public ApiResponse<List<DemoUserVo>> addSignatureHandlers(@PathVariable("instanceId") Long instanceId) {
+        return ApiResponse.ok(workflowService.addSignatureHandlers(instanceId));
+    }
+
+    /**
+     * 查询流程实例当前待办任务已有的办理人，供减签选择。
+     *
+     * @param instanceId 流程实例主键
+     * @return 可减签办理人集合
+     */
+    @GetMapping("/tasks/instances/{instanceId}/reduction-signature-handlers")
+    public ApiResponse<List<DemoUserVo>> reductionSignatureHandlers(@PathVariable("instanceId") Long instanceId) {
+        return ApiResponse.ok(workflowService.reductionSignatureHandlers(instanceId));
     }
 
     /**

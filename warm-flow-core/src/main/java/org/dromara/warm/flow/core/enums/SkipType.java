@@ -71,7 +71,7 @@ public enum SkipType {
      * 判断是否通过类型
      *
      * @param key 枚举key
-     * @return  boolean
+     * @return boolean
      */
     public static Boolean isPass(String key) {
         return StringUtils.isNotEmpty(key) && (SkipType.PASS.getKey().equals(key));
@@ -81,7 +81,7 @@ public enum SkipType {
      * 判断是否退回类型
      *
      * @param key 枚举key
-     * @return  boolean
+     * @return boolean
      */
     public static Boolean isReject(String key) {
         return StringUtils.isNotEmpty(key) && (SkipType.REJECT.getKey().equals(key));
@@ -91,7 +91,7 @@ public enum SkipType {
      * 判断是否无动作类型
      *
      * @param key 枚举key
-     * @return  boolean
+     * @return boolean
      */
     public static Boolean isNone(String key) {
         return StringUtils.isNotEmpty(key) && (SkipType.NONE.getKey().equals(key));

@@ -103,6 +103,7 @@ public enum CooperateType {
 
     /**
      * 判断是否为或签
+     *
      * @param ratio 比例
      * @return true：是；false：不是
      */

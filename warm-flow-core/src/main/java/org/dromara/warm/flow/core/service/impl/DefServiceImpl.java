@@ -25,22 +25,17 @@ import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Skip;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
-import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.PublishStatus;
-import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.orm.dao.FlowDefinitionDao;
 import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.DefService;
 import org.dromara.warm.flow.core.utils.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -136,7 +131,7 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
         // 保存流程节点和跳转
         List<Node> allNodes = flowCombine.getAllNodes();
         allNodes.forEach(node -> {
-            if(StringUtils.isEmpty(node.getNodeRatio())) {
+            if (StringUtils.isEmpty(node.getNodeRatio())) {
                 node.setNodeRatio(StringUtils.ZERO);
             }
         });

@@ -29,6 +29,7 @@ public interface FlowDefinitionDao<T extends Definition> extends WarmDao<T> {
 
     /**
      * 根据编码批量查询
+     *
      * @param flowCodeList 流程编码集
      * @return 查询结果
      */
@@ -36,9 +37,10 @@ public interface FlowDefinitionDao<T extends Definition> extends WarmDao<T> {
 
     /**
      * 根据ID批量修改发布状态
-     * @see org.dromara.warm.flow.core.enums.PublishStatus
-     * @param ids ids
+     *
+     * @param ids           ids
      * @param publishStatus 发布状态(9=已失效；0=未发布；1=已发布)
+     * @see org.dromara.warm.flow.core.enums.PublishStatus
      */
     void updatePublishStatus(List<Long> ids, Integer publishStatus);
 }

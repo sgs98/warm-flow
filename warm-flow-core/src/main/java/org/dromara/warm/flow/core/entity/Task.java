@@ -70,6 +70,7 @@ public interface Task extends RootEntity {
 
     /**
      * 获取流程定义ID
+     *
      * @return 流程定义ID
      */
     Long getDefinitionId();
@@ -78,6 +79,7 @@ public interface Task extends RootEntity {
 
     /**
      * 获取流程实例ID
+     *
      * @return 流程实例ID
      */
     Long getInstanceId();
@@ -90,6 +92,7 @@ public interface Task extends RootEntity {
 
     /**
      * 获取业务ID
+     *
      * @return 业务ID
      */
     String getBusinessId();
@@ -110,8 +113,9 @@ public interface Task extends RootEntity {
 
     /**
      * 获取流程状态
-     * @see org.dromara.warm.flow.core.enums.FlowStatus
+     *
      * @return 流程状态
+     * @see org.dromara.warm.flow.core.enums.FlowStatus
      */
     String getFlowStatus();
 

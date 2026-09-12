@@ -69,6 +69,7 @@ public interface Form extends RootEntity {
 
     /**
      * 获取表单编码
+     *
      * @return 表单编码
      */
     String getFormCode();

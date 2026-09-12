@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.Date;
+import java.util.Map;
 
 /**
  * 流程实例 VO。
@@ -36,6 +37,11 @@ public class InstanceVo {
     private String businessId;
 
     /**
+     * 流程实例变量，供草稿继续办理时回显和调整。
+     */
+    private Map<String, Object> variables;
+
+    /**
      * 当前节点编码。
      */
     private String nodeCode;
@@ -44,6 +50,11 @@ public class InstanceVo {
      * 当前节点名称。
      */
     private String nodeName;
+
+    /**
+     * 当前待办任务主键，草稿实例可据此继续办理。
+     */
+    private Long taskId;
 
     /**
      * 当前节点类型。

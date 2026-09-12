@@ -21,9 +21,9 @@ import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.dto.FlowParams;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.exception.FlowException;
+import org.dromara.warm.flow.core.handler.DefaultHandlerStrategy;
 import org.dromara.warm.flow.core.handler.PermissionHandler;
 import org.dromara.warm.flow.core.strategy.*;
-import org.dromara.warm.flow.core.handler.DefaultHandlerStrategy;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -69,7 +69,7 @@ public class ExpressionUtil {
      */
     public static boolean evalCondition(String expression, Map<String, Object> variable) {
         return Boolean.TRUE.equals(getValue(ConditionStrategy.EXPRESSION_STRATEGY_LIST, expression, variable
-                , ExceptionCons.NULL_CONDITION_STRATEGY));
+            , ExceptionCons.NULL_CONDITION_STRATEGY));
     }
 
     /**
@@ -85,10 +85,10 @@ public class ExpressionUtil {
         Map<String, Object> variable = flowParams.getVariable();
         addTasks.forEach(addTask -> {
             List<String> permissions = addTask.getPermissionList().stream()
-                    .map(s -> evalVariable(s, variable)).filter(Objects::nonNull)
-                    .flatMap(List::stream)
-                    .distinct()
-                    .collect(Collectors.toList());
+                .map(s -> evalVariable(s, variable)).filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .distinct()
+                .collect(Collectors.toList());
 
             // 转换办理人，比如设计器中预设了能办理的人，如果其中包含角色或者部门id等，可以通过此接口进行转换成用户id
             PermissionHandler permissionHandler = FlowEngine.permissionHandler();
@@ -129,7 +129,7 @@ public class ExpressionUtil {
      */
     public static boolean evalListener(String expression, Map<String, Object> variable) {
         return Boolean.TRUE.equals(getValue(ListenerStrategy.EXPRESSION_STRATEGY_LIST, expression, variable
-                , ExceptionCons.NULL_LISTENER_STRATEGY));
+            , ExceptionCons.NULL_LISTENER_STRATEGY));
     }
 
     /**
@@ -153,7 +153,7 @@ public class ExpressionUtil {
      * @return 执行结果
      */
     private static <T> T getValue(List<ExpressionStrategy<T>> strategyList, String expression
-            , Map<String, Object> variable, String errMsg) {
+        , Map<String, Object> variable, String errMsg) {
         if (StringUtils.isNotEmpty(expression)) {
             // 倒叙遍历，优先匹配最后注入的策略实现类
             for (int i = strategyList.size() - 1; i >= 0; i--) {

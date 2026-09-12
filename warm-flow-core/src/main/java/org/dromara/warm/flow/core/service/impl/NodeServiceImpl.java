@@ -31,6 +31,10 @@ import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.orm.dao.FlowNodeDao;
 import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.NodeService;
+import org.dromara.warm.flow.core.strategy.gateway.GatewayStrategy;
+import org.dromara.warm.flow.core.strategy.gateway.InclusiveGatewayStrategy;
+import org.dromara.warm.flow.core.strategy.gateway.ParallelGatewayStrategy;
+import org.dromara.warm.flow.core.strategy.gateway.SerialGatewayStrategy;
 import org.dromara.warm.flow.core.utils.*;
 
 import java.io.Serializable;
@@ -46,6 +50,12 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> implements NodeService {
+
+    /**
+     * 按网关类型选择出口的策略。
+     */
+    private final List<GatewayStrategy> gatewayStrategies = Arrays.asList(
+        new SerialGatewayStrategy(), new ParallelGatewayStrategy(), new InclusiveGatewayStrategy());
 
     @Override
     public NodeService setDao(FlowNodeDao<Node> warmDao) {
@@ -243,25 +253,7 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
                 return null;
             }
 
-            //如果是互斥网关，跳转条件匹配的，则取任意第一条，否则取跳转条件为空的任意一条
-            if (NodeType.isGateWaySerial(nextNode.getNodeType())) {
-                Skip skipOne = null;
-                for (Skip skip : skipsGateway) {
-                    if (StringUtils.isNotEmpty(skip.getSkipCondition())) {
-                        if (ExpressionUtil.evalCondition(skip.getSkipCondition(), variable)) {
-                            skipOne = skip;
-                            break;
-                        }
-                    } else {
-                        skipOne = skip;
-                    }
-                }
-                skipsGateway = skipOne == null ? null : CollUtil.toList(skipOne);
-            } else if (NodeType.isGateWayInclusive(nextNode.getNodeType())) {
-                //如果是包含网关，有跳转条件的分支，但是跳转条件不匹配的不执行，没跳转条件为空的分支默认执行
-                skipsGateway.removeIf(skip -> StringUtils.isNotEmpty(skip.getSkipCondition())
-                    && !ExpressionUtil.evalCondition(skip.getSkipCondition(), variable));
-            }
+            skipsGateway = selectGatewaySkips(nextNode.getNodeType(), skipsGateway, variable);
 
             AssertUtil.isEmpty(skipsGateway, ExceptionCons.NULL_CONDITION_VALUE_NODE);
             List<String> nextNodeCodes = StreamUtils.toList(skipsGateway, Skip::getNextNodeCode);
@@ -285,6 +277,23 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
         }
         AssertUtil.isTrue(NodeType.isStart(nextNode.getNodeType()), ExceptionCons.START_NODE_NOT_ALLOW_JUMP);
         return CollUtil.toList(nextNode);
+    }
+
+    /**
+     * 委托对应网关策略选择实际生效的出口。
+     *
+     * @param nodeType 网关节点类型
+     * @param skips    网关出口
+     * @param variable 流程变量
+     * @return 生效出口
+     */
+    private List<Skip> selectGatewaySkips(Integer nodeType, List<Skip> skips, Map<String, Object> variable) {
+        for (GatewayStrategy strategy : gatewayStrategies) {
+            if (strategy.supports(nodeType)) {
+                return strategy.select(skips, variable);
+            }
+        }
+        return Collections.emptyList();
     }
 
 

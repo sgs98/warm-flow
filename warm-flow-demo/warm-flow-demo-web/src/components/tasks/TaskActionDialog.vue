@@ -1,13 +1,14 @@
 <template>
   <el-dialog
+    class="task-action-dialog"
     :model-value="modelValue"
     :title="(submitOnly ? '提交申请 - ' : '任务办理 - ') + (task?.nodeName || '')"
-    width="560px"
+    width="680px"
     :close-on-click-modal="false"
     @update:model-value="(v: boolean) => emit('update:modelValue', v)"
     @open="init"
   >
-    <el-form label-width="90px">
+    <el-form class="task-action-form" label-width="120px">
       <el-form-item v-if="!submitOnly" label="动作">
         <el-radio-group v-model="action">
             <el-radio-button label="pass">通过</el-radio-button>
@@ -23,12 +24,26 @@
         <el-input v-model="message" type="textarea" :rows="3" :placeholder="submitOnly ? '请输入提交意见' : '请输入办理意见'" />
       </el-form-item>
 
+      <el-form-item v-if="submitOnly" label="流程变量">
+        <div class="variables-editor">
+          <div v-for="(item, index) in variableRows" :key="item.id" class="variable-row">
+            <el-input v-model="item.key" placeholder="变量名" />
+            <el-input v-model="item.value" placeholder="变量值" />
+            <el-button link type="danger" @click="removeVariable(index)">删除</el-button>
+          </div>
+          <el-button link type="primary" @click="addVariable">+ 添加变量</el-button>
+        </div>
+      </el-form-item>
+
       <el-form-item v-if="needNextHandler" label="下一步办理人">
         <div v-for="node in nextNodes" :key="node.nodeCode" class="next-handler-item">
           <span class="next-handler-node">{{ node.nodeName }}</span>
           <el-select
             v-model="selectedNextHandlerMap[node.nodeCode]"
             multiple
+            collapse-tags
+            collapse-tags-tooltip
+            :max-collapse-tags="2"
             style="flex: 1"
             :placeholder="node.selectableUsers.length ? '请选择办理人' : '该节点未配置可选办理人'"
           >
@@ -52,10 +67,19 @@
         <el-select
           v-model="selected"
           :multiple="multipleHandler"
+          :collapse-tags="multipleHandler"
+          :collapse-tags-tooltip="multipleHandler"
+          :max-collapse-tags="2"
+          :loading="['add', 'reduction'].includes(action) && signatureHandlersLoading"
           style="width: 100%"
-          placeholder="请选择 demo 用户"
+          :placeholder="action === 'add' ? '请选择加签办理人' : action === 'reduction' ? '请选择要减签的办理人' : '请选择 demo 用户'"
         >
-          <el-option v-for="u in approvers" :key="u.userName" :label="`${u.realName}(${u.userName})`" :value="u.userName" />
+          <el-option
+            v-for="u in action === 'add' ? addHandlerOptions : action === 'reduction' ? reductionHandlerOptions : approvers"
+            :key="u.userName"
+            :label="`${u.realName}(${u.userName})`"
+            :value="u.userName"
+          />
         </el-select>
       </el-form-item>
 
@@ -74,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSessionStore } from '../../stores/session'
 import { httpGet, httpPost, type DemoUser } from '../../api/http'
@@ -82,8 +106,14 @@ import { httpGet, httpPost, type DemoUser } from '../../api/http'
 export interface TodoTask {
   /** 待办任务主键。 */
   id: string
+  /** 流程实例主键。 */
+  instanceId: string
   /** 待办节点名称。 */
   nodeName: string
+  /** 流程变量。 */
+  variables?: Record<string, unknown>
+  /** 当前任务办理人用户名。 */
+  assignees?: string[]
 }
 
 interface ButtonPermission {
@@ -114,7 +144,7 @@ const session = useSessionStore()
 
 const action = ref<'pass' | 'reject' | 'transfer' | 'depute' | 'add' | 'reduction'>('pass')
 const message = ref('')
-const selected = ref<string[]>([])
+const selected = ref<string | string[]>([])
 const selectedNextHandlerMap = ref<Record<string, string[]>>({})
 const selectedBackNode = ref('')
 const selectedCopyUsers = ref<string[]>([])
@@ -122,7 +152,11 @@ const buttonPermissions = ref<ButtonPermission[]>([])
 const approvers = ref<DemoUser[]>([])
 const nextNodes = ref<TaskNode[]>([])
 const backNodes = ref<TaskNode[]>([])
+const addHandlerOptions = ref<DemoUser[]>([])
+const reductionHandlerOptions = ref<DemoUser[]>([])
+const signatureHandlersLoading = ref(false)
 const submitting = ref(false)
+const variableRows = ref<{ id: number; key: string; value: string }[]>([])
 
 const needMessage = computed(() => action.value === 'pass' || action.value === 'reject')
 /** 转办、委派、加签和减签需要先选择目标办理人。 */
@@ -155,9 +189,19 @@ async function init() {
   selectedNextHandlerMap.value = {}
   selectedBackNode.value = ''
   selectedCopyUsers.value = []
+  variableRows.value = props.submitOnly
+    ? Object.entries(task.variables || {}).map(([key, value], index) => ({
+      id: Date.now() + index,
+      key,
+      value: value == null ? '' : String(value),
+    }))
+    : []
   buttonPermissions.value = []
   nextNodes.value = []
   backNodes.value = []
+  addHandlerOptions.value = []
+  reductionHandlerOptions.value = []
+  signatureHandlersLoading.value = false
   const [permissions, users] = await Promise.all([
     httpGet<ButtonPermission[]>(`/tasks/${task.id}/button-permissions`),
     httpGet<DemoUser[]>('/users').catch(() => []),
@@ -174,16 +218,79 @@ async function init() {
   action.value = 'pass'
 }
 
+watch(action, () => {
+  selected.value = []
+  if (action.value === 'add' || action.value === 'reduction') {
+    loadSignatureHandlers()
+  } else {
+    addHandlerOptions.value = []
+    reductionHandlerOptions.value = []
+    signatureHandlersLoading.value = false
+  }
+})
+
+/** 仅在进入加签或减签动作时查询对应的专用候选人。 */
+async function loadSignatureHandlers() {
+  const task = props.task
+  if (!task?.instanceId) return
+  const actionWhenRequested = action.value
+  signatureHandlersLoading.value = true
+  const path = actionWhenRequested === 'add' ? 'add-signature-handlers' : 'reduction-signature-handlers'
+  const handlers = await httpGet<DemoUser[]>(`/tasks/instances/${task.instanceId}/${path}`).catch(() => [])
+  if (action.value === actionWhenRequested) {
+    if (actionWhenRequested === 'add') {
+      addHandlerOptions.value = handlers
+    } else {
+      reductionHandlerOptions.value = handlers
+    }
+  }
+  signatureHandlersLoading.value = false
+}
+
+/** 将单选和多选控件的值统一为接口需要的办理人数组。 */
+const selectedHandlers = computed(() => Array.isArray(selected.value)
+  ? selected.value : selected.value ? [selected.value] : [])
+
+/** 新增一行流程变量。 */
+function addVariable() {
+  variableRows.value.push({ id: Date.now() + variableRows.value.length, key: '', value: '' })
+}
+
+/** 删除一行流程变量。 */
+function removeVariable(index: number) {
+  variableRows.value.splice(index, 1)
+}
+
+/** 收集提交申请时编辑后的流程变量。 */
+function collectVariables(): Record<string, string> | undefined {
+  const rows = variableRows.value.filter(item => item.key.trim() || item.value.trim())
+  const variables: Record<string, string> = {}
+  for (const item of rows) {
+    const key = item.key.trim()
+    if (!key) {
+      ElMessage.warning('流程变量名不能为空')
+      return undefined
+    }
+    if (Object.prototype.hasOwnProperty.call(variables, key)) {
+      ElMessage.warning(`流程变量【${key}】重复`)
+      return undefined
+    }
+    variables[key] = item.value
+  }
+  return Object.keys(variables).length ? variables : undefined
+}
+
 /** 提交当前办理动作，并根据动作类型调用对应任务接口。 */
 async function submit() {
   const task = props.task
   if (!task) return
-  if (needMessage.value && !message.value) {
-    ElMessage.warning('请填写办理意见')
+  if (needHandler.value && (!selectedHandlers.value.length
+    || (!multipleHandler.value && selectedHandlers.value.length > 1))) {
+    ElMessage.warning(multipleHandler.value ? '请选择至少一位办理人' : '请选择一位办理人')
     return
   }
-  if (needHandler.value && (!selected.value.length || (!multipleHandler.value && selected.value.length > 1))) {
-    ElMessage.warning(multipleHandler.value ? '请选择至少一位办理人' : '请选择一位办理人')
+  if (action.value === 'reduction' && selectedHandlers.value.length >= reductionHandlerOptions.value.length) {
+    ElMessage.warning('减签后至少保留一位办理人')
     return
   }
   if (needNextHandler.value) {
@@ -203,6 +310,8 @@ async function submit() {
     ElMessage.warning('请选择退回节点')
     return
   }
+  const variables = props.submitOnly ? collectVariables() : undefined
+  if (props.submitOnly && variableRows.value.some(item => item.key.trim() || item.value.trim()) && !variables) return
   submitting.value = true
   try {
     const a = action.value
@@ -212,6 +321,7 @@ async function submit() {
       await httpPost('/tasks/pass', {
         ...baseBody,
         message: message.value,
+        variables,
         nextHandlerMap: needNextHandler.value ? selectedNextHandlerMap.value : undefined,
         copyUsers: needCopyUsers.value ? selectedCopyUsers.value : undefined,
       })
@@ -223,11 +333,11 @@ async function submit() {
         copyUsers: needCopyUsers.value ? selectedCopyUsers.value : undefined,
       })
     } else if (a === 'transfer' || a === 'depute') {
-      await httpPost(`/tasks/${a}`, { ...baseBody, nextHandlers: selected.value })
+      await httpPost(`/tasks/${a}`, { ...baseBody, nextHandlers: selectedHandlers.value })
     } else if (a === 'add') {
-      await httpPost('/tasks/add-signature', { ...baseBody, addHandlers: selected.value })
+      await httpPost('/tasks/add-signature', { ...baseBody, addHandlers: selectedHandlers.value })
     } else {
-      await httpPost('/tasks/reduction-signature', { ...baseBody, reductionHandlers: selected.value })
+      await httpPost('/tasks/reduction-signature', { ...baseBody, reductionHandlers: selectedHandlers.value })
     }
     ElMessage.success('操作成功')
     emit('update:modelValue', false)
@@ -241,6 +351,33 @@ async function submit() {
 </script>
 
 <style scoped>
+.task-action-dialog {
+  max-width: calc(100vw - 32px);
+}
+
+.task-action-dialog :deep(.el-dialog__body) {
+  padding: 20px 24px 8px;
+}
+
+.task-action-dialog :deep(.el-dialog__footer) {
+  padding: 12px 24px 20px;
+}
+
+.task-action-form :deep(.el-form-item__label) {
+  flex: 0 0 120px;
+  line-height: 20px;
+  white-space: normal;
+}
+
+.task-action-form :deep(.el-form-item__content) {
+  min-width: 0;
+}
+
+.task-action-form :deep(.el-select__selection) {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .next-handler-item {
   display: flex;
   align-items: center;
@@ -253,8 +390,24 @@ async function submit() {
 }
 
 .next-handler-node {
-  min-width: 72px;
+  flex: 0 0 96px;
+  min-width: 0;
   color: var(--el-text-color-regular);
   font-size: 13px;
+}
+
+.variables-editor {
+  width: 100%;
+}
+
+.variable-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.variable-row .el-input {
+  min-width: 0;
 }
 </style>

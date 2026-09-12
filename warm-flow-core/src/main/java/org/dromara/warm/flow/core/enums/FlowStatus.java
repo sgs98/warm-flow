@@ -93,7 +93,7 @@ public enum FlowStatus {
      * 判断是否结束节点
      *
      * @param key 枚举key
-     * @return  boolean
+     * @return boolean
      */
     public static Boolean isFinished(String key) {
         return ObjectUtil.isNotNull(key) && (FlowStatus.FINISHED.getKey().equals(key));

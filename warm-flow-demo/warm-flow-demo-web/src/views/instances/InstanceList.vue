@@ -8,7 +8,7 @@
       <el-button @click="search">查询</el-button>
       <el-button @click="reset">重置</el-button>
       <div style="flex: 1" />
-      <el-button type="primary" @click="dialogVisible = true">+ 发起实例</el-button>
+      <el-button type="primary" @click="openStartDialog">+ 发起实例</el-button>
     </div>
 
     <el-table :data="rows" v-loading="loading" border stripe>
@@ -25,8 +25,11 @@
       </el-table-column>
       <el-table-column prop="createBy" label="发起人" width="100" />
       <el-table-column prop="createTime" label="发起时间" width="170" />
-      <el-table-column label="操作" width="130">
+      <el-table-column label="操作" width="180">
         <template #default="{ row }">
+          <el-button v-if="row.taskId && row.businessStatus === 'draft'" link type="primary" @click="continueDraft(row)">
+            继续办理
+          </el-button>
           <el-button link type="primary" @click="goDetail(row)">历史</el-button>
           <el-button link type="danger" @click="remove(row)">删除</el-button>
         </template>
@@ -35,7 +38,7 @@
     <el-pagination style="margin-top: 12px; justify-content: flex-end" layout="total, prev, pager, next"
       :total="total" v-model:current-page="pageNum" @current-change="load" />
 
-    <el-dialog v-model="dialogVisible" title="发起实例" width="480px" :close-on-click-modal="false">
+    <el-dialog v-model="dialogVisible" title="发起实例" width="560px" :close-on-click-modal="false">
       <el-form label-width="90px">
         <el-form-item label="流程" required>
           <el-select v-model="startDefId" filterable placeholder="请选择已发布流程" style="width: 100%">
@@ -50,6 +53,16 @@
         <el-form-item label="业务ID">
           <el-input v-model="startBusinessId" placeholder="留空自动生成" />
         </el-form-item>
+        <el-form-item label="流程变量">
+          <div class="variables-editor">
+            <div v-for="(item, index) in variableRows" :key="item.id" class="variable-row">
+              <el-input v-model="item.key" placeholder="变量名" />
+              <el-input v-model="item.value" placeholder="变量值" />
+              <el-button link type="danger" @click="removeVariable(index)">删除</el-button>
+            </div>
+            <el-button link type="primary" @click="addVariable">+ 添加变量</el-button>
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -57,7 +70,7 @@
       </template>
     </el-dialog>
 
-    <TaskActionDialog
+      <TaskActionDialog
       v-model="taskDialogVisible"
       :task="startTask"
       submit-only
@@ -80,6 +93,10 @@ interface InstanceRow {
   flowName: string
   /** 业务主键。 */
   businessId: string
+  /** 流程实例变量。 */
+  variables?: Record<string, unknown>
+  /** 当前待办任务主键。 */
+  taskId?: string
   /** 当前节点名称。 */
   nodeName: string
   /** 流程状态名称。 */
@@ -122,9 +139,15 @@ const businessId = ref('')
 const dialogVisible = ref(false)
 const startDefId = ref<string | undefined>()
 const startBusinessId = ref('')
+const variableRows = ref<{ id: number; key: string; value: string }[]>([])
 const starting = ref(false)
 const taskDialogVisible = ref(false)
-const startTask = ref<{ id: string; nodeName: string } | null>(null)
+const startTask = ref<{
+  id: string
+  instanceId: string
+  nodeName: string
+  variables?: Record<string, unknown>
+} | null>(null)
 const router = useRouter()
 
 /** 按当前筛选条件加载流程实例分页数据。 */
@@ -172,6 +195,55 @@ function goDetail(row: InstanceRow) {
   router.push(`/instances/${row.id}`)
 }
 
+/** 打开发起弹窗并清理上次未提交的输入。 */
+function openStartDialog() {
+  startDefId.value = undefined
+  startBusinessId.value = ''
+  variableRows.value = []
+  dialogVisible.value = true
+}
+
+/** 新增一行流程变量。 */
+function addVariable() {
+  variableRows.value.push({ id: Date.now() + variableRows.value.length, key: '', value: '' })
+}
+
+/** 删除一行流程变量。 */
+function removeVariable(index: number) {
+  variableRows.value.splice(index, 1)
+}
+
+/** 从实例列表重新打开草稿的当前待办。 */
+function continueDraft(row: InstanceRow) {
+  if (!row.taskId) return
+  startTask.value = {
+    id: row.taskId,
+    instanceId: row.id,
+    nodeName: row.nodeName || '首节点',
+    variables: row.variables,
+  }
+  taskDialogVisible.value = true
+}
+
+/** 将变量编辑行转换为引擎需要的 Map。 */
+function collectVariables(): Record<string, string> | undefined {
+  const rows = variableRows.value.filter(item => item.key.trim() || item.value.trim())
+  const variables: Record<string, string> = {}
+  for (const item of rows) {
+    const key = item.key.trim()
+    if (!key) {
+      ElMessage.warning('流程变量名不能为空')
+      return undefined
+    }
+    if (Object.prototype.hasOwnProperty.call(variables, key)) {
+      ElMessage.warning(`流程变量【${key}】重复`)
+      return undefined
+    }
+    variables[key] = item.value
+  }
+  return Object.keys(variables).length ? variables : undefined
+}
+
 /** 确认并物理删除流程实例及其全部相关流程数据。 */
 async function remove(row: InstanceRow) {
   await ElMessageBox.confirm(
@@ -191,19 +263,28 @@ async function doStart() {
     ElMessage.warning('请选择流程')
     return
   }
+  const variables = collectVariables()
+  if (variableRows.value.some(item => item.key.trim() || item.value.trim()) && !variables) return
   starting.value = true
   try {
     const res = await httpPost<StartInstanceResult>('/instances', {
       flowCode: def.flowCode,
       businessId: startBusinessId.value.trim() || `BIZ-${Date.now()}`,
+      variables,
     })
     dialogVisible.value = false
     startDefId.value = undefined
     startBusinessId.value = ''
+    variableRows.value = []
     pageNum.value = 1
     load()
     if (res.taskId) {
-      startTask.value = { id: res.taskId, nodeName: res.nodeName || '首节点' }
+      startTask.value = {
+        id: res.taskId,
+        instanceId: res.instanceId,
+        nodeName: res.nodeName || '首节点',
+        variables,
+      }
       taskDialogVisible.value = true
       ElMessage.success('流程已启动，请办理首节点')
     } else {
@@ -229,3 +310,20 @@ onMounted(() => {
   load()
 })
 </script>
+
+<style scoped>
+.variables-editor {
+  width: 100%;
+}
+
+.variable-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.variable-row .el-input {
+  min-width: 0;
+}
+</style>

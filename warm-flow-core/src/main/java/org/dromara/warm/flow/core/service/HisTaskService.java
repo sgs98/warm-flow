@@ -90,7 +90,8 @@ public interface HisTaskService extends IWarmService<HisTask> {
 
     /**
      * 设置暂存历史记录
-     * @param task 当前任务
+     *
+     * @param task       当前任务
      * @param flowParams 参数
      */
     HisTask notSkip(Task task, FlowParams flowParams);

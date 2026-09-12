@@ -74,13 +74,13 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
 
     @Override
     public HisTask setSkipInsHis(Task task, List<Node> nextNodes, FlowParams flowParams) {
-        String flowStatus = getFlowStatus(flowParams);
+        String flowStatus = FlowStatusMachine.customStatus(flowParams);
         return setSkipHis(task, nextNodes, flowParams, flowStatus);
     }
 
     @Override
     public List<HisTask> setSkipHisList(List<Task> taskList, List<Node> nextNodes, FlowParams flowParams) {
-        String flowStatus = getFlowStatus(flowParams);
+        String flowStatus = FlowStatusMachine.customStatus(flowParams);
         List<HisTask> hisTasks = new ArrayList<>();
         for (Task task : taskList) {
             HisTask hisTask = setSkipHis(task, nextNodes, flowParams, flowStatus);
@@ -91,7 +91,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
 
     @Override
     public HisTask setSkipHisTask(Task task, Node nextNode, FlowParams flowParams) {
-        String flowStatus = getFlowStatus(flowParams);
+        String flowStatus = FlowStatusMachine.customStatus(flowParams);
         return setSkipHis(task, CollUtil.toList(nextNode), flowParams, flowStatus);
     }
 
@@ -99,7 +99,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
     @Override
     public HisTask setCooperateHis(Task task, FlowParams flowParams
         , List<String> collaborators) {
-        String flowStatus = getFlowStatus(flowParams);
+        String flowStatus = FlowStatusMachine.customStatus(flowParams);
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
@@ -113,7 +113,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
             .setTargetNodeName(task.getNodeName())
             .setApprover(flowParams.getHandler())
             .setSkipType(flowParams.getSkipType())
-            .setFlowStatus(StringUtils.emptyDefault(flowStatus, FlowStatus.APPROVAL.getKey()))
+            .setFlowStatus(FlowStatusMachine.defaultStatus(flowStatus, FlowStatus.APPROVAL.getKey()))
             .setFormCustom(task.getFormCustom())
             .setFormPath(task.getFormPath())
             .setMessage(flowParams.getMessage())
@@ -127,7 +127,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
 
     @Override
     public HisTask notSkip(Task task, FlowParams flowParams) {
-        String flowStatus = getFlowStatus(flowParams);
+        String flowStatus = FlowStatusMachine.customStatus(flowParams);
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
@@ -154,7 +154,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
 
     @Override
     public HisTask setDeputeHisTask(Task task, FlowParams flowParams, User entrustedUser) {
-        String flowStatus = getFlowStatus(flowParams);
+        String flowStatus = FlowStatusMachine.customStatus(flowParams);
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
@@ -168,9 +168,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
             .setApprover(flowParams.getHandler())
             .setCollaborator(entrustedUser.getCreateBy())
             .setSkipType(flowParams.getSkipType())
-            .setFlowStatus(StringUtils.isNotEmpty(flowStatus)
-                ? flowStatus : SkipType.isReject(flowParams.getSkipType())
-                ? FlowStatus.REJECT.getKey() : FlowStatus.PASS.getKey())
+            .setFlowStatus(FlowStatusMachine.skipStatus(flowStatus, flowParams.getSkipType()))
             .setFormCustom(task.getFormCustom())
             .setFormPath(task.getFormPath())
             .setMessage(flowParams.getMessage())
@@ -184,7 +182,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
 
     @Override
     public HisTask setSignHisTask(Task task, FlowParams flowParams, String nodeRatio, boolean isPass) {
-        String flowStatus = getFlowStatus(flowParams);
+        String flowStatus = FlowStatusMachine.customStatus(flowParams);
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
@@ -197,9 +195,8 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
             .setApprover(flowParams.getHandler())
             .setMessage(flowParams.getMessage())
             .setSkipType(isPass ? SkipType.PASS.getKey() : SkipType.REJECT.getKey())
-            .setFlowStatus(StringUtils.isNotEmpty(flowStatus)
-                ? flowStatus : isPass
-                ? FlowStatus.PASS.getKey() : FlowStatus.REJECT.getKey())
+            .setFlowStatus(FlowStatusMachine.defaultStatus(flowStatus
+                , isPass ? FlowStatus.PASS.getKey() : FlowStatus.REJECT.getKey()))
             .setFormCustom(task.getFormCustom())
             .setFormPath(task.getFormPath())
             .setMessage(flowParams.getMessage())
@@ -229,9 +226,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
             .setTargetNodeName(StreamUtils.join(nextNodes, Node::getNodeName))
             .setApprover(flowParams.getHandler())
             .setSkipType(flowParams.getSkipType())
-            .setFlowStatus(StringUtils.isNotEmpty(flowStatus)
-                ? flowStatus : SkipType.isReject(flowParams.getSkipType())
-                ? FlowStatus.REJECT.getKey() : FlowStatus.PASS.getKey())
+            .setFlowStatus(FlowStatusMachine.skipStatus(flowStatus, flowParams.getSkipType()))
             .setFormCustom(task.getFormCustom())
             .setFormPath(task.getFormPath())
             .setMessage(flowParams.getMessage())
@@ -243,7 +238,4 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
         return hisTask;
     }
 
-    private String getFlowStatus(FlowParams flowParams) {
-        return StringUtils.emptyDefault(flowParams.getHisStatus(), flowParams.getFlowStatus());
-    }
 }

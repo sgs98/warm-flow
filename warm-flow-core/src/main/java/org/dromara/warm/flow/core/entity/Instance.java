@@ -72,6 +72,7 @@ public interface Instance extends RootEntity {
 
     /**
      * flow_definition.id
+     *
      * @return flow_definition.id
      */
     Long getDefinitionId();
@@ -80,6 +81,7 @@ public interface Instance extends RootEntity {
 
     /**
      * 流程名称
+     *
      * @return 流程名称
      */
     String getFlowName();
@@ -88,6 +90,7 @@ public interface Instance extends RootEntity {
 
     /**
      * 业务ID
+     *
      * @return 业务ID
      */
     String getBusinessId();
@@ -95,8 +98,8 @@ public interface Instance extends RootEntity {
     Instance setBusinessId(String businessId);
 
     /**
-     * @see org.dromara.warm.flow.core.enums.NodeType
      * @return 节点类型
+     * @see org.dromara.warm.flow.core.enums.NodeType
      */
     Integer getNodeType();
 
@@ -108,6 +111,7 @@ public interface Instance extends RootEntity {
 
     /**
      * 流程节点名称
+     *
      * @return 节点名称
      */
     String getNodeName();
@@ -116,6 +120,7 @@ public interface Instance extends RootEntity {
 
     /**
      * 流程变量
+     *
      * @return 流程变量
      */
     String getVariable();
@@ -127,8 +132,8 @@ public interface Instance extends RootEntity {
     }
 
     /**
-     * @see org.dromara.warm.flow.core.enums.FlowStatus
      * @return 流程状态
+     * @see org.dromara.warm.flow.core.enums.FlowStatus
      */
     String getFlowStatus();
 
@@ -136,7 +141,8 @@ public interface Instance extends RootEntity {
 
     /**
      * 审批表单是否自定义（Y是 N否）
-     * @return  （Y是 N否）
+     *
+     * @return （Y是 N否）
      */
     String getFormCustom();
 
@@ -155,8 +161,8 @@ public interface Instance extends RootEntity {
     Instance setExt(String ext);
 
     /**
-     * @see org.dromara.warm.flow.core.enums.ActivityStatus
      * @return 激活状态
+     * @see org.dromara.warm.flow.core.enums.ActivityStatus
      */
     Integer getActivityStatus();
 

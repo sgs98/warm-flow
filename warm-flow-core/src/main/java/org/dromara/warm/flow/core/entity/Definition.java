@@ -72,12 +72,14 @@ public interface Definition extends RootEntity {
 
     /**
      * 获取流程编码
+     *
      * @return 流程编码
      */
     String getFlowCode();
 
     /**
      * 设置流程编码
+     *
      * @param flowCode flowCode
      * @return Definition
      */
@@ -85,12 +87,14 @@ public interface Definition extends RootEntity {
 
     /**
      * 获取流程名称
+     *
      * @return 流程名称
      */
     String getFlowName();
 
     /**
      * 设置流程名称
+     *
      * @param flowName flowName
      * @return Definition
      */
@@ -98,8 +102,9 @@ public interface Definition extends RootEntity {
 
     /**
      * 设计器模型（CLASSICS经典模型 MIMIC仿钉钉模型）
+     *
+     * @return 设计器模型
      * @see org.dromara.warm.flow.core.enums.ModelEnum
-     * @return  设计器模型
      */
     String getModelValue();
 
@@ -111,6 +116,7 @@ public interface Definition extends RootEntity {
 
     /**
      * 获取流程定义的版本号
+     *
      * @return 版本号
      */
     String getVersion();
@@ -119,6 +125,7 @@ public interface Definition extends RootEntity {
 
     /**
      * 获取是否发布状态 (0未发布 1已发布 9已失效)
+     *
      * @return 发布状态
      */
     Integer getIsPublish();
@@ -127,6 +134,7 @@ public interface Definition extends RootEntity {
 
     /**
      * 审批表单是否自定义（Y=是 N=否）
+     *
      * @return 是否自定义
      */
     String getFormCustom();
@@ -151,8 +159,9 @@ public interface Definition extends RootEntity {
 
     /**
      * 流程激活状态（0=挂起 1=激活）
-     * @see org.dromara.warm.flow.core.enums.ActivityStatus
+     *
      * @return 流程激活状态
+     * @see org.dromara.warm.flow.core.enums.ActivityStatus
      */
     Integer getActivityStatus();
 
@@ -160,6 +169,7 @@ public interface Definition extends RootEntity {
 
     /**
      * 获取监听器类型
+     *
      * @return 监听器类型
      */
     String getListenerType();
@@ -168,6 +178,7 @@ public interface Definition extends RootEntity {
 
     /**
      * 获取监听器路径
+     *
      * @return 监听器路径
      */
     String getListenerPath();

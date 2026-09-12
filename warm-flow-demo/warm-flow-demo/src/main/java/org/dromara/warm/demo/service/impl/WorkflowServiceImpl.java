@@ -28,7 +28,6 @@ import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.entity.User;
-import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.UserType;
@@ -94,16 +93,19 @@ public class WorkflowServiceImpl implements WorkflowService {
      * @return 发起结果
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public StartInstanceVo start(String user, StartInstanceRequest request) {
         try {
-            FlowParams flowParams = identity(user).flowCode(request.getFlowCode());
+            FlowParams flowParams = identity(user).flowCode(request.getFlowCode())
+                .flowStatus(BusinessStatusEnum.DRAFT.getStatus());
             if (request.getVariables() != null) {
                 flowParams.variable(request.getVariables());
             }
             Instance instance = FlowEngine.insService().start(request.getBusinessId(), flowParams);
+            List<Task> tasks = FlowEngine.taskService().getByInsId(instance.getId());
             StartInstanceVo vo = new StartInstanceVo();
             vo.setInstanceId(instance.getId());
-            FlowEngine.taskService().getByInsId(instance.getId()).stream()
+            tasks.stream()
                 .min(Comparator.comparing(Task::getId))
                 .ifPresent(task -> {
                     vo.setTaskId(task.getId());
@@ -257,6 +259,64 @@ public class WorkflowServiceImpl implements WorkflowService {
     public List<ButtonPermissionVo> buttonPermissions(Long taskId) {
         Task task = requireTask(taskId);
         return ButtonPermissionUtils.list(task.getDefinitionId(), task.getNodeCode());
+    }
+
+    /**
+     * 查询加签可选办理人，排除流程实例当前已有办理人。
+     *
+     * @param instanceId 流程实例主键
+     * @return 加签可选办理人集合
+     */
+    @Override
+    public List<DemoUserVo> addSignatureHandlers(Long instanceId) {
+        Set<String> handlers = currentHandlerNames(instanceId);
+        return userService.listApprovers().stream()
+            .filter(user -> !handlers.contains(user.getUserName()))
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * 查询流程实例当前待办任务已有的办理人，供减签选择使用。
+     *
+     * @param instanceId 流程实例主键
+     * @return 可减签办理人集合
+     */
+    @Override
+    public List<DemoUserVo> reductionSignatureHandlers(Long instanceId) {
+        Set<String> handlers = currentHandlerNames(instanceId);
+        return userService.listApprovers().stream()
+            .filter(user -> handlers.contains(user.getUserName()))
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * 查询流程实例当前待办任务的办理人用户名。
+     *
+     * @param instanceId 流程实例主键
+     * @return 办理人用户名集合
+     */
+    private Set<String> currentHandlerNames(Long instanceId) {
+        requireInstance(instanceId);
+        Set<String> handlers = new LinkedHashSet<>();
+        FlowEngine.taskService().getByInsId(instanceId).forEach(task -> handlers.addAll(
+            FlowEngine.userService().listByAssociatedAndTypes(task.getId(), UserType.APPROVAL.getKey(),
+                UserType.TRANSFER.getKey(), UserType.DEPUTE.getKey()).stream()
+                .map(User::getProcessedBy)
+                .map(this::userNameOf)
+                .filter(StringUtils::isNotEmpty)
+                .collect(Collectors.toList())));
+        return handlers;
+    }
+
+    /**
+     * 将流程用户中的用户权限标识转换为 Demo 用户名。
+     *
+     * @param processedBy 流程用户标识，例如 user:approver1
+     * @return Demo 用户名
+     */
+    private String userNameOf(String processedBy) {
+        return processedBy != null && processedBy.startsWith("user:")
+            ? processedBy.substring("user:".length()) : processedBy;
     }
 
     /**
@@ -417,7 +477,8 @@ public class WorkflowServiceImpl implements WorkflowService {
      */
     @Override
     public void revoke(String user, Long instanceId) {
-        run(user, flowParams -> FlowEngine.taskService().revoke(instanceId, flowParams));
+        run(user, flowParams -> FlowEngine.taskService().revoke(instanceId,
+            flowParams.flowStatus(BusinessStatusEnum.CANCEL.getStatus())));
     }
 
     /**
@@ -430,13 +491,15 @@ public class WorkflowServiceImpl implements WorkflowService {
     public void termination(String user, Long instanceId) {
         Instance instance = requireInstance(instanceId);
         checkNodeButton(instance.getDefinitionId(), instance.getNodeCode(), "termination");
-        run(user, flowParams -> FlowEngine.taskService().terminationByInsId(instanceId, flowParams));
+        run(user, flowParams -> FlowEngine.taskService().terminationByInsId(instanceId,
+            flowParams.flowStatus(BusinessStatusEnum.TERMINATION.getStatus())));
     }
 
     private InstanceVo operate(TaskActionRequest req, boolean reject) {
         try {
             FlowParams flowParams = identity(req.getUser())
                 .message(req.getMessage())
+                .flowStatus(reject ? BusinessStatusEnum.BACK.getStatus() : BusinessStatusEnum.WAITING.getStatus())
                 .skipType(reject ? SkipType.REJECT.getKey() : SkipType.PASS.getKey())
                 .nodeCode(req.getNodeCode());
             if (req.getVariables() != null) {
@@ -446,7 +509,12 @@ public class WorkflowServiceImpl implements WorkflowService {
             if (req.getNextHandlers() != null && !req.getNextHandlers().isEmpty()) {
                 flowParams.nextHandler(req.getNextHandlers().toArray(new String[0]));
             }
-            return toInstanceVo(FlowEngine.taskService().skip(req.getTaskId(), flowParams));
+            Instance instance = FlowEngine.taskService().skip(req.getTaskId(), flowParams);
+            if (NodeType.isEnd(instance.getNodeType())) {
+                instance.setFlowStatus(BusinessStatusEnum.FINISH.getStatus());
+                FlowEngine.insService().updateById(instance);
+            }
+            return toInstanceVo(instance);
         } catch (FlowException e) {
             throw BizException.badRequest(e.getMessage());
         }
@@ -591,11 +659,15 @@ public class WorkflowServiceImpl implements WorkflowService {
         BeanUtils.copyProperties(instance, vo);
         vo.setFlowName(StringUtils.isNotEmpty(instance.getFlowName())
             ? instance.getFlowName() : flowNameOf(instance.getDefinitionId()));
-        BusinessStatusEnum status = BusinessStatusEnum.fromFlowStatus(instance.getFlowStatus());
+        vo.setVariables(instance.getVariableMap());
+        BusinessStatusEnum status = BusinessStatusEnum.getByStatus(instance.getFlowStatus());
         vo.setFlowStatusKey(instance.getFlowStatus());
-        vo.setFlowStatusName(FlowStatus.getValueByKey(instance.getFlowStatus()));
-        vo.setBusinessStatus(status.getStatus());
-        vo.setBusinessStatusName(status.getDesc());
+        vo.setFlowStatusName(status == null ? instance.getFlowStatus() : status.getDesc());
+        vo.setBusinessStatus(instance.getFlowStatus());
+        vo.setBusinessStatusName(status == null ? instance.getFlowStatus() : status.getDesc());
+        FlowEngine.taskService().getByInsId(instance.getId()).stream()
+            .min(Comparator.comparing(Task::getId))
+            .ifPresent(task -> vo.setTaskId(task.getId()));
         return vo;
     }
 
@@ -612,11 +684,11 @@ public class WorkflowServiceImpl implements WorkflowService {
             ? task.getFlowName() : flowNameOf(task.getDefinitionId()));
         vo.setBusinessId(StringUtils.isNotEmpty(task.getBusinessId())
             ? task.getBusinessId() : businessIdOf(task.getInstanceId()));
-        BusinessStatusEnum status = BusinessStatusEnum.fromFlowStatus(task.getFlowStatus());
+        BusinessStatusEnum status = BusinessStatusEnum.getByStatus(task.getFlowStatus());
         vo.setFlowStatusKey(task.getFlowStatus());
-        vo.setFlowStatusName(FlowStatus.getValueByKey(task.getFlowStatus()));
-        vo.setBusinessStatus(status.getStatus());
-        vo.setBusinessStatusName(status.getDesc());
+        vo.setFlowStatusName(status == null ? task.getFlowStatus() : status.getDesc());
+        vo.setBusinessStatus(task.getFlowStatus());
+        vo.setBusinessStatusName(status == null ? task.getFlowStatus() : status.getDesc());
         vo.setAssignees(FlowEngine.userService().getPermission(task.getId(),
             UserType.APPROVAL.getKey(), UserType.TRANSFER.getKey(), UserType.DEPUTE.getKey()));
         return vo;
@@ -635,11 +707,11 @@ public class WorkflowServiceImpl implements WorkflowService {
             ? hisTask.getFlowName() : flowNameOf(hisTask.getDefinitionId()));
         vo.setBusinessId(StringUtils.isNotEmpty(hisTask.getBusinessId())
             ? hisTask.getBusinessId() : businessIdOf(hisTask.getInstanceId()));
-        BusinessStatusEnum status = BusinessStatusEnum.fromFlowStatus(hisTask.getFlowStatus());
+        BusinessStatusEnum status = BusinessStatusEnum.getByStatus(hisTask.getFlowStatus());
         vo.setFlowStatusKey(hisTask.getFlowStatus());
-        vo.setFlowStatusName(FlowStatus.getValueByKey(hisTask.getFlowStatus()));
-        vo.setBusinessStatus(status.getStatus());
-        vo.setBusinessStatusName(status.getDesc());
+        vo.setFlowStatusName(status == null ? hisTask.getFlowStatus() : status.getDesc());
+        vo.setBusinessStatus(hisTask.getFlowStatus());
+        vo.setBusinessStatusName(status == null ? hisTask.getFlowStatus() : status.getDesc());
         return vo;
     }
 
@@ -652,11 +724,11 @@ public class WorkflowServiceImpl implements WorkflowService {
     private HistoryVo toHistoryVo(HisTask hisTask) {
         HistoryVo vo = new HistoryVo();
         BeanUtils.copyProperties(hisTask, vo);
-        BusinessStatusEnum status = BusinessStatusEnum.fromFlowStatus(hisTask.getFlowStatus());
+        BusinessStatusEnum status = BusinessStatusEnum.getByStatus(hisTask.getFlowStatus());
         vo.setFlowStatusKey(hisTask.getFlowStatus());
-        vo.setFlowStatusName(FlowStatus.getValueByKey(hisTask.getFlowStatus()));
-        vo.setBusinessStatus(status.getStatus());
-        vo.setBusinessStatusName(status.getDesc());
+        vo.setFlowStatusName(status == null ? hisTask.getFlowStatus() : status.getDesc());
+        vo.setBusinessStatus(hisTask.getFlowStatus());
+        vo.setBusinessStatusName(status == null ? hisTask.getFlowStatus() : status.getDesc());
         return vo;
     }
 

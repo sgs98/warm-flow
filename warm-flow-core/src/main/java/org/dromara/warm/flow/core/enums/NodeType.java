@@ -90,7 +90,7 @@ public enum NodeType {
      * 判断是否开始节点
      *
      * @param key 枚举key
-     * @return  boolean
+     * @return boolean
      */
     public static Boolean isStart(Integer key) {
         return ObjectUtil.isNotNull(key) && (NodeType.START.getKey().equals(key));
@@ -100,7 +100,7 @@ public enum NodeType {
      * 判断是否中间节点
      *
      * @param key 枚举key
-     * @return  boolean
+     * @return boolean
      */
     public static Boolean isBetween(Integer key) {
         return ObjectUtil.isNotNull(key) && (NodeType.BETWEEN.getKey().equals(key));
@@ -110,7 +110,7 @@ public enum NodeType {
      * 判断是否结束节点
      *
      * @param key 枚举key
-     * @return  boolean
+     * @return boolean
      */
     public static Boolean isEnd(Integer key) {
         return ObjectUtil.isNotNull(key) && (NodeType.END.getKey().equals(key));
@@ -120,18 +120,18 @@ public enum NodeType {
      * 判断是否网关节点
      *
      * @param key 枚举key
-     * @return  boolean
+     * @return boolean
      */
     public static Boolean isGateWay(Integer key) {
         return ObjectUtil.isNotNull(key) && (NodeType.SERIAL.getKey().equals(key)
-            || NodeType.PARALLEL.getKey().equals(key)|| NodeType.INCLUSIVE.getKey().equals(key));
+            || NodeType.PARALLEL.getKey().equals(key) || NodeType.INCLUSIVE.getKey().equals(key));
     }
 
     /**
      * 判断是否互斥网关节点
      *
      * @param key 枚举key
-     * @return  boolean
+     * @return boolean
      */
     public static Boolean isGateWaySerial(Integer key) {
         return ObjectUtil.isNotNull(key) && NodeType.SERIAL.getKey().equals(key);
@@ -141,7 +141,7 @@ public enum NodeType {
      * 判断是否并行网关节点
      *
      * @param key 枚举key
-     * @return  boolean
+     * @return boolean
      */
     public static Boolean isGateWayParallel(Integer key) {
         return ObjectUtil.isNotNull(key) && NodeType.PARALLEL.getKey().equals(key);
@@ -151,7 +151,7 @@ public enum NodeType {
      * 判断是否包容网关节点
      *
      * @param key 枚举key
-     * @return  boolean
+     * @return boolean
      */
     public static Boolean isGateWayInclusive(Integer key) {
         return ObjectUtil.isNotNull(key) && NodeType.INCLUSIVE.getKey().equals(key);

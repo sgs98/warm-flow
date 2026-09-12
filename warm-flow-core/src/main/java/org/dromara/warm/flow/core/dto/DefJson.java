@@ -27,7 +27,6 @@ import org.dromara.warm.flow.core.entity.Skip;
 import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 
-import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -157,39 +156,39 @@ public class DefJson {
 
     public static DefJson copyDef(Definition definition) {
         DefJson defJson = new DefJson()
-                .setFlowCode(definition.getFlowCode())
-                .setFlowName(definition.getFlowName())
-                .setModelValue(definition.getModelValue())
-                .setVersion(definition.getVersion())
-                .setIsPublish(definition.getIsPublish())
-                .setCategory(definition.getCategory())
-                .setFormCustom(definition.getFormCustom())
-                .setFormPath(definition.getFormPath())
-                .setListenerType(definition.getListenerType())
-                .setListenerPath(definition.getListenerPath())
-                .setExt(definition.getExt())
-                .setCreateBy(definition.getCreateBy())
-                .setUpdateBy(definition.getUpdateBy());
+            .setFlowCode(definition.getFlowCode())
+            .setFlowName(definition.getFlowName())
+            .setModelValue(definition.getModelValue())
+            .setVersion(definition.getVersion())
+            .setIsPublish(definition.getIsPublish())
+            .setCategory(definition.getCategory())
+            .setFormCustom(definition.getFormCustom())
+            .setFormPath(definition.getFormPath())
+            .setListenerType(definition.getListenerType())
+            .setListenerPath(definition.getListenerPath())
+            .setExt(definition.getExt())
+            .setCreateBy(definition.getCreateBy())
+            .setUpdateBy(definition.getUpdateBy());
 
         List<NodeJson> nodeList = new ArrayList<>();
         defJson.setNodeList(nodeList);
         for (Node node : definition.getNodeList()) {
             // 向节点中添加子节点
             NodeJson nodeJson = new NodeJson()
-                    .setNodeType(node.getNodeType())
-                    .setNodeCode(node.getNodeCode())
-                    .setNodeName(node.getNodeName())
-                    .setPermissionFlag(node.getPermissionFlag())
-                    .setNodeRatio(node.getNodeRatio())
-                    .setCoordinate(node.getCoordinate())
-                    .setAnyNodeSkip(node.getAnyNodeSkip())
-                    .setListenerType(node.getListenerType())
-                    .setListenerPath(node.getListenerPath())
-                    .setFormCustom(node.getFormCustom())
-                    .setFormPath(node.getFormPath())
-                    .setExt(node.getExt())
-                    .setCreateBy(node.getCreateBy())
-                    .setUpdateBy(node.getUpdateBy());
+                .setNodeType(node.getNodeType())
+                .setNodeCode(node.getNodeCode())
+                .setNodeName(node.getNodeName())
+                .setPermissionFlag(node.getPermissionFlag())
+                .setNodeRatio(node.getNodeRatio())
+                .setCoordinate(node.getCoordinate())
+                .setAnyNodeSkip(node.getAnyNodeSkip())
+                .setListenerType(node.getListenerType())
+                .setListenerPath(node.getListenerPath())
+                .setFormCustom(node.getFormCustom())
+                .setFormPath(node.getFormPath())
+                .setExt(node.getExt())
+                .setCreateBy(node.getCreateBy())
+                .setUpdateBy(node.getUpdateBy());
             nodeList.add(nodeJson);
 
             List<SkipJson> skipList = new ArrayList<>();
@@ -197,14 +196,14 @@ public class DefJson {
             if (CollUtil.isNotEmpty(node.getSkipList())) {
                 for (Skip skip : node.getSkipList()) {
                     skipList.add(new SkipJson()
-                            .setCoordinate(skip.getCoordinate())
-                            .setSkipType(skip.getSkipType())
-                            .setSkipName(skip.getSkipName())
-                            .setSkipCondition(skip.getSkipCondition())
-                            .setNowNodeCode(skip.getNowNodeCode())
-                            .setNextNodeCode(skip.getNextNodeCode())
-                            .setCreateBy(skip.getCreateBy())
-                            .setUpdateBy(skip.getUpdateBy()));
+                        .setCoordinate(skip.getCoordinate())
+                        .setSkipType(skip.getSkipType())
+                        .setSkipName(skip.getSkipName())
+                        .setSkipCondition(skip.getSkipCondition())
+                        .setNowNodeCode(skip.getNowNodeCode())
+                        .setNextNodeCode(skip.getNextNodeCode())
+                        .setCreateBy(skip.getCreateBy())
+                        .setUpdateBy(skip.getUpdateBy()));
                 }
             }
 
@@ -214,39 +213,39 @@ public class DefJson {
 
     public static Definition copyDef(DefJson defJson) {
         Definition definition = FlowEngine.newDef()
-                .setId(defJson.getId())
-                .setFlowCode(defJson.getFlowCode())
-                .setFlowName(defJson.getFlowName())
-                .setModelValue(defJson.getModelValue())
-                .setVersion(defJson.getVersion())
-                .setCategory(defJson.getCategory())
-                .setFormCustom(defJson.getFormCustom())
-                .setFormPath(defJson.getFormPath())
-                .setListenerType(defJson.getListenerType())
-                .setListenerPath(defJson.getListenerPath())
-                .setExt(defJson.getExt())
-                .setCreateBy(defJson.getCreateBy())
-                .setUpdateBy(defJson.getUpdateBy());
+            .setId(defJson.getId())
+            .setFlowCode(defJson.getFlowCode())
+            .setFlowName(defJson.getFlowName())
+            .setModelValue(defJson.getModelValue())
+            .setVersion(defJson.getVersion())
+            .setCategory(defJson.getCategory())
+            .setFormCustom(defJson.getFormCustom())
+            .setFormPath(defJson.getFormPath())
+            .setListenerType(defJson.getListenerType())
+            .setListenerPath(defJson.getListenerPath())
+            .setExt(defJson.getExt())
+            .setCreateBy(defJson.getCreateBy())
+            .setUpdateBy(defJson.getUpdateBy());
 
         List<Node> nodeList = new ArrayList<>();
         definition.setNodeList(nodeList);
         for (NodeJson nodeJson : defJson.getNodeList()) {
             // 向节点中添加子节点
             Node node = FlowEngine.newNode()
-                    .setNodeType(nodeJson.getNodeType())
-                    .setNodeCode(nodeJson.getNodeCode())
-                    .setNodeName(nodeJson.getNodeName())
-                    .setPermissionFlag(nodeJson.getPermissionFlag())
-                    .setNodeRatio(nodeJson.getNodeRatio() != null ? nodeJson.getNodeRatio() : "0")
-                    .setCoordinate(nodeJson.getCoordinate())
-                    .setAnyNodeSkip(nodeJson.getAnyNodeSkip())
-                    .setListenerType(nodeJson.getListenerType())
-                    .setListenerPath(nodeJson.getListenerPath())
-                    .setFormCustom(nodeJson.getFormCustom())
-                    .setFormPath(nodeJson.getFormPath())
-                    .setExt(nodeJson.getExt())
-                    .setCreateBy(nodeJson.getCreateBy())
-                    .setUpdateBy(nodeJson.getUpdateBy());
+                .setNodeType(nodeJson.getNodeType())
+                .setNodeCode(nodeJson.getNodeCode())
+                .setNodeName(nodeJson.getNodeName())
+                .setPermissionFlag(nodeJson.getPermissionFlag())
+                .setNodeRatio(nodeJson.getNodeRatio() != null ? nodeJson.getNodeRatio() : "0")
+                .setCoordinate(nodeJson.getCoordinate())
+                .setAnyNodeSkip(nodeJson.getAnyNodeSkip())
+                .setListenerType(nodeJson.getListenerType())
+                .setListenerPath(nodeJson.getListenerPath())
+                .setFormCustom(nodeJson.getFormCustom())
+                .setFormPath(nodeJson.getFormPath())
+                .setExt(nodeJson.getExt())
+                .setCreateBy(nodeJson.getCreateBy())
+                .setUpdateBy(nodeJson.getUpdateBy());
             nodeList.add(node);
 
             List<Skip> skipList = new ArrayList<>();
@@ -255,14 +254,14 @@ public class DefJson {
             if (CollUtil.isNotEmpty(nodeJson.getSkipList())) {
                 for (SkipJson skipJson : nodeJson.getSkipList()) {
                     skipList.add(FlowEngine.newSkip()
-                            .setCoordinate(skipJson.getCoordinate())
-                            .setSkipType(skipJson.getSkipType())
-                            .setSkipName(skipJson.getSkipName())
-                            .setSkipCondition(skipJson.getSkipCondition())
-                            .setNowNodeCode(skipJson.getNowNodeCode())
-                            .setNextNodeCode(skipJson.getNextNodeCode())
-                            .setCreateBy(skipJson.getCreateBy())
-                            .setUpdateBy(skipJson.getUpdateBy()));
+                        .setCoordinate(skipJson.getCoordinate())
+                        .setSkipType(skipJson.getSkipType())
+                        .setSkipName(skipJson.getSkipName())
+                        .setSkipCondition(skipJson.getSkipCondition())
+                        .setNowNodeCode(skipJson.getNowNodeCode())
+                        .setNextNodeCode(skipJson.getNextNodeCode())
+                        .setCreateBy(skipJson.getCreateBy())
+                        .setUpdateBy(skipJson.getUpdateBy()));
                 }
             }
 

@@ -4,6 +4,7 @@ import org.dromara.warm.demo.dto.StartInstanceRequest;
 import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.dto.TaskActionRequest;
 import org.dromara.warm.demo.vo.ButtonPermissionVo;
+import org.dromara.warm.demo.vo.DemoUserVo;
 import org.dromara.warm.demo.vo.HistoryVo;
 import org.dromara.warm.demo.vo.InstanceVo;
 import org.dromara.warm.demo.vo.PageVo;
@@ -91,6 +92,22 @@ public interface WorkflowService {
      * @return 按钮权限集合
      */
     List<ButtonPermissionVo> buttonPermissions(Long taskId);
+
+    /**
+     * 查询加签可选办理人，排除流程实例当前已有办理人。
+     *
+     * @param instanceId 流程实例主键
+     * @return 加签可选办理人集合
+     */
+    List<DemoUserVo> addSignatureHandlers(Long instanceId);
+
+    /**
+     * 查询流程实例当前待办任务已有的办理人，供减签使用。
+     *
+     * @param instanceId 流程实例主键
+     * @return 可减签办理人集合
+     */
+    List<DemoUserVo> reductionSignatureHandlers(Long instanceId);
 
     /**
      * 按流程实例变量查询待办任务可达的下一审批节点。

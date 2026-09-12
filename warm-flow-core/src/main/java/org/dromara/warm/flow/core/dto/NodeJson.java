@@ -20,7 +20,6 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.dromara.warm.flow.core.utils.MapUtil;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

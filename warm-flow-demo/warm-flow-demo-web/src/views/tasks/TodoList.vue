@@ -13,9 +13,10 @@
         <template #default="{ row }">{{ (row.assignees || []).join(', ') }}</template>
       </el-table-column>
       <el-table-column prop="createTime" label="创建时间" width="170" />
-      <el-table-column label="操作" width="90">
+      <el-table-column label="操作" width="140">
         <template #default="{ row }">
           <el-button link type="primary" @click="openDialog(row)">办理</el-button>
+          <el-button link type="primary" @click="viewHistory(row)">历史</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -28,11 +29,13 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { httpGet, type PageVo } from '../../api/http'
 import TaskActionDialog, { type TodoTask } from '../../components/tasks/TaskActionDialog.vue'
 
 interface TaskRow {
   id: string
+  instanceId: string
   flowName: string
   nodeName: string
   businessId: string
@@ -41,6 +44,7 @@ interface TaskRow {
 }
 
 const rows = ref<TaskRow[]>([])
+const router = useRouter()
 const total = ref(0)
 const pageNum = ref(1)
 const loading = ref(false)
@@ -59,8 +63,14 @@ async function load() {
 }
 
 function openDialog(row: TaskRow) {
-  currentTask.value = { id: row.id, nodeName: row.nodeName }
+  currentTask.value = { id: row.id, instanceId: row.instanceId, nodeName: row.nodeName }
   dialogVisible.value = true
+}
+
+function viewHistory(row: TaskRow) {
+  if (row.instanceId) {
+    router.push(`/instances/${row.instanceId}`)
+  }
 }
 
 function onSaved() {

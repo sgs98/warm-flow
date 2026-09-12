@@ -17,11 +17,18 @@ package org.dromara.warm.flow.spring.boot.config;
 
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import org.dromara.warm.flow.core.config.WarmFlow;
+import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.orm.dao.*;
+import org.dromara.warm.flow.core.service.*;
+import org.dromara.warm.flow.core.service.impl.*;
+import org.dromara.warm.flow.orm.dao.*;
+import org.dromara.warm.flow.orm.entity.*;
 import org.dromara.warm.flow.core.invoker.FrameInvoker;
 import org.dromara.warm.plugin.modes.sb.config.BeanConfig;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Bean;
 
 /**
  * 工作流bean注册配置
@@ -32,6 +39,66 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConditionalOnProperty(value = "warm-flow.enabled", havingValue = "true", matchIfMissing = true)
 public class FlowAutoConfig extends BeanConfig {
+
+    @Bean
+    public FlowDefinitionDao definitionDao() { return new FlowDefinitionDaoImpl(); }
+
+    @Bean
+    public DefService definitionService(FlowDefinitionDao dao) { return new DefServiceImpl().setDao(dao); }
+
+    @Bean
+    public FlowNodeDao nodeDao() { return new FlowNodeDaoImpl(); }
+
+    @Bean
+    public NodeService nodeService(FlowNodeDao dao) { return new NodeServiceImpl().setDao(dao); }
+
+    @Bean
+    public FlowSkipDao skipDao() { return new FlowSkipDaoImpl(); }
+
+    @Bean
+    public SkipService skipService(FlowSkipDao dao) { return new SkipServiceImpl().setDao(dao); }
+
+    @Bean
+    public FlowInstanceDao instanceDao() { return new FlowInstanceDaoImpl(); }
+
+    @Bean
+    public InsService instanceService(FlowInstanceDao dao) { return new InsServiceImpl().setDao(dao); }
+
+    @Bean
+    public FlowTaskDao taskDao() { return new FlowTaskDaoImpl(); }
+
+    @Bean
+    public TaskService taskService(FlowTaskDao dao) { return new TaskServiceImpl().setDao(dao); }
+
+    @Bean
+    public FlowHisTaskDao hisTaskDao() { return new FlowHisTaskDaoImpl(); }
+
+    @Bean
+    public HisTaskService hisTaskService(FlowHisTaskDao dao) { return new HisTaskServiceImpl().setDao(dao); }
+
+    @Bean
+    public FlowUserDao flowUserDao() { return new FlowUserDaoImpl(); }
+
+    @Bean
+    public UserService flowUserService(FlowUserDao dao) { return new UserServiceImpl().setDao(dao); }
+
+    @Bean
+    public FlowFormDao formDao() { return new FlowFormDaoImpl(); }
+
+    @Bean
+    public FormService flowFormService(FlowFormDao dao) { return new FormServiceImpl().setDao(dao); }
+
+    @Override
+    public void setNewEntity() {
+        FlowEngine.setNewDef(FlowDefinition::new);
+        FlowEngine.setNewIns(FlowInstance::new);
+        FlowEngine.setNewHisTask(FlowHisTask::new);
+        FlowEngine.setNewNode(FlowNode::new);
+        FlowEngine.setNewSkip(FlowSkip::new);
+        FlowEngine.setNewTask(FlowTask::new);
+        FlowEngine.setNewUser(FlowUser::new);
+        FlowEngine.setNewForm(FlowForm::new);
+    }
 
     @Override
     public void after(WarmFlow flowConfig) {
