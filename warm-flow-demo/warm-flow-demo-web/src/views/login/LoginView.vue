@@ -92,8 +92,8 @@ function login() {
   min-height: 100%;
   padding: 24px;
   background:
-    radial-gradient(circle at 18% 18%, rgba(47, 107, 240, 0.16), transparent 34%),
-    radial-gradient(circle at 82% 72%, rgba(47, 107, 240, 0.12), transparent 38%),
+    radial-gradient(circle at 18% 18%, rgba(64, 158, 255, 0.16), transparent 34%),
+    radial-gradient(circle at 82% 72%, rgba(64, 158, 255, 0.12), transparent 38%),
     var(--wf-bg);
 }
 

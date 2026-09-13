@@ -8,7 +8,7 @@
       <el-button type="primary" plain @click="goCreate">+ 新建流程</el-button>
     </div>
 
-    <el-table :data="rows" v-loading="loading" border stripe>
+    <el-table :data="rows" v-loading="loading" border>
       <el-table-column prop="id" label="ID" width="150" />
       <el-table-column prop="flowCode" label="流程编码" min-width="140" />
       <el-table-column prop="flowName" label="流程名称" min-width="140" />
@@ -103,6 +103,11 @@ function reset() {
 }
 
 async function doPublish(row: DefinitionRow) {
+  await ElMessageBox.confirm(`确认发布流程【${row.flowName}】？发布后该版本可被发起。`, '发布确认', {
+    type: 'warning',
+    confirmButtonText: '发布',
+    cancelButtonText: '取消',
+  })
   await httpPut(`/definitions/${row.id}/publish`)
   ElMessage.success('发布成功')
   load()

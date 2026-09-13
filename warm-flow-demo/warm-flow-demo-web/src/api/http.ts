@@ -11,7 +11,18 @@ const http = axios.create({
 
 http.interceptors.request.use((config) => {
   const user = localStorage.getItem('wf_user')
-  if (user) config.headers['X-User-Name'] = user
+  if (user) {
+    const headers = config.headers as { set?: (k: string, v: string) => void } & Record<string, unknown>
+    if (typeof headers.set === 'function') headers.set('X-User-Name', user)
+    else headers['X-User-Name'] = user
+    return config
+  }
+  const url = config.url || ''
+  if (/\/tasks\/(todo|done|copy)\b/.test(url)) {
+    const err = new Error('UNAUTH')
+    ;(err as Error & { silent?: boolean }).silent = true
+    return Promise.reject(err)
+  }
   return config
 })
 
@@ -26,6 +37,9 @@ http.interceptors.response.use(
     return body
   },
   (error: any) => {
+    if (error?.silent || error?.message === 'UNAUTH') {
+      return Promise.reject(error)
+    }
     const msg = error?.response?.data?.message || error?.message || '网络异常'
     ElMessage.error(msg)
     return Promise.reject(error)

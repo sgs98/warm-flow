@@ -4,7 +4,7 @@
       <el-button text @click="back">← 返回列表</el-button>
       <span class="title">{{ isNew ? '新建流程' : '编辑流程 #' + id }}</span>
       <div style="flex: 1" />
-      <el-button type="warning" plain size="small" @click="readonly = !readonly">
+      <el-button type="primary" plain size="small" @click="readonly = !readonly">
         {{ readonly ? '退出只读预览' : '只读预览' }}
       </el-button>
     </div>

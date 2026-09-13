@@ -5,13 +5,13 @@
       <el-select v-model="definitionId" placeholder="流程" clearable filterable style="width: 200px">
         <el-option v-for="d in defs" :key="d.id" :label="`${d.flowName}(${d.flowCode})`" :value="d.id" />
       </el-select>
-      <el-button @click="search">查询</el-button>
+      <el-button type="primary" @click="search">查询</el-button>
       <el-button @click="reset">重置</el-button>
       <div style="flex: 1" />
       <el-button type="primary" @click="openStartDialog">+ 发起实例</el-button>
     </div>
 
-    <el-table :data="rows" v-loading="loading" border stripe>
+    <el-table :data="rows" v-loading="loading" border>
       <el-table-column prop="id" label="实例ID" width="160" />
       <el-table-column label="流程名称" min-width="140">
         <template #default="{ row }">{{ row.flowName || '-' }}</template>
@@ -20,7 +20,9 @@
       <el-table-column prop="nodeName" label="当前节点" min-width="120" />
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
-          <el-tag>{{ row.businessStatusName || row.flowStatusName }}</el-tag>
+          <el-tag size="small" :type="statusTagType(row.businessStatus, row.businessStatusName || row.flowStatusName)">
+            {{ row.businessStatusName || row.flowStatusName }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="createBy" label="发起人" width="100" />
@@ -30,7 +32,7 @@
           <el-button v-if="canContinue(row)" link type="primary" @click="continueDraft(row)">
             {{ row.businessStatus === 'draft' ? '继续办理' : '重新提交' }}
           </el-button>
-          <el-button link type="primary" @click="goDetail(row)">历史</el-button>
+          <el-button link type="primary" @click="goDetail(row)">详情</el-button>
           <el-button link type="danger" @click="remove(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -60,7 +62,7 @@
               <el-input v-model="item.value" placeholder="变量值" />
               <el-button link type="danger" @click="removeVariable(index)">删除</el-button>
             </div>
-            <el-button link type="primary" @click="addVariable">+ 添加变量</el-button>
+            <el-button class="add-row-btn" type="primary" plain size="small" @click="addVariable">+ 添加变量</el-button>
           </div>
         </el-form-item>
       </el-form>
@@ -85,6 +87,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TaskActionDialog from '../../components/tasks/TaskActionDialog.vue'
 import { httpDelete, httpGet, httpPost, type PageVo } from '../../api/http'
+import { statusTagType } from '../../utils/status'
 
 interface InstanceRow {
   /** 流程实例主键。 */
@@ -190,7 +193,7 @@ function reset() {
   search()
 }
 
-/** 跳转到流程实例审批历史页。 */
+/** 跳转到流程实例详情。 */
 function goDetail(row: InstanceRow) {
   router.push(`/instances/${row.id}`)
 }
