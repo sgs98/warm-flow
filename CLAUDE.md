@@ -17,7 +17,7 @@
 
 ## 技术基线
 
-- JDK 1.8 源码级（兼容 Java 8/17/21）；支持 Spring Boot 2.7/3.0/4.0；多 ORM MyBatis / MyBatis-Plus / Easy-Query；多 JSON snack3/snack4/jackson/jackson3/fastjson2/gson；多数据库 MySQL/Oracle/PostgreSQL/SQL Server。
+- JDK 1.8 源码级（兼容 Java 8/17/21）；支持 Spring Boot 2.7/3.0/4.0；多 ORM MyBatis / MyBatis-Plus；多 JSON snack3/snack4/jackson/jackson3/fastjson2/gson；多数据库 MySQL/Oracle/PostgreSQL/SQL Server。
 - Lombok + `slf4j-api`；依赖版本统一在父 `pom.xml`，子模块不私改。
 
 ## 模块速览

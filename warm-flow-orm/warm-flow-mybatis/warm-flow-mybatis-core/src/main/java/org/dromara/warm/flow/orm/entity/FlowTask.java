@@ -105,6 +105,7 @@ public class FlowTask implements Task {
 
     /**
      * 流程状态（0待提交 1审批中 2审批通过 4终止 5作废 6撤销 8已完成 9已退回 10失效 11拿回）
+     *
      * @see org.dromara.warm.flow.core.enums.FlowStatus
      */
     private String flowStatus;

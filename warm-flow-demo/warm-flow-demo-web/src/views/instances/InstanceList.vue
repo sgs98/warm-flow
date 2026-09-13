@@ -27,8 +27,8 @@
       <el-table-column prop="createTime" label="发起时间" width="170" />
       <el-table-column label="操作" width="180">
         <template #default="{ row }">
-          <el-button v-if="row.taskId && row.businessStatus === 'draft'" link type="primary" @click="continueDraft(row)">
-            继续办理
+          <el-button v-if="canContinue(row)" link type="primary" @click="continueDraft(row)">
+            {{ row.businessStatus === 'draft' ? '继续办理' : '重新提交' }}
           </el-button>
           <el-button link type="primary" @click="goDetail(row)">历史</el-button>
           <el-button link type="danger" @click="remove(row)">删除</el-button>
@@ -223,6 +223,11 @@ function continueDraft(row: InstanceRow) {
     variables: row.variables,
   }
   taskDialogVisible.value = true
+}
+
+/** 退回或撤回到申请节点后允许发起人继续提交。 */
+function canContinue(row: InstanceRow) {
+  return Boolean(row.taskId && ['draft', 'back', 'cancel'].includes(row.businessStatus))
 }
 
 /** 将变量编辑行转换为引擎需要的 Map。 */

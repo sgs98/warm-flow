@@ -10,11 +10,13 @@
       <el-card shadow="never">
         <div class="tl-row">
           <b>{{ h.nodeName || h.nodeCode }}</b>
-          <el-tag v-if="h.businessStatusName || h.flowStatusName" size="small">{{ h.businessStatusName || h.flowStatusName }}</el-tag>
+          <el-tag v-if="h.businessStatusName || h.flowStatusName" size="small">
+            {{ h.current ? h.taskStatusName : (h.businessStatusName || h.flowStatusName) }}
+          </el-tag>
         </div>
         <div v-if="h.targetNodeName" class="tl-line">→ {{ h.targetNodeName }}</div>
         <div class="tl-line">办理人：{{ h.approver || '-' }}</div>
-        <div v-if="h.skipType" class="tl-line">动作：{{ h.skipType }}</div>
+        <div v-if="h.current" class="tl-line">当前待办</div>
         <div v-if="h.message" class="tl-line">意见：{{ h.message }}</div>
       </el-card>
     </el-timeline-item>
@@ -29,10 +31,11 @@ interface HistoryItem {
   nodeCode: string
   targetNodeName: string
   approver: string
-  skipType: string
   flowStatusName: string
   businessStatus: string
   businessStatusName: string
+  current: boolean
+  taskStatusName: string
   message: string
   createTime: string
 }

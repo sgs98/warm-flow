@@ -15,20 +15,20 @@
  */
 package org.dromara.warm.flow.spring.boot.config;
 
-import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.orm.dao.*;
 import org.dromara.warm.flow.core.service.*;
 import org.dromara.warm.flow.core.service.impl.*;
+import org.dromara.warm.flow.core.utils.IdUtils;
 import org.dromara.warm.flow.orm.dao.*;
 import org.dromara.warm.flow.orm.entity.*;
-import org.dromara.warm.flow.core.utils.IdUtils;
 import org.dromara.warm.flow.orm.keygen.MybatisPlusIdGen;
 import org.dromara.warm.plugin.modes.sb.config.BeanConfig;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 /**
  * 工作流bean注册配置
@@ -42,52 +42,84 @@ import org.springframework.context.annotation.Bean;
 public class FlowAutoConfig extends BeanConfig {
 
     @Bean
-    public FlowDefinitionDao definitionDao() { return new FlowDefinitionDaoImpl(); }
+    public FlowDefinitionDao definitionDao() {
+        return new FlowDefinitionDaoImpl();
+    }
 
     @Bean
-    public DefService definitionService(FlowDefinitionDao dao) { return new DefServiceImpl().setDao(dao); }
+    public DefService definitionService(FlowDefinitionDao dao) {
+        return new DefServiceImpl().setDao(dao);
+    }
 
     @Bean
-    public FlowNodeDao nodeDao() { return new FlowNodeDaoImpl(); }
+    public FlowNodeDao nodeDao() {
+        return new FlowNodeDaoImpl();
+    }
 
     @Bean
-    public NodeService nodeService(FlowNodeDao dao) { return new NodeServiceImpl().setDao(dao); }
+    public NodeService nodeService(FlowNodeDao dao) {
+        return new NodeServiceImpl().setDao(dao);
+    }
 
     @Bean
-    public FlowSkipDao skipDao() { return new FlowSkipDaoImpl(); }
+    public FlowSkipDao skipDao() {
+        return new FlowSkipDaoImpl();
+    }
 
     @Bean
-    public SkipService skipService(FlowSkipDao dao) { return new SkipServiceImpl().setDao(dao); }
+    public SkipService skipService(FlowSkipDao dao) {
+        return new SkipServiceImpl().setDao(dao);
+    }
 
     @Bean
-    public FlowInstanceDao instanceDao() { return new FlowInstanceDaoImpl(); }
+    public FlowInstanceDao instanceDao() {
+        return new FlowInstanceDaoImpl();
+    }
 
     @Bean
-    public InsService instanceService(FlowInstanceDao dao) { return new InsServiceImpl().setDao(dao); }
+    public InsService instanceService(FlowInstanceDao dao) {
+        return new InsServiceImpl().setDao(dao);
+    }
 
     @Bean
-    public FlowTaskDao taskDao() { return new FlowTaskDaoImpl(); }
+    public FlowTaskDao taskDao() {
+        return new FlowTaskDaoImpl();
+    }
 
     @Bean
-    public TaskService taskService(FlowTaskDao dao) { return new TaskServiceImpl().setDao(dao); }
+    public TaskService taskService(FlowTaskDao dao) {
+        return new TaskServiceImpl().setDao(dao);
+    }
 
     @Bean
-    public FlowHisTaskDao hisTaskDao() { return new FlowHisTaskDaoImpl(); }
+    public FlowHisTaskDao hisTaskDao() {
+        return new FlowHisTaskDaoImpl();
+    }
 
     @Bean
-    public HisTaskService hisTaskService(FlowHisTaskDao dao) { return new HisTaskServiceImpl().setDao(dao); }
+    public HisTaskService hisTaskService(FlowHisTaskDao dao) {
+        return new HisTaskServiceImpl().setDao(dao);
+    }
 
     @Bean
-    public FlowUserDao flowUserDao() { return new FlowUserDaoImpl(); }
+    public FlowUserDao flowUserDao() {
+        return new FlowUserDaoImpl();
+    }
 
     @Bean
-    public UserService flowUserService(FlowUserDao dao) { return new UserServiceImpl().setDao(dao); }
+    public UserService flowUserService(FlowUserDao dao) {
+        return new UserServiceImpl().setDao(dao);
+    }
 
     @Bean
-    public FlowFormDao formDao() { return new FlowFormDaoImpl(); }
+    public FlowFormDao formDao() {
+        return new FlowFormDaoImpl();
+    }
 
     @Bean
-    public FormService flowFormService(FlowFormDao dao) { return new FormServiceImpl().setDao(dao); }
+    public FormService flowFormService(FlowFormDao dao) {
+        return new FormServiceImpl().setDao(dao);
+    }
 
     @Override
     public void setNewEntity() {

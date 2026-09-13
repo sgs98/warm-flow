@@ -92,7 +92,6 @@
         <mybatis-spring-boot>2.3.2</mybatis-spring-boot>
         <mybatis.version>3.5.15</mybatis.version>
         <mybatis-plus.version>3.5.12</mybatis-plus.version>
-        <easy-query.version>3.1.79</easy-query.version>
 
         <!-- 工具库版本 -->
         <junit.version>4.13.2</junit.version>
@@ -149,33 +148,6 @@
                 <groupId>com.baomidou</groupId>
                 <artifactId>mybatis-plus-boot-starter</artifactId>
                 <version>${mybatis-plus.version}</version>
-            </dependency>
-
-            <!-- easy-query 依赖 -->
-            <dependency>
-                <groupId>com.easy-query</groupId>
-                <artifactId>sql-springboot-starter</artifactId>
-                <version>${easy-query.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.easy-query</groupId>
-                <artifactId>sql-springboot4-starter</artifactId>
-                <version>${easy-query.version}</version>
-            </dependency>
-
-            <!-- entity-query的api包 -->
-            <dependency>
-                <groupId>com.easy-query</groupId>
-                <artifactId>sql-api-proxy</artifactId>
-                <version>${easy-query.version}</version>
-            </dependency>
-
-            <!-- entity-query的apt包 如果你是多模块只需要在生成apt的对象模块处需要引入 -->
-            <dependency>
-                <groupId>com.easy-query</groupId>
-                <artifactId>sql-processor</artifactId>
-                <version>${easy-query.version}</version>
             </dependency>
 
             <!-- json 依赖 -->
@@ -280,30 +252,6 @@
             <dependency>
                 <groupId>org.dromara.warm</groupId>
                 <artifactId>warm-flow-mybatis-plus-sb4-starter</artifactId>
-                <version>${warm-flow}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.dromara.warm</groupId>
-                <artifactId>warm-flow-easy-query-core</artifactId>
-                <version>${warm-flow}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.dromara.warm</groupId>
-                <artifactId>warm-flow-easy-query-sb-starter</artifactId>
-                <version>${warm-flow}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.dromara.warm</groupId>
-                <artifactId>warm-flow-easy-query-sb3-starter</artifactId>
-                <version>${warm-flow}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.dromara.warm</groupId>
-                <artifactId>warm-flow-easy-query-sb4-starter</artifactId>
                 <version>${warm-flow}</version>
             </dependency>
 

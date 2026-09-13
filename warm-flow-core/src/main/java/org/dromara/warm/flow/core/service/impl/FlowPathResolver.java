@@ -57,8 +57,6 @@ final class FlowPathResolver {
             return;
         }
 
-        DefJson defJson = FlowEngine.jsonConvert.strToBean(instance.getDefJson(), DefJson.class);
-        Map<String, NodeJson> nodeJsonMap = StreamUtils.toMap(defJson.getNodeList(), NodeJson::getNodeCode, node -> node);
         List<Node> gateways = Optional.of(pathWayData)
             .map(PathWayData::getPathWayNodes)
             .orElse(Collections.emptyList())
@@ -72,13 +70,10 @@ final class FlowPathResolver {
 
         List<Node> previousNodes = FlowEngine.nodeService().previousNodeList(instance.getDefinitionId()
             , gateways.get(gateways.size() - 1).getNodeCode());
-        long activePreviousCount = previousNodes.stream()
-            .map(Node::getNodeCode)
-            .map(nodeJsonMap::get)
-            .filter(Objects::nonNull)
-            .filter(nodeJson -> nodeJson.getStatus() == 1)
-            .count();
-        if (activePreviousCount <= 1) {
+        List<String> previousNodeCodes = StreamUtils.toList(previousNodes, Node::getNodeCode);
+        List<Task> activePreviousTasks = FlowEngine.taskService().getByInsIdAndNodeCodes(instance.getId()
+            , previousNodeCodes);
+        if (activePreviousTasks.size() <= 1) {
             return;
         }
 

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
-        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.dromara.warm.flow.orm.mapper.FlowFormMapper">
     <resultMap type="org.dromara.warm.flow.orm.entity.FlowForm" id="FlowFormResult">
         <result property="id" column="id"/>
@@ -23,20 +23,20 @@
 
     <sql id="selectVo">
         select t.id,
-        t.form_code,
-        t.form_name,
-        t.version,
-        t.is_publish,
-        t.form_type,
-        t.form_path,
-        t.form_content,
-        t.ext,
-        t.create_time,
-        t.update_time,
-        t.del_flag,
-        t.tenant_id,
-        t.create_by,
-        t.update_by
+               t.form_code,
+               t.form_name,
+               t.version,
+               t.is_publish,
+               t.form_type,
+               t.form_path,
+               t.form_content,
+               t.ext,
+               t.create_time,
+               t.update_time,
+               t.del_flag,
+               t.tenant_id,
+               t.create_by,
+               t.update_by
         from flow_form t
     </sql>
 
@@ -66,7 +66,7 @@
             <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
             <if test="entity.tenantId != null  and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
             <if test="entity.updateBy != null and entity.updateBy != ''">and t.update_by = #{entity.updateBy}</if>
-            <if test="entity.createBy != null and entity.createBy != ''"> and t.create_by = #{entity.createBy}</if>
+            <if test="entity.createBy != null and entity.createBy != ''">and t.create_by = #{entity.createBy}</if>
         </where>
     </sql>
 

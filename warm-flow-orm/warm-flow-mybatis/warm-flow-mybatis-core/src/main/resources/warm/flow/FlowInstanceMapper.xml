@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
-        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.dromara.warm.flow.orm.mapper.FlowInstanceMapper">
 
     <resultMap type="org.dromara.warm.flow.orm.entity.FlowInstance" id="FlowInstanceResult">
@@ -67,7 +67,8 @@
             <if test="entity.nodeCode != null and entity.nodeCode != ''">and t.node_code = #{entity.nodeCode}</if>
             <if test="entity.nodeName != null and entity.nodeName != ''">and t.node_name = #{entity.nodeName}</if>
             <if test="entity.variable != null">and t.variable = #{entity.variable}</if>
-            <if test="entity.flowStatus != null and entity.flowStatus != ''">and t.flow_status = #{entity.flowStatus}</if>
+            <if test="entity.flowStatus != null and entity.flowStatus != ''">and t.flow_status = #{entity.flowStatus}
+            </if>
             <if test="entity.activityStatus != null">and t.activity_status = #{entity.activityStatus}</if>
             <if test="entity.defJson != null  and entity.defJson != ''">and t.def_json = #{entity.defJson}</if>
             <if test="entity.createBy != null  and entity.createBy != ''">and t.create_by = #{entity.createBy}</if>

@@ -21,23 +21,18 @@
     <dependencies>
         <dependency>
             <groupId>org.dromara.warm</groupId>
-            <artifactId>warm-flow-mybatis-sb-starter</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.mybatis</groupId>
-                    <artifactId>mybatis</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.mybatis.spring.boot</groupId>
-                    <artifactId>mybatis-spring-boot-starter</artifactId>
-                </exclusion>
-            </exclusions>
+            <artifactId>warm-flow-mybatis-core</artifactId>
         </dependency>
 
         <dependency>
             <groupId>org.mybatis.spring.boot</groupId>
             <artifactId>mybatis-spring-boot-starter</artifactId>
             <version>${mybatis-spring-boot3}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.dromara.warm</groupId>
+            <artifactId>warm-flow-plugin-modes-sb</artifactId>
         </dependency>
     </dependencies>
 

@@ -54,6 +54,8 @@ interface HistoryItem {
   flowStatusName: string
   businessStatus: string
   businessStatusName: string
+  current: boolean
+  taskStatusName: string
   message: string
   createTime: string
 }

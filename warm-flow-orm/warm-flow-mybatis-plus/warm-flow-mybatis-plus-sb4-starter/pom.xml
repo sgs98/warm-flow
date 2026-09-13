@@ -26,21 +26,7 @@
 
         <dependency>
             <groupId>org.dromara.warm</groupId>
-            <artifactId>warm-flow-mybatis-plus-sb-starter</artifactId>
-            <exclusions>
-                <exclusion>
-                    <artifactId>mybatis-plus-extension</artifactId>
-                    <groupId>com.baomidou</groupId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.baomidou</groupId>
-                    <artifactId>mybatis-plus-boot-starter</artifactId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>mybatis-plus-jsqlparser-4.9</artifactId>
-                    <groupId>com.baomidou</groupId>
-                </exclusion>
-            </exclusions>
+            <artifactId>warm-flow-mybatis-plus-core</artifactId>
         </dependency>
 
         <dependency>
@@ -59,6 +45,11 @@
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-extension</artifactId>
             <version>${mybatis-plus.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.dromara.warm</groupId>
+            <artifactId>warm-flow-plugin-modes-sb</artifactId>
         </dependency>
     </dependencies>
 

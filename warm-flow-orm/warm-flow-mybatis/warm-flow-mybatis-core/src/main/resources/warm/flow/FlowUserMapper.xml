@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
-        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.dromara.warm.flow.orm.mapper.FlowUserMapper">
 
     <resultMap type="org.dromara.warm.flow.orm.entity.FlowUser" id="FlowUserResult">
@@ -328,7 +328,9 @@
         <where>
             <if test="entity.id != null">and id = #{entity.id}</if>
             <if test="entity.type != null  and entity.type != ''">and type = #{type}</if>
-            <if test="entity.processedBy != null  and entity.processedBy != ''">and processed_by = #{entity.processedBy}</if>
+            <if test="entity.processedBy != null  and entity.processedBy != ''">and processed_by =
+                #{entity.processedBy}
+            </if>
             <if test="entity.associated != null">and associated = #{entity.associated}</if>
             <if test="entity.createTime != null">and create_time = #{entity.createTime}</if>
             <if test="entity.updateTime != null">and update_time = #{entity.updateTime}</if>
@@ -347,7 +349,7 @@
 
     <update id="updateByTaskIdsLogic">
         update flow_user
-            set del_flag = #{logicDeleteValue}
+        set del_flag = #{logicDeleteValue}
         where associated in
         <foreach item="taskId" collection="taskIds" open="(" separator="," close=")">
             #{taskId}

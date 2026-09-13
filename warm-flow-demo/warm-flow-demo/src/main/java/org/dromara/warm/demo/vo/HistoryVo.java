@@ -81,6 +81,16 @@ public class HistoryVo {
     private String businessStatusName;
 
     /**
+     * 是否为当前活动待办。
+     */
+    private boolean current;
+
+    /**
+     * 任务操作状态名称。
+     */
+    private String taskStatusName;
+
+    /**
      * 办理意见。
      */
     private String message;

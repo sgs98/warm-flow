@@ -17,7 +17,6 @@
     <modules>
         <module>warm-flow-mybatis</module>
         <module>warm-flow-mybatis-plus</module>
-        <module>warm-flow-easy-query</module>
     </modules>
 
 </project>

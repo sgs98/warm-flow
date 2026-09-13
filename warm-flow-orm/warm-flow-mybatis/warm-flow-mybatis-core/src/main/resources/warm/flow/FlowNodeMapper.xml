@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
-        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.dromara.warm.flow.orm.mapper.FlowNodeMapper">
 
     <resultMap type="org.dromara.warm.flow.orm.entity.FlowNode" id="FlowNodeResult">
@@ -85,7 +85,8 @@
             <if test="entity.listenerPath != null and entity.listenerPath != ''">and t.listener_path =
                 #{entity.listenerPath}
             </if>
-            <if test="entity.formCustom != null and entity.formCustom != ''">and t.form_custom = #{entity.formCustom}</if>
+            <if test="entity.formCustom != null and entity.formCustom != ''">and t.form_custom = #{entity.formCustom}
+            </if>
             <if test="entity.formPath != null and entity.formPath != ''">and t.form_path = #{entity.formPath}</if>
             <if test="entity.version != null and entity.version != ''">and t.version = #{entity.version}</if>
             <if test="entity.createTime != null">and t.create_time = #{entity.createTime}</if>
@@ -94,7 +95,7 @@
             <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
             <if test="entity.tenantId != null  and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
             <if test="entity.updateBy != null and entity.updateBy != ''">and t.update_by = #{entity.updateBy}</if>
-            <if test="entity.createBy != null and entity.createBy != ''"> and t.create_by = #{entity.createBy}</if>
+            <if test="entity.createBy != null and entity.createBy != ''">and t.create_by = #{entity.createBy}</if>
         </where>
     </sql>
 
