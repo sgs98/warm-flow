@@ -1,7 +1,8 @@
 package org.dromara.warm.flow.core.service.impl;
 
 import org.dromara.warm.flow.core.FlowEngine;
-import org.dromara.warm.flow.core.dto.*;
+import org.dromara.warm.flow.core.dto.FlowCombine;
+import org.dromara.warm.flow.core.dto.PathWayData;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
@@ -9,8 +10,11 @@ import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.StreamUtils;
+import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
@@ -29,16 +33,18 @@ final class FlowPathResolver {
      * @param task        当前待办任务
      * @param nowNode     当前流程节点
      * @param instance    流程实例
-     * @param flowParams  流程操作参数
+     * @param context     流程执行上下文
+     * @param skipType    本次流转类型
      * @param flowCombine 流程定义组合数据
      * @return 本次流转的途经节点、跳转线和目标节点
      */
-    PathWayData resolve(Task task, Node nowNode, Instance instance, FlowParams flowParams, FlowCombine flowCombine) {
+    PathWayData resolve(Task task, Node nowNode, Instance instance, WorkflowContext context, String skipType
+        , FlowCombine flowCombine) {
         PathWayData pathWayData = new PathWayData().setInsId(task.getInstanceId())
-            .setSkipType(flowParams.getSkipType());
-        Node nextNode = FlowEngine.nodeService().getNextNode(nowNode, flowParams.getNodeCode()
-            , flowParams.getSkipType(), pathWayData, flowCombine);
-        List<Node> nextNodes = FlowEngine.nodeService().getNextByCheckGateway(flowParams.getVariable()
+            .setSkipType(skipType);
+        Node nextNode = FlowEngine.nodeService().getNextNode(nowNode, context.getTargetNodeCode()
+            , skipType, pathWayData, flowCombine);
+        List<Node> nextNodes = FlowEngine.nodeService().getNextByCheckGateway(context.getVariables()
             , nextNode, pathWayData, flowCombine);
         retainJoinPath(pathWayData, instance, nextNodes);
         pathWayData.getTargetNodes().addAll(nextNodes);

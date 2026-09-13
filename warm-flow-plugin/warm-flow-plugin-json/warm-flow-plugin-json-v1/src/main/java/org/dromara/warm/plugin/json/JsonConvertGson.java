@@ -76,7 +76,8 @@ public class JsonConvertGson implements JsonConvert {
     @Override
     public <T> List<T> strToList(String jsonStr) {
         if (StringUtils.isNotEmpty(jsonStr)) {
-            Type listType = new TypeToken<List<T>>(){}.getType();
+            Type listType = new TypeToken<List<T>>() {
+            }.getType();
             return GSON.fromJson(jsonStr, listType);
         }
         return null;

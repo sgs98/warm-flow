@@ -15,9 +15,9 @@
  */
 package org.dromara.warm.flow.core.service;
 
-import org.dromara.warm.flow.core.dto.FlowParams;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.orm.service.IWarmService;
+import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.List;
 
@@ -32,18 +32,12 @@ public interface InsService extends IWarmService<Instance> {
     /**
      * 传入业务id开启流程
      *
-     * @param businessId: 业务id[必传]
-     * @param flowParams: 包含流程相关参数的对象
-     *                    - flowCode: 流程编码 [必传]
-     *                    - handler: 当前办理人唯一标识[必传]
-     *                    - variable: 流程变量[按需传输]
-     *                    - nextHandler: 执行的下个任务的办理人[按需传输]
-     *                    - nextHandlerAppend: 个任务处理人配置类型（true-追加，false-覆盖，默认false）[按需传输]
-     *                    - flowStatus: 流程状态，自定义流程状态[按需传输]
-     *                    - ext: 扩展字段，预留给业务系统使用[按需传输]
+     * @param businessId 业务主键
+     * @param flowCode   流程定义编码
+     * @param context    流程执行上下文
      * @return 流程实例
      */
-    Instance start(String businessId, FlowParams flowParams);
+    Instance start(String businessId, String flowCode, WorkflowContext context);
 
     /**
      * 根据实例ids，删除流程

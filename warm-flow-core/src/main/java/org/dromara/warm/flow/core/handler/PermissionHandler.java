@@ -15,8 +15,6 @@
  */
 package org.dromara.warm.flow.core.handler;
 
-import org.dromara.warm.flow.core.dto.FlowParams;
-
 import java.util.List;
 
 /**
@@ -31,7 +29,7 @@ public interface PermissionHandler {
 
     /**
      * 办理人权限标识，比如用户，角色，部门等，用于校验是否有权限办理任务
-     * 后续在{@link FlowParams#getPermissionFlag}  中获取
+     * 流程引擎会在执行上下文中使用该集合进行权限匹配
      * 返回当前用户权限集合
      *
      */
@@ -39,7 +37,7 @@ public interface PermissionHandler {
 
     /**
      * 获取当前办理人：就是确定唯一用的，如用户id，通常用来入库，记录流程实例创建人，办理人
-     * 后续在{@link FlowParams#getHandler()}  中获取
+     * 流程引擎会在执行上下文中使用该标识记录操作者
      *
      * @return 当前办理人
      */

@@ -9,6 +9,8 @@ import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.orm.dao.*;
 import org.dromara.warm.flow.core.service.*;
 import org.dromara.warm.flow.core.service.impl.*;
+import org.dromara.warm.flow.core.workflow.WorkflowService;
+import org.dromara.warm.flow.core.workflow.WorkflowServiceImpl;
 import org.dromara.warm.flow.orm.dao.*;
 import org.dromara.warm.flow.orm.entity.*;
 import org.dromara.warm.flow.orm.utils.CommonUtil;
@@ -85,6 +87,16 @@ public class FlowAutoConfig extends BeanConfig {
     @Bean
     public TaskService taskService(FlowTaskDao dao) {
         return new TaskServiceImpl().setDao(dao);
+    }
+
+    /**
+     * 注册流程统一操作门面。
+     *
+     * @return 流程操作服务
+     */
+    @Bean
+    public WorkflowService workflowService() {
+        return new WorkflowServiceImpl();
     }
 
     @Bean

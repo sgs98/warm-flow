@@ -16,7 +16,6 @@
 package org.dromara.warm.flow.core.service.impl;
 
 import org.dromara.warm.flow.core.FlowEngine;
-import org.dromara.warm.flow.core.dto.FlowParams;
 import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
@@ -28,6 +27,7 @@ import org.dromara.warm.flow.core.orm.dao.FlowHisTaskDao;
 import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.HisTaskService;
 import org.dromara.warm.flow.core.utils.*;
+import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -73,37 +73,36 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
     }
 
     @Override
-    public HisTask setSkipInsHis(Task task, List<Node> nextNodes, FlowParams flowParams) {
-        String flowStatus = FlowStatusMachine.customStatus(flowParams);
-        return setSkipHis(task, nextNodes, flowParams, flowStatus);
+    public HisTask setSkipInsHis(Task task, List<Node> nextNodes, WorkflowContext context, String skipType) {
+        return setSkipHis(task, nextNodes, context, skipType, customStatus(context));
     }
 
     @Override
-    public List<HisTask> setSkipHisList(List<Task> taskList, List<Node> nextNodes, FlowParams flowParams) {
-        String flowStatus = FlowStatusMachine.customStatus(flowParams);
+    public List<HisTask> setSkipHisList(List<Task> taskList, List<Node> nextNodes, WorkflowContext context
+        , String skipType) {
+        String flowStatus = customStatus(context);
         List<HisTask> hisTasks = new ArrayList<>();
         for (Task task : taskList) {
-            HisTask hisTask = setSkipHis(task, nextNodes, flowParams, flowStatus);
+            HisTask hisTask = setSkipHis(task, nextNodes, context, skipType, flowStatus);
             hisTasks.add(hisTask);
         }
         return hisTasks;
     }
 
     @Override
-    public HisTask setSkipHisTask(Task task, Node nextNode, FlowParams flowParams) {
-        String flowStatus = FlowStatusMachine.customStatus(flowParams);
-        return setSkipHis(task, CollUtil.toList(nextNode), flowParams, flowStatus);
+    public HisTask setSkipHisTask(Task task, Node nextNode, WorkflowContext context, String skipType) {
+        return setSkipHis(task, CollUtil.toList(nextNode), context, skipType, customStatus(context));
     }
 
 
     @Override
-    public HisTask setCooperateHis(Task task, FlowParams flowParams
-        , List<String> collaborators) {
-        String flowStatus = FlowStatusMachine.customStatus(flowParams);
+    public HisTask setCooperateHis(Task task, WorkflowContext context, List<String> collaborators
+        , Integer cooperateType) {
+        String flowStatus = customStatus(context);
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
-            .setCooperateType(ObjectUtil.defaultNull(flowParams.getCooperateType(), CooperateType.APPROVAL.getKey()))
+            .setCooperateType(ObjectUtil.defaultNull(cooperateType, CooperateType.APPROVAL.getKey()))
             .setCollaborator(StreamUtils.join(collaborators, c -> c))
             .setNodeCode(task.getNodeCode())
             .setNodeName(task.getNodeName())
@@ -111,50 +110,50 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
             .setDefinitionId(task.getDefinitionId())
             .setTargetNodeCode(task.getNodeCode())
             .setTargetNodeName(task.getNodeName())
-            .setApprover(flowParams.getHandler())
-            .setSkipType(flowParams.getSkipType())
+            .setApprover(context.getHandler())
+            .setSkipType(SkipType.NONE.getKey())
             .setFlowStatus(FlowStatusMachine.defaultStatus(flowStatus, FlowStatus.APPROVAL.getKey()))
             .setFormCustom(task.getFormCustom())
             .setFormPath(task.getFormPath())
-            .setMessage(flowParams.getMessage())
-            .setVariable(flowParams.getVariableStr())
+            .setMessage(context.getMessage())
+            .setVariable(variableStr(context))
             //业务详情添加至历史记录
-            .setExt(flowParams.getHisTaskExt())
+            .setExt(context.getExt())
             .setCreateTime(task.getCreateTime());
         FlowEngine.dataFillHandler().idFill(hisTask);
         return hisTask;
     }
 
     @Override
-    public HisTask notSkip(Task task, FlowParams flowParams) {
-        String flowStatus = FlowStatusMachine.customStatus(flowParams);
+    public HisTask notSkip(Task task, WorkflowContext context) {
+        String flowStatus = customStatus(context);
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
-            .setCooperateType(ObjectUtil.defaultNull(flowParams.getCooperateType(), CooperateType.APPROVAL.getKey()))
+            .setCooperateType(CooperateType.APPROVAL.getKey())
             .setNodeCode(task.getNodeCode())
             .setNodeName(task.getNodeName())
             .setNodeType(task.getNodeType())
             .setDefinitionId(task.getDefinitionId())
             .setTargetNodeCode(task.getNodeCode())
             .setTargetNodeName(task.getNodeName())
-            .setApprover(flowParams.getHandler())
+            .setApprover(context.getHandler())
             .setSkipType(SkipType.NONE.getKey())
             .setFlowStatus(flowStatus)
             .setFormCustom(task.getFormCustom())
             .setFormPath(task.getFormPath())
-            .setMessage(flowParams.getMessage())
-            .setVariable(flowParams.getVariableStr())
+            .setMessage(context.getMessage())
+            .setVariable(variableStr(context))
             //业务详情添加至历史记录
-            .setExt(flowParams.getHisTaskExt())
+            .setExt(context.getExt())
             .setCreateTime(task.getCreateTime());
         FlowEngine.dataFillHandler().idFill(hisTask);
         return hisTask;
     }
 
     @Override
-    public HisTask setDeputeHisTask(Task task, FlowParams flowParams, User entrustedUser) {
-        String flowStatus = FlowStatusMachine.customStatus(flowParams);
+    public HisTask setDeputeHisTask(Task task, WorkflowContext context, User entrustedUser, String skipType) {
+        String flowStatus = customStatus(context);
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
@@ -165,24 +164,24 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
             .setDefinitionId(task.getDefinitionId())
             .setTargetNodeCode(task.getNodeCode())
             .setTargetNodeName(task.getNodeName())
-            .setApprover(flowParams.getHandler())
+            .setApprover(context.getHandler())
             .setCollaborator(entrustedUser.getCreateBy())
-            .setSkipType(flowParams.getSkipType())
-            .setFlowStatus(FlowStatusMachine.skipStatus(flowStatus, flowParams.getSkipType()))
+            .setSkipType(skipType)
+            .setFlowStatus(FlowStatusMachine.skipStatus(flowStatus, skipType))
             .setFormCustom(task.getFormCustom())
             .setFormPath(task.getFormPath())
-            .setMessage(flowParams.getMessage())
-            .setVariable(flowParams.getVariableStr())
+            .setMessage(context.getMessage())
+            .setVariable(variableStr(context))
             //业务详情添加至历史记录
-            .setExt(flowParams.getHisTaskExt())
+            .setExt(context.getExt())
             .setCreateTime(task.getCreateTime());
         FlowEngine.dataFillHandler().idFill(hisTask);
         return hisTask;
     }
 
     @Override
-    public HisTask setSignHisTask(Task task, FlowParams flowParams, String nodeRatio, boolean isPass) {
-        String flowStatus = FlowStatusMachine.customStatus(flowParams);
+    public HisTask setSignHisTask(Task task, WorkflowContext context, String nodeRatio, boolean isPass) {
+        String flowStatus = customStatus(context);
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
@@ -192,17 +191,17 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
             .setNodeName(task.getNodeName())
             .setNodeType(task.getNodeType())
             .setDefinitionId(task.getDefinitionId())
-            .setApprover(flowParams.getHandler())
-            .setMessage(flowParams.getMessage())
+            .setApprover(context.getHandler())
+            .setMessage(context.getMessage())
             .setSkipType(isPass ? SkipType.PASS.getKey() : SkipType.REJECT.getKey())
             .setFlowStatus(FlowStatusMachine.defaultStatus(flowStatus
                 , isPass ? FlowStatus.PASS.getKey() : FlowStatus.REJECT.getKey()))
             .setFormCustom(task.getFormCustom())
             .setFormPath(task.getFormPath())
-            .setMessage(flowParams.getMessage())
-            .setVariable(flowParams.getVariableStr())
+            .setMessage(context.getMessage())
+            .setVariable(variableStr(context))
             //业务详情添加至历史记录
-            .setExt(flowParams.getHisTaskExt())
+            .setExt(context.getExt())
             .setCreateTime(task.getCreateTime());
         FlowEngine.dataFillHandler().idFill(hisTask);
         return hisTask;
@@ -213,29 +212,38 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
         return FlowEngine.hisTaskService().list(FlowEngine.newHisTask().setInstanceId(instanceId));
     }
 
-    private HisTask setSkipHis(Task task, List<Node> nextNodes, FlowParams flowParams, String flowStatus) {
+    private HisTask setSkipHis(Task task, List<Node> nextNodes, WorkflowContext context, String skipType
+        , String flowStatus) {
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
-            .setCooperateType(ObjectUtil.defaultNull(flowParams.getCooperateType(), CooperateType.APPROVAL.getKey()))
+            .setCooperateType(CooperateType.APPROVAL.getKey())
             .setNodeCode(task.getNodeCode())
             .setNodeName(task.getNodeName())
             .setNodeType(task.getNodeType())
             .setDefinitionId(task.getDefinitionId())
             .setTargetNodeCode(StreamUtils.join(nextNodes, Node::getNodeCode))
             .setTargetNodeName(StreamUtils.join(nextNodes, Node::getNodeName))
-            .setApprover(flowParams.getHandler())
-            .setSkipType(flowParams.getSkipType())
-            .setFlowStatus(FlowStatusMachine.skipStatus(flowStatus, flowParams.getSkipType()))
+            .setApprover(context.getHandler())
+            .setSkipType(skipType)
+            .setFlowStatus(FlowStatusMachine.skipStatus(flowStatus, skipType))
             .setFormCustom(task.getFormCustom())
             .setFormPath(task.getFormPath())
-            .setMessage(flowParams.getMessage())
-            .setVariable(flowParams.getVariableStr())
+            .setMessage(context.getMessage())
+            .setVariable(variableStr(context))
             //业务详情添加至历史记录
-            .setExt(flowParams.getHisTaskExt())
+            .setExt(context.getExt())
             .setCreateTime(task.getCreateTime());
         FlowEngine.dataFillHandler().idFill(hisTask);
         return hisTask;
+    }
+
+    private String customStatus(WorkflowContext context) {
+        return FlowStatusMachine.customStatus(context.getHistoryTaskStatus(), context.getInstanceStatus());
+    }
+
+    private String variableStr(WorkflowContext context) {
+        return FlowEngine.jsonConvert.objToStr(context.getVariables());
     }
 
 }

@@ -15,12 +15,12 @@
  */
 package org.dromara.warm.flow.core.service;
 
-import org.dromara.warm.flow.core.dto.FlowParams;
 import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.entity.User;
 import org.dromara.warm.flow.core.orm.service.IWarmService;
+import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.List;
 
@@ -63,71 +63,79 @@ public interface HisTaskService extends IWarmService<HisTask> {
     /**
      * 设置流程历史任务信息
      *
-     * @param task       当前任务
-     * @param nextNodes  后续任务
-     * @param flowParams 参数
+     * @param task      当前任务
+     * @param nextNodes 后续任务
+     * @param context   流程执行上下文
+     * @param skipType  流转类型
+     * @return 历史任务
      */
-    HisTask setSkipInsHis(Task task, List<Node> nextNodes, FlowParams flowParams);
+    HisTask setSkipInsHis(Task task, List<Node> nextNodes, WorkflowContext context, String skipType);
 
     /**
      * 设置流程历史任务信息
      *
-     * @param taskList   当前任务集合
-     * @param nextNodes  后续任务
-     * @param flowParams 参数
+     * @param taskList  当前任务集合
+     * @param nextNodes 后续任务
+     * @param context   流程执行上下文
+     * @param skipType  流转类型
+     * @return 历史任务集合
      */
-    List<HisTask> setSkipHisList(List<Task> taskList, List<Node> nextNodes, FlowParams flowParams);
+    List<HisTask> setSkipHisList(List<Task> taskList, List<Node> nextNodes, WorkflowContext context, String skipType);
 
     /**
      * 设置协作历史记录
      *
      * @param task          当前任务
-     * @param flowParams    参数
+     * @param context       流程执行上下文
      * @param collaborators 协作人
+     * @param cooperateType 协作类型
+     * @return 协作历史任务
      */
-    HisTask setCooperateHis(Task task, FlowParams flowParams
-        , List<String> collaborators);
+    HisTask setCooperateHis(Task task, WorkflowContext context, List<String> collaborators, Integer cooperateType);
 
     /**
      * 设置暂存历史记录
      *
-     * @param task       当前任务
-     * @param flowParams 参数
+     * @param task    当前任务
+     * @param context 流程执行上下文
+     * @return 暂存历史任务
      */
-    HisTask notSkip(Task task, FlowParams flowParams);
+    HisTask notSkip(Task task, WorkflowContext context);
 
     /**
      * 委派历史任务
      *
      * @param task          当前任务
-     * @param flowParams    参数
+     * @param context       流程执行上下文
      * @param entrustedUser 委托人
+     * @param skipType      流转类型
      * @return HisTask 历史任务
      */
-    HisTask setDeputeHisTask(Task task, FlowParams flowParams, User entrustedUser);
+    HisTask setDeputeHisTask(Task task, WorkflowContext context, User entrustedUser, String skipType);
 
     /**
      * 设置会签票签历史任务
      *
-     * @param task       当前任务
-     * @param flowParams 参数
-     * @param nodeRatio  节点比率
-     * @param isPass     是否通过
+     * @param task      当前任务
+     * @param context   流程执行上下文
+     * @param nodeRatio 节点比率
+     * @param isPass    是否通过
      * @return HisTask 历史任务
      */
-    HisTask setSignHisTask(Task task, FlowParams flowParams, String nodeRatio, boolean isPass);
+    HisTask setSignHisTask(Task task, WorkflowContext context, String nodeRatio, boolean isPass);
 
     /**
      * 设置流程历史任务信息
      *
-     * @param task       当前任务
-     * @param nextNode   跳转的节点
-     * @param flowParams 流程参数
+     * @param task     当前任务
+     * @param nextNode 跳转的节点
+     * @param context  流程执行上下文
+     * @param skipType 流转类型
      * @return HisTask          历史任务
      * @author xiarg
      * @since 2024/9/30 11:59
      */
-    HisTask setSkipHisTask(Task task, Node nextNode, FlowParams flowParams);
+    HisTask setSkipHisTask(Task task, Node nextNode, WorkflowContext context, String skipType);
 
     /**
      * 根据流程实例id查询历史任务

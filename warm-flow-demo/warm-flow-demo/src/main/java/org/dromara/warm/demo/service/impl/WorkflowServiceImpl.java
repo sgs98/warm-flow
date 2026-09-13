@@ -22,7 +22,6 @@ import org.dromara.warm.demo.vo.TaskNodeVo;
 import org.dromara.warm.demo.vo.TaskVo;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.FlowCons;
-import org.dromara.warm.flow.core.dto.FlowParams;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.entity.Instance;
@@ -37,6 +36,19 @@ import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.core.utils.page.Page;
+import org.dromara.warm.flow.core.workflow.command.AddSignerCommand;
+import org.dromara.warm.flow.core.workflow.command.CompleteCommand;
+import org.dromara.warm.flow.core.workflow.command.DelegateCommand;
+import org.dromara.warm.flow.core.workflow.command.JumpCommand;
+import org.dromara.warm.flow.core.workflow.command.RejectCommand;
+import org.dromara.warm.flow.core.workflow.command.RemoveSignerCommand;
+import org.dromara.warm.flow.core.workflow.command.RevokeCommand;
+import org.dromara.warm.flow.core.workflow.command.StartCommand;
+import org.dromara.warm.flow.core.workflow.command.TerminateCommand;
+import org.dromara.warm.flow.core.workflow.command.TransferCommand;
+import org.dromara.warm.flow.core.workflow.context.OperatorContext;
+import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
+import org.dromara.warm.flow.core.workflow.result.WorkflowResult;
 import org.dromara.warm.flow.orm.entity.FlowHisTask;
 import org.dromara.warm.flow.orm.entity.FlowTask;
 import org.springframework.beans.BeanUtils;
@@ -53,7 +65,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Comparator;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -98,13 +109,15 @@ public class WorkflowServiceImpl implements WorkflowService {
     @Transactional(rollbackFor = Exception.class)
     public StartInstanceVo start(String user, StartInstanceRequest request) {
         try {
-            FlowParams flowParams = identity(user).flowCode(request.getFlowCode())
-                .flowStatus(BusinessStatusEnum.DRAFT.getStatus())
-                .hisStatus(TaskStatusEnum.PASS.getStatus());
-            if (request.getVariables() != null) {
-                flowParams.variable(request.getVariables());
-            }
-            Instance instance = FlowEngine.insService().start(request.getBusinessId(), flowParams);
+            StartCommand command = new StartCommand();
+            command.setOperator(operator(user));
+            command.setBusinessId(request.getBusinessId());
+            command.setFlowCode(request.getFlowCode());
+            command.setVariables(request.getVariables());
+            command.setInstanceStatus(BusinessStatusEnum.DRAFT.getStatus());
+            command.setHistoryTaskStatus(TaskStatusEnum.PASS.getStatus());
+            WorkflowResult result = FlowEngine.workflow().start(command);
+            Instance instance = requireInstance(result.getInstanceId());
             List<Task> tasks = FlowEngine.taskService().getByInsId(instance.getId());
             StartInstanceVo vo = new StartInstanceVo();
             vo.setInstanceId(instance.getId());
@@ -174,6 +187,7 @@ public class WorkflowServiceImpl implements WorkflowService {
             .filter(task -> !isClosedTaskStatus(task.getFlowStatus()))
             .map(this::toCurrentHistoryVo)
             .forEach(result::add);
+        Collections.reverse(result);
         return result;
     }
 
@@ -540,11 +554,18 @@ public class WorkflowServiceImpl implements WorkflowService {
         Task task = requireTask(req.getTaskId());
         checkNodeButton(task, "transfer");
         List<String> nextHandlers = requiredHandlers(req.getNextHandlers(), "转办办理人不能为空");
-        run(req.getUser(), flowParams -> {
-            flowParams.hisStatus(TaskStatusEnum.TRANSFER.getStatus());
-            flowParams.addHandlers(nextHandlers);
-            FlowEngine.taskService().transfer(task.getId(), flowParams);
-        });
+        String targetHandler = singleHandler(nextHandlers, "转办只能选择一个办理人");
+        try {
+            TransferCommand command = new TransferCommand();
+            command.setOperator(operator(req.getUser()));
+            command.setTaskId(task.getId());
+            command.setTargetHandler(targetHandler);
+            command.setMessage(req.getMessage());
+            command.setHistoryTaskStatus(TaskStatusEnum.TRANSFER.getStatus());
+            FlowEngine.workflow().transfer(command);
+        } catch (FlowException e) {
+            throw BizException.badRequest(e.getMessage());
+        }
     }
 
     /**
@@ -558,11 +579,18 @@ public class WorkflowServiceImpl implements WorkflowService {
         Task task = requireTask(req.getTaskId());
         checkNodeButton(task, "trust");
         List<String> nextHandlers = requiredHandlers(req.getNextHandlers(), "委派办理人不能为空");
-        run(req.getUser(), flowParams -> {
-            flowParams.hisStatus(TaskStatusEnum.DEPUTE.getStatus());
-            flowParams.addHandlers(nextHandlers);
-            FlowEngine.taskService().depute(task.getId(), flowParams);
-        });
+        String targetHandler = singleHandler(nextHandlers, "委派只能选择一个办理人");
+        try {
+            DelegateCommand command = new DelegateCommand();
+            command.setOperator(operator(req.getUser()));
+            command.setTaskId(task.getId());
+            command.setTargetHandler(targetHandler);
+            command.setMessage(req.getMessage());
+            command.setHistoryTaskStatus(TaskStatusEnum.DEPUTE.getStatus());
+            FlowEngine.workflow().delegate(command);
+        } catch (FlowException e) {
+            throw BizException.badRequest(e.getMessage());
+        }
     }
 
     /**
@@ -580,10 +608,17 @@ public class WorkflowServiceImpl implements WorkflowService {
         if (addHandlers.stream().anyMatch(currentHandlerNames(task)::contains)) {
             throw BizException.badRequest("加签办理人不能是当前任务办理人");
         }
-        run(req.getUser(), flowParams -> {
-            flowParams.hisStatus(TaskStatusEnum.SIGN.getStatus());
-            FlowEngine.taskService().addSignature(task.getId(), flowParams.addHandlers(addHandlers));
-        });
+        try {
+            AddSignerCommand command = new AddSignerCommand();
+            command.setOperator(operator(req.getUser()));
+            command.setTaskId(task.getId());
+            command.setTargetHandlers(addHandlers);
+            command.setMessage(req.getMessage());
+            command.setHistoryTaskStatus(TaskStatusEnum.SIGN.getStatus());
+            FlowEngine.workflow().addSigner(command);
+        } catch (FlowException e) {
+            throw BizException.badRequest(e.getMessage());
+        }
     }
 
     /**
@@ -598,11 +633,17 @@ public class WorkflowServiceImpl implements WorkflowService {
         checkSignNode(task);
         checkNodeButton(task, "subSign");
         validateReductionHandlers(task, req.getReductionHandlers());
-        run(req.getUser(), flowParams -> {
-            flowParams.hisStatus(TaskStatusEnum.SIGN_OFF.getStatus());
-            FlowEngine.taskService().reductionSignature(task.getId(),
-                flowParams.reductionHandlers(req.getReductionHandlers()));
-        });
+        try {
+            RemoveSignerCommand command = new RemoveSignerCommand();
+            command.setOperator(operator(req.getUser()));
+            command.setTaskId(task.getId());
+            command.setTargetHandlers(req.getReductionHandlers());
+            command.setMessage(req.getMessage());
+            command.setHistoryTaskStatus(TaskStatusEnum.SIGN_OFF.getStatus());
+            FlowEngine.workflow().removeSigner(command);
+        } catch (FlowException e) {
+            throw BizException.badRequest(e.getMessage());
+        }
     }
 
     /**
@@ -613,9 +654,16 @@ public class WorkflowServiceImpl implements WorkflowService {
      */
     @Override
     public void revoke(String user, Long instanceId) {
-        run(user, flowParams -> FlowEngine.taskService().revoke(instanceId,
-            flowParams.flowStatus(BusinessStatusEnum.CANCEL.getStatus())
-                .hisStatus(TaskStatusEnum.CANCEL.getStatus())));
+        try {
+            RevokeCommand command = new RevokeCommand();
+            command.setOperator(operator(user));
+            command.setInstanceId(instanceId);
+            command.setInstanceStatus(BusinessStatusEnum.CANCEL.getStatus());
+            command.setHistoryTaskStatus(TaskStatusEnum.CANCEL.getStatus());
+            FlowEngine.workflow().revoke(command);
+        } catch (FlowException e) {
+            throw BizException.badRequest(e.getMessage());
+        }
     }
 
     /**
@@ -628,27 +676,56 @@ public class WorkflowServiceImpl implements WorkflowService {
     public void termination(String user, Long instanceId) {
         Instance instance = requireInstance(instanceId);
         checkNodeButton(instance.getDefinitionId(), instance.getNodeCode(), "termination");
-        run(user, flowParams -> FlowEngine.taskService().terminationByInsId(instanceId,
-            flowParams.flowStatus(BusinessStatusEnum.TERMINATION.getStatus())
-                .hisStatus(TaskStatusEnum.TERMINATION.getStatus())));
+        try {
+            TerminateCommand command = new TerminateCommand();
+            command.setOperator(operator(user));
+            command.setInstanceId(instanceId);
+            command.setInstanceStatus(BusinessStatusEnum.TERMINATION.getStatus());
+            command.setHistoryTaskStatus(TaskStatusEnum.TERMINATION.getStatus());
+            FlowEngine.workflow().terminate(command);
+        } catch (FlowException e) {
+            throw BizException.badRequest(e.getMessage());
+        }
     }
 
     private InstanceVo operate(TaskActionRequest req, boolean reject) {
         try {
-            FlowParams flowParams = identity(req.getUser())
-                .message(req.getMessage())
-                .flowStatus(reject ? BusinessStatusEnum.BACK.getStatus() : BusinessStatusEnum.WAITING.getStatus())
-                .hisStatus(reject ? TaskStatusEnum.BACK.getStatus() : TaskStatusEnum.PASS.getStatus())
-                .skipType(reject ? SkipType.REJECT.getKey() : SkipType.PASS.getKey())
-                .nodeCode(req.getNodeCode());
-            if (req.getVariables() != null) {
-                flowParams.variable(req.getVariables());
+            WorkflowResult result;
+            Map<String, Object> variables = nextHandlerVariables(req);
+            if (reject) {
+                RejectCommand command = new RejectCommand();
+                command.setOperator(operator(req.getUser()));
+                command.setTaskId(req.getTaskId());
+                command.setTargetNodeCode(req.getNodeCode());
+                command.setMessage(req.getMessage());
+                command.setVariables(variables);
+                command.setNextHandlers(req.getNextHandlers());
+                command.setInstanceStatus(BusinessStatusEnum.BACK.getStatus());
+                command.setHistoryTaskStatus(TaskStatusEnum.BACK.getStatus());
+                result = FlowEngine.workflow().reject(command);
+            } else if (StringUtils.isNotEmpty(req.getNodeCode())) {
+                JumpCommand command = new JumpCommand();
+                command.setOperator(operator(req.getUser()));
+                command.setTaskId(req.getTaskId());
+                command.setTargetNodeCode(req.getNodeCode());
+                command.setMessage(req.getMessage());
+                command.setVariables(variables);
+                command.setNextHandlers(req.getNextHandlers());
+                command.setInstanceStatus(BusinessStatusEnum.WAITING.getStatus());
+                command.setHistoryTaskStatus(TaskStatusEnum.PASS.getStatus());
+                result = FlowEngine.workflow().jump(command);
+            } else {
+                CompleteCommand command = new CompleteCommand();
+                command.setOperator(operator(req.getUser()));
+                command.setTaskId(req.getTaskId());
+                command.setMessage(req.getMessage());
+                command.setVariables(variables);
+                command.setNextHandlers(req.getNextHandlers());
+                command.setInstanceStatus(BusinessStatusEnum.WAITING.getStatus());
+                command.setHistoryTaskStatus(TaskStatusEnum.PASS.getStatus());
+                result = FlowEngine.workflow().complete(command);
             }
-            applyNextHandlerMap(req, flowParams);
-            if (req.getNextHandlers() != null && !req.getNextHandlers().isEmpty()) {
-                flowParams.nextHandler(req.getNextHandlers().toArray(new String[0]));
-            }
-            Instance instance = FlowEngine.taskService().skip(req.getTaskId(), flowParams);
+            Instance instance = requireInstance(result.getInstanceId());
             if (NodeType.isEnd(instance.getNodeType())) {
                 instance.setFlowStatus(BusinessStatusEnum.FINISH.getStatus());
                 FlowEngine.insService().updateById(instance);
@@ -671,18 +748,14 @@ public class WorkflowServiceImpl implements WorkflowService {
         }
     }
 
-    private void run(String user, Consumer<FlowParams> action) {
-        try {
-            action.accept(identity(user));
-        } catch (FlowException e) {
-            throw BizException.badRequest(e.getMessage());
-        }
-    }
-
-    private FlowParams identity(String user) {
-        return FlowParams.build()
-            .handler(user)
-            .permissionFlag(userService.permissionFlags(user));
+    /**
+     * 创建 Demo 当前用户对应的引擎操作者上下文。
+     *
+     * @param user 当前用户名
+     * @return 操作者上下文
+     */
+    private OperatorContext operator(String user) {
+        return new OperatorContext(user, userService.permissionFlags(user));
     }
 
     private List<TaskNodeVo> nextNodes(Task task) {
@@ -707,12 +780,18 @@ public class WorkflowServiceImpl implements WorkflowService {
             || (req.getNextHandlerMap() != null && !req.getNextHandlerMap().isEmpty());
     }
 
-    private void applyNextHandlerMap(TaskActionRequest req, FlowParams flowParams) {
-        if (req.getNextHandlerMap() == null || req.getNextHandlerMap().isEmpty()) {
-            return;
-        }
+    /**
+     * 合并任务请求变量与按节点指定的后续办理人变量。
+     *
+     * @param req 任务操作请求
+     * @return 合并后的流程变量
+     */
+    private Map<String, Object> nextHandlerVariables(TaskActionRequest req) {
         Map<String, Object> variables = req.getVariables() == null
             ? new HashMap<>() : new HashMap<>(req.getVariables());
+        if (req.getNextHandlerMap() == null || req.getNextHandlerMap().isEmpty()) {
+            return variables;
+        }
         req.getNextHandlerMap().forEach((nodeCode, handlers) -> {
             List<String> validHandlers = handlers == null ? new ArrayList<>() : handlers.stream()
                 .filter(StringUtils::isNotEmpty)
@@ -722,7 +801,21 @@ public class WorkflowServiceImpl implements WorkflowService {
                 variables.put(SkipType.PASS.getKey() + ":" + nodeCode, String.join(",", validHandlers));
             }
         });
-        flowParams.variable(variables);
+        return variables;
+    }
+
+    /**
+     * 获取单个目标办理人。
+     *
+     * @param handlers 办理人集合
+     * @param message 办理人数量不合法时的提示
+     * @return 唯一目标办理人
+     */
+    private String singleHandler(List<String> handlers, String message) {
+        if (handlers.size() != 1) {
+            throw BizException.badRequest(message);
+        }
+        return handlers.get(0);
     }
 
     private void validateNextHandlers(Task task, TaskActionRequest req) {
@@ -1019,10 +1112,12 @@ public class WorkflowServiceImpl implements WorkflowService {
         if (node == null) {
             throw BizException.badRequest("抄送节点不存在: " + task.getNodeCode());
         }
-        FlowParams copyParams = identity(user)
-            .skipType(SkipType.NONE.getKey())
-            .hisStatus(TaskStatusEnum.COPY.getStatus());
-        FlowEngine.hisTaskService().save(FlowEngine.hisTaskService().setSkipHisTask(task, node, copyParams));
+        WorkflowContext copyContext = new WorkflowContext();
+        copyContext.setHandler(user);
+        copyContext.setPermissions(userService.permissionFlags(user));
+        copyContext.setHistoryTaskStatus(TaskStatusEnum.COPY.getStatus());
+        FlowEngine.hisTaskService().save(FlowEngine.hisTaskService().setSkipHisTask(task, node, copyContext
+            , SkipType.NONE.getKey()));
         List<User> flowUsers = users.stream().map(userName -> FlowEngine.newUser()
                 .setType(COPY_USER_TYPE)
                 .setProcessedBy(userName)

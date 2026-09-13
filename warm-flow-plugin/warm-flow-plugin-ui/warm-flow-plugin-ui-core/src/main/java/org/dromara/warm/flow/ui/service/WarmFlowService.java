@@ -18,17 +18,26 @@ package org.dromara.warm.flow.ui.service;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.config.WarmFlow;
-import org.dromara.warm.flow.core.dto.*;
+import org.dromara.warm.flow.core.constant.FlowCons;
+import org.dromara.warm.flow.core.dto.ApiResult;
+import org.dromara.warm.flow.core.dto.DefJson;
+import org.dromara.warm.flow.core.dto.FlowDto;
+import org.dromara.warm.flow.core.dto.Tree;
 import org.dromara.warm.flow.core.entity.Form;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.enums.FormCustomEnum;
 import org.dromara.warm.flow.core.enums.ModelEnum;
+import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.invoker.FrameInvoker;
 import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.ExceptionUtil;
 import org.dromara.warm.flow.core.utils.StreamUtils;
 import org.dromara.warm.flow.core.utils.StringUtils;
+import org.dromara.warm.flow.core.workflow.command.CompleteCommand;
+import org.dromara.warm.flow.core.workflow.command.JumpCommand;
+import org.dromara.warm.flow.core.workflow.command.RejectCommand;
+import org.dromara.warm.flow.core.workflow.result.WorkflowResult;
 import org.dromara.warm.flow.ui.dto.HandlerFeedBackDto;
 import org.dromara.warm.flow.ui.dto.HandlerQuery;
 import org.dromara.warm.flow.ui.utils.TreeUtil;
@@ -297,9 +306,7 @@ public class WarmFlowService {
      * @date 2024/8/21 17:08
      **/
     public static ApiResult<FlowDto> load(Long taskId) {
-        FlowParams flowParams = FlowParams.build();
-
-        return ApiResult.ok(FlowEngine.taskService().load(taskId, flowParams));
+        return ApiResult.ok(FlowEngine.taskService().load(taskId));
     }
 
     /**
@@ -309,9 +316,7 @@ public class WarmFlowService {
      * @return
      */
     public static ApiResult<FlowDto> hisLoad(Long hisTaskId) {
-        FlowParams flowParams = FlowParams.build();
-
-        return ApiResult.ok(FlowEngine.taskService().hisLoad(hisTaskId, flowParams));
+        return ApiResult.ok(FlowEngine.taskService().hisLoad(hisTaskId));
     }
 
     /**
@@ -326,14 +331,31 @@ public class WarmFlowService {
      */
     public static ApiResult<Instance> handle(Map<String, Object> formData, Long taskId, String skipType
         , String message, String nodeCode) {
-        FlowParams flowParams = FlowParams.build()
-            .skipType(skipType)
-            .nodeCode(nodeCode)
-            .message(message);
-
-        flowParams.formData(formData);
-
-        return ApiResult.ok(FlowEngine.taskService().skip(taskId, flowParams));
+        Map<String, Object> variables = new HashMap<>();
+        variables.put(FlowCons.FORM_DATA, formData);
+        WorkflowResult result;
+        if (SkipType.isReject(skipType)) {
+            RejectCommand command = new RejectCommand();
+            command.setTaskId(taskId);
+            command.setTargetNodeCode(nodeCode);
+            command.setMessage(message);
+            command.setVariables(variables);
+            result = FlowEngine.workflow().reject(command);
+        } else if (StringUtils.isNotEmpty(nodeCode)) {
+            JumpCommand command = new JumpCommand();
+            command.setTaskId(taskId);
+            command.setTargetNodeCode(nodeCode);
+            command.setMessage(message);
+            command.setVariables(variables);
+            result = FlowEngine.workflow().jump(command);
+        } else {
+            CompleteCommand command = new CompleteCommand();
+            command.setTaskId(taskId);
+            command.setMessage(message);
+            command.setVariables(variables);
+            result = FlowEngine.workflow().complete(command);
+        }
+        return ApiResult.ok(FlowEngine.insService().getById(result.getInstanceId()));
     }
 
     /**

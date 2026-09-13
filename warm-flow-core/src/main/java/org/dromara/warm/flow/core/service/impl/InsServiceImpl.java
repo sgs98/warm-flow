@@ -18,7 +18,6 @@ package org.dromara.warm.flow.core.service.impl;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.dto.FlowCombine;
-import org.dromara.warm.flow.core.dto.FlowParams;
 import org.dromara.warm.flow.core.dto.PathWayData;
 import org.dromara.warm.flow.core.entity.*;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
@@ -30,6 +29,7 @@ import org.dromara.warm.flow.core.orm.dao.FlowInstanceDao;
 import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.InsService;
 import org.dromara.warm.flow.core.utils.*;
+import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -52,11 +52,11 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
     }
 
     @Override
-    public Instance start(String businessId, FlowParams flowParams) {
-        AssertUtil.isNull(flowParams.getFlowCode(), ExceptionCons.NULL_FLOW_CODE);
+    public Instance start(String businessId, String flowCode, WorkflowContext context) {
+        AssertUtil.isNull(flowCode, ExceptionCons.NULL_FLOW_CODE);
         AssertUtil.isEmpty(businessId, ExceptionCons.NULL_BUSINESS_ID);
         // 获取已发布的流程节点
-        Definition definition = FlowEngine.defService().getPublishByFlowCode(flowParams.getFlowCode());
+        Definition definition = FlowEngine.defService().getPublishByFlowCode(flowCode);
         AssertUtil.isNull(definition, ExceptionCons.NOT_FOUNT_DEF);
         FlowCombine flowCombine = FlowEngine.defService().getFlowCombine(definition);
         // 获取开始节点
@@ -66,30 +66,35 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
         // 判断流程定义是否激活状态
         AssertUtil.isTrue(definition.getActivityStatus().equals(ActivityStatus.SUSPENDED.getKey())
             , ExceptionCons.NOT_DEFINITION_ACTIVITY);
-        flowParams.skipType(SkipType.PASS.getKey());
-
         // 执行开始监听器
-        ListenerUtil.executeStart(new ListenerVariable(definition, null, startNode, flowParams.getVariable())
-            .setFlowParams(flowParams));
+        ListenerUtil.executeStart(new ListenerVariable(definition, null, startNode, context.getVariables())
+            .setContext(context));
 
 
         // 获取下一个节点，如果是网关节点，则重新获取后续节点
-        PathWayData pathWayData = new PathWayData().setDefId(startNode.getDefinitionId()).setSkipType(flowParams.getSkipType());
-        List<Node> nextNodes = FlowEngine.nodeService().getNextNodeList(startNode, null, flowParams.getSkipType(),
-            flowParams.getVariable(), pathWayData, flowCombine);
+        PathWayData pathWayData = new PathWayData().setDefId(startNode.getDefinitionId())
+            .setSkipType(SkipType.PASS.getKey());
+        List<Node> nextNodes = FlowEngine.nodeService().getNextNodeList(startNode, null, SkipType.PASS.getKey(),
+            context.getVariables(), pathWayData, flowCombine);
 
         // 设置流程实例对象
-        Instance instance = setStartInstance(nextNodes.get(0), businessId, flowParams);
+        Instance instance = setStartInstance(nextNodes.get(0), businessId, context);
 
         // 设置历史任务
-        HisTask hisTask = setHisTask(nextNodes, flowParams, startNode, instance.getId());
+        HisTask hisTask = setHisTask(nextNodes, context, startNode, instance.getId());
 
+        WorkflowContext taskContext = new WorkflowContext();
+        taskContext.setVariables(context.getVariables());
+        taskContext.setInstanceStatus(context.getHistoryTaskStatus());
+        taskContext.setNextHandlers(context.getNextHandlers());
+        taskContext.setNextHandlerAppend(context.isNextHandlerAppend());
         List<Task> addTasks = StreamUtils.toList(nextNodes, node -> FlowEngine.taskService()
-            .addTask(node, instance, definition, flowParams));
+            .addTask(node, instance, definition, taskContext, SkipType.PASS.getKey()));
 
         // 办理人变量替换
         if (CollUtil.isNotEmpty(addTasks)) {
-            ExpressionUtil.evalVariable(addTasks, flowParams);
+            ExpressionUtil.evalVariable(addTasks, context.getVariables(), context.getNextHandlers()
+                , context.isNextHandlerAppend());
         }
 
         // 设置流程图元数据
@@ -97,15 +102,15 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
         instance.setDefJson(FlowEngine.chartService().startMetadata(pathWayData));
 
         // 执行分派监听器
-        ListenerUtil.executeAssignment(new ListenerVariable(definition, instance, startNode, flowParams.getVariable()
-            , null, nextNodes, addTasks).setFlowParams(flowParams));
+        ListenerUtil.executeAssignment(new ListenerVariable(definition, instance, startNode, context.getVariables()
+            , null, nextNodes, addTasks).setContext(context));
 
         // 开启流程，保存流程信息
-        saveFlowInfo(instance, addTasks, hisTask, flowParams);
+        saveFlowInfo(instance, addTasks, hisTask, context);
 
         // 执行完成和创建监听器
-        ListenerUtil.endCreateListener(new ListenerVariable(definition, instance, startNode, flowParams.getVariable()
-            , null, nextNodes, addTasks).setFlowParams(flowParams));
+        ListenerUtil.endCreateListener(new ListenerVariable(definition, instance, startNode, context.getVariables()
+            , null, nextNodes, addTasks).setContext(context));
 
         return instance;
     }
@@ -129,11 +134,11 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
      * 设置历史任务
      *
      * @param nextNodes  下一节点集合
-     * @param flowParams 流程参数
+     * @param context    流程执行上下文
      * @param startNode  开始节点
      * @param instanceId 流程实例id
      */
-    private HisTask setHisTask(List<Node> nextNodes, FlowParams flowParams, Node startNode, Long instanceId) {
+    private HisTask setHisTask(List<Node> nextNodes, WorkflowContext context, Node startNode, Long instanceId) {
         Task startTask = FlowEngine.newTask()
             .setInstanceId(instanceId)
             .setDefinitionId(startNode.getDefinitionId())
@@ -142,7 +147,7 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
             .setNodeType(startNode.getNodeType());
         FlowEngine.dataFillHandler().idFill(startTask);
         // 开始任务转历史任务
-        return FlowEngine.hisTaskService().setSkipInsHis(startTask, nextNodes, flowParams);
+        return FlowEngine.hisTaskService().setSkipInsHis(startTask, nextNodes, context, SkipType.PASS.getKey());
     }
 
     /**
@@ -152,8 +157,11 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
      * @param addTasks 新增任务
      * @param hisTask  历史任务
      */
-    private void saveFlowInfo(Instance instance, List<Task> addTasks, HisTask hisTask, FlowParams flowParams) {
-        FlowEngine.taskService().setInsFinishInfo(instance, addTasks, flowParams);
+    private void saveFlowInfo(Instance instance, List<Task> addTasks, HisTask hisTask, WorkflowContext context) {
+        // 启动状态由调用方决定，首任务状态不能反向覆盖流程实例状态。
+        String startStatus = instance.getFlowStatus();
+        FlowEngine.taskService().setInsFinishInfo(instance, addTasks, context.getVariables());
+        instance.setFlowStatus(startStatus);
         FlowEngine.hisTaskService().save(hisTask);
         // 待办任务设置处理人
         if (CollUtil.isNotEmpty(addTasks)) {
@@ -172,7 +180,7 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
      * @return Instance
      */
     private Instance setStartInstance(Node firstBetweenNode, String businessId
-        , FlowParams flowParams) {
+        , WorkflowContext context) {
         Instance instance = FlowEngine.newIns();
         Date now = new Date();
         FlowEngine.dataFillHandler().idFill(instance);
@@ -182,14 +190,14 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
             .setNodeType(firstBetweenNode.getNodeType())
             .setNodeCode(firstBetweenNode.getNodeCode())
             .setNodeName(firstBetweenNode.getNodeName())
-            .setFlowStatus(StringUtils.emptyDefault(flowParams.getFlowStatus(), FlowStatus.TOBESUBMIT.getKey()))
+            .setFlowStatus(StringUtils.emptyDefault(context.getInstanceStatus(), FlowStatus.TOBESUBMIT.getKey()))
             .setActivityStatus(ActivityStatus.ACTIVITY.getKey())
-            .setVariable(FlowEngine.jsonConvert.objToStr(flowParams.getVariable()))
+            .setVariable(FlowEngine.jsonConvert.objToStr(context.getVariables()))
             .setCreateTime(now)
             .setUpdateTime(now)
-            .setCreateBy(flowParams.getHandler())
-            .setUpdateBy(flowParams.getHandler())
-            .setExt(flowParams.getExt());
+            .setCreateBy(context.getHandler())
+            .setUpdateBy(context.getHandler())
+            .setExt(context.getExt());
         return instance;
     }
 

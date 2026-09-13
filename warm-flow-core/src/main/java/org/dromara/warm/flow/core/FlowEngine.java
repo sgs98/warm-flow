@@ -27,6 +27,7 @@ import org.dromara.warm.flow.core.service.*;
 import org.dromara.warm.flow.core.utils.ClassUtil;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
+import org.dromara.warm.flow.core.workflow.WorkflowService;
 
 import java.lang.reflect.Constructor;
 import java.util.function.Supplier;
@@ -47,6 +48,7 @@ public class FlowEngine {
     private static final UserService userService = null;
     private static final FormService formService = null;
     private static final ChartService chartService = null;
+    private static final WorkflowService workflowService = null;
 
     private static Supplier<Definition> defSupplier;
     private static Supplier<Node> nodeSupplier;
@@ -103,6 +105,15 @@ public class FlowEngine {
 
     public static ChartService chartService() {
         return getObj(chartService, ChartService.class);
+    }
+
+    /**
+     * 获取流程操作统一门面。
+     *
+     * @return 流程操作服务
+     */
+    public static WorkflowService workflow() {
+        return getObj(workflowService, WorkflowService.class);
     }
 
     public static void setNewDef(Supplier<Definition> supplier) {

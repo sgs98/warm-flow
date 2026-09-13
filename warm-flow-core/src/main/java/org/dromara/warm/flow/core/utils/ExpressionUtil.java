@@ -18,7 +18,6 @@ package org.dromara.warm.flow.core.utils;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.condition.*;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
-import org.dromara.warm.flow.core.dto.FlowParams;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.handler.DefaultHandlerStrategy;
@@ -75,17 +74,19 @@ public class ExpressionUtil {
     /**
      * 办理人表达式替换
      *
-     * @param addTasks   任务列表
-     * @param flowParams 流程变量
+     * @param addTasks          任务列表
+     * @param variables         流程变量
+     * @param nextHandlers      调用方指定的后续办理人
+     * @param nextHandlerAppend 是否追加调用方指定的办理人
      */
-    public static void evalVariable(List<Task> addTasks, FlowParams flowParams) {
+    public static void evalVariable(List<Task> addTasks, Map<String, Object> variables
+        , List<String> nextHandlers, boolean nextHandlerAppend) {
         if (CollUtil.isEmpty(addTasks)) {
             return;
         }
-        Map<String, Object> variable = flowParams.getVariable();
         addTasks.forEach(addTask -> {
             List<String> permissions = addTask.getPermissionList().stream()
-                .map(s -> evalVariable(s, variable)).filter(Objects::nonNull)
+                .map(s -> evalVariable(s, variables)).filter(Objects::nonNull)
                 .flatMap(List::stream)
                 .distinct()
                 .collect(Collectors.toList());
@@ -99,7 +100,8 @@ public class ExpressionUtil {
                 }
             }
             // 自定义下个任务的处理人 下个任务处理人配置类型 和 执行的下个任务的办理人
-            permissions = nextHandle(flowParams.isNextHandlerAppend(), flowParams.getNextHandler(), permissions);
+            String[] handlers = nextHandlers == null ? null : nextHandlers.toArray(new String[nextHandlers.size()]);
+            permissions = nextHandle(nextHandlerAppend, handlers, permissions);
 
             addTask.setPermissionList(permissions);
         });

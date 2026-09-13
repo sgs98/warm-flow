@@ -2,10 +2,10 @@ package org.dromara.warm.flow.core.service.impl;
 
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
-import org.dromara.warm.flow.core.dto.FlowParams;
 import org.dromara.warm.flow.core.entity.*;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.CollUtil;
+import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.Collections;
 import java.util.List;
@@ -26,17 +26,18 @@ final class TaskHistoryHandler {
      * @param task        当前待办任务
      * @param instance    流程实例
      * @param addTasks    待创建的后续任务
-     * @param flowParams  流程操作参数
+     * @param context     流程执行上下文
+     * @param skipType    流转类型
      * @param nextNodes   目标节点
      */
     void updateFlowInfo(TaskServiceImpl taskService, Task task, Instance instance, List<Task> addTasks
-        , FlowParams flowParams, List<Node> nextNodes) {
-        HisTask insHis = FlowEngine.hisTaskService().setSkipInsHis(task, nextNodes, flowParams);
+        , WorkflowContext context, String skipType, List<Node> nextNodes) {
+        HisTask insHis = FlowEngine.hisTaskService().setSkipInsHis(task, nextNodes, context, skipType);
         FlowEngine.hisTaskService().save(insHis);
         taskService.removeAndUserInternal(Collections.singletonList(task));
 
         List<User> users = FlowEngine.userService().taskAddUsers(addTasks);
-        taskService.setInsFinishInfo(instance, addTasks, flowParams);
+        taskService.setInsFinishInfo(instance, addTasks, context.getVariables());
         if (CollUtil.isNotEmpty(addTasks)) {
             taskService.saveBatch(addTasks);
         }

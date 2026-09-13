@@ -36,6 +36,6 @@ public class ConditionStrategyDefault extends ConditionStrategySpel {
 
     @Override
     public Boolean eval(String expression, Map<String, Object> variable) {
-        return super.eval(SpelHelper.replace(expression,  variable), variable);
+        return super.eval(SpelHelper.replace(expression, variable), variable);
     }
 }

@@ -1,6 +1,5 @@
 package org.dromara.warm.flow.core.service.impl;
 
-import org.dromara.warm.flow.core.dto.FlowParams;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
@@ -43,11 +42,12 @@ final class FlowStatusMachine {
     /**
      * 获取历史任务使用的自定义状态，历史状态优先于流程状态。
      *
-     * @param flowParams 流程操作参数
+     * @param historyTaskStatus 调用方指定的历史任务状态
+     * @param instanceStatus    调用方指定的流程实例状态
      * @return 自定义状态，未设置时返回空值
      */
-    static String customStatus(FlowParams flowParams) {
-        return StringUtils.emptyDefault(flowParams.getHisStatus(), flowParams.getFlowStatus());
+    static String customStatus(String historyTaskStatus, String instanceStatus) {
+        return StringUtils.emptyDefault(historyTaskStatus, instanceStatus);
     }
 
     /**

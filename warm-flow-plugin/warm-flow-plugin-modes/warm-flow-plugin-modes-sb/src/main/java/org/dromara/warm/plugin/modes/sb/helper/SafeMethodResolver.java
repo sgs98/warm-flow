@@ -22,20 +22,20 @@ import java.util.Set;
  */
 public class SafeMethodResolver implements MethodResolver {
 
-        private static final Set<String> DANGEROUS_METHODS = new HashSet<>(Arrays.asList(
-            "getRuntime",
-            "exec",
-            "forName",
-            "loadClass",
-            "getClassLoader",
-            "setAccessible",
-            "newInstance",
-            "invoke",
-            "getField",
-            "getDeclaredField",
-            "getMethod",
-            "getDeclaredMethod"
-        ));
+    private static final Set<String> DANGEROUS_METHODS = new HashSet<>(Arrays.asList(
+        "getRuntime",
+        "exec",
+        "forName",
+        "loadClass",
+        "getClassLoader",
+        "setAccessible",
+        "newInstance",
+        "invoke",
+        "getField",
+        "getDeclaredField",
+        "getMethod",
+        "getDeclaredMethod"
+    ));
 
 
     @Nullable

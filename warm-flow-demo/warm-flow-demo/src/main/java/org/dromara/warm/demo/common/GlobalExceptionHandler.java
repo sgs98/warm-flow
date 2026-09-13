@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -30,6 +31,12 @@ public class GlobalExceptionHandler {
         FieldError error = e.getBindingResult().getFieldError();
         String msg = error == null ? "参数校验失败" : error.getField() + " " + error.getDefaultMessage();
         return ApiResponse.fail(400, msg);
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ApiResponse<Void> handleMissingHeader(MissingRequestHeaderException e) {
+        return ApiResponse.fail(401, "未登录");
     }
 
 

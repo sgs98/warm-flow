@@ -15,11 +15,11 @@
  */
 package org.dromara.warm.flow.core.listener;
 
-import org.dromara.warm.flow.core.dto.FlowParams;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
+import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.List;
 import java.util.Map;
@@ -69,7 +69,7 @@ public class ListenerVariable {
     /**
      * 工作流内置参数
      */
-    private FlowParams flowParams;
+    private WorkflowContext context;
 
 
     public ListenerVariable() {
@@ -186,12 +186,23 @@ public class ListenerVariable {
         return this;
     }
 
-    public FlowParams getFlowParams() {
-        return flowParams;
+    /**
+     * 获取流程动作执行上下文。
+     *
+     * @return 流程动作执行上下文
+     */
+    public WorkflowContext getContext() {
+        return context;
     }
 
-    public ListenerVariable setFlowParams(FlowParams flowParams) {
-        this.flowParams = flowParams;
+    /**
+     * 设置流程动作执行上下文。
+     *
+     * @param context 流程动作执行上下文
+     * @return 当前监听器变量对象
+     */
+    public ListenerVariable setContext(WorkflowContext context) {
+        this.context = context;
         return this;
     }
 
@@ -206,7 +217,7 @@ public class ListenerVariable {
             ", nextNodes=" + nextNodes +
             ", nextTasks=" + nextTasks +
             ", variable=" + variable +
-            ", flowParams=" + flowParams +
+            ", context=" + context +
             '}';
     }
 }

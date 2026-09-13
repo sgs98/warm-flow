@@ -2,7 +2,6 @@ package org.dromara.warm.flow.core.service.impl;
 
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
-import org.dromara.warm.flow.core.dto.FlowParams;
 import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
@@ -14,6 +13,7 @@ import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
 import org.dromara.warm.flow.core.utils.StreamUtils;
+import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.List;
 import java.util.Objects;
@@ -33,20 +33,21 @@ final class TaskCooperationHandler {
     /**
      * 处理受托人办理，并将任务办理权恢复给委托人。
      *
-     * @param task       当前待办任务
-     * @param flowParams 流程操作参数
+     * @param task     当前待办任务
+     * @param context  流程执行上下文
+     * @param skipType 流转类型
      * @return 是否已完成委派处理；为true时本次流程不继续流转
      */
-    boolean handleDepute(Task task, FlowParams flowParams) {
+    boolean handleDepute(Task task, WorkflowContext context, String skipType) {
         List<User> entrustedUserList = StreamUtils.filter(task.getUserList(),
             user -> UserType.DEPUTE.getKey().equals(user.getType())
-                && Objects.equals(flowParams.getHandler(), user.getProcessedBy()));
+                && Objects.equals(context.getHandler(), user.getProcessedBy()));
         if (CollUtil.isEmpty(entrustedUserList)) {
             return false;
         }
 
         User entrustedUser = entrustedUserList.get(0);
-        HisTask hisTask = FlowEngine.hisTaskService().setDeputeHisTask(task, flowParams, entrustedUser);
+        HisTask hisTask = FlowEngine.hisTaskService().setDeputeHisTask(task, context, entrustedUser, skipType);
         FlowEngine.hisTaskService().save(hisTask);
         FlowEngine.userService().removeById(entrustedUser.getId());
 
@@ -63,27 +64,28 @@ final class TaskCooperationHandler {
     /**
      * 处理会签和票签，判断当前办理结果是否满足节点继续流转条件。
      *
-     * @param nowNode    当前流程节点
-     * @param task       当前待办任务
-     * @param flowParams 流程操作参数
+     * @param nowNode  当前流程节点
+     * @param task     当前待办任务
+     * @param context  流程执行上下文
+     * @param skipType 流转类型
      * @return 是否仅记录当前办理结果；为true时本次流程不继续流转
      */
-    boolean cooperate(Node nowNode, Task task, FlowParams flowParams) {
-        if (flowParams.isIgnore() || CooperateType.isOrSign(nowNode.getNodeRatio())) {
+    boolean cooperate(Node nowNode, Task task, WorkflowContext context, String skipType) {
+        if (CooperateType.isOrSign(nowNode.getNodeRatio())) {
             return false;
         }
 
         String nodeRatio = nowNode.getNodeRatio();
         List<User> todoList = FlowEngine.userService().listByAssociatedAndTypes(task.getId()
             , UserType.APPROVAL.getKey(), UserType.TRANSFER.getKey(), UserType.DEPUTE.getKey());
-        AssertUtil.isEmpty(flowParams.getHandler(), ExceptionCons.SIGN_NULL_HANDLER);
+        AssertUtil.isEmpty(context.getHandler(), ExceptionCons.SIGN_NULL_HANDLER);
         User todoUser = CollUtil.getOne(StreamUtils.filter(todoList
-            , u -> Objects.equals(u.getProcessedBy(), flowParams.getHandler())));
+            , u -> Objects.equals(u.getProcessedBy(), context.getHandler())));
         AssertUtil.isNull(todoUser, ExceptionCons.NOT_AUTHORITY);
         List<User> restList = StreamUtils.filter(todoList
-            , u -> !Objects.equals(u.getProcessedBy(), flowParams.getHandler()));
+            , u -> !Objects.equals(u.getProcessedBy(), context.getHandler()));
 
-        if (CooperateType.isCountersign(nodeRatio) && SkipType.isReject(flowParams.getSkipType())) {
+        if (CooperateType.isCountersign(nodeRatio) && SkipType.isReject(skipType)) {
             return removeRestList(restList);
         }
 
@@ -93,19 +95,19 @@ final class TaskCooperationHandler {
             , hisTask -> Objects.equals(hisTask.getSkipType(), SkipType.PASS.getKey()));
         List<HisTask> doneRejectList = StreamUtils.filter(doneList
             , hisTask -> Objects.equals(hisTask.getSkipType(), SkipType.REJECT.getKey()));
-        boolean isPass = SkipType.isPass(flowParams.getSkipType());
+        boolean isPass = SkipType.isPass(skipType);
 
-        TaskCooperationRuleEvaluator.Context context = new TaskCooperationRuleEvaluator.Context(nodeRatio
-            , flowParams.getSkipType(), isPass, allNum, todoList, donePassList, doneRejectList
-            , flowParams.getVariable());
-        if (ruleEvaluator.evaluate(context)) {
+        TaskCooperationRuleEvaluator.Context ruleContext = new TaskCooperationRuleEvaluator.Context(nodeRatio
+            , skipType, isPass, allNum, todoList, donePassList, doneRejectList
+            , context.getVariables());
+        if (ruleEvaluator.evaluate(ruleContext)) {
             return removeRestList(restList);
         }
 
         if (todoList.size() == 1) {
             return false;
         }
-        HisTask hisTask = FlowEngine.hisTaskService().setSignHisTask(task, flowParams, nodeRatio, isPass);
+        HisTask hisTask = FlowEngine.hisTaskService().setSignHisTask(task, context, nodeRatio, isPass);
         FlowEngine.hisTaskService().save(hisTask);
         FlowEngine.userService().removeById(todoUser.getId());
         return true;

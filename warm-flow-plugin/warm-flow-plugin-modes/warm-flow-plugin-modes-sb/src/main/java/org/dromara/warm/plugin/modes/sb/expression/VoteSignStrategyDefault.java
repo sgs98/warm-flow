@@ -36,6 +36,6 @@ public class VoteSignStrategyDefault extends VoteSignStrategySpel {
 
     @Override
     public Boolean eval(String expression, Map<String, Object> variable) {
-        return super.eval(SpelHelper.replace(expression,  variable), variable);
+        return super.eval(SpelHelper.replace(expression, variable), variable);
     }
 }

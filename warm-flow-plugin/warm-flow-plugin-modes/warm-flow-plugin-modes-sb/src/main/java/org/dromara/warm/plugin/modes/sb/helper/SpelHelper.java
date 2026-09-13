@@ -59,7 +59,7 @@ public class SpelHelper implements ApplicationContextAware {
 
     /**
      * @param expression expression
-     * @return  Object
+     * @return Object
      */
     public static Object parseExpression(String expression, Map<String, Object> variable) {
 
