@@ -122,18 +122,6 @@ public interface Node extends RootEntity {
 
     Node setExt(String ext);
 
-    /**
-     * @deprecated 下个版本废弃
-     */
-    @Deprecated
-    String getVersion();
-
-    /**
-     * @deprecated 下个版本废弃
-     */
-    @Deprecated
-    Node setVersion(String version);
-
     List<Skip> getSkipList();
 
     Node setSkipList(List<Skip> skipList);
@@ -149,7 +137,6 @@ public interface Node extends RootEntity {
             .setNodeRatio(this.getNodeRatio())
             .setPermissionFlag(this.getPermissionFlag())
             .setCoordinate(this.getCoordinate())
-            .setVersion(this.getVersion())
             .setAnyNodeSkip(this.getAnyNodeSkip())
             .setListenerType(this.getListenerType())
             .setListenerPath(this.getListenerPath())

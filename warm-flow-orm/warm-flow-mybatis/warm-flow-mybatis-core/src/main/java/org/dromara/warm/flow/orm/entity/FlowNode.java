@@ -100,13 +100,6 @@ public class FlowNode implements Node {
      */
     private String coordinate;
     /**
-     * 版本
-     *
-     * @deprecated 下个版本废弃
-     */
-    @Deprecated
-    private String version;
-    /**
      * 任意结点跳转
      */
     private String anyNodeSkip;

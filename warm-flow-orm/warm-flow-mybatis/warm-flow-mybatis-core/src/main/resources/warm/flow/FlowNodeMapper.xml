@@ -18,7 +18,6 @@
         <result property="listenerPath" column="listener_path"/>
         <result property="formCustom" column="form_custom"/>
         <result property="formPath" column="form_path"/>
-        <result property="version" column="version"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
         <result property="ext" column="ext"/>
@@ -42,7 +41,6 @@
                t.listener_path,
                t.form_custom,
                t.form_path,
-               t.version,
                t.create_time,
                t.update_time,
                t.ext,
@@ -88,7 +86,6 @@
             <if test="entity.formCustom != null and entity.formCustom != ''">and t.form_custom = #{entity.formCustom}
             </if>
             <if test="entity.formPath != null and entity.formPath != ''">and t.form_path = #{entity.formPath}</if>
-            <if test="entity.version != null and entity.version != ''">and t.version = #{entity.version}</if>
             <if test="entity.createTime != null">and t.create_time = #{entity.createTime}</if>
             <if test="entity.updateTime != null">and t.update_time = #{entity.updateTime}</if>
             <if test="entity.ext != null">and t.ext = #{entity.ext}</if>
@@ -114,7 +111,6 @@
         listener_path,
         form_custom,
         form_path,
-        version,
         create_time,
         update_time,
         ext,
@@ -139,7 +135,6 @@
             #{item.listenerPath},
             #{item.formCustom},
             #{item.formPath},
-            #{item.version},
             #{item.createTime},
             #{item.updateTime},
             #{item.ext},
@@ -168,7 +163,6 @@
         listener_path,
         form_custom,
         form_path,
-        version,
         create_time,
         update_time,
         ext,
@@ -192,7 +186,6 @@
             #{item.listenerPath},
             #{item.formCustom},
             #{item.formPath},
-            #{item.version},
             #{item.createTime},
             #{item.updateTime},
             #{item.ext},
@@ -280,7 +273,6 @@
             <if test="listenerPath != null and listenerPath != ''">listener_path,</if>
             <if test="formCustom != null and formCustom != ''">form_custom,</if>
             <if test="formPath != null and formPath != ''">form_path,</if>
-            <if test="version != null and version != ''">version,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateTime != null">update_time,</if>
             <if test="ext != null">ext,</if>
@@ -304,7 +296,6 @@
             <if test="listenerPath != null and listenerPath != ''">#{listenerPath},</if>
             <if test="formCustom != null and formCustom != ''">#{formCustom},</if>
             <if test="formPath != null and formPath != ''">#{formPath},</if>
-            <if test="version != null and version != ''">#{version},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateTime != null">#{updateTime},</if>
             <if test="ext != null">#{ext},</if>
@@ -330,7 +321,6 @@
             <if test="listenerPath != null and listenerPath != ''">listener_path = #{listenerPath},</if>
             <if test="formCustom != null and formCustom != ''">form_custom = #{formCustom},</if>
             <if test="formPath != null and formPath != ''">form_path = #{formPath},</if>
-            <if test="version != null and version != ''">version = #{version},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="ext != null">ext = #{ext},</if>
@@ -394,7 +384,6 @@
             <if test="listenerPath != null and listenerPath != ''">and listener_path = #{listenerPath}</if>
             <if test="formCustom != null and formCustom != ''">and form_custom = #{formCustom},</if>
             <if test="formPath != null and formPath != ''">and form_path = #{formPath},</if>
-            <if test="version != null and version != ''">and version = #{version}</if>
             <if test="createTime != null">and create_time = #{createTime}</if>
             <if test="updateTime != null">and update_time = #{updateTime}</if>
             <if test="ext != null">and ext = #{ext}</if>
@@ -428,7 +417,6 @@
             </if>
             <if test="entity.formCustom != null and entity.formCustom != ''">and form_custom = #{entity.formCustom}</if>
             <if test="entity.formPath != null and entity.formPath != ''">and form_path = #{entity.formPath}</if>
-            <if test="entity.version != null and entity.version != ''">and version = #{entity.version}</if>
             <if test="entity.createTime != null">and create_time = #{entity.createTime}</if>
             <if test="entity.updateTime != null">and update_time = #{entity.updateTime}</if>
             <if test="entity.ext != null">and ext = #{entity.ext}</if>

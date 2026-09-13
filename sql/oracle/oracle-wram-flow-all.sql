@@ -60,7 +60,6 @@ create table FLOW_NODE
     LISTENER_PATH   VARCHAR2(500),
     FORM_CUSTOM     VARCHAR2(1)   default 'N',
     FORM_PATH       VARCHAR2(100),
-    VERSION         VARCHAR2(20),
     CREATE_TIME     DATE,
     CREATE_BY       VARCHAR2(64) default '',
     UPDATE_TIME     DATE,
@@ -88,7 +87,6 @@ comment on column FLOW_NODE.HANDLER_TYPE is '处理器类型';
 comment on column FLOW_NODE.HANDLER_PATH is '处理器路径';
 comment on column FLOW_NODE.FORM_CUSTOM is '审批表单是否自定义 (Y是 N否)';
 comment on column FLOW_NODE.FORM_PATH is '审批表单路径';
-comment on column FLOW_NODE.VERSION is '版本';
 comment on column FLOW_NODE.CREATE_TIME is '创建时间';
 comment on column FLOW_NODE.CREATE_BY is '创建人';
 comment on column FLOW_NODE.UPDATE_TIME is '更新时间';

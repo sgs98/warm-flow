@@ -85,9 +85,6 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
     @Override
     public Definition insertFlow(Definition definition, List<Node> nodeList, List<Skip> skipList) {
         definition.setVersion(getNewVersion(definition));
-        for (Node node : nodeList) {
-            node.setVersion(definition.getVersion());
-        }
         FlowEngine.defService().save(definition);
         FlowEngine.nodeService().saveBatch(nodeList);
         FlowEngine.skipService().saveBatch(skipList);
@@ -266,7 +263,7 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
         List<Skip> skipList = FlowEngine.skipService().getByDefId(id).stream().map(Skip::copy).collect(Collectors.toList());
         FlowEngine.dataFillHandler().idFill(definition);
 
-        nodeList.forEach(node -> node.setDefinitionId(definition.getId()).setVersion(definition.getVersion()));
+        nodeList.forEach(node -> node.setDefinitionId(definition.getId()));
         FlowEngine.nodeService().saveBatch(nodeList);
 
         skipList.forEach(skip -> skip.setDefinitionId(definition.getId()));
@@ -355,7 +352,7 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
         // 便利一个流程中的各个节点
         int startNum = 0;
         for (Node node : allNodes) {
-            FlowConfigUtil.initNodeAndCondition(node, definition.getId(), definition.getVersion());
+            FlowConfigUtil.initNodeAndCondition(node, definition.getId());
             startNum = FlowConfigUtil.checkStartAndSame(node, startNum, flowName, nodeCodeSet);
         }
         AssertUtil.isTrue(startNum == 0, "[" + flowName + "]" + ExceptionCons.LOST_START_NODE);
