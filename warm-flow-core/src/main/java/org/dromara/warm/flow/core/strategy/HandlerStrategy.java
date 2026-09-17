@@ -49,12 +49,12 @@ public interface HandlerStrategy extends ExpressionStrategy<List<String>> {
         if (ObjectUtil.isNull(o)) {
             return null;
         }
-        if (o instanceof List) {
-            return StreamUtils.toList((List<?>) o, Object::toString);
+        if (o instanceof List<?> list) {
+            return StreamUtils.toList(list, Object::toString);
         }
-        if (o instanceof Object[]) {
-            return Arrays.stream((Object[]) o).map(Object::toString).collect(Collectors.toList());
+        if (o instanceof Object[] objects) {
+            return Arrays.stream(objects).map(Object::toString).collect(Collectors.toList());
         }
-        return Collections.singletonList(o.toString());
+        return List.of(o.toString());
     }
 }

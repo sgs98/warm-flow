@@ -54,7 +54,7 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
     /**
      * 按网关类型选择出口的策略。
      */
-    private final List<GatewayStrategy> gatewayStrategies = Arrays.asList(
+    private final List<GatewayStrategy> gatewayStrategies = List.of(
         new SerialGatewayStrategy(), new ParallelGatewayStrategy(), new InclusiveGatewayStrategy());
 
     @Override
@@ -70,7 +70,7 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
         if (ObjectUtil.isNotNull(definition)) {
             return list(FlowEngine.newNode().setDefinitionId(definition.getId()));
         }
-        return Collections.emptyList();
+        return List.of();
     }
 
     @Override
@@ -293,7 +293,7 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
                 return strategy.select(skips, variable);
             }
         }
-        return Collections.emptyList();
+        return List.of();
     }
 
 
@@ -367,7 +367,7 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
      */
     private Skip getSkipByCheck(List<Skip> skips, String skipType) {
         return Optional.ofNullable(skips)
-            .orElse(Collections.emptyList())
+            .orElse(List.of())
             .stream()
             .filter(t -> StringUtils.isEmpty(t.getSkipType()) || skipType.equals(t.getSkipType()))
             .findFirst()

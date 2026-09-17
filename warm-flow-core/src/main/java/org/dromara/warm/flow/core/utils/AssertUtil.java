@@ -75,12 +75,12 @@ public class AssertUtil {
      */
     public static void isNotEmpty(Object obj, String errorMsg) {
         if (obj != null) {
-            if (obj instanceof String) {
-                AssertUtil.isTrue(StringUtils.isNotEmpty((String) obj), errorMsg);
-            } else if (obj instanceof Collection) {
-                AssertUtil.isTrue(CollUtil.isNotEmpty((Collection<?>) obj), errorMsg);
-            } else if (obj instanceof Map) {
-                AssertUtil.isTrue(MapUtil.isNotEmpty((Map<?, ?>) obj), errorMsg);
+            if (obj instanceof String str) {
+                AssertUtil.isTrue(StringUtils.isNotEmpty(str), errorMsg);
+            } else if (obj instanceof Collection<?> collection) {
+                AssertUtil.isTrue(CollUtil.isNotEmpty(collection), errorMsg);
+            } else if (obj instanceof Map<?, ?> map) {
+                AssertUtil.isTrue(MapUtil.isNotEmpty(map), errorMsg);
             } else {
                 throw new FlowException("Unsupported type: " + obj.getClass().getName());
             }
@@ -97,12 +97,12 @@ public class AssertUtil {
     public static void isEmpty(Object obj, String errorMsg) {
         if (obj == null) {
             throw new FlowException(errorMsg);
-        } else if (obj instanceof String) {
-            AssertUtil.isTrue(StringUtils.isEmpty((String) obj), errorMsg);
-        } else if (obj instanceof Collection) {
-            AssertUtil.isTrue(CollUtil.isEmpty((Collection<?>) obj), errorMsg);
-        } else if (obj instanceof Map) {
-            AssertUtil.isTrue(MapUtil.isEmpty((Map<?, ?>) obj), errorMsg);
+        } else if (obj instanceof String str) {
+            AssertUtil.isTrue(StringUtils.isEmpty(str), errorMsg);
+        } else if (obj instanceof Collection<?> collection) {
+            AssertUtil.isTrue(CollUtil.isEmpty(collection), errorMsg);
+        } else if (obj instanceof Map<?, ?> map) {
+            AssertUtil.isTrue(MapUtil.isEmpty(map), errorMsg);
         } else {
             throw new FlowException("Unsupported type: " + obj.getClass().getName());
         }

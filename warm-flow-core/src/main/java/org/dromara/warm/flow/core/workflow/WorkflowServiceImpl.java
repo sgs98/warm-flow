@@ -237,7 +237,7 @@ public class WorkflowServiceImpl implements WorkflowService {
             result.setInstanceStatus(instance.getFlowStatus());
             result.setCurrentTasks(currentTasks(instance.getId()));
         } else {
-            result.setCurrentTasks(Collections.emptyList());
+            result.setCurrentTasks(List.of());
         }
         return result;
     }
@@ -251,18 +251,13 @@ public class WorkflowServiceImpl implements WorkflowService {
     private List<WorkflowTaskView> currentTasks(Long instanceId) {
         List<Task> tasks = FlowEngine.taskService().getByInsId(instanceId);
         if (CollUtil.isEmpty(tasks)) {
-            return Collections.emptyList();
+            return List.of();
         }
         // 批量查询待办办理人，避免逐任务查询
         Map<Long, List<String>> handlerMap = new HashMap<>();
         for (User user : FlowEngine.userService().getByAssociateds(StreamUtils.toList(tasks, Task::getId)
             , UserType.APPROVAL.getKey(), UserType.TRANSFER.getKey(), UserType.DEPUTE.getKey())) {
-            List<String> handlers = handlerMap.get(user.getAssociated());
-            if (handlers == null) {
-                handlers = new ArrayList<>();
-                handlerMap.put(user.getAssociated(), handlers);
-            }
-            handlers.add(user.getProcessedBy());
+            handlerMap.computeIfAbsent(user.getAssociated(), key -> new ArrayList<>()).add(user.getProcessedBy());
         }
         List<WorkflowTaskView> views = new ArrayList<>();
         for (Task task : tasks) {

@@ -7,7 +7,6 @@ import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -34,7 +33,7 @@ final class TaskHistoryHandler {
         , WorkflowContext context, String skipType, List<Node> nextNodes) {
         HisTask insHis = FlowEngine.hisTaskService().setSkipInsHis(task, nextNodes, context, skipType);
         FlowEngine.hisTaskService().save(insHis);
-        taskService.removeAndUserInternal(Collections.singletonList(task));
+        taskService.removeAndUserInternal(List.of(task));
 
         List<User> users = FlowEngine.userService().taskAddUsers(addTasks);
         taskService.setInsFinishInfo(instance, addTasks, context.getVariables());

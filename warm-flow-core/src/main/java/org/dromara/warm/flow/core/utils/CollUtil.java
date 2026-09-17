@@ -62,7 +62,7 @@ public class CollUtil {
      * @return 结果
      */
     public static <T> List<T> emptyDefault(List<T> list) {
-        return isEmpty(list) ? Collections.emptyList() : list;
+        return isEmpty(list) ? List.of() : list;
     }
 
     /**

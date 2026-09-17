@@ -63,18 +63,10 @@ public interface GlobalListener extends Serializable {
 
     default void notify(String type, ListenerVariable listenerVariable) {
         switch (type) {
-            case Listener.LISTENER_START:
-                start(listenerVariable);
-                break;
-            case Listener.LISTENER_ASSIGNMENT:
-                assignment(listenerVariable);
-                break;
-            case Listener.LISTENER_FINISH:
-                finish(listenerVariable);
-                break;
-            case Listener.LISTENER_CREATE:
-                create(listenerVariable);
-                break;
+            case Listener.LISTENER_START -> start(listenerVariable);
+            case Listener.LISTENER_ASSIGNMENT -> assignment(listenerVariable);
+            case Listener.LISTENER_FINISH -> finish(listenerVariable);
+            case Listener.LISTENER_CREATE -> create(listenerVariable);
         }
     }
 }

@@ -301,7 +301,7 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
     }
 
     private String getNewVersion(Definition definition) {
-        List<String> flowCodeList = Collections.singletonList(definition.getFlowCode());
+        List<String> flowCodeList = List.of(definition.getFlowCode());
         List<Definition> definitions = queryByCodeList(flowCodeList);
         int highestVersion = 0;
         String latestNonPositiveVersion = null;

@@ -8,8 +8,6 @@ import org.dromara.warm.flow.core.utils.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -25,7 +23,7 @@ final class TaskCooperationRuleEvaluator {
     /**
      * 按原有判断顺序排列的票签规则。
      */
-    private final List<Rule> rules = Arrays.asList(
+    private final List<Rule> rules = List.of(
         new ExpressionRule(), new PassCountRule(), new RejectCountRule(), new PassRatioRule());
 
     /**
@@ -184,14 +182,14 @@ final class TaskCooperationRuleEvaluator {
             this.todoList = defaultList(todoList);
             this.donePassList = defaultList(donePassList);
             this.doneRejectList = defaultList(doneRejectList);
-            this.variable = variable == null ? Collections.<String, Object>emptyMap() : variable;
+            this.variable = variable == null ? Map.of() : variable;
         }
 
         /**
          * 将可能为空的统计列表统一为空集合，保持规则计算安全。
          */
         private static List<?> defaultList(List<?> list) {
-            return list == null ? Collections.emptyList() : list;
+            return list == null ? List.of() : list;
         }
     }
 }

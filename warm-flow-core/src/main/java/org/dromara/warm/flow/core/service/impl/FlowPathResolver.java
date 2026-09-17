@@ -12,11 +12,9 @@ import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.StreamUtils;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 /**
  * 流程节点路径解析器。
@@ -65,11 +63,11 @@ final class FlowPathResolver {
 
         List<Node> gateways = Optional.of(pathWayData)
             .map(PathWayData::getPathWayNodes)
-            .orElse(Collections.emptyList())
+            .orElse(List.of())
             .stream()
             .filter(node -> NodeType.isGateWayParallel(node.getNodeType())
                 || NodeType.isGateWayInclusive(node.getNodeType()))
-            .collect(Collectors.toList());
+            .toList();
         if (CollUtil.isEmpty(gateways)) {
             return;
         }

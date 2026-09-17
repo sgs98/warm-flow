@@ -276,7 +276,7 @@ public class DefJson {
         flowCombine.setAllNodes(definition.getNodeList());
         List<Skip> skipList = Optional.of(definition)
             .map(Definition::getNodeList)
-            .orElse(Collections.emptyList())
+            .orElse(List.of())
             .stream()
             .map(Node::getSkipList)
             .filter(Objects::nonNull)

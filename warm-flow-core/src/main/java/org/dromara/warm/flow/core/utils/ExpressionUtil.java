@@ -188,9 +188,9 @@ public class ExpressionUtil {
             return permissions;
         }
         if (nextHandlerAppend) {
-            permissions.addAll(new ArrayList<>(Arrays.asList(nextHandler)));
+            permissions.addAll(new ArrayList<>(List.of(nextHandler)));
         } else {
-            permissions = new ArrayList<>(Arrays.asList(nextHandler));
+            permissions = new ArrayList<>(List.of(nextHandler));
         }
         return permissions;
     }

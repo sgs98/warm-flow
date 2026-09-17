@@ -6,7 +6,6 @@ import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.ExpressionUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -31,9 +30,9 @@ public class SerialGatewayStrategy implements GatewayStrategy {
                     defaultSkip = skip;
                 }
             } else if (ExpressionUtil.evalCondition(skip.getSkipCondition(), variable)) {
-                return Collections.singletonList(skip);
+                return List.of(skip);
             }
         }
-        return defaultSkip == null ? Collections.<Skip>emptyList() : CollUtil.toList(defaultSkip);
+        return defaultSkip == null ? List.of() : CollUtil.toList(defaultSkip);
     }
 }

@@ -35,7 +35,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * 流程实例Service业务层处理
@@ -210,7 +209,7 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
                 .list(FlowEngine.newTask().setInstanceId(instanceId))
                 .stream()
                 .map(Task::getId)
-                .collect(Collectors.toList())));
+                .toList()));
 
         if (CollUtil.isNotEmpty(taskIds)) {
             FlowEngine.userService().deleteByTaskIds(taskIds);

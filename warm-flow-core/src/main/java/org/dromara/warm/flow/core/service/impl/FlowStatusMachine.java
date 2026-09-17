@@ -5,9 +5,6 @@ import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.utils.StringUtils;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -22,9 +19,9 @@ final class FlowStatusMachine {
     /**
      * 不允许继续执行流程操作的标准终态。
      */
-    private static final Set<String> TERMINAL_STATUS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+    private static final Set<String> TERMINAL_STATUS = Set.of(
         FlowStatus.FINISHED.getKey(), FlowStatus.TERMINATE.getKey(), FlowStatus.NULLIFY.getKey(),
-        FlowStatus.CANCEL.getKey(), FlowStatus.INVALID.getKey())));
+        FlowStatus.CANCEL.getKey(), FlowStatus.INVALID.getKey());
 
     private FlowStatusMachine() {
     }

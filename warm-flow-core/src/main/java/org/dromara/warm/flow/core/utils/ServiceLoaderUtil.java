@@ -15,8 +15,6 @@
  */
 package org.dromara.warm.flow.core.utils;
 
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.util.*;
 
 /**
@@ -120,13 +118,7 @@ public class ServiceLoaderUtil {
      * @see Thread#getContextClassLoader()
      */
     public static ClassLoader getContextClassLoader() {
-        if (System.getSecurityManager() == null) {
-            return Thread.currentThread().getContextClassLoader();
-        } else {
-            // 绕开权限检查
-            return AccessController.doPrivileged(
-                (PrivilegedAction<ClassLoader>) () -> Thread.currentThread().getContextClassLoader());
-        }
+        return Thread.currentThread().getContextClassLoader();
     }
 
     /**
@@ -137,13 +129,7 @@ public class ServiceLoaderUtil {
      * @since 5.7.0
      */
     public static ClassLoader getSystemClassLoader() {
-        if (System.getSecurityManager() == null) {
-            return ClassLoader.getSystemClassLoader();
-        } else {
-            // 绕开权限检查
-            return AccessController.doPrivileged(
-                (PrivilegedAction<ClassLoader>) ClassLoader::getSystemClassLoader);
-        }
+        return ClassLoader.getSystemClassLoader();
     }
 
 }

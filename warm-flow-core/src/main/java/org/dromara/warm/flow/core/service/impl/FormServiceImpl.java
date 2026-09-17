@@ -32,7 +32,6 @@ import org.dromara.warm.flow.core.utils.page.Page;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -119,7 +118,7 @@ public class FormServiceImpl extends WarmServiceImpl<FlowFormDao<Form>, Form> im
     }
 
     private String getNewVersion(Form form) {
-        List<String> formCodeList = Collections.singletonList(form.getFormCode());
+        List<String> formCodeList = List.of(form.getFormCode());
         List<Form> forms = getDao().queryByCodeList(formCodeList);
         int highestVersion = 0;
 
