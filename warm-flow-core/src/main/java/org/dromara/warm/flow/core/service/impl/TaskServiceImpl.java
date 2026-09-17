@@ -91,7 +91,7 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
             , task).setContext(context));
 
         // 如果是受托人在处理任务，需要处理一条委派记录，并且更新委托人，回到计划审批人,然后直接返回流程实例
-        if (cooperationHandler.handleDepute(task, context, skipType)) {
+        if (!context.isIgnore() && cooperationHandler.handleDepute(task, context, skipType)) {
             return r.instance;
         }
 
@@ -99,7 +99,7 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         checkAuth(task, context);
 
         //或签、会签、票签逻辑处理
-        if (cooperationHandler.cooperate(r.nowNode, task, context, skipType)) {
+        if (!context.isIgnore() && cooperationHandler.cooperate(r.nowNode, task, context, skipType)) {
             return r.instance;
         }
 
@@ -319,7 +319,7 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
     }
 
     @Override
-    public boolean updateHandlers(Long taskId, WorkflowContext context, List<String> addHandlers
+    public Instance updateHandlers(Long taskId, WorkflowContext context, List<String> addHandlers
         , List<String> removeHandlers, Integer cooperateType) {
         AssertUtil.isNull(taskId, ExceptionCons.NULL_TASK_ID);
         R r = getAndCheck(taskId);
@@ -335,17 +335,41 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
      * @param removeHandlers 移除办理人
      * @param cooperateType  协作类型
      * @param r              任务执行上下文
-     * @return 是否处理成功
+     * @return 调整后的流程实例
      */
-    private boolean updateHandlersInternal(Long taskId, WorkflowContext context, List<String> addHandlers
+    private Instance updateHandlersInternal(Long taskId, WorkflowContext context, List<String> addHandlers
         , List<String> removeHandlers, Integer cooperateType, R r) {
+        // 引擎级协作守卫：操作人必填、协作对象必填且不可重复持有任务、减签不可移除最后一名办理人
+        if (CooperateType.TRANSFER.getKey().equals(cooperateType)) {
+            AssertUtil.isNull(context.getHandler(), ExceptionCons.HANDLER_NOT_EMPTY);
+            AssertUtil.isEmpty(addHandlers, ExceptionCons.NULL_TRANSFER_HANDLER);
+            AssertUtil.isNotEmpty(FlowEngine.userService().getByProcessedBys(taskId, addHandlers
+                , UserType.TRANSFER.getKey()), ExceptionCons.IS_ALREADY_TRANSFER);
+        } else if (CooperateType.DEPUTE.getKey().equals(cooperateType)) {
+            AssertUtil.isNull(context.getHandler(), ExceptionCons.HANDLER_NOT_EMPTY);
+            AssertUtil.isEmpty(addHandlers, ExceptionCons.NULL_DEPUTE_HANDLER);
+            AssertUtil.isNotEmpty(FlowEngine.userService().getByProcessedBys(taskId, addHandlers
+                , UserType.DEPUTE.getKey()), ExceptionCons.IS_ALREADY_DEPUTE);
+        } else if (CooperateType.ADD_SIGNATURE.getKey().equals(cooperateType)) {
+            AssertUtil.isNull(context.getHandler(), ExceptionCons.HANDLER_NOT_EMPTY);
+            AssertUtil.isEmpty(addHandlers, ExceptionCons.NULL_ADD_SIGNATURE_HANDLER);
+            AssertUtil.isNotEmpty(FlowEngine.userService().getByProcessedBys(taskId, addHandlers
+                , UserType.APPROVAL.getKey()), ExceptionCons.IS_ALREADY_SIGN);
+        } else if (CooperateType.REDUCTION_SIGNATURE.getKey().equals(cooperateType)) {
+            AssertUtil.isNull(context.getHandler(), ExceptionCons.HANDLER_NOT_EMPTY);
+            AssertUtil.isEmpty(removeHandlers, ExceptionCons.NULL_REDUCTION_SIGNATURE_HANDLER);
+            List<User> users = FlowEngine.userService().listByAssociatedAndTypes(taskId
+                , UserType.APPROVAL.getKey(), UserType.TRANSFER.getKey());
+            AssertUtil.isTrue(CollUtil.isEmpty(users) || users.size() == 1
+                , ExceptionCons.REDUCTION_SIGN_ONE_ERROR);
+        }
         context.setVariables(MapUtil.mergeAll(r.instance.getVariableMap(), context.getVariables()));
         // 执行开始监听器
         ListenerUtil.executeStart(new ListenerVariable(r.definition, r.instance, r.nowNode
             , context.getVariables(), r.task).setContext(context));
 
         // 获取给谁的权限
-        if (!context.isIgnorePermission()) {
+        if (!context.isIgnorePermission() && !context.isIgnore()) {
             // 判断当前处理人是否有权限，获取当前办理人的权限
             List<String> permissions = context.getPermissions();
             // 获取任务权限人
@@ -386,7 +410,7 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         // 最后判断是否存在节点监听器，存在执行节点监听器
         ListenerUtil.executeFinish(new ListenerVariable(r.definition, r.instance, r.nowNode, context.getVariables()
             , r.task));
-        return true;
+        return r.instance;
     }
 
     @Override
@@ -536,7 +560,7 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
      * @param context 流程执行上下文
      */
     private void checkAuth(Task task, WorkflowContext context) {
-        if (context.isIgnorePermission()) {
+        if (context.isIgnorePermission() || context.isIgnore()) {
             return;
         }
         // 查询审批人和转办人

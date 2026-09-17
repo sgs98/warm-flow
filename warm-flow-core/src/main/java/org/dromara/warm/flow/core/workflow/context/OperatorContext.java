@@ -30,6 +30,11 @@ public class OperatorContext {
     private boolean ignorePermission;
 
     /**
+     * 是否忽略权限校验、受托人委派处理和会签/票签协作规则（true：单方办理即可推动节点流转）。
+     */
+    private boolean ignore;
+
+    /**
      * 创建空的操作者上下文。
      */
     public OperatorContext() {

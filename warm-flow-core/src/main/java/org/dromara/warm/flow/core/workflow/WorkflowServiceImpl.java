@@ -3,12 +3,14 @@ package org.dromara.warm.flow.core.workflow;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
+import org.dromara.warm.flow.core.entity.User;
 import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.handler.PermissionHandler;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.CollUtil;
+import org.dromara.warm.flow.core.utils.StreamUtils;
 import org.dromara.warm.flow.core.workflow.command.*;
 import org.dromara.warm.flow.core.workflow.context.OperatorContext;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
@@ -17,7 +19,9 @@ import org.dromara.warm.flow.core.workflow.result.WorkflowTaskView;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 流程统一门面默认实现。
@@ -134,10 +138,10 @@ public class WorkflowServiceImpl implements WorkflowService {
         AssertUtil.isNull(command.getTaskId(), "任务ID不能为空");
         AssertUtil.isEmpty(command.getTargetHandler(), "转办办理人不能为空");
         WorkflowContext context = context(command);
-        FlowEngine.taskService().updateHandlers(command.getTaskId(), context
+        Instance instance = FlowEngine.taskService().updateHandlers(command.getTaskId(), context
             , Collections.singletonList(command.getTargetHandler()), Collections.singletonList(context.getHandler())
             , CooperateType.TRANSFER.getKey());
-        return result("transfer", findInstance(command.getTaskId()), command.getTaskId());
+        return result("transfer", instance, command.getTaskId());
     }
 
     /**
@@ -152,10 +156,10 @@ public class WorkflowServiceImpl implements WorkflowService {
         AssertUtil.isNull(command.getTaskId(), "任务ID不能为空");
         AssertUtil.isEmpty(command.getTargetHandler(), "委派办理人不能为空");
         WorkflowContext context = context(command);
-        FlowEngine.taskService().updateHandlers(command.getTaskId(), context
+        Instance instance = FlowEngine.taskService().updateHandlers(command.getTaskId(), context
             , Collections.singletonList(command.getTargetHandler()), Collections.singletonList(context.getHandler())
             , CooperateType.DEPUTE.getKey());
-        return result("delegate", findInstance(command.getTaskId()), command.getTaskId());
+        return result("delegate", instance, command.getTaskId());
     }
 
     /**
@@ -170,9 +174,9 @@ public class WorkflowServiceImpl implements WorkflowService {
         AssertUtil.isNull(command.getTaskId(), "任务ID不能为空");
         AssertUtil.isTrue(CollUtil.isEmpty(command.getTargetHandlers()), "加签办理人不能为空");
         WorkflowContext context = context(command);
-        FlowEngine.taskService().updateHandlers(command.getTaskId(), context, command.getTargetHandlers(), null
-            , CooperateType.ADD_SIGNATURE.getKey());
-        return result("addSigner", findInstance(command.getTaskId()), command.getTaskId());
+        Instance instance = FlowEngine.taskService().updateHandlers(command.getTaskId(), context
+            , command.getTargetHandlers(), null, CooperateType.ADD_SIGNATURE.getKey());
+        return result("addSigner", instance, command.getTaskId());
     }
 
     /**
@@ -187,13 +191,16 @@ public class WorkflowServiceImpl implements WorkflowService {
         AssertUtil.isNull(command.getTaskId(), "任务ID不能为空");
         AssertUtil.isTrue(CollUtil.isEmpty(command.getTargetHandlers()), "减签办理人不能为空");
         WorkflowContext context = context(command);
-        FlowEngine.taskService().updateHandlers(command.getTaskId(), context, null, command.getTargetHandlers()
-            , CooperateType.REDUCTION_SIGNATURE.getKey());
-        return result("removeSigner", findInstance(command.getTaskId()), command.getTaskId());
+        Instance instance = FlowEngine.taskService().updateHandlers(command.getTaskId(), context
+            , null, command.getTargetHandlers(), CooperateType.REDUCTION_SIGNATURE.getKey());
+        return result("removeSigner", instance, command.getTaskId());
     }
 
     /**
      * 将公共 Command 转换为内部执行上下文。
+     *
+     * <p>命令级 {@link OperatorContext} 优先于全局 {@link PermissionHandler}，
+     * 便于后台任务等无会话场景显式指定操作者；两者均未提供时保持为空。</p>
      *
      * @param command 流程操作参数
      * @return 内部执行上下文
@@ -201,88 +208,27 @@ public class WorkflowServiceImpl implements WorkflowService {
     private WorkflowContext context(WorkflowCommand command) {
         WorkflowContext context = new WorkflowContext();
         context.setExt(command.getExt());
-        PermissionHandler permissionHandler = FlowEngine.permissionHandler();
-        if (permissionHandler != null) {
-            context.setHandler(permissionHandler.getHandler());
-            context.setPermissions(permissionHandler.permissions());
+        OperatorContext operator = command.getOperator();
+        if (operator != null) {
+            context.setHandler(operator.getHandler());
+            context.setPermissions(operator.getPermissions());
+            context.setIgnorePermission(operator.isIgnorePermission());
+            context.setIgnore(operator.isIgnore());
         } else {
-            OperatorContext operator = command.getOperator();
-            if (operator != null) {
-                context.setHandler(operator.getHandler());
-                context.setPermissions(operator.getPermissions());
-                context.setIgnorePermission(operator.isIgnorePermission());
+            PermissionHandler permissionHandler = FlowEngine.permissionHandler();
+            if (permissionHandler != null) {
+                context.setHandler(permissionHandler.getHandler());
+                context.setPermissions(permissionHandler.permissions());
             }
         }
-        if (command instanceof CompleteCommand) {
-            CompleteCommand action = (CompleteCommand) command;
-            context.setMessage(action.getMessage());
-            context.setVariables(action.getVariables());
-            context.setInstanceStatus(action.getInstanceStatus());
-            context.setHistoryTaskStatus(action.getHistoryTaskStatus());
-            context.setNextHandlers(action.getNextHandlers());
-            context.setNextHandlerAppend(action.isNextHandlerAppend());
-        } else if (command instanceof RejectCommand) {
-            RejectCommand action = (RejectCommand) command;
-            context.setMessage(action.getMessage());
-            context.setVariables(action.getVariables());
-            context.setInstanceStatus(action.getInstanceStatus());
-            context.setHistoryTaskStatus(action.getHistoryTaskStatus());
-            context.setTargetNodeCode(action.getTargetNodeCode());
-            context.setNextHandlers(action.getNextHandlers());
-            context.setNextHandlerAppend(action.isNextHandlerAppend());
-        } else if (command instanceof JumpCommand) {
-            JumpCommand action = (JumpCommand) command;
-            context.setMessage(action.getMessage());
-            context.setVariables(action.getVariables());
-            context.setInstanceStatus(action.getInstanceStatus());
-            context.setHistoryTaskStatus(action.getHistoryTaskStatus());
-            context.setTargetNodeCode(action.getTargetNodeCode());
-            context.setNextHandlers(action.getNextHandlers());
-            context.setNextHandlerAppend(action.isNextHandlerAppend());
-        } else if (command instanceof RevokeCommand) {
-            RevokeCommand action = (RevokeCommand) command;
-            context.setMessage(action.getMessage());
-            context.setVariables(action.getVariables());
-            context.setInstanceStatus(action.getInstanceStatus());
-            context.setHistoryTaskStatus(action.getHistoryTaskStatus());
-        } else if (command instanceof TerminateCommand) {
-            TerminateCommand action = (TerminateCommand) command;
-            context.setMessage(action.getMessage());
-            context.setInstanceStatus(action.getInstanceStatus());
-            context.setHistoryTaskStatus(action.getHistoryTaskStatus());
-        } else if (command instanceof TransferCommand) {
-            TransferCommand action = (TransferCommand) command;
-            context.setMessage(action.getMessage());
-            context.setHistoryTaskStatus(action.getHistoryTaskStatus());
-        } else if (command instanceof DelegateCommand) {
-            DelegateCommand action = (DelegateCommand) command;
-            context.setMessage(action.getMessage());
-            context.setHistoryTaskStatus(action.getHistoryTaskStatus());
-        } else if (command instanceof AddSignerCommand) {
-            AddSignerCommand action = (AddSignerCommand) command;
-            context.setMessage(action.getMessage());
-            context.setHistoryTaskStatus(action.getHistoryTaskStatus());
-        } else if (command instanceof RemoveSignerCommand) {
-            RemoveSignerCommand action = (RemoveSignerCommand) command;
-            context.setMessage(action.getMessage());
-            context.setHistoryTaskStatus(action.getHistoryTaskStatus());
-        } else if (command instanceof StartCommand) {
-            StartCommand action = (StartCommand) command;
-            context.setVariables(action.getVariables());
-            context.setInstanceStatus(action.getInstanceStatus());
-            context.setHistoryTaskStatus(action.getHistoryTaskStatus());
-        }
+        command.fillContext(context);
         return context;
     }
 
-    private Instance findInstance(Long taskId) {
-        Task task = FlowEngine.taskService().getById(taskId);
-        return task == null ? null : FlowEngine.insService().getById(task.getInstanceId());
-    }
-
     private WorkflowResult result(String operation, Instance instance, Long taskId) {
+        // 能走到此处说明操作已成功执行，失败场景一律以 FlowException 抛出
         WorkflowResult result = new WorkflowResult();
-        result.setSuccess(instance != null);
+        result.setSuccess(true);
         result.setOperation(operation);
         result.setCompletedTaskId(taskId);
         if (instance != null) {
@@ -307,6 +253,17 @@ public class WorkflowServiceImpl implements WorkflowService {
         if (CollUtil.isEmpty(tasks)) {
             return Collections.emptyList();
         }
+        // 批量查询待办办理人，避免逐任务查询
+        Map<Long, List<String>> handlerMap = new HashMap<>();
+        for (User user : FlowEngine.userService().getByAssociateds(StreamUtils.toList(tasks, Task::getId)
+            , UserType.APPROVAL.getKey(), UserType.TRANSFER.getKey(), UserType.DEPUTE.getKey())) {
+            List<String> handlers = handlerMap.get(user.getAssociated());
+            if (handlers == null) {
+                handlers = new ArrayList<>();
+                handlerMap.put(user.getAssociated(), handlers);
+            }
+            handlers.add(user.getProcessedBy());
+        }
         List<WorkflowTaskView> views = new ArrayList<>();
         for (Task task : tasks) {
             WorkflowTaskView view = new WorkflowTaskView();
@@ -316,16 +273,13 @@ public class WorkflowServiceImpl implements WorkflowService {
             view.setNodeName(task.getNodeName());
             view.setNodeType(task.getNodeType());
             view.setTaskStatus(task.getFlowStatus());
-            view.setHandlers(FlowEngine.userService().getPermission(task.getId(), UserType.APPROVAL.getKey()
-                , UserType.TRANSFER.getKey(), UserType.DEPUTE.getKey()));
+            view.setHandlers(handlerMap.get(task.getId()));
             views.add(view);
         }
         return views;
     }
 
     private void check(WorkflowCommand command, String message) {
-        if (command == null) {
-            throw new IllegalArgumentException(message);
-        }
+        AssertUtil.isNull(command, message);
     }
 }

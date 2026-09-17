@@ -82,9 +82,9 @@ public interface TaskService extends IWarmService<Task> {
      * @param addHandlers    需要增加的办理人
      * @param removeHandlers 需要移除的办理人
      * @param cooperateType  协作类型
-     * @return 是否调整成功
+     * @return 调整后的流程实例
      */
-    boolean updateHandlers(Long taskId, WorkflowContext context, List<String> addHandlers
+    Instance updateHandlers(Long taskId, WorkflowContext context, List<String> addHandlers
         , List<String> removeHandlers, Integer cooperateType);
 
     /**
