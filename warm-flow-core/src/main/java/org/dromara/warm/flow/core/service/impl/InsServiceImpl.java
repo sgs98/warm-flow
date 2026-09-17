@@ -85,7 +85,7 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
 
         WorkflowContext taskContext = new WorkflowContext();
         taskContext.setVariables(context.getVariables());
-        taskContext.setInstanceStatus(context.getHistoryTaskStatus());
+        taskContext.setInstanceStatus(context.getInstanceStatus());
         taskContext.setNextHandlers(context.getNextHandlers());
         taskContext.setNextHandlerAppend(context.isNextHandlerAppend());
         List<Task> addTasks = StreamUtils.toList(nextNodes, node -> FlowEngine.taskService()
