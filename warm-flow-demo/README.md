@@ -2,7 +2,7 @@
 
 Warm-Flow 全栈集成演示工程（非正式发布，不参与 Warm-Flow Maven 反应堆，不改动引擎公共契约）。
 
-- 后端：`warm-flow-demo/`（Spring Boot 3.0 + MyBatis-Plus 3.5.12 + MySQL 8，源码编译基线 Java 8）
+- 后端：`warm-flow-demo/`（Spring Boot 3.5 + MyBatis-Plus 3.5.17 + MySQL 8，源码编译基线 Java 17）
 - 前端：`warm-flow-demo-web/`（Vue 3 + Vite 5 + TypeScript + Element Plus，通过 iframe 使用后端内置设计器）
 
 ## 目录结构

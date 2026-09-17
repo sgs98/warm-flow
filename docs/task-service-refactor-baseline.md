@@ -6,7 +6,7 @@
 
 - JDK：17.0.9（GraalVM Community）
 - Maven：3.9.16
-- 源码编译基线：JDK 8 source/target，由父 `pom.xml` 管理
+- 源码编译基线：`maven.compiler.release = 17`，由父 `pom.xml` 管理
 - 外部测试仓库：已拉取到 `/tmp/warm-flow-test`，核心测试模块可编译；完整状态机测试仍需数据库/容器运行环境
 
 ## 公共入口分组

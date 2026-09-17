@@ -5,11 +5,11 @@
 
 ## 模块职责
 
-ORM 适配层，实现 `warm-flow-core` 的 `WarmDao` 抽象与各实体。按「**ORM × 框架**」矩阵组织，每种 ORM 一套五件套：
+ORM 适配层，实现 `warm-flow-core` 的 `WarmDao` 抽象与各实体。按「**ORM × 框架**」矩阵组织，每种 ORM 一套三件套：
 
-- `warm-flow-mybatis`：`*-core`（实体 / Mapper / `WarmDaoImpl`）+ `*-sb-starter`(SB2) + `*-sb3-starter`(SB3) +
+- `warm-flow-mybatis`：`*-core`（实体 / Mapper / `WarmDaoImpl`）+ `*-sb3-starter`(SB3) +
   `*-sb4-starter`(SB4)。
-- `warm-flow-mybatis-plus`：同上五件套（含 `MybatisPlusIdGen` 等适配）。
+- `warm-flow-mybatis-plus`：同上三件套（含 `MybatisPlusIdGen` 等适配）。
 
 包根：ORM 实现 `org.dromara.warm.flow.orm`（`entity`/`mapper`/`dao`/`keygen`/`utils`）；Spring 适配
 `org.dromara.warm.flow.spring.boot`。
@@ -22,8 +22,8 @@ ORM 适配层，实现 `warm-flow-core` 的 `WarmDao` 抽象与各实体。按�
 
 ## 高风险点（按 L2）
 
-- **多生态对齐**：一个能力改动通常要在同 ORM 的 `sb` / `sb3` / `sb4` 同步；不要只改一套 starter 导致生态不一致。
-- **自动装配注册一致**：SB2 用 `META-INF/spring.factories`，SB3/4 用
+- **多生态对齐**：一个能力改动通常要在同 ORM 的 `sb3` / `sb4` 同步；不要只改一套 starter 导致生态不一致。
+- **自动装配注册一致**：SB3/4 统一用
   `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`。新增 / 改 `FlowAutoConfig`
   时同步对应注册文件，并确保把实现接入 `FlowEngine` / 注入 `FrameInvoker`。
 - **WarmDao 契约**：各 ORM 实现要满足 core `WarmDao<T>` 的语义（分页、批量、软删除、租户），不要让不同 ORM 行为漂移。

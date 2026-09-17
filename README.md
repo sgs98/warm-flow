@@ -54,7 +54,7 @@
 - **ORM框架支持**‌：官方支持MyBatis、Mybatis-Plus，Jpa、BeetlSql等其他框架可由社区扩展
 - **数据库支持**‌：支持MySQL、Oracle、PostgreSQL和SQL Server，其他数据库只需要转换表结构即可支持。
 - **多租户与软删除**‌：流程引擎自身维护多租户和软删除实现，也可使用对应ORM框架的实现方式。
-- **兼容性**‌：支持Spring，兼容Java8、Java17、Java21。
+- **兼容性**‌：支持Spring，JDK 17起步，兼容Java17、Java21。
 - **实战项目**‌：官方提供基于Ruoyi-Vue封装的实战项目，极具参考价值。
 
 ```
