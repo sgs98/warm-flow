@@ -16,7 +16,6 @@
 
     <modules>
         <module>warm-flow-mybatis-core</module>
-        <module>warm-flow-mybatis-sb-starter</module>
         <module>warm-flow-mybatis-sb3-starter</module>
         <module>warm-flow-mybatis-sb4-starter</module>
     </modules>

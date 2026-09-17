@@ -14,10 +14,6 @@
     <description>warm-flow orm为mybatis的springboot3 starter</description>
     <url>https://github.com/dromara/warm-flow</url>
 
-    <properties>
-        <mybatis-spring-boot3>3.0.3</mybatis-spring-boot3>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.dromara.warm</groupId>
@@ -27,7 +23,6 @@
         <dependency>
             <groupId>org.mybatis.spring.boot</groupId>
             <artifactId>mybatis-spring-boot-starter</artifactId>
-            <version>${mybatis-spring-boot3}</version>
         </dependency>
 
         <dependency>
@@ -36,42 +31,4 @@
         </dependency>
     </dependencies>
 
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-dependencies</artifactId>
-                <version>${springboot3.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
-                <configuration>
-                    <source>${java17.version}</source>
-                    <target>${java17.version}</target>
-                    <encoding>${project.build.sourceEncoding}</encoding>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <version>3.2.0</version>
-                <configuration>
-                    <archive>
-                        <manifestEntries>
-                            <Build-Jdk-Spec>${java17.version}</Build-Jdk-Spec>
-                        </manifestEntries>
-                    </archive>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>
