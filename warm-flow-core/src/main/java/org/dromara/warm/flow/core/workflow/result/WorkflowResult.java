@@ -48,14 +48,4 @@ public class WorkflowResult {
      * 操作完成后仍处于待办状态的任务。
      */
     private List<WorkflowTaskView> currentTasks;
-
-    /**
-     * 操作结果说明。
-     */
-    private String message;
-
-    /**
-     * 是否识别为重复操作而未再次执行。
-     */
-    private boolean idempotent;
 }

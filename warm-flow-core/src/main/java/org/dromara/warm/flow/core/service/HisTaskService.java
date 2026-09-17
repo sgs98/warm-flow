@@ -94,15 +94,6 @@ public interface HisTaskService extends IWarmService<HisTask> {
     HisTask setCooperateHis(Task task, WorkflowContext context, List<String> collaborators, Integer cooperateType);
 
     /**
-     * 设置暂存历史记录
-     *
-     * @param task    当前任务
-     * @param context 流程执行上下文
-     * @return 暂存历史任务
-     */
-    HisTask notSkip(Task task, WorkflowContext context);
-
-    /**
      * 委派历史任务
      *
      * @param task          当前任务

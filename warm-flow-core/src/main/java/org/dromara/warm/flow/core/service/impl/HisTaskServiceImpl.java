@@ -125,33 +125,6 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
     }
 
     @Override
-    public HisTask notSkip(Task task, WorkflowContext context) {
-        String flowStatus = customStatus(context);
-        HisTask hisTask = FlowEngine.newHisTask()
-            .setTaskId(task.getId())
-            .setInstanceId(task.getInstanceId())
-            .setCooperateType(CooperateType.APPROVAL.getKey())
-            .setNodeCode(task.getNodeCode())
-            .setNodeName(task.getNodeName())
-            .setNodeType(task.getNodeType())
-            .setDefinitionId(task.getDefinitionId())
-            .setTargetNodeCode(task.getNodeCode())
-            .setTargetNodeName(task.getNodeName())
-            .setApprover(context.getHandler())
-            .setSkipType(SkipType.NONE.getKey())
-            .setFlowStatus(flowStatus)
-            .setFormCustom(task.getFormCustom())
-            .setFormPath(task.getFormPath())
-            .setMessage(context.getMessage())
-            .setVariable(variableStr(context))
-            //业务详情添加至历史记录
-            .setExt(context.getExt())
-            .setCreateTime(task.getCreateTime());
-        FlowEngine.dataFillHandler().idFill(hisTask);
-        return hisTask;
-    }
-
-    @Override
     public HisTask setDeputeHisTask(Task task, WorkflowContext context, User entrustedUser, String skipType) {
         String flowStatus = customStatus(context);
         HisTask hisTask = FlowEngine.newHisTask()
