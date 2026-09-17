@@ -44,10 +44,10 @@ public class AssertUtil {
     }
 
     /**
-     * 为true不抛异常
+     * 断言表达式为 true：表达式为 false 时抛出异常（注意与常见断言库语义相反，如需断言为 false 请用 isTrue）。
      *
-     * @param obj
-     * @param errorMsg
+     * @param obj      待断言表达式
+     * @param errorMsg 断言失败提示
      */
     public static void isFalse(boolean obj, String errorMsg) {
         if (!obj) {
@@ -56,10 +56,10 @@ public class AssertUtil {
     }
 
     /**
-     * 为false不抛异常
+     * 断言表达式为 false：表达式为 true 时抛出异常（注意与常见断言库语义相反，如需断言为 true 请用 isFalse）。
      *
-     * @param obj
-     * @param errorMsg
+     * @param obj      待断言表达式
+     * @param errorMsg 断言失败提示
      */
     public static void isTrue(boolean obj, String errorMsg) {
         if (obj) {
@@ -67,6 +67,12 @@ public class AssertUtil {
         }
     }
 
+    /**
+     * 断言对象为空：字符串 / 集合 / Map 非空时抛出异常。
+     *
+     * @param obj      待断言对象
+     * @param errorMsg 断言失败提示
+     */
     public static void isNotEmpty(Object obj, String errorMsg) {
         if (obj != null) {
             if (obj instanceof String) {
@@ -82,6 +88,12 @@ public class AssertUtil {
     }
 
 
+    /**
+     * 断言对象非空：对象为 null 或字符串 / 集合 / Map 为空时抛出异常（等价于“必填校验”）。
+     *
+     * @param obj      待断言对象
+     * @param errorMsg 断言失败提示
+     */
     public static void isEmpty(Object obj, String errorMsg) {
         if (obj == null) {
             throw new FlowException(errorMsg);
