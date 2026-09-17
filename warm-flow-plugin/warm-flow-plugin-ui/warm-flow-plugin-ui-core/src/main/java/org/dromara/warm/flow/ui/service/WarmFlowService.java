@@ -44,7 +44,6 @@ import org.dromara.warm.flow.ui.utils.TreeUtil;
 import org.dromara.warm.flow.ui.vo.*;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 设计器Controller 可选择是否放行，放行可与业务系统共享权限，主要是用来访问业务系统数据
@@ -70,7 +69,7 @@ public class WarmFlowService {
         }
         String[] tokenNames = tokenName.split(",");
         List<String> tokenNameList = Arrays.stream(tokenNames).filter(StringUtils::isNotEmpty)
-            .map(String::trim).collect(Collectors.toList());
+            .map(String::trim).toList();
         warmFlowVo.setTokenNameList(tokenNameList);
 
         return ApiResult.ok(warmFlowVo);

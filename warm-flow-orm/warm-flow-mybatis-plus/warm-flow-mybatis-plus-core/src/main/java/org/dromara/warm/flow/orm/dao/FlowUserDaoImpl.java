@@ -24,7 +24,6 @@ import org.dromara.warm.flow.core.utils.ObjectUtil;
 import org.dromara.warm.flow.orm.entity.FlowUser;
 import org.dromara.warm.flow.orm.mapper.FlowUserMapper;
 
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -60,7 +59,7 @@ public class FlowUserDaoImpl extends WarmDaoImpl<FlowUser> implements FlowUserDa
                 queryWrapper.in(FlowUser::getAssociated, associatedList);
             }
         }
-        queryWrapper.in(ArrayUtil.isNotEmpty(types), FlowUser::getType, Arrays.asList(types));
+        queryWrapper.in(ArrayUtil.isNotEmpty(types), FlowUser::getType, List.of(types));
         return getMapper().selectList(queryWrapper);
     }
 

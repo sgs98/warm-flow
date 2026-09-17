@@ -23,7 +23,6 @@ import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.orm.entity.FlowHisTask;
 import org.dromara.warm.flow.orm.mapper.FlowHisTaskMapper;
 
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -70,7 +69,7 @@ public class FlowHisTaskDaoImpl extends WarmDaoImpl<FlowHisTask> implements Flow
     @Override
     public List<FlowHisTask> listByTaskIdAndCooperateTypes(Long taskId, Integer[] cooperateTypes) {
         LambdaQueryWrapper<FlowHisTask> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(FlowHisTask::getTaskId, taskId).in(FlowHisTask::getCooperateType, Arrays.asList(cooperateTypes));
+        queryWrapper.eq(FlowHisTask::getTaskId, taskId).in(FlowHisTask::getCooperateType, List.of(cooperateTypes));
         return getMapper().selectList(queryWrapper);
     }
 
