@@ -2,6 +2,7 @@ package org.dromara.warm.flow.core.workflow.command;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.List;
 import java.util.Map;
@@ -54,4 +55,20 @@ public class RejectCommand extends WorkflowCommand {
      * 是否将指定办理人追加到引擎计算出的办理人集合。
      */
     private boolean nextHandlerAppend;
+
+    /**
+     * 将退回参数填充到执行上下文。
+     *
+     * @param context 流程执行上下文
+     */
+    @Override
+    public void fillContext(WorkflowContext context) {
+        context.setMessage(getMessage());
+        context.setVariables(getVariables());
+        context.setInstanceStatus(getInstanceStatus());
+        context.setHistoryTaskStatus(getHistoryTaskStatus());
+        context.setTargetNodeCode(getTargetNodeCode());
+        context.setNextHandlers(getNextHandlers());
+        context.setNextHandlerAppend(isNextHandlerAppend());
+    }
 }
