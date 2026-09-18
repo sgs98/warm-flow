@@ -4,9 +4,14 @@ import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.ApiResponse;
 import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.service.DefinitionService;
+import org.dromara.warm.demo.vo.DefinitionExportVo;
 import org.dromara.warm.demo.vo.DefinitionSummaryVo;
 import org.dromara.warm.demo.vo.PageVo;
 import org.dromara.warm.flow.core.dto.DefJson;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,6 +21,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.nio.charset.StandardCharsets;
 
 /**
  * 流程定义接口。
@@ -91,6 +99,35 @@ public class DefinitionController {
     @PostMapping("/{id}/copy")
     public ApiResponse<Long> copy(@PathVariable("id") Long id) {
         return ApiResponse.ok(definitionService.copy(id));
+    }
+
+    /**
+     * 导出流程定义 json 文件，内容包含流程定义、流程节点与流程跳转。
+     *
+     * @param id 流程定义主键
+     * @return 流程定义 json 文件流
+     */
+    @GetMapping("/{id}/export")
+    public ResponseEntity<byte[]> export(@PathVariable("id") Long id) {
+        DefinitionExportVo exportVo = definitionService.export(id);
+        ContentDisposition disposition = ContentDisposition.attachment()
+            .filename(exportVo.getFileName(), StandardCharsets.UTF_8)
+            .build();
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+            .contentType(MediaType.APPLICATION_OCTET_STREAM)
+            .body(exportVo.getContent().getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * 导入流程定义 json 文件。
+     *
+     * @param file 流程定义 json 文件
+     * @return 新流程定义主键
+     */
+    @PostMapping("/import")
+    public ApiResponse<Long> importFile(@RequestParam(value = "file", required = false) MultipartFile file) {
+        return ApiResponse.ok(definitionService.importFile(file));
     }
 
     /**

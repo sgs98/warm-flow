@@ -48,6 +48,29 @@ pnpm install
 pnpm dev                      # http://localhost:5173
 ```
 
+## 流程定义导出与导入
+
+流程定义列表页（`流程定义 -> 列表`）支持把单个流程定义导出为 json 文件，再把该文件导入回来：
+
+- 导出：行内「导出」按钮，下载文件名形如 `leave_1.json`（`流程编码_版本号.json`），内容是引擎标准导出格式（`DefJson`：流程定义 + 节点 + 连线，含坐标与办理人），不带定义主键与发布状态，可跨环境使用。
+- 导入：工具栏「导入流程」按钮选择 json 文件，由引擎 `importIs` 解析并校验结构（开始节点唯一、节点编码不重复、连线目标存在等）后，**始终作为新的流程定义版本落库**，导入后为未发布状态，不会覆盖本地已有定义；同编码已存在时版本号自动递增。
+
+对应接口（也可用 curl 直接验证）：
+
+```bash
+# 导出为文件
+curl -OJ "http://localhost:8080/api/definitions/{id}/export"
+
+# 导入文件，返回新流程定义主键
+curl -F "file=@leave_1.json" "http://localhost:8080/api/definitions/import"
+```
+
+注意：
+
+- 监听器类路径、自定义表单 `formPath` 等按名称原样带过去，导入环境需存在同名实现，否则运行时才报错。
+- 前端无论走 vite 代理还是直连 8080，POST/PUT/DELETE 都会带 `Origin`，后端 `WebConfig` 已对 `/api/**` 放开本地联调跨域（`allowedOriginPatterns("*")`）；来源不在白名单时 Spring 会直接返回 403，正式集成请自行收紧。改完 CORS 需要重启后端才生效。
+- 引擎 `importIs` 按 JVM 默认字符集读取文件（JDK 18+ 默认 UTF-8）；若在 JDK 17 且默认字符集非 UTF-8 的环境（如部分 Windows）导入含中文的文件，可用 `-Dfile.encoding=UTF-8` 启动。
+
 ## 说明与约束
 
 - 本目录不参与正式发布；设计器页面由后端 `warm-flow-plugin-ui-sb-web` 与 `warm-flow-plugin-vue3-ui` 提供，前端通过 `/warm-flow-ui/index.html` iframe 集成。

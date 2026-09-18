@@ -9,6 +9,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * 全局异常处理，统一输出 {code, message, data} 并映射 HTTP 状态。
@@ -37,6 +38,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ApiResponse<Void> handleMissingHeader(MissingRequestHeaderException e) {
         return ApiResponse.fail(401, "未登录");
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleUploadSize(MaxUploadSizeExceededException e) {
+        return ApiResponse.fail(400, "导入文件过大，请检查流程定义 json 文件内容");
     }
 
 

@@ -9,6 +9,7 @@ import org.dromara.warm.demo.common.BizException;
 import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.mapper.DemoFlowDefinitionMapper;
 import org.dromara.warm.demo.service.DefinitionService;
+import org.dromara.warm.demo.vo.DefinitionExportVo;
 import org.dromara.warm.demo.vo.DefinitionSummaryVo;
 import org.dromara.warm.demo.vo.PageVo;
 import org.dromara.warm.flow.core.FlowEngine;
@@ -19,6 +20,7 @@ import org.dromara.warm.flow.core.utils.ObjectUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.orm.entity.FlowDefinition;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -108,6 +110,28 @@ public class DefinitionServiceImpl implements DefinitionService {
         return copies.stream().mapToLong(Definition::getId).max().orElse(id);
     }
 
+    public DefinitionExportVo export(Long id) {
+        Definition definition = requireDefinition(id);
+        DefinitionExportVo exportVo = new DefinitionExportVo();
+        exportVo.setFileName(buildExportFileName(definition));
+        exportVo.setContent(FlowEngine.defService().exportJson(id));
+        return exportVo;
+    }
+
+    public Long importFile(MultipartFile file) {
+        if (ObjectUtil.isNull(file) || file.isEmpty()) {
+            throw BizException.badRequest("请选择要导入的流程定义 json 文件");
+        }
+        try {
+            return FlowEngine.defService().importIs(file.getInputStream()).getId();
+        } catch (FlowException e) {
+            throw BizException.badRequest(e.getMessage());
+        } catch (Exception e) {
+            log.error("导入流程定义失败", e);
+            throw BizException.badRequest("导入流程定义失败: " + e.getMessage());
+        }
+    }
+
     public void remove(Long id) {
         exists(id);
         try {
@@ -118,9 +142,26 @@ public class DefinitionServiceImpl implements DefinitionService {
     }
 
     private void exists(Long id) {
-        if (ObjectUtil.isNull(id) || ObjectUtil.isNull(FlowEngine.defService().getById(id))) {
+        requireDefinition(id);
+    }
+
+    private Definition requireDefinition(Long id) {
+        Definition definition = ObjectUtil.isNull(id) ? null : FlowEngine.defService().getById(id);
+        if (ObjectUtil.isNull(definition)) {
             throw BizException.notFound("流程定义不存在: " + id);
         }
+        return definition;
+    }
+
+    /**
+     * 用流程编码与版本号拼导出文件名，并替换掉文件名中的非法字符。
+     */
+    private String buildExportFileName(Definition definition) {
+        String flowCode = StringUtils.isEmpty(definition.getFlowCode())
+            ? "flow" : definition.getFlowCode().trim();
+        String version = StringUtils.isEmpty(definition.getVersion())
+            ? "1" : definition.getVersion().trim();
+        return flowCode.replaceAll("[\\\\/:*?\"<>|\\s\\p{Cntrl}]", "_") + "_" + version + ".json";
     }
 
     private Long resolveSavedId(DefJson defJson) {
