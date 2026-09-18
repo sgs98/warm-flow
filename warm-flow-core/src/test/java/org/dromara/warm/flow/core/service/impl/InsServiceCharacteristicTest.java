@@ -50,10 +50,10 @@ class InsServiceCharacteristicTest {
         assertTrue(FlowEngine.insService().unActive(instance.getId()));
         assertEquals(ActivityStatus.SUSPENDED.getKey()
                 , harness.insDao.raw(instance.getId()).getActivityStatus());
-        // 已挂起再挂起：守卫消息复用了「已经激活」文案（见设计文档附录B已知问题），锁现状
+        // 已挂起再挂起：报「已经挂起」（附录B错误常量已修复，原为复用「已经激活」文案）
         FlowException reSuspend = assertThrows(FlowException.class,
                 () -> FlowEngine.insService().unActive(instance.getId()));
-        assertEquals(ExceptionCons.INSTANCE_ALREADY_ACTIVITY, reSuspend.getMessage());
+        assertEquals(ExceptionCons.INSTANCE_ALREADY_SUSPENDED, reSuspend.getMessage());
 
         assertTrue(FlowEngine.insService().active(instance.getId()));
         assertEquals(ActivityStatus.ACTIVITY.getKey()

@@ -39,17 +39,6 @@ import java.util.function.Supplier;
  */
 public class FlowEngine {
 
-    private static final DefService defService = null;
-    private static final NodeService nodeService = null;
-    private static final SkipService skipService = null;
-    private static final InsService insService = null;
-    private static final TaskService taskService = null;
-    private static final HisTaskService hisTaskService = null;
-    private static final UserService userService = null;
-    private static final FormService formService = null;
-    private static final ChartService chartService = null;
-    private static final WorkflowService workflowService = null;
-
     private static Supplier<Definition> defSupplier;
     private static Supplier<Node> nodeSupplier;
     private static Supplier<Skip> skipSupplier;
@@ -72,39 +61,39 @@ public class FlowEngine {
     public static JsonConvert jsonConvert;
 
     public static DefService defService() {
-        return getObj(defService, DefService.class);
+        return FrameInvoker.getBean(DefService.class);
     }
 
     public static NodeService nodeService() {
-        return getObj(nodeService, NodeService.class);
+        return FrameInvoker.getBean(NodeService.class);
     }
 
     public static SkipService skipService() {
-        return getObj(skipService, SkipService.class);
+        return FrameInvoker.getBean(SkipService.class);
     }
 
     public static InsService insService() {
-        return getObj(insService, InsService.class);
+        return FrameInvoker.getBean(InsService.class);
     }
 
     public static TaskService taskService() {
-        return getObj(taskService, TaskService.class);
+        return FrameInvoker.getBean(TaskService.class);
     }
 
     public static HisTaskService hisTaskService() {
-        return getObj(hisTaskService, HisTaskService.class);
+        return FrameInvoker.getBean(HisTaskService.class);
     }
 
     public static UserService userService() {
-        return getObj(userService, UserService.class);
+        return FrameInvoker.getBean(UserService.class);
     }
 
     public static FormService formService() {
-        return getObj(formService, FormService.class);
+        return FrameInvoker.getBean(FormService.class);
     }
 
     public static ChartService chartService() {
-        return getObj(chartService, ChartService.class);
+        return FrameInvoker.getBean(ChartService.class);
     }
 
     /**
@@ -113,7 +102,7 @@ public class FlowEngine {
      * @return 流程操作服务
      */
     public static WorkflowService workflow() {
-        return getObj(workflowService, WorkflowService.class);
+        return FrameInvoker.getBean(WorkflowService.class);
     }
 
     public static void setNewDef(Supplier<Definition> supplier) {
@@ -240,6 +229,14 @@ public class FlowEngine {
         return flowConfig.getDataSourceType();
     }
 
+    /**
+     * 获取对象：候选对象非空时直接返回，否则从 {@link FrameInvoker} 注册表解析。
+     *
+     * @param t      候选对象
+     * @param tClass 目标类型
+     * @param <T>    对象类型
+     * @return 候选对象或注册表实例
+     */
     public static <T> T getObj(T t, Class<T> tClass) {
         if (ObjectUtil.isNotNull(t)) {
             return t;

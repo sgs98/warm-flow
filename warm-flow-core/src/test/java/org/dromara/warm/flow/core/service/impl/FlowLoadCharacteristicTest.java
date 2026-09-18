@@ -1,11 +1,15 @@
 package org.dromara.warm.flow.core.service.impl;
 
 import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.dto.FlowDto;
 import org.dromara.warm.flow.core.entity.Form;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
+import org.dromara.warm.flow.core.enums.FlowStatus;
+import org.dromara.warm.flow.core.enums.NodeType;
+import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
 import org.junit.jupiter.api.AfterEach;
@@ -15,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -77,6 +82,23 @@ class FlowLoadCharacteristicTest {
         assertEquals(form.getId(), dto.getForm().getId());
         assertEquals(1, harness.daoLog.stream()
                 .filter(l -> l.startsWith("FormMemDao.selectById[")).count());
+    }
+
+    @Test
+    void load_finishedInstance_throwsFlowFinish() {
+        // 读路径继承办理族全谓词（guard 表 LOAD 行）：终态实例上的残留待办读取被 FLOW_FINISH 拦截
+        Instance instance = TestFlows.start("fl4", "biz-f4");
+        TestFlows.pass(TestFlows.currentTask(instance.getId()).getId(), TestFlows.HANDLER);
+        harness.taskDao.save(FlowEngine.newTask().setId(902L)
+                .setDefinitionId(instance.getDefinitionId())
+                .setInstanceId(instance.getId())
+                .setNodeCode("apply").setNodeName("apply")
+                .setNodeType(NodeType.BETWEEN.getKey())
+                .setFlowStatus(FlowStatus.APPROVAL.getKey()));
+
+        FlowException ex = assertThrows(FlowException.class,
+                () -> FlowEngine.taskService().load(902L));
+        assertEquals(ExceptionCons.FLOW_FINISH, ex.getMessage());
     }
 
     @Test

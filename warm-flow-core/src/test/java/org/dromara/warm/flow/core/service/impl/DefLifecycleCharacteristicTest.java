@@ -163,10 +163,10 @@ class DefLifecycleCharacteristicTest {
     }
 
     @Test
-    void copyDef_unknownId_throwsNpe_documentingDeadCheck() {
-        // 已知缺陷（设计文档附录B）：copyDef 先解引用 getById(id).copy() 再断言，
-        // 不存在的 id 抛 NPE 而非 NOT_FOUNT_DEF——锁定现状，修复时翻转此断言
-        assertThrows(NullPointerException.class, () -> FlowEngine.defService().copyDef(-1L));
+    void copyDef_unknownId_throwsNotFoundDef() {
+        // 附录B死校验已修复：getById 判空先于 copy() 解引用，未知 id 报 NOT_FOUNT_DEF
+        FlowException ex = assertThrows(FlowException.class, () -> FlowEngine.defService().copyDef(-1L));
+        assertEquals(ExceptionCons.NOT_FOUNT_DEF, ex.getMessage());
     }
 
     @Test

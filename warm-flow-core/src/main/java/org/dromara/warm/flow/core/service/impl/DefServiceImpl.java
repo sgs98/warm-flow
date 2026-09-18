@@ -255,9 +255,10 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
 
     @Override
     public boolean copyDef(Long id) {
-        Definition definition = getById(id).copy();
+        Definition source = getById(id);
+        AssertUtil.isNull(source, ExceptionCons.NOT_FOUNT_DEF);
+        Definition definition = source.copy();
         definition.setVersion(getNewVersion(definition));
-        AssertUtil.isNull(definition, ExceptionCons.NOT_FOUNT_DEF);
 
         List<Node> nodeList = FlowEngine.nodeService().getByDefId(id).stream().map(Node::copy).collect(Collectors.toList());
         List<Skip> skipList = FlowEngine.skipService().getByDefId(id).stream().map(Skip::copy).collect(Collectors.toList());
