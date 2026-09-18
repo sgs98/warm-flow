@@ -23,7 +23,9 @@ import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.entity.User;
+import org.dromara.warm.flow.core.enums.ActivityStatus;
 import org.dromara.warm.flow.core.enums.FlowStatus;
+import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.listener.ListenerVariable;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.MapUtil;
@@ -38,8 +40,8 @@ import java.util.Map;
 /**
  * 流程执行作用域：一次流程操作期间已加载聚合（任务、实例、定义、当前节点、定义图）的统一存放处。
  *
- * <p>包内私有，零公共面。加载方法的校验顺序逐条镜像原 {@code FlowTaskContextLoader} 与
- * {@code revokeInternal} 的既有次序，异常消息与触发顺序是行为契约，不得增删或重排。</p>
+ * <p>包内私有，零公共面。加载方法的校验顺序逐条镜像既有实现的次序（原任务级加载器与撤回入口），
+ * 异常消息与触发顺序是行为契约，不得增删或重排。</p>
  *
  * <p>定义图（combine）与办理人全集同策略：一次操作内只加载一次，操作内所有消费点
  * 复用同一引用，回调后不重载——监听器不可达 combine 内部列表，办理人视图则与权限校验
@@ -55,15 +57,15 @@ final class FlowExecution {
      */
     final Task task;
     /**
-     * 流程实例。
+     * 流程实例。任务级/实例级操作在构造期固定；发起（start）链在实例创建步骤回填一次。
      */
-    final Instance instance;
+    Instance instance;
     /**
      * 流程定义。
      */
     final Definition definition;
     /**
-     * 当前节点，任务级操作加载；实例级操作不强行伪造。
+     * 当前节点，任务级操作与发起链加载；实例级操作不强行伪造。
      */
     final Node nowNode;
     /**
@@ -121,6 +123,33 @@ final class FlowExecution {
         AssertUtil.isNull(definition, ExceptionCons.NOT_FOUNT_DEF);
         FlowStatusMachine.checkGuards(FlowOp.REVOKE, definition, instance);
         return new FlowExecution(null, instance, definition, null, intent);
+    }
+
+    /**
+     * 加载发起流程需要的已发布定义、定义图与开始节点并校验。发起的定义来自发布编码检索，
+     * 此时实例尚不存在，挂起守卫只看定义（消息为「不可开启新的流程」，与 guard 表的
+     * NOT_ACTIVITY 不同，不共用行）。校验顺序逐条镜像原 {@code InsServiceImpl.start}：
+     * 定义判空 → 定义图 → 开始节点 → 定义激活。task/instance 为空，实例由发起链创建后回填。
+     *
+     * @param flowCode 流程编码
+     * @param intent   调用方上下文
+     * @return 执行作用域
+     */
+    static FlowExecution loadStart(String flowCode, WorkflowContext intent) {
+        // 获取已发布的流程节点
+        Definition definition = FlowEngine.defService().getPublishByFlowCode(flowCode);
+        AssertUtil.isNull(definition, ExceptionCons.NOT_FOUNT_DEF);
+        FlowCombine combine = FlowEngine.defService().getFlowCombine(definition);
+        // 获取开始节点
+        Node startNode = StreamUtils.filterOne(combine.getAllNodes(), node -> NodeType.isStart(node.getNodeType()));
+        AssertUtil.isNull(startNode, ExceptionCons.LOST_START_NODE);
+        // 判断流程定义是否激活状态
+        AssertUtil.isTrue(definition.getActivityStatus().equals(ActivityStatus.SUSPENDED.getKey())
+            , ExceptionCons.NOT_DEFINITION_ACTIVITY);
+        FlowExecution execution = new FlowExecution(null, null, definition, startNode, intent);
+        // 已查询的定义图注入缓存：发起链经 loadCombine() 复用同一引用，不再重查
+        execution.combine = combine;
+        return execution;
     }
 
     private FlowExecution(Task task, Instance instance, Definition definition, Node nowNode
