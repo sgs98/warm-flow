@@ -44,7 +44,7 @@ final class FlowPathResolver {
             , skipType, pathWayData, flowCombine);
         List<Node> nextNodes = FlowEngine.nodeService().getNextByCheckGateway(context.getVariables()
             , nextNode, pathWayData, flowCombine);
-        retainJoinPath(pathWayData, instance, nextNodes);
+        retainJoinPath(pathWayData, instance, nextNodes, flowCombine);
         pathWayData.getTargetNodes().addAll(nextNodes);
         return pathWayData;
     }
@@ -55,8 +55,10 @@ final class FlowPathResolver {
      * @param pathWayData 已解析的路径数据
      * @param instance    流程实例
      * @param nextNodes   候选目标节点，可根据汇聚状态清空
+     * @param flowCombine 流程定义组合数据
      */
-    private void retainJoinPath(PathWayData pathWayData, Instance instance, List<Node> nextNodes) {
+    private void retainJoinPath(PathWayData pathWayData, Instance instance, List<Node> nextNodes
+        , FlowCombine flowCombine) {
         if (SkipType.isReject(pathWayData.getSkipType())) {
             return;
         }
@@ -72,8 +74,9 @@ final class FlowPathResolver {
             return;
         }
 
-        List<Node> previousNodes = FlowEngine.nodeService().previousNodeList(instance.getDefinitionId()
-            , gateways.get(gateways.size() - 1).getNodeCode());
+        // R2：汇聚前置判定复用本次操作已加载的定义图，与路由决策使用同一份数据，不再回调后重查
+        List<Node> previousNodes = FlowEngine.nodeService().previousNodeList(
+            gateways.get(gateways.size() - 1).getNodeCode(), flowCombine);
         List<String> previousNodeCodes = StreamUtils.toList(previousNodes, Node::getNodeCode);
         List<Task> activePreviousTasks = FlowEngine.taskService().getByInsIdAndNodeCodes(instance.getId()
             , previousNodeCodes);

@@ -3,7 +3,6 @@ package org.dromara.warm.flow.core.service.impl;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.entity.HisTask;
-import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.entity.User;
 import org.dromara.warm.flow.core.enums.CooperateType;
@@ -64,20 +63,21 @@ final class TaskCooperationHandler {
     /**
      * 处理会签和票签，判断当前办理结果是否满足节点继续流转条件。
      *
-     * @param nowNode  当前流程节点
-     * @param task     当前待办任务
-     * @param context  流程执行上下文
-     * @param skipType 流转类型
+     * @param execution 执行作用域
+     * @param task      当前待办任务
+     * @param context   流程执行上下文
+     * @param skipType  流转类型
      * @return 是否仅记录当前办理结果；为true时本次流程不继续流转
      */
-    boolean cooperate(Node nowNode, Task task, WorkflowContext context, String skipType) {
-        if (CooperateType.isOrSign(nowNode.getNodeRatio())) {
+    boolean cooperate(FlowExecution execution, Task task, WorkflowContext context, String skipType) {
+        if (CooperateType.isOrSign(execution.nowNode.getNodeRatio())) {
             return false;
         }
 
-        String nodeRatio = nowNode.getNodeRatio();
-        List<User> todoList = FlowEngine.userService().listByAssociatedAndTypes(task.getId()
-            , UserType.APPROVAL.getKey(), UserType.TRANSFER.getKey(), UserType.DEPUTE.getKey());
+        String nodeRatio = execution.nowNode.getNodeRatio();
+        // R5：从操作内办理人全集派生待办视图（与权限校验同一份快照），不再按类型二次查询
+        List<User> todoList = execution.usersOfTypes(UserType.APPROVAL.getKey()
+            , UserType.TRANSFER.getKey(), UserType.DEPUTE.getKey());
         AssertUtil.isEmpty(context.getHandler(), ExceptionCons.SIGN_NULL_HANDLER);
         User todoUser = CollUtil.getOne(StreamUtils.filter(todoList
             , u -> Objects.equals(u.getProcessedBy(), context.getHandler())));

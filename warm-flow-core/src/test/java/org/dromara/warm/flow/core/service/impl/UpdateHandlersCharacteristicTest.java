@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * updateHandlers 协作路径特征测试：锁定转办防重、finish 监听器无 context（:411 语义锁）、
- * 协作历史记录与按类型查询办理人的查询基线（R5）。
+ * 协作历史记录与办理人全集派生视图的查询基线（R5 后：无类型条件查询）。
  *
  * @author warm
  */
@@ -83,7 +83,7 @@ class UpdateHandlersCharacteristicTest {
     }
 
     @Test
-    void transfer_locksTypedUserQueryBaseline() {
+    void transfer_locksFullListUserQueryBaseline() {
         Instance instance = TestFlows.start("uh4", "biz-u4");
         Task task = TestFlows.currentTask(instance.getId());
         harness.daoLog.clear();
@@ -91,10 +91,15 @@ class UpdateHandlersCharacteristicTest {
         FlowEngine.taskService().updateHandlers(task.getId(), TestFlows.context(TestFlows.HANDLER),
                 List.of("lisi"), null, CooperateType.TRANSFER.getKey());
 
-        // R5 基线：转办防重通过 selectList 含 Type=2 条件查询既有转办人（改造前实际路径）
-        long typed = harness.daoLog.stream()
-                .filter(l -> l.startsWith("UserMemDao.selectList[") && l.contains("Type=2"))
-                .count();
-        assertTrue(typed >= 1, "转办应存在按类型办理人查询基线: " + harness.daoLog);
+        // R5 后基线：守卫与权限门从无类型全集查询派生（改造前为按类型/按办理人条件查询）
+        assertEquals(1, harness.daoLog.stream()
+                        .filter(l -> l.startsWith("UserMemDao.selectList[")).count(),
+                "updateHandlers 办理人全集查询基线（R5 后仅 1 次无类型查询）: " + harness.daoLog);
+        assertTrue(harness.daoLog.stream()
+                        .filter(l -> l.startsWith("UserMemDao."))
+                        .noneMatch(l -> l.contains("Type=")),
+                "不应再出现按类型条件查询: " + harness.daoLog);
+        assertTrue(harness.daoLog.stream().noneMatch(l -> l.startsWith("UserMemDao.listByProcessedBys")),
+                "不应再出现按办理人条件查询: " + harness.daoLog);
     }
 }

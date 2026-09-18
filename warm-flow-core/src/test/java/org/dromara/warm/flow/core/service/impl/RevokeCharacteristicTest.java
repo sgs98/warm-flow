@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * revoke 撤回路径特征测试：锁定发起人校验、双重任务查询基线（R3）、
+ * revoke 撤回路径特征测试：锁定发起人校验、任务列表查询基线（R3 后复用监听器前快照，仅 1 次）、
  * 撤回后回到起始节点的终态与监听器可见性。
  *
  * @author warm
@@ -80,15 +80,15 @@ class RevokeCharacteristicTest {
     }
 
     @Test
-    void happyPath_locksDoubleTaskQueryBaseline() {
+    void happyPath_locksSingleTaskQueryBaseline() {
         Instance instance = TestFlows.start("revoke4", "biz-r4");
         harness.reset();
 
         FlowEngine.taskService().revoke(instance.getId(), TestFlows.context(TestFlows.HANDLER));
 
-        // R3 基线：getByInsId 与重新构造 newTask 查询 = 2 次任务列表查询
-        assertEquals(2, harness.daoLog.stream().filter(l -> l.startsWith("TaskMemDao.selectList")).count(),
-                "revoke 任务列表查询基线（R3 改造前为 2 次）: " + harness.daoLog);
+        // R3 后基线：复用监听器执行前的待办快照，仅 1 次任务列表查询（改造前为 2 次）
+        assertEquals(1, harness.daoLog.stream().filter(l -> l.startsWith("TaskMemDao.selectList")).count(),
+                "revoke 任务列表查询基线（R3 改造后为 1 次）: " + harness.daoLog);
     }
 
     @Test
@@ -96,7 +96,7 @@ class RevokeCharacteristicTest {
         Instance instance = TestFlows.start("revoke5", "biz-r5");
         TestFlows.pendingTasks(instance.getId()).forEach(t -> harness.taskDao.removeRaw(t.getId()));
 
-        // 实例仍激活，但待办被清空：撤回在第二次待办查询处拦截
+        // 实例仍激活，但待办被清空：撤回在待办空校验处拦截
         FlowException ex = assertThrows(FlowException.class,
                 () -> FlowEngine.taskService().revoke(instance.getId(), TestFlows.context(TestFlows.HANDLER)));
         assertEquals(ExceptionCons.NOT_FOUND_FLOW_TASK, ex.getMessage());

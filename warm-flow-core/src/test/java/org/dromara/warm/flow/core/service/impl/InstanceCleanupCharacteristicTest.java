@@ -3,6 +3,7 @@ package org.dromara.warm.flow.core.service.impl;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.entity.Instance;
+import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -56,6 +58,19 @@ class InstanceCleanupCharacteristicTest {
         // 仅删待办：实例与历史保留
         assertEquals(1, harness.insDao.size());
         assertEquals(1, harness.hisTaskDao.size());
+    }
+
+    @Test
+    void deleteByInsIds_finishedInstance_notBlockedByTerminalState() {
+        // guard 表离群行的真实路径锁定：删除仅要求激活，终态/已结束实例不被拦截（清理已完成流程）
+        Instance instance = TestFlows.start("ic4", "biz-i4");
+        TestFlows.pass(TestFlows.currentTask(instance.getId()).getId(), TestFlows.HANDLER);
+
+        assertEquals(FlowStatus.FINISHED.getKey(), harness.insDao.raw(instance.getId()).getFlowStatus()
+                , "前置：串行流程应已办理至终态");
+        // 不抛 NOT_ACTIVITY/FLOW_FINISH 即守卫放行；办理至 end 后无待办行可删，按删除行数语义返回 false
+        assertFalse(FlowEngine.taskService().deleteByInsIds(List.of(instance.getId())));
+        assertEquals(0, harness.taskDao.size());
     }
 
     @Test

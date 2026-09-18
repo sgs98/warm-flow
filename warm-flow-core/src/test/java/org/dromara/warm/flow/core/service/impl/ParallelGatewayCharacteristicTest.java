@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 并行网关特征测试：锁定分叉多待办生成、汇聚等待（未齐不推进、实例不动、
- * 汇聚路径 previousNodeList 重查节点+连线的现状基线——R2 接入的观测锚点）、
+ * 汇聚路径复用操作内定义图——R2 后节点/连线各只查一次 combine 全量）、
  * 末支汇合后完成流程。
  *
  * @author warm
@@ -53,7 +53,7 @@ class ParallelGatewayCharacteristicTest {
     }
 
     @Test
-    void join_waitsForRemainingBranch_rebuildsDefinitionGraph() {
+    void join_waitsForRemainingBranch_reusesOperationGraph() {
         Instance instance = TestFlows.startParallelFlow("pg2", "biz-p2");
         Task a1 = TestFlows.pendingTasks(instance.getId()).stream()
                 .filter(t -> "a1".equals(t.getNodeCode())).findFirst().orElseThrow();
@@ -69,13 +69,12 @@ class ParallelGatewayCharacteristicTest {
         assertEquals(FlowStatus.TOBESUBMIT.getKey(), persisted.getFlowStatus());
         assertEquals(2, harness.hisTaskDao.size(), "发起 + a1 归档");
 
-        // 汇聚判定的定义图重查基线（R2 未接入，previousNodeList 走全量重查）：
-        // 节点 ×3 = nowNode 单查 + combine 全量 + previousNodeList 全量重查；
-        // 连线 ×2 = combine 全量 + previousNodeList 全量重查；另按节点编码查一次活动待办
-        assertEquals(3, harness.daoLog.stream().filter(l -> l.startsWith("NodeMemDao.selectList")).count()
-                , "汇聚路径定义图查询基线: " + harness.daoLog);
-        assertEquals(2, harness.daoLog.stream().filter(l -> l.startsWith("SkipMemDao.selectList")).count()
-                , "汇聚路径连线查询基线: " + harness.daoLog);
+        // 汇聚判定的定义图复用基线（R2 后：previousNodeList 复用 combine，不再回调后重查）：
+        // 节点 ×2 = nowNode 单查 + combine 全量；连线 ×1 = combine 全量；另按节点编码查一次活动待办
+        assertEquals(2, harness.daoLog.stream().filter(l -> l.startsWith("NodeMemDao.selectList")).count()
+                , "汇聚路径定义图查询基线（R2 后）: " + harness.daoLog);
+        assertEquals(1, harness.daoLog.stream().filter(l -> l.startsWith("SkipMemDao.selectList")).count()
+                , "汇聚路径连线查询基线（R2 后）: " + harness.daoLog);
         assertEquals(1, harness.daoLog.stream()
                 .filter(l -> l.startsWith("TaskMemDao.getByInsIdAndNodeCodes")).count());
     }

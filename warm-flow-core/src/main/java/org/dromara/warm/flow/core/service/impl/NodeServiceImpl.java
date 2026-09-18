@@ -90,6 +90,11 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
     }
 
     @Override
+    public List<Node> previousNodeList(String nowNodeCode, FlowCombine flowCombine) {
+        return prefixOrSuffixNodes(nowNodeCode, FlowCons.PREVIOUS, flowCombine);
+    }
+
+    @Override
     public List<Node> suffixNodeList(Long nodeId) {
         Node nowNode = getById(nodeId);
         return suffixNodeList(nowNode.getDefinitionId(), nowNode.getNodeCode());

@@ -67,6 +67,15 @@ public interface NodeService extends IWarmService<Node> {
     List<Node> previousNodeList(Long definitionId, String nowNodeCode);
 
     /**
+     * 流程数据集合和当前节点code获取所有的前置节点集合
+     *
+     * @param nowNodeCode 当前节点code
+     * @param flowCombine 流程数据集合
+     * @return 所有的前置节点集合
+     */
+    List<Node> previousNodeList(String nowNodeCode, FlowCombine flowCombine);
+
+    /**
      * 根据节点id获取所有的后置节点集合
      *
      * @param nodeId 节点id

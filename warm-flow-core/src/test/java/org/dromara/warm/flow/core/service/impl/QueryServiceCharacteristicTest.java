@@ -16,23 +16,28 @@
 package org.dromara.warm.flow.core.service.impl;
 
 import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.dto.FlowCombine;
 import org.dromara.warm.flow.core.entity.HisTask;
+import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.entity.User;
 import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
+import org.dromara.warm.flow.core.test.TestFlows;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 办理人和历史任务查询分支特征测试。
+ * 节点、办理人和历史任务查询分支特征测试。
  *
  * @author warm
  */
@@ -48,6 +53,20 @@ class QueryServiceCharacteristicTest {
     @AfterEach
     void tearDown() {
         harness.close();
+    }
+
+    @Test
+    void previousNodeList_withCombine_matchesDefinitionReloadPath() {
+        var definition = TestFlows.parallelFlow("query-node");
+        FlowCombine combine = FlowEngine.defService().getFlowCombine(definition);
+
+        List<Node> reloaded = FlowEngine.nodeService().previousNodeList(definition.getId(), "joinP");
+        List<Node> reused = FlowEngine.nodeService().previousNodeList("joinP", combine);
+
+        assertEquals(reloaded.stream().map(Node::getNodeCode).collect(Collectors.toSet()),
+            reused.stream().map(Node::getNodeCode).collect(Collectors.toSet()));
+        assertTrue(reused.stream().map(Node::getNodeCode).collect(Collectors.toSet())
+            .containsAll(Set.of("a1", "b1")));
     }
 
     @Test

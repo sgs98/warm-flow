@@ -21,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * terminate 终止路径特征测试：锁定任务主键双重查询基线（现状：getById 后
- * getAndCheck 内部再查一次）、start 监听器时 userList 尚未注入（时序锁）、
+ * terminate 终止路径特征测试：任务主键查询基线（R1 后复用门面已加载对象，1 次；
+ * 改造前为 getById + getAndCheck 双查）、start 监听器时 userList 尚未注入（时序锁）、
  * 实例终止状态回写与收尾清理顺序。
  *
  * @author warm
@@ -89,9 +89,9 @@ class TerminateCharacteristicTest {
 
         FlowEngine.taskService().terminateByTaskId(task.getId(), TestFlows.context(TestFlows.HANDLER));
 
-        // 现状基线：门面 getById 一次 + getAndCheck 内部再查一次 = 2 次 selectById
-        assertEquals(2, harness.daoLog.stream().filter(l -> l.startsWith("TaskMemDao.selectById[")).count(),
-                "terminate 任务主键查询基线: " + harness.daoLog);
+        // R1 后基线：门面查询后直接复用任务对象，仅 1 次 selectById（改造前为 2 次）
+        assertEquals(1, harness.daoLog.stream().filter(l -> l.startsWith("TaskMemDao.selectById[")).count(),
+                "terminate 任务主键查询基线（R1 改造后为 1 次）: " + harness.daoLog);
     }
 
     @Test

@@ -17,7 +17,7 @@ public class RecordingGlobalListener implements GlobalListener {
 
     private static final GlobalListener INSTANCE = new RecordingGlobalListener();
 
-    private RecordingGlobalListener() {
+    protected RecordingGlobalListener() {
     }
 
     public static GlobalListener instance() {
