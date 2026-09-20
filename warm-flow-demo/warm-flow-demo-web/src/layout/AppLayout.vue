@@ -56,7 +56,7 @@
         </el-menu-item>
       </el-menu>
 
-      <div class="aside-foot">Warm-Flow v1.8.9 · 本地演示</div>
+      <div class="aside-foot">Warm-Flow v2.0.0 · 本地演示</div>
     </el-aside>
 
     <el-container class="app-right">
