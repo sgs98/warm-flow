@@ -13,7 +13,7 @@
 
 `warm-flow` 是 [Dromara](https://dromara.org/) 社区的国产轻量级工作流引擎，`groupId=org.dromara.warm`，发布到 Maven 中央仓库供他人依赖。它**是一个被集成的类库 / SDK，不是业务应用**：简洁轻量（核心仅 7 张表）、五脏俱全、扩展性强，可通过 jar 包快速集成流程设计器，原生支持经典与仿钉钉双模式。
 
-核心定位决定了最高优先约束：**对外公共 API、实体字段、数据库表结构、配置项都是契约，向后兼容是红线**；**核心引擎与具体框架 / ORM / JSON 库解耦**；**JDK 17 基线**。
+核心定位决定了最高优先约束：**对外公共 API、实体字段、数据库表结构、配置项都是契约，向后兼容是红线**；**核心引擎与具体框架 / ORM / JSON 库解耦**。
 
 顶层结构（Maven 反应堆模块 + 前端 + 脚本）：
 
@@ -31,8 +31,7 @@
 
 ## 技术基线
 
-- **JDK 17 基线**：父 `pom.xml` 锁定 `maven.compiler.release = 17`，兼容 Java 17 / 21 运行。主代码**允许使用 Java 17 及以下的语法与 API，禁止 Java 18+**（详见「兼容性红线」）。
-- **多框架生态**：支持 Spring Boot 3.5 / 4.0，对应 `sb3` / `sb4` 后缀的 starter（Spring Boot 2 线已随 2.0 大版本移除）。
+- **多框架生态**：支持 Spring Boot 3.5 / 4.0，对应 `sb3` / `sb4` 后缀的 starter。
 - **多 ORM**：MyBatis 3.5.19（mybatis-spring-boot 3.0.5 / 4.0.1）、MyBatis-Plus 3.5.17；README 另提到 JPA / BeetlSql 等生态由社区扩展。
 - **多 JSON**：snack3 3.2.139、snack4 4.0.59、jackson 2.22.2、jackson3 3.2.2、fastjson2 2.0.65、gson 2.14.0。
 - **多数据库**：MySQL、Oracle、PostgreSQL、SQL Server（其它库转换表结构即可）。
@@ -103,15 +102,6 @@
 - **L2**：core 公共 API / 实体 / 抽象 DAO 改动、扩展机制（`FlowEngine` / `FrameInvoker` / SPI / 自动装配）改动、跨生态（SB3/4）行为、跨 ORM 行为、多数据库表结构 / 升级脚本、版本发布、流程状态机语义。必要时在 `.codex/` 或 `docs/` 记录关键决策与验证细节。
 
 ## 兼容性红线（warm-flow 最关键的约束）
-
-### 1. JDK 17 基线
-
-主代码（`src/main`）以 `maven.compiler.release = 17` 编译，允许并鼓励使用 Java 17 及以下的语法与 API（instanceof / switch 模式匹配、switch 表达式、文本块、`var`、`List.of` / `Map.of` / `Set.of`、`Stream.toList()` 等）。**禁止 Java 18+ 的语法与 API**（`--release 17` 编译期直接拦截）。注意：
-
-- 集合工厂与 `Stream.toList()` 返回不可变集合且拒绝 null 元素：替换 `Arrays.asList` / `Collections.*` / `collect(Collectors.toList())` 前，确认该列表下游无 mutation、元素可证明非空；可能含 null 或需要保持可变的场景维持原写法。
-- `StreamUtils` 各方法保持返回可变 List（序列化边界依赖），文件内已有注释明确不要改为 `.toList()`。
-- 实体 / DTO 维持 Lombok 风格，不转 `record`；`java.util.Date` 是 `RootEntity` 字段契约，不改 `java.time`。
-- 优先复用项目已有的 `org.dromara.warm.flow.core.utils.*`（`StringUtils`、`ObjectUtil`、`CollUtil`、`MapUtil`、`StreamUtils`、`ArrayUtil`、`AssertUtil` 等）——这是核心与 JDK / 三方实现解耦的定位（且 `StringUtils.isEmpty` 等语义与 JDK 不同），不是版本替代需求。
 
 ### 2. 对外契约向后兼容
 

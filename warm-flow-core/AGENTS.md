@@ -36,8 +36,6 @@
 
 - **零框架依赖红线**：core **禁止**出现 `org.springframework.*`、`com.baomidou.*` 等具体框架 / ORM
   import（当前已是零依赖，必须保持）。需要容器能力时走 `FrameInvoker`，需要可替换实现走 SPI。
-- **JDK 17 基线**：允许 Java 17 及以下语法 / API，禁止 Java 18+；`List.of` / `Stream.toList()` 等不可变集合
-  转换前确认下游无 mutation 且元素非空，`StreamUtils` 保持可变返回。
 - **门面与契约**：`FlowEngine` 方法、`WarmDao` 抽象、实体接口、`WarmFlow` 配置项、枚举常量（code / 顺序 /
   名称）都是对外契约，改动评估下游破坏，优先「加法」，废弃用 `@Deprecated` 留过渡期。
 - **状态机语义**：通过 / 退回 / 跳转 / 转办 / 加减签 / 终止 / 撤回 / 票签 / 网关有副作用，先确认现有流转再改，不要凭文件名猜。
