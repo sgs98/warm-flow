@@ -17,14 +17,18 @@ package org.dromara.warm.flow.core.utils;
 
 import org.dromara.warm.flow.core.invoker.FrameInvoker;
 import org.dromara.warm.flow.core.utils.page.Page;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.LongSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -33,6 +37,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * @author warm
  */
 class CoreUtilityApiTest {
+
+    @AfterEach
+    void resetIdGenerator() {
+        IdUtils.setInstanceNative(null);
+    }
 
     @Test
     void frameInvoker_page_andMapUtilities_keepPublicContracts() {
@@ -69,7 +78,39 @@ class CoreUtilityApiTest {
         assertEquals("value", StringUtils.emptyDefault("value", "fallback"));
         assertEquals("true", String.valueOf(ObjectUtil.defaultNull(null, "true")));
         assertEquals("x", ObjectUtil.defaultNull("x", "y"));
-        assertNotNull(IdUtils.nextId());
+        Long firstId = IdUtils.nextId();
+        Long secondId = IdUtils.nextId();
+        assertNotNull(firstId);
+        assertNotEquals(firstId, secondId);
         assertNotNull(IdUtils.nextIdStr());
+    }
+
+    @Test
+    void idUtils_prefersRegisteredNativeGenerator() {
+        LongSupplier nativeGenerator = () -> 123L;
+        IdUtils.setInstanceNative(nativeGenerator);
+        assertEquals(123L, IdUtils.nextId());
+        assertEquals("123", IdUtils.nextIdStr());
+    }
+
+    @Test
+    void idUtils_switchesToNativeGeneratorAfterDefaultGeneratorWasUsed() {
+        assertNotNull(IdUtils.nextId());
+
+        IdUtils.setInstanceNative(() -> 456L);
+        assertEquals(456L, IdUtils.nextId());
+    }
+
+    @Test
+    void idUtils_rejectsClockRollback() throws ReflectiveOperationException {
+        var lastTimestampField = IdUtils.class.getDeclaredField("lastTimestamp");
+        lastTimestampField.setAccessible(true);
+        long lastTimestamp = lastTimestampField.getLong(null);
+        try {
+            lastTimestampField.setLong(null, Long.MAX_VALUE);
+            assertThrows(IllegalStateException.class, IdUtils::nextId);
+        } finally {
+            lastTimestampField.setLong(null, lastTimestamp);
+        }
     }
 }

@@ -62,22 +62,6 @@ public class FlowCons {
     public static final String WARM_LISTENER_PARAM = "WarmListenerParam";
 
     /**
-     * 雪花id 14位
-     */
-    public static final String SNOWID14 = "SnowId14";
-
-    /**
-     * 雪花id 15位
-     */
-    public static final String SNOWID15 = "SnowId15";
-
-    /**
-     * 雪花id 19位
-     */
-    public static final String SNOWID19 = "SnowId19";
-
-
-    /**
      * 使用内置表单。
      */
     public static final String FORM_CUSTOM_Y = "Y";

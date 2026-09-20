@@ -44,7 +44,7 @@
 
 - `FlowEngine`：静态门面，持有各 `XxxService`、实体 `Supplier`、`handler` / `listener`、`jsonConvert`。业务方与内部统一通过 `FlowEngine.xxxService()` / `FlowEngine.newXxx()` 取服务和新建实体，不要绕过它直接 new 实现类。
 - `FrameInvoker`：框架桥接点，通过 `setBeanFunction` / `setCfgFunction` 注入「取 Bean」「取配置」的能力。**core 因此不依赖任何容器**；Spring 适配模块在启动时注入这两个 Function。
-- `WarmFlow`（config）：引擎配置载体（`enabled`、`framework`、`banner`、`keyType`、`logicDelete`、租户 / 数据填充 / 权限 / 全局监听器的类路径、`dataSourceType`、`ui`、`tokenName`、流程图三原色等），`init()` 负责装配 handler、打印 banner、SPI 加载。
+- `WarmFlow`（config）：引擎配置载体（`enabled`、`framework`、`banner`、`logicDelete`、租户 / 数据填充 / 权限 / 全局监听器的类路径、`dataSourceType`、`ui`、`tokenName`、流程图三原色等），`init()` 负责装配 handler、打印 banner、SPI 加载。
 - **Java SPI**：`ServiceLoaderUtil.loadFirst(...)` + `META-INF/services/`（如 `org.dromara.warm.flow.core.json.JsonConvert`）用于可替换实现（典型：JSON 转换策略）。
 - **自动装配注册**统一使用 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`（Spring Boot 3 / 4 标准方式）。
 - **ORM 抽象**：core 定义 `WarmDao<T>`、`WarmQuery`、`WarmServiceImpl` 与各实体接口；每个 ORM 模块提供实体实现（如 `FlowDefinition`）、Mapper / Dao 实现（如 `WarmDaoImpl`）、ID 生成器适配，并通过 starter 把实现接入 `FlowEngine`。

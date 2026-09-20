@@ -21,7 +21,7 @@
 - `strategy`：策略接口——`ConditionStrategy`（条件）、`HandlerStrategy`（办理人）、`ListenerStrategy`（监听器）、`VoteSignStrategy`
   （票签）、`ExpressionStrategy`（表达式基类）；具体 SpEL 实现在 `plugin-modes`。
 - `condition`：条件比较运算的具体实现（`AbstractConditionStrategy` + `Eq`/`Ne`/`Gt`/`Ge`/`Lt`/`Le`/`Like`/`NotLike`）。
-- `keygen`：`SnowFlakeId14/15` 等 ID 生成。
+- `utils/IdUtils`：core 默认 ID 生成与 ORM 原生生成器接入。
 - `json`：`JsonConvert` SPI 接口（实现在 plugin-json）。
 - `utils`：引擎自带工具（`StringUtils`/`ObjectUtil`/`CollUtil`/`MapUtil`/`AssertUtil` 等）。
 

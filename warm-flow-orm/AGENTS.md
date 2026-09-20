@@ -27,7 +27,7 @@ ORM 适配层，实现 `warm-flow-core` 的 `WarmDao` 抽象与各实体。按�
   `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`。新增 / 改 `FlowAutoConfig`
   时同步对应注册文件，并确保把实现接入 `FlowEngine` / 注入 `FrameInvoker`。
 - **WarmDao 契约**：各 ORM 实现要满足 core `WarmDao<T>` 的语义（分页、批量、软删除、租户），不要让不同 ORM 行为漂移。
-- **ID 生成 / 分页 / 方言**：`keyType`、`dataSourceType` 影响 ID 与分页 SQL；跨数据库时确认方言差异。
+- **ID 生成 / 分页 / 方言**：ORM 原生 ID 生成器优先，core 内置算法兜底；`dataSourceType` 影响分页 SQL，跨数据库时确认方言差异。
 - **多租户与逻辑删除**：区分「引擎自带实现」与「复用 ORM 框架实现」两条路径，改动时两者都要自洽。
 
 ## SQL 同步

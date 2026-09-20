@@ -18,15 +18,15 @@ package org.dromara.warm.flow.orm.keygen;
 import com.baomidou.mybatisplus.core.incrementer.IdentifierGenerator;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import org.dromara.warm.flow.core.invoker.FrameInvoker;
-import org.dromara.warm.flow.core.keygen.KenGen;
+
+import java.util.function.LongSupplier;
 
 /**
  * MybatisPlusIdGen
  *
  * @author warm
  */
-public class MybatisPlusIdGen implements KenGen {
-
+public class MybatisPlusIdGen implements LongSupplier {
 
     /**
      * 获取唯一ID
@@ -34,7 +34,7 @@ public class MybatisPlusIdGen implements KenGen {
      * @return id
      */
     @Override
-    public synchronized long nextId() {
+    public synchronized long getAsLong() {
         IdentifierGenerator bean = FrameInvoker.getBean(IdentifierGenerator.class);
         if (bean != null) {
             return bean.nextId(null).longValue();

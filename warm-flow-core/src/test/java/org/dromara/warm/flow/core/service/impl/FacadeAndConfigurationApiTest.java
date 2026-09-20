@@ -20,12 +20,10 @@ import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.dto.PathWayData;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.enums.ChartStatus;
-import org.dromara.warm.flow.core.keygen.SnowFlakeId14;
-import org.dromara.warm.flow.core.keygen.SnowFlakeId15;
-import org.dromara.warm.flow.core.keygen.SnowFlakeId19;
 import org.dromara.warm.flow.core.json.JsonConvert;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
+import org.dromara.warm.flow.core.utils.IdUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -111,15 +109,8 @@ class FacadeAndConfigurationApiTest {
     }
 
     @Test
-    void snowflakeGenerators_validateBoundsAndGeneratePositiveIds() {
-        SnowFlakeId14 id14 = new SnowFlakeId14(1);
-        SnowFlakeId15 id15 = new SnowFlakeId15(1);
-        SnowFlakeId19 id19 = new SnowFlakeId19(1, 1);
-        assertTrue(id14.nextId() > 0);
-        assertTrue(id15.nextId() > 0);
-        assertTrue(id19.nextId() > 0);
-        assertThrows(IllegalArgumentException.class, () -> new SnowFlakeId14(8));
-        assertThrows(IllegalArgumentException.class, () -> new SnowFlakeId15(16));
-        assertThrows(IllegalArgumentException.class, () -> new SnowFlakeId19(32, 0));
+    void idUtils_defaultGeneratorValidatesBoundsAndGeneratesPositiveIds() {
+        assertTrue(IdUtils.nextId() > 0);
+        assertThrows(IllegalArgumentException.class, () -> IdUtils.nextId(32, 0));
     }
 }

@@ -15,12 +15,7 @@
  */
 package org.dromara.warm.flow.core.utils;
 
-import org.dromara.warm.flow.core.FlowEngine;
-import org.dromara.warm.flow.core.constant.FlowCons;
-import org.dromara.warm.flow.core.keygen.KenGen;
-import org.dromara.warm.flow.core.keygen.SnowFlakeId14;
-import org.dromara.warm.flow.core.keygen.SnowFlakeId15;
-import org.dromara.warm.flow.core.keygen.SnowFlakeId19;
+import java.util.function.LongSupplier;
 
 /**
  * 唯一id
@@ -31,14 +26,34 @@ import org.dromara.warm.flow.core.keygen.SnowFlakeId19;
 public class IdUtils {
 
     /**
-     * 内置id算法
-     */
-    private volatile static KenGen instance;
-
-    /**
      * orm框架配置了原生id算法
      */
-    private static KenGen instanceNative;
+    private static volatile LongSupplier instanceNative;
+
+    /** 雪花算法的起始时间戳（保持与原有 19 位算法一致） */
+    private static final long TWEPOCH = 1420041600000L;
+
+    private static final long MAX_WORKER_ID = 31L;
+
+    private static final long MAX_DATACENTER_ID = 31L;
+
+    private static final long WORKER_ID_SHIFT = 12L;
+
+    private static final long DATACENTER_ID_SHIFT = 17L;
+
+    private static final long TIMESTAMP_LEFT_SHIFT = 22L;
+
+    private static final long SEQUENCE_MASK = 4095L;
+
+    private static long workerId;
+
+    private static long datacenterId;
+
+    private static long sequence;
+
+    private static long lastTimestamp = -1L;
+
+    private static boolean initialized;
 
     public static String nextIdStr() {
         return nextId().toString();
@@ -49,30 +64,56 @@ public class IdUtils {
     }
 
     public static Long nextId(long workerId, long datacenterId) {
-        if (instance == null) {
-            synchronized (IdUtils.class) {
-                if (instance == null) {
-                    String keyType = FlowEngine.getFlowConfig().getKeyType();
-                    if (FlowCons.SNOWID14.equals(keyType)) {
-                        instance = new SnowFlakeId14(workerId);
-                    } else if (FlowCons.SNOWID15.equals(keyType)) {
-                        instance = new SnowFlakeId15(workerId);
-                    }
-                    if (instance == null) {
-                        // 如果orm框架配置了原生id算法，则使用原生id算法，否则默认使用19位内置雪花算法
-                        if (instanceNative != null) {
-                            instance = instanceNative;
-                        } else {
-                            instance = new SnowFlakeId19(workerId, datacenterId);
-                        }
-                    }
-                }
-            }
+        LongSupplier nativeInstance = instanceNative;
+        if (nativeInstance != null) {
+            return nativeInstance.getAsLong();
         }
-        return instance.nextId();
+
+        if (workerId < 0 || workerId > MAX_WORKER_ID) {
+            throw new IllegalArgumentException(String.format("worker Id can't be greater than %d or less than 0", MAX_WORKER_ID));
+        }
+        if (datacenterId < 0 || datacenterId > MAX_DATACENTER_ID) {
+            throw new IllegalArgumentException(String.format("datacenter Id can't be greater than %d or less than 0", MAX_DATACENTER_ID));
+        }
+
+        synchronized (IdUtils.class) {
+            if (!initialized) {
+                IdUtils.workerId = workerId;
+                IdUtils.datacenterId = datacenterId;
+                initialized = true;
+            }
+
+            long timestamp = System.currentTimeMillis();
+            if (timestamp < lastTimestamp) {
+                throw new IllegalStateException(
+                    String.format("Clock moved backwards. Refusing to generate id for %d milliseconds", lastTimestamp - timestamp));
+            }
+            if (lastTimestamp == timestamp) {
+                sequence = (sequence + 1) & SEQUENCE_MASK;
+                if (sequence == 0) {
+                    timestamp = tilNextMillis(lastTimestamp);
+                }
+            } else {
+                sequence = 0L;
+            }
+
+            lastTimestamp = timestamp;
+            return ((timestamp - TWEPOCH) << TIMESTAMP_LEFT_SHIFT)
+                | (IdUtils.datacenterId << DATACENTER_ID_SHIFT)
+                | (IdUtils.workerId << WORKER_ID_SHIFT)
+                | sequence;
+        }
     }
 
-    public static void setInstanceNative(KenGen instanceNative) {
+    private static long tilNextMillis(long lastTimestamp) {
+        long timestamp = System.currentTimeMillis();
+        while (timestamp <= lastTimestamp) {
+            timestamp = System.currentTimeMillis();
+        }
+        return timestamp;
+    }
+
+    public static void setInstanceNative(LongSupplier instanceNative) {
         IdUtils.instanceNative = instanceNative;
     }
 
