@@ -35,5 +35,4 @@ public interface OrderBy {
      */
     String getIsAsc();
 
-    String ASC = "asc";
 }

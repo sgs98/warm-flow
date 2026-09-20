@@ -1,4 +1,4 @@
-package org.dromara.warm.flow.core.strategy.gateway;
+package org.dromara.warm.flow.core.strategy;
 
 import org.dromara.warm.flow.core.entity.Skip;
 

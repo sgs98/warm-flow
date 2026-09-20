@@ -13,7 +13,7 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-package org.dromara.warm.flow.core.utils;
+package org.dromara.warm.flow.core.constant;
 
 /**
  * 返回状态码
@@ -21,6 +21,7 @@ package org.dromara.warm.flow.core.utils;
  * @author warm
  */
 public class HttpStatus {
+
     /**
      * 操作成功
      */

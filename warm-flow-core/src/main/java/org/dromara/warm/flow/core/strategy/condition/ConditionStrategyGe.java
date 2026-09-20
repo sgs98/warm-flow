@@ -13,25 +13,30 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-package org.dromara.warm.flow.core.condition;
+package org.dromara.warm.flow.core.strategy.condition;
 
 import org.dromara.warm.flow.core.enums.ConditionType;
+import org.dromara.warm.flow.core.utils.MathUtil;
 
 /**
- * 条件表达式包含 like@@flag|4
+ * 条件表达式大于等于 ge@@flag|4
  *
  * @author warm
  */
-public class ConditionStrategyLike extends AbstractConditionStrategy {
+public class ConditionStrategyGe extends AbstractConditionStrategy {
 
     @Override
     public String getType() {
-        return ConditionType.LIKE.getKey();
+        return ConditionType.GE.getKey();
     }
 
     @Override
     public Boolean afterEval(String value, String variableValue) {
-        return variableValue.contains(value);
+        if (MathUtil.isNumeric(value)) {
+            return MathUtil.determineSize(variableValue, value) > 0 || MathUtil.determineSize(variableValue, value) == 0;
+        } else {
+            return false;
+        }
     }
 
 }

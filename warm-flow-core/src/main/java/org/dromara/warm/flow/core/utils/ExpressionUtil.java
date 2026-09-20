@@ -16,13 +16,13 @@
 package org.dromara.warm.flow.core.utils;
 
 import org.dromara.warm.flow.core.FlowEngine;
-import org.dromara.warm.flow.core.condition.*;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.handler.DefaultHandlerStrategy;
 import org.dromara.warm.flow.core.handler.PermissionHandler;
 import org.dromara.warm.flow.core.strategy.*;
+import org.dromara.warm.flow.core.strategy.condition.*;
 
 import java.util.*;
 import java.util.stream.Collectors;

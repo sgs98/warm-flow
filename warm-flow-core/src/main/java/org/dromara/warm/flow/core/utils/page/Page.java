@@ -18,6 +18,7 @@ package org.dromara.warm.flow.core.utils.page;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +33,8 @@ import java.util.List;
 @Setter
 public class Page<T> implements OrderBy, Serializable {
 
-    private static final long serialVersionUID = -1615974051898019272L;
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     /**
      * 当前记录起始索引

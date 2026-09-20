@@ -2,6 +2,7 @@ package org.dromara.warm.flow.core.strategy.gateway;
 
 import org.dromara.warm.flow.core.entity.Skip;
 import org.dromara.warm.flow.core.enums.NodeType;
+import org.dromara.warm.flow.core.strategy.GatewayStrategy;
 
 import java.util.List;
 import java.util.Map;

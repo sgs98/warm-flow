@@ -31,7 +31,7 @@ import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.orm.dao.FlowNodeDao;
 import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.NodeService;
-import org.dromara.warm.flow.core.strategy.gateway.GatewayStrategy;
+import org.dromara.warm.flow.core.strategy.GatewayStrategy;
 import org.dromara.warm.flow.core.strategy.gateway.InclusiveGatewayStrategy;
 import org.dromara.warm.flow.core.strategy.gateway.ParallelGatewayStrategy;
 import org.dromara.warm.flow.core.strategy.gateway.SerialGatewayStrategy;

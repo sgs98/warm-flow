@@ -13,30 +13,26 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-package org.dromara.warm.flow.core.condition;
+package org.dromara.warm.flow.core.strategy.condition;
 
 import org.dromara.warm.flow.core.enums.ConditionType;
-import org.dromara.warm.flow.core.utils.MathUtil;
 
 /**
- * 条件表达式等于 eq@@flag|4
+ * 条件表达式不包含 notLike@@flag|4
+ * 条件表达式不包含 notLike@@flag|4 and eq@@flag|5 or lt@@flag|6
  *
  * @author warm
  */
-public class ConditionStrategyEq extends AbstractConditionStrategy {
+public class ConditionStrategyNotLike extends AbstractConditionStrategy {
 
     @Override
     public String getType() {
-        return ConditionType.EQ.getKey();
+        return ConditionType.NOT_LIKE.getKey();
     }
 
     @Override
     public Boolean afterEval(String value, String variableValue) {
-        if (MathUtil.isNumeric(value)) {
-            return MathUtil.determineSize(variableValue, value) == 0;
-        } else {
-            return variableValue.equals(value);
-        }
+        return !variableValue.contains(value);
     }
 
 }
