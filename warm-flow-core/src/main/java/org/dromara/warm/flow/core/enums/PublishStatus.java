@@ -19,7 +19,9 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * 节点类型
+ * 流程定义和表单发布状态。
+ * <p>
+ * key 持久化到定义或表单中，value 用于展示。
  *
  * @author warm
  * @since 2023/3/31 12:16
@@ -28,9 +30,6 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum PublishStatus {
 
-    /**
-     * 9=已失效；0=未发布；1=已发布
-     */
     EXPIRED(9, "已失效"),
 
     UNPUBLISHED(0, "未发布"),
@@ -40,6 +39,12 @@ public enum PublishStatus {
     private final Integer key;
     private final String value;
 
+    /**
+     * 根据展示文案获取发布状态 key。
+     *
+     * @param value 展示文案
+     * @return 发布状态 key；未匹配时返回 {@code null}
+     */
     public static Integer getKeyByValue(String value) {
         for (PublishStatus item : PublishStatus.values()) {
             if (item.getValue().equals(value)) {
@@ -49,6 +54,12 @@ public enum PublishStatus {
         return null;
     }
 
+    /**
+     * 根据发布状态 key 获取展示文案。
+     *
+     * @param key 发布状态 key
+     * @return 展示文案；未匹配时返回 {@code null}
+     */
     public static String getValueByKey(Integer key) {
         for (PublishStatus item : PublishStatus.values()) {
             if (item.getKey().equals(key)) {
@@ -58,6 +69,12 @@ public enum PublishStatus {
         return null;
     }
 
+    /**
+     * 根据发布状态 key 获取枚举。
+     *
+     * @param key 发布状态 key
+     * @return 发布状态枚举；未匹配时返回 {@code null}
+     */
     public static PublishStatus getByKey(Integer key) {
         for (PublishStatus item : PublishStatus.values()) {
             if (item.getKey().equals(key)) {

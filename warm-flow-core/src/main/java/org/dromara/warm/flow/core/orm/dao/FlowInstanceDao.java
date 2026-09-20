@@ -20,7 +20,10 @@ import org.dromara.warm.flow.core.entity.Instance;
 import java.util.List;
 
 /**
- * 流程实例Mapper接口
+ * 流程实例 DAO 接口。
+ * <p>
+ * 实例记录承载业务 ID、当前节点和流程状态。该接口提供流程定义维度的批量实例查询，
+ * 供定义删除、清理等跨表操作使用。
  *
  * @author warm
  * @since 2023-03-29
@@ -28,7 +31,7 @@ import java.util.List;
 public interface FlowInstanceDao<T extends Instance> extends WarmDao<T> {
 
     /**
-     * 根据流程定义ID,查询流程实例集合
+     * 根据流程定义 ID 集合查询流程实例。
      *
      * @param defIds 流程定义ID集合
      * @return 流程实例集合

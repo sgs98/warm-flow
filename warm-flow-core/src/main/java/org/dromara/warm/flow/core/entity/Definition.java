@@ -108,10 +108,27 @@ public interface Definition extends RootEntity {
      */
     String getModelValue();
 
+    /**
+     * 设置设计器模型。
+     *
+     * @param modelValue 设计器模型
+     * @return 当前流程定义
+     */
     Definition setModelValue(String modelValue);
 
+    /**
+     * 获取流程分类。
+     *
+     * @return 流程分类
+     */
     String getCategory();
 
+    /**
+     * 设置流程分类。
+     *
+     * @param category 流程分类
+     * @return 当前流程定义
+     */
     Definition setCategory(String category);
 
     /**
@@ -121,6 +138,12 @@ public interface Definition extends RootEntity {
      */
     String getVersion();
 
+    /**
+     * 设置流程定义版本号。
+     *
+     * @param version 版本号
+     * @return 当前流程定义
+     */
     Definition setVersion(String version);
 
     /**
@@ -130,6 +153,12 @@ public interface Definition extends RootEntity {
      */
     Integer getIsPublish();
 
+    /**
+     * 设置发布状态。
+     *
+     * @param isPublish 发布状态
+     * @return 当前流程定义
+     */
     Definition setIsPublish(Integer isPublish);
 
     /**
@@ -139,22 +168,72 @@ public interface Definition extends RootEntity {
      */
     String getFormCustom();
 
+    /**
+     * 设置是否使用自定义表单。
+     *
+     * @param formCustom 是否自定义表单
+     * @return 当前流程定义
+     */
     Definition setFormCustom(String formCustom);
 
+    /**
+     * 获取自定义表单路径或表单标识。
+     *
+     * @return 表单路径或标识
+     */
     String getFormPath();
 
+    /**
+     * 设置自定义表单路径或表单标识。
+     *
+     * @param formPath 表单路径或标识
+     * @return 当前流程定义
+     */
     Definition setFormPath(String formPath);
 
+    /**
+     * 获取扩展字段。
+     *
+     * @return 扩展字段
+     */
     String getExt();
 
+    /**
+     * 设置扩展字段。
+     *
+     * @param ext 扩展字段
+     * @return 当前流程定义
+     */
     Definition setExt(String ext);
 
+    /**
+     * 获取流程定义下的节点列表。
+     *
+     * @return 节点列表
+     */
     List<Node> getNodeList();
 
+    /**
+     * 设置流程定义下的节点列表。
+     *
+     * @param nodeList 节点列表
+     * @return 当前流程定义
+     */
     Definition setNodeList(List<Node> nodeList);
 
+    /**
+     * 获取流程定义关联的用户列表。
+     *
+     * @return 用户列表
+     */
     List<User> getUserList();
 
+    /**
+     * 设置流程定义关联的用户列表。
+     *
+     * @param userList 用户列表
+     * @return 当前流程定义
+     */
     Definition setUserList(List<User> userList);
 
     /**
@@ -165,6 +244,12 @@ public interface Definition extends RootEntity {
      */
     Integer getActivityStatus();
 
+    /**
+     * 设置流程激活状态。
+     *
+     * @param activityStatus 激活状态
+     * @return 当前流程定义
+     */
     Definition setActivityStatus(Integer activityStatus);
 
     /**
@@ -174,6 +259,12 @@ public interface Definition extends RootEntity {
      */
     String getListenerType();
 
+    /**
+     * 设置监听器类型。
+     *
+     * @param listenerType 监听器类型
+     * @return 当前流程定义
+     */
     Definition setListenerType(String listenerType);
 
     /**
@@ -183,8 +274,21 @@ public interface Definition extends RootEntity {
      */
     String getListenerPath();
 
+    /**
+     * 设置监听器路径。
+     *
+     * @param listenerPath 监听器路径
+     * @return 当前流程定义
+     */
     Definition setListenerPath(String listenerPath);
 
+    /**
+     * 复制流程定义基础属性。
+     * <p>
+     * 不复制主键、节点列表、用户列表和发布/激活状态，主要用于定义复制生成新版本。
+     *
+     * @return 新流程定义实体
+     */
     default Definition copy() {
         return FlowEngine.newDef()
             .setTenantId(this.getTenantId())

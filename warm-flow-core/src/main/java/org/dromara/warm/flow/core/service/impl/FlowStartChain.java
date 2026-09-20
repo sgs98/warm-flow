@@ -110,12 +110,24 @@ final class FlowStartChain {
             this::persistAndFinish);
     }
 
+    /**
+     * 执行开始监听器。此时流程实例尚未创建，监听器变量中的实例为空。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> startListener(FlowExecution execution) {
         // 执行开始监听器（实例尚不存在，监听器变量中实例为 null）
         ListenerUtil.executeStart(execution.contextListener(null, execution.nowNode));
         return Optional.empty();
     }
 
+    /**
+     * 从开始节点解析首批后续节点，并记录发起流程的路径数据。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> route(FlowExecution execution) {
         // 获取下一个节点，如果是网关节点，则重新获取后续节点
         pathWayData = new PathWayData().setDefId(execution.nowNode.getDefinitionId())
@@ -125,6 +137,12 @@ final class FlowStartChain {
         return Optional.empty();
     }
 
+    /**
+     * 创建流程实例并回填执行作用域，同时构造开始节点对应的历史任务。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> createInstanceAndHis(FlowExecution execution) {
         // 设置流程实例对象（创建后回填作用域：此后 assignment/endCreate 监听器可见）
         instance = setStartInstance(nextNodes.get(0), execution.intent);
@@ -135,6 +153,12 @@ final class FlowStartChain {
         return Optional.empty();
     }
 
+    /**
+     * 为首批后续节点创建待办任务，并根据流程变量替换办理人表达式。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> buildTasks(FlowExecution execution) {
         // 设置首待办任务（原手工逐字段拷贝的 taskContext 已删，直传调用方上下文等值）
         addTasks = StreamUtils.toList(nextNodes, node -> FlowEngine.taskService()
@@ -148,6 +172,12 @@ final class FlowStartChain {
         return Optional.empty();
     }
 
+    /**
+     * 写入发起流程图元数据，并执行分派监听器。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> metadataAndAssignment(FlowExecution execution) {
         // 设置流程图元数据
         pathWayData.getTargetNodes().addAll(nextNodes);
@@ -158,6 +188,12 @@ final class FlowStartChain {
         return Optional.empty();
     }
 
+    /**
+     * 持久化实例、历史任务、待办任务和办理人，并执行完成/创建监听器。
+     *
+     * @param execution 执行作用域
+     * @return 已创建的流程实例，用于短路覆盖流水线兜底返回
+     */
     private Optional<Instance> persistAndFinish(FlowExecution execution) {
         // 开启流程，保存流程信息
         saveFlowInfo(instance, addTasks, hisTask, execution.intent);
@@ -203,6 +239,7 @@ final class FlowStartChain {
      * @param context    流程执行上下文
      * @param startNode  开始节点
      * @param instanceId 流程实例id
+     * @return 历史任务
      */
     private HisTask setHisTask(List<Node> nextNodes, WorkflowContext context, Node startNode, Long instanceId) {
         Task startTask = FlowEngine.newTask()
@@ -222,6 +259,7 @@ final class FlowStartChain {
      * @param instance 流程实例
      * @param addTasks 新增任务
      * @param hisTask  历史任务
+     * @param context  流程执行上下文
      */
     private void saveFlowInfo(Instance instance, List<Task> addTasks, HisTask hisTask, WorkflowContext context) {
         // 启动状态由调用方决定，首任务状态不能反向覆盖流程实例状态。

@@ -16,10 +16,16 @@ import java.util.stream.Collectors;
  */
 public class UserMemDao<T extends User> extends InMemoryDao<T> implements FlowUserDao<T> {
 
+    /**
+     * 创建任务办理人内存 DAO，并复用基类的实体工厂与调用日志。
+     */
     public UserMemDao(Supplier<T> factory, List<String> log) {
         super(factory, log);
     }
 
+    /**
+     * 删除指定任务关联的办理人记录。
+     */
     @Override
     public int deleteByTaskIds(List<Long> taskIds) {
         log.add(name() + ".deleteByTaskIds" + taskIds);
@@ -31,6 +37,9 @@ public class UserMemDao<T extends User> extends InMemoryDao<T> implements FlowUs
         return keys.size();
     }
 
+    /**
+     * 按关联业务 ID 集合和办理人类型查询办理人记录。
+     */
     @Override
     public List<T> listByAssociatedAndTypes(List<Long> associatedList, String[] types) {
         log.add(name() + ".listByAssociatedAndTypes" + associatedList + "types=" + Arrays.toString(types));
@@ -41,6 +50,9 @@ public class UserMemDao<T extends User> extends InMemoryDao<T> implements FlowUs
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 按关联业务 ID、办理人标识集合和类型查询已处理办理人记录。
+     */
     @Override
     public List<T> listByProcessedBys(Long associated, List<String> processedBys, String[] types) {
         log.add(name() + ".listByProcessedBys[associated=" + associated + ",processedBys=" + processedBys

@@ -25,7 +25,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 监听器变量
+ * 监听器上下文变量。
+ * <p>
+ * 引擎在触发节点监听器或全局监听器时传入该对象，业务方可读取当前定义、实例、节点、
+ * 任务、流程变量、后续节点和新建任务等上下文。部分事件阶段字段可能为空，监听器实现需按需判空。
  *
  * @author warm
  */
@@ -72,15 +75,33 @@ public class ListenerVariable {
     private WorkflowContext context;
 
 
+    /**
+     * 创建空监听器变量。
+     */
     public ListenerVariable() {
     }
 
+    /**
+     * 创建定义、实例和流程变量维度的监听器变量。
+     *
+     * @param definition 流程定义
+     * @param instance 流程实例
+     * @param variable 流程变量
+     */
     public ListenerVariable(Definition definition, Instance instance, Map<String, Object> variable) {
         this.definition = definition;
         this.instance = instance;
         this.variable = variable;
     }
 
+    /**
+     * 创建带当前节点的监听器变量。
+     *
+     * @param definition 流程定义
+     * @param instance 流程实例
+     * @param node 当前节点
+     * @param variable 流程变量
+     */
     public ListenerVariable(Definition definition, Instance instance, Node node, Map<String, Object> variable) {
         this.definition = definition;
         this.instance = instance;
@@ -88,6 +109,14 @@ public class ListenerVariable {
         this.variable = variable;
     }
 
+    /**
+     * 创建带当前任务的监听器变量。
+     *
+     * @param definition 流程定义
+     * @param instance 流程实例
+     * @param variable 流程变量
+     * @param task 当前任务
+     */
     public ListenerVariable(Definition definition, Instance instance, Map<String, Object> variable, Task task) {
         this.definition = definition;
         this.instance = instance;
@@ -95,6 +124,15 @@ public class ListenerVariable {
         this.task = task;
     }
 
+    /**
+     * 创建带当前节点和任务的监听器变量。
+     *
+     * @param definition 流程定义
+     * @param instance 流程实例
+     * @param node 当前节点
+     * @param variable 流程变量
+     * @param task 当前任务
+     */
     public ListenerVariable(Definition definition, Instance instance, Node node, Map<String, Object> variable, Task task) {
         this.definition = definition;
         this.instance = instance;
@@ -103,6 +141,16 @@ public class ListenerVariable {
         this.task = task;
     }
 
+    /**
+     * 创建带后续节点集合的监听器变量。
+     *
+     * @param definition 流程定义
+     * @param instance 流程实例
+     * @param node 当前节点
+     * @param variable 流程变量
+     * @param task 当前任务
+     * @param nextNodes 后续节点集合
+     */
     public ListenerVariable(Definition definition, Instance instance, Node node, Map<String, Object> variable, Task task, List<Node> nextNodes) {
         this.definition = definition;
         this.instance = instance;
@@ -112,6 +160,17 @@ public class ListenerVariable {
         this.nextNodes = nextNodes;
     }
 
+    /**
+     * 创建带后续节点和新任务集合的监听器变量。
+     *
+     * @param definition 流程定义
+     * @param instance 流程实例
+     * @param node 当前节点
+     * @param variable 流程变量
+     * @param task 当前任务
+     * @param nextNodes 后续节点集合
+     * @param nextTasks 新创建任务集合
+     */
     public ListenerVariable(Definition definition, Instance instance, Node node, Map<String, Object> variable, Task task
         , List<Node> nextNodes, List<Task> nextTasks) {
         this.definition = definition;
@@ -123,64 +182,141 @@ public class ListenerVariable {
         this.nextTasks = nextTasks;
     }
 
+    /**
+     * 获取流程定义。
+     *
+     * @return 流程定义
+     */
     public Definition getDefinition() {
         return definition;
     }
 
+    /**
+     * 设置流程定义。
+     *
+     * @param definition 流程定义
+     * @return 当前监听器变量
+     */
     public ListenerVariable setDefinition(Definition definition) {
         this.definition = definition;
         return this;
     }
 
+    /**
+     * 获取流程实例。
+     *
+     * @return 流程实例
+     */
     public Instance getInstance() {
         return instance;
     }
 
+    /**
+     * 设置流程实例。
+     *
+     * @param instance 流程实例
+     * @return 当前监听器变量
+     */
     public ListenerVariable setInstance(Instance instance) {
         this.instance = instance;
         return this;
     }
 
+    /**
+     * 获取监听器对应节点。
+     *
+     * @return 节点
+     */
     public Node getNode() {
         return node;
     }
 
+    /**
+     * 设置监听器对应节点。
+     *
+     * @param node 节点
+     * @return 当前监听器变量
+     */
     public ListenerVariable setNode(Node node) {
         this.node = node;
         return this;
     }
 
+    /**
+     * 获取当前任务。
+     *
+     * @return 当前任务
+     */
     public Task getTask() {
         return task;
     }
 
+    /**
+     * 设置当前任务。
+     *
+     * @param task 当前任务
+     * @return 当前监听器变量
+     */
     public ListenerVariable setTask(Task task) {
         this.task = task;
         return this;
     }
 
+    /**
+     * 获取后续节点集合。
+     *
+     * @return 后续节点集合
+     */
     public List<Node> getNextNodes() {
         return nextNodes;
     }
 
+    /**
+     * 设置后续节点集合。
+     *
+     * @param nextNodes 后续节点集合
+     * @return 当前监听器变量
+     */
     public ListenerVariable setNextNodes(List<Node> nextNodes) {
         this.nextNodes = nextNodes;
         return this;
     }
 
+    /**
+     * 获取新创建任务集合。
+     *
+     * @return 新任务集合
+     */
     public List<Task> getNextTasks() {
         return nextTasks;
     }
 
+    /**
+     * 设置新创建任务集合。
+     *
+     * @param nextTasks 新任务集合
+     * @return 当前监听器变量
+     */
     public ListenerVariable setNextTasks(List<Task> nextTasks) {
         this.nextTasks = nextTasks;
         return this;
     }
 
+    /**
+     * 获取流程变量。
+     *
+     * @return 流程变量
+     */
     public Map<String, Object> getVariable() {
         return variable;
     }
 
+    /**
+     * 设置流程变量。
+     *
+     * @param variable 流程变量
+     * @return 当前监听器变量
+     */
     public ListenerVariable setVariable(Map<String, Object> variable) {
         this.variable = variable;
         return this;

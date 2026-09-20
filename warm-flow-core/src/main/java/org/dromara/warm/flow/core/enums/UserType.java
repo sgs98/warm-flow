@@ -19,7 +19,9 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * 流程用户类型
+ * 流程用户记录类型。
+ * <p>
+ * 用于区分审批人权限、转办人权限和委托人权限等用户记录用途。
  *
  * @author xiarg
  * @since 2024/5/10 16:04
@@ -28,9 +30,6 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum UserType {
 
-    /**
-     * 流程用户类型
-     */
     APPROVAL("1", "待办任务的审批人权限"),
 
     TRANSFER("2", "待办任务的转办人权限"),
@@ -40,6 +39,12 @@ public enum UserType {
     private final String key;
     private final String value;
 
+    /**
+     * 根据展示文案获取用户类型 key。
+     *
+     * @param value 展示文案
+     * @return 用户类型 key；未匹配时返回 {@code null}
+     */
     public static String getKeyByValue(String value) {
         for (UserType item : UserType.values()) {
             if (item.getValue().equals(value)) {
@@ -49,6 +54,12 @@ public enum UserType {
         return null;
     }
 
+    /**
+     * 根据用户类型 key 获取展示文案。
+     *
+     * @param key 用户类型 key
+     * @return 展示文案；未匹配时返回 {@code null}
+     */
     public static String getValueByKey(String key) {
         for (UserType item : UserType.values()) {
             if (item.getKey().equals(key)) {
@@ -58,6 +69,12 @@ public enum UserType {
         return null;
     }
 
+    /**
+     * 根据用户类型 key 获取枚举。
+     *
+     * @param key 用户类型 key
+     * @return 用户类型枚举；未匹配时返回 {@code null}
+     */
     public static UserType getByKey(String key) {
         for (UserType item : UserType.values()) {
             if (item.getKey().equals(key)) {

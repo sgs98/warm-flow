@@ -25,185 +25,208 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Service接口
+ * 流程实体通用服务接口。
+ * <p>
+ * 该接口位于 core 服务层与 ORM DAO 层之间，为流程定义、节点、连线、实例、任务、
+ * 历史任务、办理人和表单等实体提供统一的数据访问能力。具体业务服务在此基础上
+ * 增加流程引擎专属操作，底层持久化细节由 {@link WarmDao} 的 ORM 适配实现负责。
+ * <p>
+ * 查询方法使用实体中的非空字段作为基础条件；写入方法返回业务层更易使用的布尔结果，
+ * 批量方法由实现统一处理空集合、分批写入和数据填充。
  *
  * @author warm
  * @since 2023-03-17
  */
 public interface IWarmService<T> {
 
+    /**
+     * 获取当前服务绑定的 DAO。
+     * <p>
+     * 泛型返回类型允许具体服务直接使用对应实体的扩展 DAO 方法。
+     *
+     * @param <M> DAO 类型
+     * @return 当前服务使用的 DAO
+     */
     <M extends WarmDao<T>> M getDao();
 
     /**
-     * 根据id查询
+     * 根据主键查询实体。
      *
      * @param id 主键
-     * @return 实体
+     * @return 实体，不存在时返回 {@code null}
      */
     T getById(Serializable id);
 
     /**
-     * 根据ids查询
+     * 根据主键集合批量查询实体。
      *
-     * @param ids 主键
-     * @return 实体
+     * @param ids 主键集合
+     * @return 实体列表
      */
     List<T> getByIds(Collection<? extends Serializable> ids);
 
     /**
-     * 分页查询
+     * 按实体非空字段分页查询。
      *
      * @param entity 查询实体
-     * @param page   分页对象
-     * @return 集合
+     * @param page 分页参数与结果承载对象
+     * @return 回填总数和当前页数据后的分页对象
      */
     Page<T> page(T entity, Page<T> page);
 
     /**
-     * 查询列表
+     * 按实体非空字段查询列表。
      *
      * @param entity 查询实体
-     * @return 集合
+     * @return 匹配的实体列表
      */
     List<T> list(T entity);
 
     /**
-     * 查询列表，可排序
+     * 按实体非空字段和扩展查询条件查询列表。
      *
      * @param entity 查询实体
-     * @param query
-     * @return 集合
+     * @param query 查询条件，可包含排序信息
+     * @return 匹配的实体列表
      */
     List<T> list(T entity, WarmQuery<T> query);
 
     /**
-     * 查询一条记录
+     * 查询一条匹配记录。
+     * <p>
+     * 具体实现沿用 core 的单条记录提取规则；调用方应确保查询条件具有足够的唯一性。
      *
      * @param entity 查询实体
-     * @return 结果
+     * @return 匹配的实体，不存在时返回 {@code null}
      */
     T getOne(T entity);
 
     /**
-     * 获取总数量
+     * 统计匹配实体数量。
      *
      * @param entity 查询实体
-     * @return 结果
+     * @return 匹配记录数
      */
     long selectCount(T entity);
 
     /**
-     * 判断是否存在
+     * 判断是否存在匹配实体。
      *
      * @param entity 查询实体
-     * @return 结果
+     * @return 存在匹配记录时返回 {@code true}
      */
     Boolean exists(T entity);
 
     /**
-     * 新增
+     * 新增实体，并在启用数据填充时执行主键、创建信息等新增填充。
      *
-     * @param entity 实体
-     * @return 结果
+     * @param entity 待新增实体
+     * @return 新增成功返回 {@code true}
      */
     boolean save(T entity);
 
     /**
-     * 根据id修改
+     * 根据实体主键更新记录，并在启用数据填充时执行更新信息填充。
      *
-     * @param entity 实体
-     * @return 结果
+     * @param entity 待更新实体，必须携带主键
+     * @return 更新成功返回 {@code true}
      */
     boolean updateById(T entity);
 
     /**
-     * 根据id删除
+     * 根据主键删除实体。
      *
      * @param id 主键
-     * @return 结果
+     * @return 删除成功返回 {@code true}
      */
     boolean removeById(Serializable id);
 
     /**
-     * 根据entity删除
+     * 根据实体非空字段删除匹配记录。
      *
-     * @param entity 实体
-     * @return 结果
+     * @param entity 删除条件实体
+     * @return 删除成功返回 {@code true}
      */
     boolean remove(T entity);
 
     /**
-     * 根据ids批量删除
+     * 根据主键集合批量删除实体。
      *
-     * @param ids 需要删除的数据主键集合
-     * @return 结果
+     * @param ids 待删除实体的主键集合
+     * @return 至少删除一条记录时返回 {@code true}
      */
     boolean removeByIds(Collection<? extends Serializable> ids);
 
     /**
-     * 批量新增
+     * 批量新增实体，使用实现类约定的默认批次大小。
      *
-     * @param list 实体集合
+     * @param list 待新增实体集合
      */
     void saveBatch(List<T> list);
 
     /**
-     * 批量新增
+     * 按指定批次大小批量新增实体。
+     * <p>
+     * 实现会先按批次拆分，再对每个实体执行新增数据填充；非正批次大小使用实现约定的默认值。
      *
-     * @param list      需要插入的集合数据
-     * @param batchSize 插入大小
+     * @param list 待新增实体集合
+     * @param batchSize 单批最大记录数
      */
     void saveBatch(List<T> list, int batchSize);
 
     /**
-     * 批量更新
+     * 批量按主键更新实体。
+     * <p>
+     * 实现会在提交 DAO 前统一执行更新数据填充。
      *
-     * @param list 集合数据
+     * @param list 待更新实体集合
      */
     void updateBatch(List<T> list);
 
     /**
-     * id设置正序排列
+     * 创建按主键升序排列的查询条件。
      *
-     * @return 集合
+     * @return 可继续追加条件的查询对象
      */
     WarmQuery<T> orderById();
 
     /**
-     * 创建时间设置正序排列
+     * 创建按创建时间升序排列的查询条件。
      *
-     * @return 集合
+     * @return 可继续追加条件的查询对象
      */
     WarmQuery<T> orderByCreateTime();
 
     /**
-     * 更新时间设置正序排列
+     * 创建按更新时间升序排列的查询条件。
      *
-     * @return 集合
+     * @return 可继续追加条件的查询对象
      */
     WarmQuery<T> orderByUpdateTime();
 
     /**
-     * 设置正序排列
+     * 创建按指定字段升序排列的查询条件。
      *
-     * @param orderByField 排序字段
-     * @return 集合
+     * @param orderByField 排序字段名
+     * @return 可继续追加条件的查询对象
      */
     WarmQuery<T> orderByAsc(String orderByField);
 
     /**
-     * 设置倒序排列
+     * 创建按指定字段降序排列的查询条件。
      *
-     * @param orderByField 排序字段
-     * @return 集合
+     * @param orderByField 排序字段名
+     * @return 可继续追加条件的查询对象
      */
     WarmQuery<T> orderByDesc(String orderByField);
 
     /**
-     * 用户自定义排序方案
+     * 创建使用自定义排序片段的查询条件。
+     * <p>
+     * 排序字段或表达式的合法性由具体 ORM 实现负责校验和转换，调用方应传入受信任的字段配置。
      *
-     * @param orderByField 排序字段
-     * @return 集合
+     * @param orderByField 自定义排序字段或排序表达式
+     * @return 可继续追加条件的查询对象
      */
     WarmQuery<T> orderBy(String orderByField);
 }

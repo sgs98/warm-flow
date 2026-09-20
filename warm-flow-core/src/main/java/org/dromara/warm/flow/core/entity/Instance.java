@@ -103,10 +103,27 @@ public interface Instance extends RootEntity {
      */
     Integer getNodeType();
 
+    /**
+     * 设置当前节点类型。
+     *
+     * @param nodeType 节点类型
+     * @return 当前实例
+     */
     Instance setNodeType(Integer nodeType);
 
+    /**
+     * 获取当前节点编码。
+     *
+     * @return 节点编码
+     */
     String getNodeCode();
 
+    /**
+     * 设置当前节点编码。
+     *
+     * @param nodeCode 节点编码
+     * @return 当前实例
+     */
     Instance setNodeCode(String nodeCode);
 
     /**
@@ -127,6 +144,11 @@ public interface Instance extends RootEntity {
 
     Instance setVariable(String variable);
 
+    /**
+     * 将流程变量 JSON 字符串转换为 Map。
+     *
+     * @return 流程变量 Map
+     */
     default Map<String, Object> getVariableMap() {
         return FlowEngine.jsonConvert.strToMap(getVariable());
     }
@@ -146,18 +168,57 @@ public interface Instance extends RootEntity {
      */
     String getFormCustom();
 
+    /**
+     * 设置是否使用自定义表单。
+     *
+     * @param formCustom 是否自定义表单
+     * @return 当前实例
+     */
     Instance setFormCustom(String formCustom);
 
+    /**
+     * 获取表单路径或标识。
+     *
+     * @return 表单路径或标识
+     */
     String getFormPath();
 
+    /**
+     * 设置表单路径或标识。
+     *
+     * @param formPath 表单路径或标识
+     * @return 当前实例
+     */
     Instance setFormPath(String formPath);
 
+    /**
+     * 获取启动时固化的流程定义 JSON。
+     *
+     * @return 流程定义 JSON
+     */
     String getDefJson();
 
+    /**
+     * 设置启动时固化的流程定义 JSON。
+     *
+     * @param defJson 流程定义 JSON
+     * @return 当前实例
+     */
     Instance setDefJson(String defJson);
 
+    /**
+     * 获取扩展字段。
+     *
+     * @return 扩展字段
+     */
     String getExt();
 
+    /**
+     * 设置扩展字段。
+     *
+     * @param ext 扩展字段
+     * @return 当前实例
+     */
     Instance setExt(String ext);
 
     /**
@@ -166,6 +227,12 @@ public interface Instance extends RootEntity {
      */
     Integer getActivityStatus();
 
+    /**
+     * 设置激活状态。
+     *
+     * @param activityStatus 激活状态
+     * @return 当前实例
+     */
     Instance setActivityStatus(Integer activityStatus);
 
 }

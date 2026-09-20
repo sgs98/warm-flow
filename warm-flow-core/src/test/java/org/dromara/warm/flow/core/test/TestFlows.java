@@ -36,6 +36,9 @@ public final class TestFlows {
 
     /**
      * 构建并保存已发布的串行测试流程。
+     *
+     * @param flowCode 流程编码
+     * @return 已保存的流程定义
      */
     public static Definition serialFlow(String flowCode) {
         return serialFlow(flowCode, "1", PublishStatus.PUBLISHED.getKey());
@@ -43,6 +46,11 @@ public final class TestFlows {
 
     /**
      * 构建并保存指定版本与发布状态的串行测试流程。
+     *
+     * @param flowCode 流程编码
+     * @param version 流程版本
+     * @param isPublish 发布状态
+     * @return 已保存的流程定义
      */
     public static Definition serialFlow(String flowCode, String version, Integer isPublish) {
         Definition def = FlowEngine.newDef()
@@ -63,6 +71,9 @@ public final class TestFlows {
     /**
      * 构建并保存带驳回线的串行测试流程：start(0) → apply(1) → audit(1) → end(2)，
      * 前向连线全为 PASS，另含 audit → apply 的 REJECT 驳回线。
+     *
+     * @param flowCode 流程编码
+     * @return 已保存的流程定义
      */
     public static Definition rejectFlow(String flowCode) {
         Definition def = FlowEngine.newDef()
@@ -87,6 +98,11 @@ public final class TestFlows {
     /**
      * 构建协作测试流程：start(0) → draft(1) → apply(1, 多办理人+协作规则) → end(2)，
      * 含 apply → draft 的 REJECT 驳回线，用于会签/票签/或签语义。
+     *
+     * @param flowCode 流程编码
+     * @param applyRatio apply 节点协作比例
+     * @param applyPermission apply 节点办理人表达式
+     * @return 已保存的流程定义
      */
     public static Definition cooperateFlow(String flowCode, String applyRatio, String applyPermission) {
         Definition def = FlowEngine.newDef()
@@ -110,6 +126,9 @@ public final class TestFlows {
 
     /**
      * 构建并行网关测试流程：start(0) → forkP(4) → a1/b1(1) → joinP(4) → end(2)。
+     *
+     * @param flowCode 流程编码
+     * @return 已保存的流程定义
      */
     public static Definition parallelFlow(String flowCode) {
         Definition def = FlowEngine.newDef()
@@ -137,6 +156,12 @@ public final class TestFlows {
     /**
      * 构建网关路由测试流程：start(0) → apply(1) → gate(gatewayType) → a1/b1(1) → end(2)，
      * gate 的两条出口线可分别配置跳转条件（null 表示无条件出口）。
+     *
+     * @param flowCode 流程编码
+     * @param gatewayType 网关节点类型
+     * @param condA a1 分支跳转条件
+     * @param condB b1 分支跳转条件
+     * @return 已保存的流程定义
      */
     public static Definition gatewayFlow(String flowCode, Integer gatewayType, String condA, String condB) {
         Definition def = FlowEngine.newDef()
@@ -161,10 +186,16 @@ public final class TestFlows {
         return def;
     }
 
+    /**
+     * 保存普通节点，协作比例使用默认值 0。
+     */
     private static void node(Definition def, String code, Integer nodeType, String permissionFlag) {
         node(def, code, nodeType, permissionFlag, "0");
     }
 
+    /**
+     * 保存节点并为中间节点挂载记录型监听器，便于断言节点生命周期事件。
+     */
     private static void node(Definition def, String code, Integer nodeType, String permissionFlag
             , String nodeRatio) {
         org.dromara.warm.flow.core.entity.Node node = FlowEngine.newNode()
@@ -182,15 +213,24 @@ public final class TestFlows {
         FlowEngine.nodeService().save(node);
     }
 
+    /**
+     * 保存默认 PASS 类型的节点连线。
+     */
     private static void skip(Definition def, String now, Integer nowType, String next, Integer nextType) {
         skip(def, now, nowType, next, nextType, SkipType.PASS.getKey());
     }
 
+    /**
+     * 保存指定跳转类型且无条件表达式的节点连线。
+     */
     private static void skip(Definition def, String now, Integer nowType, String next, Integer nextType
             , String skipType) {
         skip(def, now, nowType, next, nextType, skipType, null);
     }
 
+    /**
+     * 保存节点连线，并按需写入条件表达式以覆盖网关路由测试。
+     */
     private static void skip(Definition def, String now, Integer nowType, String next, Integer nextType
             , String skipType, String skipCondition) {
         org.dromara.warm.flow.core.entity.Skip skip = FlowEngine.newSkip()
@@ -209,6 +249,10 @@ public final class TestFlows {
 
     /**
      * 构建串行流程并以 HANDLER 发起流程实例。
+     *
+     * @param flowCode 流程编码
+     * @param businessId 业务 ID
+     * @return 启动后的流程实例
      */
     public static Instance start(String flowCode, String businessId) {
         serialFlow(flowCode);
@@ -217,6 +261,10 @@ public final class TestFlows {
 
     /**
      * 构建带驳回线的串行流程并以 HANDLER 发起流程实例。
+     *
+     * @param flowCode 流程编码
+     * @param businessId 业务 ID
+     * @return 启动后的流程实例
      */
     public static Instance startRejectFlow(String flowCode, String businessId) {
         rejectFlow(flowCode);
@@ -225,6 +273,12 @@ public final class TestFlows {
 
     /**
      * 构建协作流程并以 HANDLER 发起流程实例（首待办在 draft 节点）。
+     *
+     * @param flowCode 流程编码
+     * @param applyRatio apply 节点协作比例
+     * @param applyPermission apply 节点办理人表达式
+     * @param businessId 业务 ID
+     * @return 启动后的流程实例
      */
     public static Instance startCooperateFlow(String flowCode, String applyRatio, String applyPermission
             , String businessId) {
@@ -234,6 +288,10 @@ public final class TestFlows {
 
     /**
      * 构建并行网关流程并以 HANDLER 发起流程实例（分叉后 a1/b1 各一待办）。
+     *
+     * @param flowCode 流程编码
+     * @param businessId 业务 ID
+     * @return 启动后的流程实例
      */
     public static Instance startParallelFlow(String flowCode, String businessId) {
         parallelFlow(flowCode);
@@ -243,6 +301,14 @@ public final class TestFlows {
     /**
      * 构建网关路由流程并以 HANDLER 发起流程实例，可携带路由变量。
      * 变量包一层可变 Map：引擎在合并点会原地写回 context.variables。
+     *
+     * @param flowCode 流程编码
+     * @param gatewayType 网关节点类型
+     * @param condA a1 分支跳转条件
+     * @param condB b1 分支跳转条件
+     * @param businessId 业务 ID
+     * @param variables 路由变量
+     * @return 启动后的流程实例
      */
     public static Instance startGatewayFlow(String flowCode, Integer gatewayType, String condA, String condB
             , String businessId, Map<String, Object> variables) {
@@ -256,6 +322,9 @@ public final class TestFlows {
 
     /**
      * 构造忽略权限校验的办理上下文。
+     *
+     * @param handler 当前办理人
+     * @return 可直接用于启动或办理的上下文
      */
     public static WorkflowContext context(String handler) {
         WorkflowContext context = new WorkflowContext();
@@ -266,6 +335,10 @@ public final class TestFlows {
 
     /**
      * 以 PASS 办理指定任务。
+     *
+     * @param taskId 待办任务 ID
+     * @param handler 当前办理人
+     * @return 办理后的流程实例
      */
     public static Instance pass(Long taskId, String handler) {
         return FlowEngine.taskService().execute(taskId, context(handler), SkipType.PASS.getKey());
@@ -273,6 +346,10 @@ public final class TestFlows {
 
     /**
      * 以 REJECT 驳回指定任务。
+     *
+     * @param taskId 待办任务 ID
+     * @param handler 当前办理人
+     * @return 驳回后的流程实例
      */
     public static Instance reject(Long taskId, String handler) {
         return FlowEngine.taskService().execute(taskId, context(handler), SkipType.REJECT.getKey());
@@ -280,6 +357,9 @@ public final class TestFlows {
 
     /**
      * 取实例唯一待办任务。
+     *
+     * @param instanceId 流程实例 ID
+     * @return 唯一待办任务
      */
     public static Task currentTask(Long instanceId) {
         List<Task> tasks = pendingTasks(instanceId);
@@ -291,6 +371,9 @@ public final class TestFlows {
 
     /**
      * 取实例全部待办任务。
+     *
+     * @param instanceId 流程实例 ID
+     * @return 待办任务列表
      */
     public static List<Task> pendingTasks(Long instanceId) {
         return FlowEngine.taskService().list(FlowEngine.newTask().setInstanceId(instanceId));

@@ -106,6 +106,12 @@ final class FlowRevokeChain {
             this::finishListeners);
     }
 
+    /**
+     * 查询撤回前的待办快照、构建节点索引，并对快照中的任务逐个执行开始监听器。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> snapshotAndStart(FlowExecution execution) {
         taskList = taskService.getByInsId(instanceId);
         FlowCombine flowCombine = execution.loadCombine();
@@ -116,6 +122,12 @@ final class FlowRevokeChain {
         return Optional.empty();
     }
 
+    /**
+     * 校验当前处理人是否为流程发起人；忽略权限时跳过校验。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> promoterGate(FlowExecution execution) {
         // 验证权限是不是当前任务的发起人
         if (!execution.intent.isIgnorePermission()) {
@@ -125,6 +137,12 @@ final class FlowRevokeChain {
         return Optional.empty();
     }
 
+    /**
+     * 从开始节点重新解析撤回后应创建的后续节点，并写入流程图跳转元数据。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> route(FlowExecution execution) {
         // 获取开始节点
         Node startNode = StreamUtils.filterOne(execution.loadCombine().getAllNodes()
@@ -141,6 +159,12 @@ final class FlowRevokeChain {
         return Optional.empty();
     }
 
+    /**
+     * 基于撤回目标节点创建新待办、替换办理人变量，并对原待办快照执行分派监听器。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> buildTasks(FlowExecution execution) {
         // R3：复用监听器执行前的待办快照作为撤回清理对象，不再于监听器后二次查询
         AssertUtil.isEmpty(taskList, ExceptionCons.NOT_FOUND_FLOW_TASK);
@@ -160,6 +184,12 @@ final class FlowRevokeChain {
         return Optional.empty();
     }
 
+    /**
+     * 将撤回前待办整体归档并删除，保存新待办和办理人，更新流程实例。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> persist(FlowExecution execution) {
         // 设置流程历史任务信息
         List<HisTask> insHisList = FlowEngine.hisTaskService().setSkipHisList(taskList, nextNodes
@@ -181,6 +211,12 @@ final class FlowRevokeChain {
         return Optional.empty();
     }
 
+    /**
+     * 对撤回前待办快照逐个执行完成/创建监听器。
+     *
+     * @param execution 执行作用域
+     * @return 空表示执行完成后由流水线返回当前实例
+     */
     private Optional<Instance> finishListeners(FlowExecution execution) {
         // 执行完成和创建监听器
         taskList.forEach(task -> ListenerUtil.endCreateListener(execution.contextListener(task

@@ -18,21 +18,25 @@ package org.dromara.warm.flow.core.listener;
 import lombok.Data;
 
 /**
+ * 监听器路径解析结果。
+ * <p>
+ * 保存监听器类路径、已解析的监听器实例以及路径中携带的参数。
+ *
  * @author warm
  */
 @Data
 public class ValueHolder {
 
     /**
-     * 路径
+     * 监听器类路径。
      */
     private String path;
     /**
-     * 监听器
+     * 已解析的监听器实例。
      */
     private Listener listener;
     /**
-     * 参数
+     * 监听器路径中携带的参数。
      */
     private String params;
 

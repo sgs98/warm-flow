@@ -15,10 +15,16 @@ import java.util.stream.Collectors;
  */
 public class DefinitionMemDao<T extends Definition> extends InMemoryDao<T> implements FlowDefinitionDao<T> {
 
+    /**
+     * 创建流程定义内存 DAO，并复用基类的实体工厂与调用日志。
+     */
     public DefinitionMemDao(Supplier<T> factory, List<String> log) {
         super(factory, log);
     }
 
+    /**
+     * 按流程编码查询定义，并按版本号倒序返回，模拟定义加载时的版本选择依据。
+     */
     @Override
     public List<T> queryByCodeList(List<String> codeList) {
         log.add(name() + ".queryByCodeList" + codeList);
@@ -29,6 +35,9 @@ public class DefinitionMemDao<T extends Definition> extends InMemoryDao<T> imple
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 批量更新流程定义发布状态，记录更新范围供生命周期测试断言。
+     */
     @Override
     public void updatePublishStatus(List<Long> ids, Integer publishStatus) {
         log.add(name() + ".updatePublishStatus" + ids + ",status=" + publishStatus);

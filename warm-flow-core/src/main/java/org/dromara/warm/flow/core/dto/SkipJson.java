@@ -23,7 +23,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 节点跳转关联对象Vo
+ * 流程图节点连线 JSON 传输对象。
+ * <p>
+ * 描述起止节点、跳转类型、条件、坐标和当前办理状态，并承载前端扩展展示信息。
  *
  * @author warm
  * @since 2023-03-29
@@ -34,52 +36,58 @@ import java.util.Map;
 public class SkipJson {
 
     /**
-     * 当前流程节点的编码
+     * 当前节点编码。
      */
     private String nowNodeCode;
 
     /**
-     * 下一个流程节点的编码
+     * 目标节点编码。
      */
     private String nextNodeCode;
 
     /**
-     * 跳转名称
+     * 跳转线显示名称。
      */
     private String skipName;
 
     /**
-     * 跳转类型（PASS审批通过 REJECT退回）
+     * 跳转类型（PASS 审批通过，REJECT 退回）。
      */
     private String skipType;
 
     /**
-     * 跳转条件
+     * 跳转条件表达式。
      */
     private String skipCondition;
 
     /**
-     * 流程跳转坐标
+     * 流程图连线坐标。
      */
     private String coordinate;
 
     /**
-     * 办理状态: 0未办理 1待办理 2已办理
+     * 连线办理状态（0 未办理，1 待办理，2 已办理）。
      */
     private Integer status;
 
     /**
-     * 扩展map，保存业务自定义扩展属性
+     * 业务自定义扩展属性。
      */
     private Map<String, Object> extMap;
 
     /**
-     * 流程图节点提示内容
+     * 连线提示内容。
      */
     private List<String> promptContent;
 
+    /**
+     * 创建人。
+     */
     private String createBy;
 
+    /**
+     * 最后更新人。
+     */
     private String updateBy;
 
 }

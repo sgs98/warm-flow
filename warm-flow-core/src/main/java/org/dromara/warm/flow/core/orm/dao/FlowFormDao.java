@@ -20,7 +20,10 @@ import org.dromara.warm.flow.core.entity.Form;
 import java.util.List;
 
 /**
- * 流程表单Dao接口，不同的orm扩展包实现它
+ * 流程表单 DAO 接口。
+ * <p>
+ * 表单与流程定义一样存在编码和版本概念，不同 ORM 扩展包负责实现查询条件、
+ * 租户与逻辑删除等数据库细节。
  *
  * @author vanlin
  * @className FlowFormDao
@@ -28,5 +31,14 @@ import java.util.List;
  * @since 2024/8/19 10:24
  */
 public interface FlowFormDao<T extends Form> extends WarmDao<T> {
+
+    /**
+     * 根据表单编码集合批量查询表单版本。
+     * <p>
+     * 表单保存、复制、发布时需要按编码加载已有版本，用于计算下一版本号或校验唯一性。
+     *
+     * @param formCodeList 表单编码集合
+     * @return 表单列表
+     */
     List<T> queryByCodeList(List<String> formCodeList);
 }

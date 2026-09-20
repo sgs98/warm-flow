@@ -19,10 +19,16 @@ import java.util.stream.Collectors;
  */
 public class HisTaskMemDao<T extends HisTask> extends InMemoryDao<T> implements FlowHisTaskDao<T> {
 
+    /**
+     * 创建历史任务内存 DAO，并复用基类的实体工厂与调用日志。
+     */
     public HisTaskMemDao(Supplier<T> factory, List<String> log) {
         super(factory, log);
     }
 
+    /**
+     * 查询实例下未驳回的历史任务，并按最近创建顺序返回。
+     */
     @Override
     public List<T> getNoReject(Long instanceId) {
         log.add(name() + ".getNoReject[instanceId=" + instanceId + "]");
@@ -36,6 +42,9 @@ public class HisTaskMemDao<T extends HisTask> extends InMemoryDao<T> implements 
         return reversed;
     }
 
+    /**
+     * 按实例和节点编码集合查询历史任务。
+     */
     @Override
     public List<T> getByInsAndNodeCodes(Long instanceId, List<String> nodeCodes) {
         log.add(name() + ".getByInsAndNodeCodes[instanceId=" + instanceId + ",nodeCodes=" + nodeCodes + "]");
@@ -46,6 +55,9 @@ public class HisTaskMemDao<T extends HisTask> extends InMemoryDao<T> implements 
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 删除指定流程实例关联的全部历史任务。
+     */
     @Override
     public int deleteByInsIds(List<Long> instanceIds) {
         log.add(name() + ".deleteByInsIds" + instanceIds);
@@ -57,6 +69,9 @@ public class HisTaskMemDao<T extends HisTask> extends InMemoryDao<T> implements 
         return keys.size();
     }
 
+    /**
+     * 按任务 ID 和协作类型集合筛选历史任务。
+     */
     @Override
     public List<T> listByTaskIdAndCooperateTypes(Long taskId, Integer[] cooperateTypes) {
         log.add(name() + ".listByTaskIdAndCooperateTypes[taskId=" + taskId

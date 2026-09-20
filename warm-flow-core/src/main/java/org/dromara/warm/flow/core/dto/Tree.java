@@ -21,12 +21,15 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 页面树列表
+ * 页面树节点对象。
+ * <p>
+ * 用于流程分类、表单路径等前端层级数据的统一传输。
  *
  * @author ruoyi
  */
@@ -37,25 +40,26 @@ import java.util.List;
 @NoArgsConstructor
 public class Tree implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     /**
-     * ID
+     * 当前节点标识。
      */
     private String id;
 
     /**
-     * 名称
+     * 当前节点显示名称。
      */
     private String name;
 
     /**
-     * 父ID
+     * 父节点标识；根节点通常为空。
      */
     private String parentId;
 
     /**
-     * 子
+     * 子节点列表。
      */
     private List<Tree> children = new ArrayList<>();
 

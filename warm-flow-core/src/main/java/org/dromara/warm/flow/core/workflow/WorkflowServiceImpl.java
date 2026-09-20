@@ -225,6 +225,14 @@ public class WorkflowServiceImpl implements WorkflowService {
         return context;
     }
 
+    /**
+     * 构造统一门面成功结果，并把实例当前待办转换为稳定的对外视图。
+     *
+     * @param operation 操作名称
+     * @param instance  操作后的流程实例
+     * @param taskId    本次操作关联的任务主键
+     * @return 流程操作结果
+     */
     private WorkflowResult result(String operation, Instance instance, Long taskId) {
         // 能走到此处说明操作已成功执行，失败场景一律以 FlowException 抛出
         WorkflowResult result = new WorkflowResult();
@@ -274,6 +282,12 @@ public class WorkflowServiceImpl implements WorkflowService {
         return views;
     }
 
+    /**
+     * 校验统一门面命令不能为空。
+     *
+     * @param command 流程操作参数
+     * @param message 为空时抛出的错误消息
+     */
     private void check(WorkflowCommand command, String message) {
         AssertUtil.isNull(command, message);
     }

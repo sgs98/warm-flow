@@ -95,6 +95,12 @@ final class FlowUpdateHandlersChain {
             this::finishListener);
     }
 
+    /**
+     * 校验协作操作参数和当前办理人快照，阻止重复转办/委派/加签或移除最后一名办理人。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> cooperateGuards(FlowExecution execution) {
         // R5：办理人全集一次加载，守卫与权限门从同一份快照派生，不再按类型分次查询
         //（顶部无条件加载，守卫失败路径的查询数也保持不变）
@@ -125,6 +131,12 @@ final class FlowUpdateHandlersChain {
         return Optional.empty();
     }
 
+    /**
+     * 合并流程变量并执行当前节点开始监听器。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> prepareAndStart(FlowExecution execution) {
         execution.mergeVariables();
         // 执行开始监听器
@@ -132,6 +144,12 @@ final class FlowUpdateHandlersChain {
         return Optional.empty();
     }
 
+    /**
+     * 使用办理人快照派生权限人集合，校验当前处理人是否具备调整办理人的权限。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> authGate(FlowExecution execution) {
         // 获取给谁的权限（原样内联：本操作从不 setUserList，复用 checkAuth 会因 task.userList
         // 为 null 静默放行，且权限常量不同——NOT_AUTHORITY vs NULL_ROLE_NODE）
@@ -147,6 +165,12 @@ final class FlowUpdateHandlersChain {
         return Optional.empty();
     }
 
+    /**
+     * 删除或新增办理人关系，并生成对应协作历史任务。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> applyHandlers(FlowExecution execution) {
         // 留存历史记录
         HisTask hisTask = null;
@@ -182,6 +206,12 @@ final class FlowUpdateHandlersChain {
         return Optional.empty();
     }
 
+    /**
+     * 执行当前节点完成监听器。
+     *
+     * @param execution 执行作用域
+     * @return 空表示执行完成后由流水线返回当前实例
+     */
     private Optional<Instance> finishListener(FlowExecution execution) {
         // 最后判断是否存在节点监听器，存在执行节点监听器（不带调用方上下文——既有语义）
         ListenerUtil.executeFinish(execution.rawListener(execution.task, execution.nowNode));

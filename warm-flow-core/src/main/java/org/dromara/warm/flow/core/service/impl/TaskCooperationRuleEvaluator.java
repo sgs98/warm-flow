@@ -45,11 +45,17 @@ final class TaskCooperationRuleEvaluator {
 
         /**
          * 判断规则是否适用于当前节点配置。
+         *
+         * @param nodeRatio 节点票签规则配置
+         * @return 是否适用
          */
         boolean supports(String nodeRatio);
 
         /**
          * 判断本次办理是否满足继续流转条件。
+         *
+         * @param context 票签统计上下文
+         * @return 是否满足继续流转
          */
         boolean matches(Context context);
     }
@@ -64,6 +70,7 @@ final class TaskCooperationRuleEvaluator {
 
         @Override
         public boolean matches(Context context) {
+            // 表达式使用副本变量，避免把票签统计字段写回流程实例变量。
             Map<String, Object> variable = MapUtil.clone(context.variable);
             variable.put("skipType", context.skipType);
             variable.put("passNum", context.donePassList.size());
@@ -86,6 +93,7 @@ final class TaskCooperationRuleEvaluator {
 
         @Override
         public boolean matches(Context context) {
+            // 当前办理结果尚未写入历史列表，因此通过/驳回计数需要加上本次结果。
             String passCount = StringUtils.substring(context.nodeRatio
                 , context.nodeRatio.indexOf("=") + 1);
             int count = Integer.parseInt(passCount);
@@ -103,6 +111,7 @@ final class TaskCooperationRuleEvaluator {
 
         @Override
         public boolean matches(Context context) {
+            // 当前办理结果尚未写入历史列表，因此通过/驳回计数需要加上本次结果。
             String rejectCount = StringUtils.substring(context.nodeRatio
                 , context.nodeRatio.indexOf("=") + 1);
             int count = Integer.parseInt(rejectCount);
@@ -120,6 +129,7 @@ final class TaskCooperationRuleEvaluator {
 
         @Override
         public boolean matches(Context context) {
+            // 比例规则同样把当前办理结果计入分子，再与节点配置比例比较。
             BigDecimal passRatio = (context.isPass ? BigDecimal.ONE : BigDecimal.ZERO)
                 .add(BigDecimal.valueOf(context.donePassList.size()))
                 .divide(BigDecimal.valueOf(context.allNum), 4, RoundingMode.HALF_UP)

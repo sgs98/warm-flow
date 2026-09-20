@@ -17,9 +17,16 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public abstract class RecordingListener implements Listener {
 
-    /** 全部监听事件记录，测试启动前由 {@code FlowTestHarness} 清空 */
+    /**
+     * 全部监听事件记录，测试启动前由 {@code FlowTestHarness} 清空。
+     */
     public static final List<String> EVENTS = new CopyOnWriteArrayList<>();
 
+    /**
+     * 记录监听器标签及触发时的上下文快照。
+     *
+     * @param variable 监听器上下文
+     */
     @Override
     public void notify(ListenerVariable variable) {
         EVENTS.add(describe(tag(), variable));

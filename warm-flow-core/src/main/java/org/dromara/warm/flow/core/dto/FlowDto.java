@@ -23,6 +23,10 @@ import org.dromara.warm.flow.core.entity.Form;
 import java.io.Serializable;
 
 /**
+ * 流程相关复合数据传输对象。
+ * <p>
+ * 用于在流程实例、表单和业务扩展数据之间传递同一请求的组合数据。
+ *
  * @author vanlin
  * @since 2024-9-24 11:11
  */
@@ -31,22 +35,22 @@ import java.io.Serializable;
 public class FlowDto implements Serializable {
 
     /**
-     * ID
+     * 关联流程或业务数据的主键。
      */
     private Long id;
 
     /**
-     * 表单内容
+     * 内置表单内容。
      */
     private String formContent;
 
     /**
-     * 表单数据
+     * 表单实体。
      */
     private Form form;
 
     /**
-     * 数据
+     * 调用方携带的业务扩展数据。
      */
     private Object data;
 

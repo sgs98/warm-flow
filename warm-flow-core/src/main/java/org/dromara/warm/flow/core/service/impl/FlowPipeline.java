@@ -35,6 +35,9 @@ final class FlowPipeline {
      */
     private final List<FlowStep> steps;
 
+    /**
+     * @param steps 有序步骤列表
+     */
     private FlowPipeline(List<FlowStep> steps) {
         this.steps = steps;
     }

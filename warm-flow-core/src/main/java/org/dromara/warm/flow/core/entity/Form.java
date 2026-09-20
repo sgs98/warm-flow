@@ -74,39 +74,116 @@ public interface Form extends RootEntity {
      */
     String getFormCode();
 
+    /**
+     * 设置表单编码。
+     *
+     * @param formCode 表单编码
+     * @return 当前表单
+     */
     Form setFormCode(String formCode);
 
+    /**
+     * 获取表单名称。
+     *
+     * @return 表单名称
+     */
     String getFormName();
 
+    /**
+     * 设置表单名称。
+     *
+     * @param formName 表单名称
+     * @return 当前表单
+     */
     Form setFormName(String formName);
 
+    /**
+     * 获取表单版本号。
+     *
+     * @return 表单版本号
+     */
     String getVersion();
 
+    /**
+     * 设置表单版本号。
+     *
+     * @param version 表单版本号
+     * @return 当前表单
+     */
     Form setVersion(String version);
 
     /**
      * 是否发布（0未发布 1已发布 9失效）
+     *
+     * @return 发布状态
      */
     Integer getIsPublish();
 
+    /**
+     * 设置发布状态。
+     *
+     * @param isPublish 发布状态
+     * @return 当前表单
+     */
     Form setIsPublish(Integer isPublish);
 
     /**
      * 表单类型（0内置表单 存 form_content        1外挂表单 存form_path）
+     *
+     * @return 表单类型
      */
     Integer getFormType();
 
+    /**
+     * 设置表单类型。
+     *
+     * @param formType 表单类型
+     * @return 当前表单
+     */
     Form setFormType(Integer formType);
 
+    /**
+     * 获取内置表单内容。
+     *
+     * @return 表单内容
+     */
     String getFormContent();
 
+    /**
+     * 设置内置表单内容。
+     *
+     * @param formContent 表单内容
+     * @return 当前表单
+     */
     Form setFormContent(String formContent);
 
+    /**
+     * 获取外挂表单路径或表单标识。
+     *
+     * @return 表单路径或标识
+     */
     String getFormPath();
 
+    /**
+     * 设置外挂表单路径或表单标识。
+     *
+     * @param formPath 表单路径或标识
+     * @return 当前表单
+     */
     Form setFormPath(String formPath);
 
+    /**
+     * 获取扩展字段。
+     *
+     * @return 扩展字段
+     */
     String getExt();
 
+    /**
+     * 设置扩展字段。
+     *
+     * @param ext 扩展字段
+     * @return 当前表单
+     */
     Form setExt(String ext);
 }

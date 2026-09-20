@@ -70,6 +70,12 @@ public interface HisTask extends RootEntity {
 
     String getFlowName();
 
+    /**
+     * 设置流程名称。
+     *
+     * @param flowName 流程名称
+     * @return 当前历史任务
+     */
     HisTask setFlowName(String flowName);
 
     /**
@@ -81,16 +87,50 @@ public interface HisTask extends RootEntity {
 
     HisTask setInstanceId(Long instanceId);
 
+    /**
+     * 获取协作类型。
+     *
+     * @return 协作类型
+     * @see org.dromara.warm.flow.core.enums.CooperateType
+     */
     Integer getCooperateType();
 
+    /**
+     * 设置协作类型。
+     *
+     * @param cooperateType 协作类型
+     * @return 当前历史任务
+     */
     HisTask setCooperateType(Integer cooperateType);
 
+    /**
+     * 获取来源待办任务 ID。
+     *
+     * @return 待办任务 ID
+     */
     Long getTaskId();
 
+    /**
+     * 设置来源待办任务 ID。
+     *
+     * @param taskId 待办任务 ID
+     * @return 当前历史任务
+     */
     HisTask setTaskId(Long taskId);
 
+    /**
+     * 获取业务 ID。
+     *
+     * @return 业务 ID
+     */
     String getBusinessId();
 
+    /**
+     * 设置业务 ID。
+     *
+     * @param businessId 业务 ID
+     * @return 当前历史任务
+     */
     HisTask setBusinessId(String businessId);
 
     String getNodeCode();
@@ -147,6 +187,11 @@ public interface HisTask extends RootEntity {
 
     HisTask setVariable(String variable);
 
+    /**
+     * 将历史任务中的流程变量 JSON 字符串转换为 Map。
+     *
+     * @return 流程变量 Map
+     */
     default Map<String, Object> getVariableMap() {
         return FlowEngine.jsonConvert.strToMap(this.getVariable());
     }

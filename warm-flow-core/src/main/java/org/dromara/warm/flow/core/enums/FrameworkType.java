@@ -19,7 +19,9 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * 框架类型: springboot
+ * 引擎框架适配类型。
+ * <p>
+ * core 只识别框架类型枚举，不直接依赖具体框架。
  *
  * @author warm
  * @since 2026/3/24
@@ -28,6 +30,9 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum FrameworkType {
 
+    /**
+     * Spring Boot 适配。
+     */
     SPRING_BOOT;
 
 }

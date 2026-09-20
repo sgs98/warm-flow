@@ -20,7 +20,9 @@ import lombok.Getter;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
 
 /**
- * 流程状态
+ * 流程实例和任务的流程状态。
+ * <p>
+ * key 持久化到实例、待办和历史任务中，value 用于展示。
  *
  * @author warm
  * @since 2023/3/31 12:16
@@ -28,9 +30,7 @@ import org.dromara.warm.flow.core.utils.ObjectUtil;
 @Getter
 @AllArgsConstructor
 public enum FlowStatus {
-    /**
-     * 流程状态
-     */
+
     TOBESUBMIT("0", "待提交"),
 
     APPROVAL("1", "审批中"),
@@ -62,6 +62,12 @@ public enum FlowStatus {
     private final String key;
     private final String value;
 
+    /**
+     * 根据展示文案获取状态 key。
+     *
+     * @param value 展示文案
+     * @return 状态 key；未匹配时返回 {@code null}
+     */
     public static String getKeyByValue(String value) {
         for (FlowStatus item : FlowStatus.values()) {
             if (item.getValue().equals(value)) {
@@ -71,6 +77,12 @@ public enum FlowStatus {
         return null;
     }
 
+    /**
+     * 根据状态 key 获取展示文案。
+     *
+     * @param key 状态 key
+     * @return 展示文案；未匹配时返回 {@code null}
+     */
     public static String getValueByKey(String key) {
         for (FlowStatus item : FlowStatus.values()) {
             if (item.getKey().equals(key)) {
@@ -80,6 +92,12 @@ public enum FlowStatus {
         return null;
     }
 
+    /**
+     * 根据状态 key 获取枚举。
+     *
+     * @param key 状态 key
+     * @return 流程状态枚举；未匹配时返回 {@code null}
+     */
     public static FlowStatus getByKey(String key) {
         for (FlowStatus item : FlowStatus.values()) {
             if (item.getKey().equals(key)) {
@@ -93,7 +111,7 @@ public enum FlowStatus {
      * 判断是否结束节点
      *
      * @param key 枚举key
-     * @return boolean
+     * @return 是已完成状态时返回 {@code true}
      */
     public static Boolean isFinished(String key) {
         return ObjectUtil.isNotNull(key) && (FlowStatus.FINISHED.getKey().equals(key));

@@ -22,7 +22,9 @@ import org.dromara.warm.flow.core.utils.MathUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 
 /**
- * 协作类型
+ * 任务协作类型。
+ * <p>
+ * 用于标识普通审批、转办、委派、会签、票签、加签和减签等协作行为。
  * APPROVAL-无：无其他协作方式
  * TRANSFER-转办：任务转给其他人办理
  * DEPUTE-委派：求助其他人审批，然后参照他的意见决定是否审批通过
@@ -38,9 +40,6 @@ import org.dromara.warm.flow.core.utils.StringUtils;
 @AllArgsConstructor
 public enum CooperateType {
 
-    /**
-     * 协作类型
-     */
     APPROVAL(1, "无"),
 
     TRANSFER(2, "转办"),
@@ -73,6 +72,12 @@ public enum CooperateType {
      */
     public final static String SEQUENCE = "sequence";
 
+    /**
+     * 根据展示文案获取协作类型 key。
+     *
+     * @param value 展示文案
+     * @return 协作类型 key；未匹配时返回 {@code null}
+     */
     public static Integer getKeyByValue(String value) {
         for (CooperateType item : CooperateType.values()) {
             if (item.getValue().equals(value)) {
@@ -82,6 +87,12 @@ public enum CooperateType {
         return null;
     }
 
+    /**
+     * 根据协作类型 key 获取展示文案。
+     *
+     * @param key 协作类型 key
+     * @return 展示文案；未匹配时返回 {@code null}
+     */
     public static String getValueByKey(Integer key) {
         for (CooperateType item : CooperateType.values()) {
             if (item.getKey().equals(key)) {
@@ -91,6 +102,12 @@ public enum CooperateType {
         return null;
     }
 
+    /**
+     * 根据协作类型 key 获取枚举。
+     *
+     * @param key 协作类型 key
+     * @return 协作类型枚举；未匹配时返回 {@code null}
+     */
     public static CooperateType getByKey(Integer key) {
         for (CooperateType item : CooperateType.values()) {
             if (item.getKey().equals(key)) {
@@ -172,10 +189,10 @@ public enum CooperateType {
     }
 
     /**
-     * 判断是否是顺签
+     * 移除顺签标记，返回真正的协作表达式。
      *
      * @param expression 表达式
-     * @return true：是；false：不是
+     * @return 去除顺签后缀后的表达式
      */
     public static boolean isSequenceSign(String expression) {
         return StringUtils.isNotEmpty(expression) && expression.endsWith(FlowCons.SPLIT_AT + SEQUENCE);

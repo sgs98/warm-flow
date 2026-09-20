@@ -56,18 +56,22 @@ final class FlowExecution {
      * 当前待办任务，仅任务级操作存在。
      */
     final Task task;
+
     /**
      * 流程实例。任务级/实例级操作在构造期固定；发起（start）链在实例创建步骤回填一次。
      */
     Instance instance;
+
     /**
      * 流程定义。
      */
     final Definition definition;
+
     /**
      * 当前节点，任务级操作与发起链加载；实例级操作不强行伪造。
      */
     final Node nowNode;
+
     /**
      * 调用方意图，引擎编排原则上不写（既有兼容写回见加载与合并方法）；读取路径（load）为 null。
      */

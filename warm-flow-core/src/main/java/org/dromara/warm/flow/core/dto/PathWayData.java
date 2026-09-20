@@ -27,7 +27,10 @@ import java.util.List;
 
 
 /**
- * 办理过程中途径数据，用于渲染流程图
+ * 流程办理路径数据。
+ * <p>
+ * 记录一次通过或退回操作实际经过的节点、连线和最终目标节点，供流程图渲染、
+ * 监听器上下文和路径判断使用。
  *
  * @author warm
  * @since 2025/1/4
@@ -36,33 +39,34 @@ import java.util.List;
 @Setter
 @Accessors(chain = true)
 public class PathWayData {
+
     /**
-     * 流程定义id
+     * 流程定义 ID。
      */
     private Long defId;
 
     /**
-     * 流程实例id
+     * 流程实例 ID。
      */
     private Long insId;
 
     /**
-     * 跳转类型（PASS审批通过 REJECT退回）
+     * 本次流转类型（PASS 审批通过，REJECT 退回）。
      */
     private String skipType;
 
     /**
-     * 目标结点集合
+     * 路径解析后实际到达的目标节点集合。
      */
     private List<Node> targetNodes = new ArrayList<>();
 
     /**
-     * 途径结点集合
+     * 本次操作经过的节点集合。
      */
     private List<Node> pathWayNodes = new ArrayList<>();
 
     /**
-     * 途径流程跳转线
+     * 本次操作经过的节点连线集合。
      */
     private List<Skip> pathWaySkips = new ArrayList<>();
 

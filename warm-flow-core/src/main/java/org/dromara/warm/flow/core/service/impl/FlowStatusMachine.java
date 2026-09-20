@@ -105,6 +105,13 @@ final class FlowStatusMachine {
         }
     }
 
+    /**
+     * 应用单个状态前置并抛出与既有流程操作一致的业务异常。
+     *
+     * @param guard       状态前置
+     * @param definition  流程定义
+     * @param instance    流程实例
+     */
     private static void apply(StateGuard guard, Definition definition, Instance instance) {
         switch (guard) {
             case ACTIVITY -> AssertUtil.isFalse(ActivityStatus.isActivity(definition.getActivityStatus())

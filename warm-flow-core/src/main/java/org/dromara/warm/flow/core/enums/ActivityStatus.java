@@ -20,7 +20,7 @@ import lombok.Getter;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
 
 /**
- * 激活状态
+ * 流程定义和流程实例的激活状态。
  *
  * @author warm
  * @since 2025/6/25
@@ -29,9 +29,6 @@ import org.dromara.warm.flow.core.utils.ObjectUtil;
 @AllArgsConstructor
 public enum ActivityStatus {
 
-    /**
-     * 激活状态
-     */
     SUSPENDED(0, "挂起"),
 
     ACTIVITY(1, "激活");
@@ -40,14 +37,20 @@ public enum ActivityStatus {
     private final String value;
 
     /**
-     * 判断流程是否激活
+     * 判断流程是否激活。
+     *
+     * @param key 激活状态 key
+     * @return 是激活状态时返回 {@code true}
      */
     public static Boolean isActivity(Integer key) {
         return ObjectUtil.isNotNull(key) && (ActivityStatus.ACTIVITY.getKey().equals(key));
     }
 
     /**
-     * 判断流程是否挂起
+     * 判断流程是否挂起。
+     *
+     * @param key 激活状态 key
+     * @return 是挂起状态时返回 {@code true}
      */
     public static Boolean isSuspended(Integer key) {
         return ObjectUtil.isNotNull(key) && (ActivityStatus.SUSPENDED.getKey().equals(key));

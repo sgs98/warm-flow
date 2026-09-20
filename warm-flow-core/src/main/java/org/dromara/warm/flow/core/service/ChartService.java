@@ -27,7 +27,6 @@ import java.util.List;
  */
 public interface ChartService {
 
-
     /**
      * 获取流程开启时的流程图元数据
      *

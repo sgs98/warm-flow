@@ -58,40 +58,88 @@ public class FlowEngine {
 
     private static GlobalListener globalListener;
 
+    /**
+     * JSON 转换器 SPI 实例，由 {@link WarmFlow#spiLoad()} 装配。
+     */
     public static JsonConvert jsonConvert;
 
+    /**
+     * 获取流程定义服务。
+     *
+     * @return 流程定义服务
+     */
     public static DefService defService() {
         return FrameInvoker.getBean(DefService.class);
     }
 
+    /**
+     * 获取流程节点服务。
+     *
+     * @return 流程节点服务
+     */
     public static NodeService nodeService() {
         return FrameInvoker.getBean(NodeService.class);
     }
 
+    /**
+     * 获取节点跳转服务。
+     *
+     * @return 节点跳转服务
+     */
     public static SkipService skipService() {
         return FrameInvoker.getBean(SkipService.class);
     }
 
+    /**
+     * 获取流程实例服务。
+     *
+     * @return 流程实例服务
+     */
     public static InsService insService() {
         return FrameInvoker.getBean(InsService.class);
     }
 
+    /**
+     * 获取待办任务服务。
+     *
+     * @return 待办任务服务
+     */
     public static TaskService taskService() {
         return FrameInvoker.getBean(TaskService.class);
     }
 
+    /**
+     * 获取历史任务服务。
+     *
+     * @return 历史任务服务
+     */
     public static HisTaskService hisTaskService() {
         return FrameInvoker.getBean(HisTaskService.class);
     }
 
+    /**
+     * 获取流程用户服务。
+     *
+     * @return 流程用户服务
+     */
     public static UserService userService() {
         return FrameInvoker.getBean(UserService.class);
     }
 
+    /**
+     * 获取流程表单服务。
+     *
+     * @return 流程表单服务
+     */
     public static FormService formService() {
         return FrameInvoker.getBean(FormService.class);
     }
 
+    /**
+     * 获取流程图元数据服务。
+     *
+     * @return 流程图元数据服务
+     */
     public static ChartService chartService() {
         return FrameInvoker.getBean(ChartService.class);
     }
@@ -105,104 +153,218 @@ public class FlowEngine {
         return FrameInvoker.getBean(WorkflowService.class);
     }
 
+    /**
+     * 注册流程定义实体工厂。
+     *
+     * @param supplier 流程定义实体供应器
+     */
     public static void setNewDef(Supplier<Definition> supplier) {
         FlowEngine.defSupplier = supplier;
     }
 
+    /**
+     * 创建流程定义实体。
+     *
+     * @return 流程定义实体
+     */
     public static Definition newDef() {
         return defSupplier.get();
     }
 
+    /**
+     * 注册流程节点实体工厂。
+     *
+     * @param supplier 流程节点实体供应器
+     */
     public static void setNewNode(Supplier<Node> supplier) {
         FlowEngine.nodeSupplier = supplier;
     }
 
+    /**
+     * 创建流程节点实体。
+     *
+     * @return 流程节点实体
+     */
     public static Node newNode() {
         return nodeSupplier.get();
     }
 
+    /**
+     * 注册节点跳转实体工厂。
+     *
+     * @param supplier 节点跳转实体供应器
+     */
     public static void setNewSkip(Supplier<Skip> supplier) {
         FlowEngine.skipSupplier = supplier;
     }
 
+    /**
+     * 创建节点跳转实体。
+     *
+     * @return 节点跳转实体
+     */
     public static Skip newSkip() {
         return skipSupplier.get();
     }
 
+    /**
+     * 注册流程实例实体工厂。
+     *
+     * @param supplier 流程实例实体供应器
+     */
     public static void setNewIns(Supplier<Instance> supplier) {
         FlowEngine.insSupplier = supplier;
     }
 
+    /**
+     * 创建流程实例实体。
+     *
+     * @return 流程实例实体
+     */
     public static Instance newIns() {
         return insSupplier.get();
     }
 
+    /**
+     * 注册待办任务实体工厂。
+     *
+     * @param supplier 待办任务实体供应器
+     */
     public static void setNewTask(Supplier<Task> supplier) {
         FlowEngine.taskSupplier = supplier;
     }
 
+    /**
+     * 创建待办任务实体。
+     *
+     * @return 待办任务实体
+     */
     public static Task newTask() {
         return taskSupplier.get();
     }
 
+    /**
+     * 注册历史任务实体工厂。
+     *
+     * @param supplier 历史任务实体供应器
+     */
     public static void setNewHisTask(Supplier<HisTask> supplier) {
         FlowEngine.hisTaskSupplier = supplier;
     }
 
+    /**
+     * 创建历史任务实体。
+     *
+     * @return 历史任务实体
+     */
     public static HisTask newHisTask() {
         return hisTaskSupplier.get();
     }
 
+    /**
+     * 注册流程用户实体工厂。
+     *
+     * @param supplier 流程用户实体供应器
+     */
     public static void setNewUser(Supplier<User> supplier) {
         FlowEngine.userSupplier = supplier;
     }
 
+    /**
+     * 创建流程用户实体。
+     *
+     * @return 流程用户实体
+     */
     public static User newUser() {
         return userSupplier.get();
     }
 
+    /**
+     * 注册流程表单实体工厂。
+     *
+     * @param supplier 流程表单实体供应器
+     */
     public static void setNewForm(Supplier<Form> supplier) {
         FlowEngine.formSupplier = supplier;
     }
 
+    /**
+     * 创建流程表单实体。
+     *
+     * @return 流程表单实体
+     */
     public static Form newForm() {
         return formSupplier.get();
     }
 
+    /**
+     * 获取引擎配置。
+     *
+     * @return 引擎配置
+     */
     public static WarmFlow getFlowConfig() {
         return FlowEngine.flowConfig;
     }
 
+    /**
+     * 设置引擎配置。
+     *
+     * @param flowConfig 引擎配置
+     */
     public static void setFlowConfig(WarmFlow flowConfig) {
         FlowEngine.flowConfig = flowConfig;
     }
 
+    /**
+     * 初始化数据填充处理器。
+     *
+     * @param handlerPath 处理器类路径，为空时使用默认实现或容器中的 Bean
+     */
     public static void initDataFillHandler(String handlerPath) {
         dataFillHandler = initBean(DataFillHandler.class, handlerPath, () -> new DataFillHandler() {
         });
     }
 
+    /**
+     * 初始化租户处理器。
+     *
+     * @param handlerPath 处理器类路径，为空时尝试从容器获取
+     */
     public static void initTenantHandler(String handlerPath) {
         tenantHandler = initBean(TenantHandler.class, handlerPath, null);
     }
 
+    /**
+     * 初始化办理人权限处理器。
+     *
+     * @param handlerPath 处理器类路径，为空时尝试从容器获取
+     */
     public static void initPermissionHandler(String handlerPath) {
         permissionHandler = initBean(PermissionHandler.class, handlerPath, null);
     }
 
+    /**
+     * 初始化全局监听器。
+     *
+     * @param handlerPath 监听器类路径，为空时尝试从容器获取
+     */
     public static void initGlobalListener(String handlerPath) {
         globalListener = initBean(GlobalListener.class, handlerPath, null);
     }
 
     /**
      * 获取填充类
+     *
+     * @return 数据填充处理器
      */
     public static DataFillHandler dataFillHandler() {
         return dataFillHandler;
     }
 
     /**
-     * 获取填充类
+     * 获取办理人权限处理器。
+     *
+     * @return 办理人权限处理器
      */
     public static PermissionHandler permissionHandler() {
         return permissionHandler;
@@ -210,6 +372,8 @@ public class FlowEngine {
 
     /**
      * 获取租户数据
+     *
+     * @return 租户处理器
      */
     public static TenantHandler tenantHandler() {
         return tenantHandler;
@@ -217,6 +381,8 @@ public class FlowEngine {
 
     /**
      * 获取全局监听器
+     *
+     * @return 全局监听器
      */
     public static GlobalListener globalListener() {
         return globalListener;
@@ -224,6 +390,8 @@ public class FlowEngine {
 
     /**
      * 获取数据库类型
+     *
+     * @return 数据库类型
      */
     public static String dataSourceType() {
         return flowConfig.getDataSourceType();

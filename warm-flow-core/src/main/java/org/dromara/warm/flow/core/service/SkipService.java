@@ -36,7 +36,7 @@ public interface SkipService extends IWarmService<Skip> {
      * @param defIds 需要删除的数据主键集合
      * @return 结果
      */
-    public int deleteSkipByDefIds(Collection<? extends Serializable> defIds);
+    int deleteSkipByDefIds(Collection<? extends Serializable> defIds);
 
     /**
      * 根据流程定义id查询节点跳转线

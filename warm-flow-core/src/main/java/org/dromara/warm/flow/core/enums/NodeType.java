@@ -20,7 +20,9 @@ import lombok.Getter;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
 
 /**
- * 节点类型
+ * 流程节点类型。
+ * <p>
+ * key 持久化到节点、任务和实例中，value 用于设计器或接口展示。
  *
  * @author warm
  * @since 2023/3/31 12:16
@@ -28,14 +30,17 @@ import org.dromara.warm.flow.core.utils.ObjectUtil;
 @AllArgsConstructor
 @Getter
 public enum NodeType {
+
     /**
      * 开始节点
      */
     START(0, "start"),
+
     /**
      * 中间节点
      */
     BETWEEN(1, "between"),
+
     /**
      * 结束节点
      */
@@ -59,6 +64,12 @@ public enum NodeType {
     private final Integer key;
     private final String value;
 
+    /**
+     * 根据展示值获取节点类型 key。
+     *
+     * @param value 展示值
+     * @return 节点类型 key；未匹配时返回 {@code null}
+     */
     public static Integer getKeyByValue(String value) {
         for (NodeType item : NodeType.values()) {
             if (item.getValue().equals(value)) {
@@ -68,6 +79,12 @@ public enum NodeType {
         return null;
     }
 
+    /**
+     * 根据节点类型 key 获取展示值。
+     *
+     * @param key 节点类型 key
+     * @return 展示值；未匹配时返回 {@code null}
+     */
     public static String getValueByKey(Integer key) {
         for (NodeType item : NodeType.values()) {
             if (item.getKey().equals(key)) {
@@ -77,6 +94,12 @@ public enum NodeType {
         return null;
     }
 
+    /**
+     * 根据节点类型 key 获取枚举。
+     *
+     * @param key 节点类型 key
+     * @return 节点类型枚举；未匹配时返回 {@code null}
+     */
     public static NodeType getByKey(Integer key) {
         for (NodeType item : NodeType.values()) {
             if (item.getKey().equals(key)) {
@@ -90,7 +113,7 @@ public enum NodeType {
      * 判断是否开始节点
      *
      * @param key 枚举key
-     * @return boolean
+     * @return 是开始节点时返回 {@code true}
      */
     public static Boolean isStart(Integer key) {
         return ObjectUtil.isNotNull(key) && (NodeType.START.getKey().equals(key));
@@ -100,7 +123,7 @@ public enum NodeType {
      * 判断是否中间节点
      *
      * @param key 枚举key
-     * @return boolean
+     * @return 是中间节点时返回 {@code true}
      */
     public static Boolean isBetween(Integer key) {
         return ObjectUtil.isNotNull(key) && (NodeType.BETWEEN.getKey().equals(key));
@@ -110,7 +133,7 @@ public enum NodeType {
      * 判断是否结束节点
      *
      * @param key 枚举key
-     * @return boolean
+     * @return 是结束节点时返回 {@code true}
      */
     public static Boolean isEnd(Integer key) {
         return ObjectUtil.isNotNull(key) && (NodeType.END.getKey().equals(key));
@@ -120,7 +143,7 @@ public enum NodeType {
      * 判断是否网关节点
      *
      * @param key 枚举key
-     * @return boolean
+     * @return 是任一网关节点时返回 {@code true}
      */
     public static Boolean isGateWay(Integer key) {
         return ObjectUtil.isNotNull(key) && (NodeType.SERIAL.getKey().equals(key)
@@ -131,7 +154,7 @@ public enum NodeType {
      * 判断是否互斥网关节点
      *
      * @param key 枚举key
-     * @return boolean
+     * @return 是互斥网关时返回 {@code true}
      */
     public static Boolean isGateWaySerial(Integer key) {
         return ObjectUtil.isNotNull(key) && NodeType.SERIAL.getKey().equals(key);
@@ -141,7 +164,7 @@ public enum NodeType {
      * 判断是否并行网关节点
      *
      * @param key 枚举key
-     * @return boolean
+     * @return 是并行网关时返回 {@code true}
      */
     public static Boolean isGateWayParallel(Integer key) {
         return ObjectUtil.isNotNull(key) && NodeType.PARALLEL.getKey().equals(key);
@@ -151,7 +174,7 @@ public enum NodeType {
      * 判断是否包容网关节点
      *
      * @param key 枚举key
-     * @return boolean
+     * @return 是包容网关时返回 {@code true}
      */
     public static Boolean isGateWayInclusive(Integer key) {
         return ObjectUtil.isNotNull(key) && NodeType.INCLUSIVE.getKey().equals(key);

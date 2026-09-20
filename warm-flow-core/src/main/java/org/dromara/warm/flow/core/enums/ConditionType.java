@@ -19,7 +19,9 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * 条件表达式类型
+ * 条件表达式类型。
+ * <p>
+ * key 是表达式中的策略标识，value 是设计器展示文案。
  *
  * @author xiarg
  * @since 2025/06/03 17:57:05
@@ -32,30 +34,37 @@ public enum ConditionType {
      * 等于
      */
     EQ("eq", "等于"),
+
     /**
      * 大于等于
      */
     GE("ge", "大于等于"),
+
     /**
      * 大于
      */
     GT("gt", "大于"),
+
     /**
      * 小于等于
      */
     LE("le", "小于等于"),
+
     /**
      * 包含
      */
     LIKE("like", "包含"),
+
     /**
      * 小于
      */
     LT("lt", "小于"),
+
     /**
      * 不等于
      */
     NE("ne", "不等于"),
+
     /**
      * 不包含
      */
@@ -65,11 +74,18 @@ public enum ConditionType {
      * 表达式类型
      */
     private final String key;
+
     /**
      * 表达式描述
      */
     private final String value;
 
+    /**
+     * 根据展示文案获取表达式类型 key。
+     *
+     * @param value 展示文案
+     * @return 表达式类型 key；未匹配时返回 {@code null}
+     */
     public static String getKeyByValue(String value) {
         for (ConditionType item : ConditionType.values()) {
             if (item.getValue().equals(value)) {
@@ -79,6 +95,12 @@ public enum ConditionType {
         return null;
     }
 
+    /**
+     * 根据表达式类型 key 获取展示文案。
+     *
+     * @param key 表达式类型 key
+     * @return 展示文案；未匹配时返回 {@code null}
+     */
     public static String getValueByKey(String key) {
         for (ConditionType item : ConditionType.values()) {
             if (item.getKey().equals(key)) {
@@ -88,6 +110,12 @@ public enum ConditionType {
         return null;
     }
 
+    /**
+     * 根据表达式类型 key 获取枚举。
+     *
+     * @param key 表达式类型 key
+     * @return 条件类型枚举；未匹配时返回 {@code null}
+     */
     public static ConditionType getByKey(String key) {
         for (ConditionType item : ConditionType.values()) {
             if (item.getKey().equals(key)) {

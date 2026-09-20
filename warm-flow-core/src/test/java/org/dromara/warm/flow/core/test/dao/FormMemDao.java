@@ -14,10 +14,16 @@ import java.util.stream.Collectors;
  */
 public class FormMemDao<T extends Form> extends InMemoryDao<T> implements FlowFormDao<T> {
 
+    /**
+     * 创建流程表单内存 DAO，并复用基类的实体工厂与调用日志。
+     */
     public FormMemDao(Supplier<T> factory, List<String> log) {
         super(factory, log);
     }
 
+    /**
+     * 按表单编码集合查询表单，返回持久化字段拷贝。
+     */
     @Override
     public List<T> queryByCodeList(List<String> formCodeList) {
         log.add(name() + ".queryByCodeList" + formCodeList);

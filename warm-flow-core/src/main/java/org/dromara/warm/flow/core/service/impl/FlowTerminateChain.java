@@ -73,12 +73,24 @@ final class FlowTerminateChain {
             this::finalizeAndFinish);
     }
 
+    /**
+     * 合并实例变量与调用方变量，并执行当前节点开始监听器。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> prepareAndStart(FlowExecution execution) {
         execution.mergeVariables();
         ListenerUtil.executeStart(execution.contextListener(execution.task, execution.nowNode));
         return Optional.empty();
     }
 
+    /**
+     * 加载任务办理人并校验当前处理人是否具备终止权限。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> authGate(FlowExecution execution) {
         // 本链唯一办理人加载点：与原直接 listByAssociatedAndTypes 查询等价（同懒加载首次触发、同时点）；
         // 后续若新增 usersOfTypes 派生会引入快照语义，需重新评估
@@ -88,6 +100,12 @@ final class FlowTerminateChain {
         return Optional.empty();
     }
 
+    /**
+     * 定位结束节点、写入终止路径元数据，并把实例更新为终止状态。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> buildTerminalState(FlowExecution execution) {
         // 所有待办转历史
         endNode = FlowEngine.nodeService().getEndNode(execution.instance.getDefinitionId());
@@ -109,6 +127,12 @@ final class FlowTerminateChain {
         return Optional.empty();
     }
 
+    /**
+     * 将当前待办归档、更新实例，并删除当前任务关联办理人。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> persist(FlowExecution execution) {
         // 待办任务转历史（顺序与办理链的 updateFlowInfo 不同，不合并）
         execution.intent.setInstanceStatus(execution.instance.getFlowStatus());
@@ -122,6 +146,12 @@ final class FlowTerminateChain {
         return Optional.empty();
     }
 
+    /**
+     * 清理流程终止后仍未完成的待办，并执行当前节点完成监听器。
+     *
+     * @param execution 执行作用域
+     * @return 空表示执行完成后由流水线返回当前实例
+     */
     private Optional<Instance> finalizeAndFinish(FlowExecution execution) {
         // 处理未完成的任务，当流程完成，还存在待办任务未完成，转历史任务，状态完成。
         taskService.handUndoneTask(execution.instance);

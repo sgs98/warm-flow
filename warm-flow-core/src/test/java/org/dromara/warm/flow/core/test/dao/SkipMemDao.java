@@ -17,10 +17,16 @@ import java.util.stream.Collectors;
  */
 public class SkipMemDao<T extends Skip> extends InMemoryDao<T> implements FlowSkipDao<T> {
 
+    /**
+     * 创建节点连线内存 DAO，并复用基类的实体工厂与调用日志。
+     */
     public SkipMemDao(Supplier<T> factory, List<String> log) {
         super(factory, log);
     }
 
+    /**
+     * 删除指定流程定义下的全部节点连线。
+     */
     @Override
     public int deleteSkipByDefIds(Collection<? extends Serializable> defIds) {
         log.add(name() + ".deleteSkipByDefIds" + defIds);

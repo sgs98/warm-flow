@@ -52,10 +52,12 @@ final class FlowExecuteChain {
      * 任务服务，复用既有任务持久化与校验能力。
      */
     private final TaskServiceImpl taskService;
+
     /**
      * 委派、会签和票签处理。
      */
     private final TaskCooperationHandler cooperationHandler;
+
     /**
      * 当前任务归档及后续任务持久化处理。
      */
@@ -115,6 +117,12 @@ final class FlowExecuteChain {
             this::persistAndFinalize);
     }
 
+    /**
+     * 合并变量、校验非开始节点流转类型，并把任务办理人和定义图加载进执行作用域。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> prepare(FlowExecution execution) {
         execution.mergeVariables();
         // 非第一个记得跳转类型必传
@@ -128,12 +136,24 @@ final class FlowExecuteChain {
         return Optional.empty();
     }
 
+    /**
+     * 执行当前节点开始监听器。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> startListener(FlowExecution execution) {
         // 执行开始监听器
         ListenerUtil.executeStart(execution.contextListener(execution.task, execution.nowNode));
         return Optional.empty();
     }
 
+    /**
+     * 处理委派任务短路：受托人办理后仅回到原计划审批人，不继续路由。
+     *
+     * @param execution 执行作用域
+     * @return 需要短路时返回当前实例，否则继续执行后续步骤
+     */
     private Optional<Instance> deputeGate(FlowExecution execution) {
         // 如果是受托人在处理任务，需要处理一条委派记录，并且更新委托人，回到计划审批人,然后直接返回流程实例
         if (!execution.intent.isIgnore() && cooperationHandler.handleDepute(execution.task
@@ -143,12 +163,24 @@ final class FlowExecuteChain {
         return Optional.empty();
     }
 
+    /**
+     * 校验当前处理人是否具备办理权限。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> authGate(FlowExecution execution) {
         // 判断当前处理人是否有权限处理
         taskService.checkAuth(execution.task, execution.intent);
         return Optional.empty();
     }
 
+    /**
+     * 处理或签、会签、票签等协作逻辑；协作尚未满足流转条件时短路返回当前实例。
+     *
+     * @param execution 执行作用域
+     * @return 需要短路时返回当前实例，否则继续执行后续步骤
+     */
     private Optional<Instance> cooperateGate(FlowExecution execution) {
         //或签、会签、票签逻辑处理
         if (!execution.intent.isIgnore() && cooperationHandler.cooperate(execution, execution.task
@@ -158,6 +190,12 @@ final class FlowExecuteChain {
         return Optional.empty();
     }
 
+    /**
+     * 按跳转类型和流程变量解析后续节点，并写入流程图跳转元数据。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> route(FlowExecution execution) {
         // 获取后续任务节点结合
         pathWayData = pathResolver.resolve(execution.task, execution.nowNode, execution.instance
@@ -171,6 +209,12 @@ final class FlowExecuteChain {
         return Optional.empty();
     }
 
+    /**
+     * 按后续节点创建待办任务、替换办理人变量并执行分派监听器。
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
     private Optional<Instance> buildTasks(FlowExecution execution) {
         // 构建增待办任务和设置结束任务历史记录
         addTasks = StreamUtils.toList(nextNodes,
@@ -186,6 +230,12 @@ final class FlowExecuteChain {
         return Optional.empty();
     }
 
+    /**
+     * 归档当前任务、保存后续任务，处理退回的一票否决和流程完成后的未完成任务。
+     *
+     * @param execution 执行作用域
+     * @return 空表示执行完成后由流水线返回当前实例
+     */
     private Optional<Instance> persistAndFinalize(FlowExecution execution) {
         // 更新流程信息
         historyHandler.updateFlowInfo(taskService, execution.task, execution.instance, addTasks

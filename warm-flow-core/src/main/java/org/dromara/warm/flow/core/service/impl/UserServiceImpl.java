@@ -149,7 +149,6 @@ public class UserServiceImpl extends WarmServiceImpl<FlowUserDao<User>, User> im
 
     @Override
     public User structureUser(Long associated, String permission, String type, String handler) {
-        Date now = new Date();
         User user = FlowEngine.newUser()
             .setType(type)
             .setProcessedBy(permission)

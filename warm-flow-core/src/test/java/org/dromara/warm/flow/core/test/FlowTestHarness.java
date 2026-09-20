@@ -64,20 +64,49 @@ import java.util.Map;
  */
 public class FlowTestHarness implements AutoCloseable {
 
-    /** DAO 调用流水，供查询次数与持久化顺序断言 */
+    /**
+     * DAO 调用流水，供查询次数与持久化顺序断言。
+     */
     public final List<String> daoLog = new ArrayList<>();
 
+    /**
+     * 内存待办任务 DAO。
+     */
     public final TaskMemDao<Task> taskDao = new TaskMemDao<>(FlowEngine::newTask, daoLog);
+    /**
+     * 内存流程用户 DAO。
+     */
     public final UserMemDao<User> userDao = new UserMemDao<>(FlowEngine::newUser, daoLog);
+    /**
+     * 内存历史任务 DAO。
+     */
     public final HisTaskMemDao<HisTask> hisTaskDao = new HisTaskMemDao<>(FlowEngine::newHisTask, daoLog);
+    /**
+     * 内存流程实例 DAO。
+     */
     public final InstanceMemDao<Instance> insDao = new InstanceMemDao<>(FlowEngine::newIns, daoLog);
+    /**
+     * 内存流程定义 DAO。
+     */
     public final DefinitionMemDao<Definition> defDao = new DefinitionMemDao<>(FlowEngine::newDef, daoLog);
+    /**
+     * 内存流程节点 DAO。
+     */
     public final NodeMemDao<Node> nodeDao = new NodeMemDao<>(FlowEngine::newNode, daoLog);
+    /**
+     * 内存节点跳转 DAO。
+     */
     public final SkipMemDao<Skip> skipDao = new SkipMemDao<>(FlowEngine::newSkip, daoLog);
+    /**
+     * 内存流程表单 DAO。
+     */
     public final FormMemDao<Form> formDao = new FormMemDao<>(FlowEngine::newForm, daoLog);
 
     private final Map<Class<?>, Object> registry = new HashMap<>();
 
+    /**
+     * 创建内存 DAO、服务实现和 FrameInvoker 注册表，并重置全局测试扩展点。
+     */
     public FlowTestHarness() {
         FlowEngine.setNewDef(TestDefinition::new);
         FlowEngine.setNewNode(TestNode::new);
@@ -131,14 +160,22 @@ public class FlowTestHarness implements AutoCloseable {
         RecordingGlobalListener.EVENTS.clear();
     }
 
-    /** 清空调试标记（DAO 流水 + 监听事件），供分阶段断言 */
+    /**
+     * 清空 DAO 调用流水和监听事件，供同一测试分阶段断言。
+     */
     public void reset() {
         daoLog.clear();
         RecordingListener.EVENTS.clear();
         RecordingGlobalListener.EVENTS.clear();
     }
 
-    /** 追加注册扩展点（如 PermissionHandler），经 FrameInvoker 供 FlowEngine initBean 回退获取 */
+    /**
+     * 注册测试扩展点，供 FrameInvoker 在引擎初始化处理器时回退获取。
+     *
+     * @param type Bean 类型
+     * @param bean 测试 Bean
+     * @param <T> Bean 类型
+     */
     public <T> void register(Class<T> type, T bean) {
         registry.put(type, bean);
     }
@@ -158,6 +195,9 @@ public class FlowTestHarness implements AutoCloseable {
         }
     }
 
+    /**
+     * 解除当前测试的 FrameInvoker Bean 查找和监听器状态。
+     */
     @Override
     public void close() {
         FrameInvoker.setBeanFunction(clazz -> null);

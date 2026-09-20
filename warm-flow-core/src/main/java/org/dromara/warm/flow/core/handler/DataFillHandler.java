@@ -27,7 +27,10 @@ import java.util.Date;
 import java.util.Objects;
 
 /**
- * 数据填充handler，以下三个接口按照实际情况实现
+ * 数据填充处理器。
+ * <p>
+ * 引擎在保存或更新实体前调用该扩展点，用于统一填充主键、创建时间、更新时间、
+ * 创建人和更新人等审计字段。业务方可覆盖默认方法接入自己的 ID 生成或审计规则。
  *
  * @author warm
  * @since 2023/4/1 15:37
@@ -37,9 +40,11 @@ public interface DataFillHandler {
     Logger logger = LoggerFactory.getLogger(DataFillHandler.class);
 
     /**
-     * id填充
+     * 新增前主键填充。
+     * <p>
+     * 默认在实体 ID 为空时使用 {@link IdUtils#nextId()} 生成主键。
      *
-     * @param object object
+     * @param object 待填充实体
      */
     default void idFill(Object object) {
         RootEntity entity = (RootEntity) object;
@@ -54,9 +59,12 @@ public interface DataFillHandler {
     }
 
     /**
-     * 新增填充
+     * 新增前审计字段填充。
+     * <p>
+     * 默认填充创建时间、更新时间，并尝试从 {@link PermissionHandler} 获取当前办理人写入
+     * createBy/updateBy；已有值不会被空值覆盖。
      *
-     * @param object object
+     * @param object 待填充实体
      */
     default void insertFill(Object object) {
         RootEntity entity = (RootEntity) object;
@@ -80,9 +88,11 @@ public interface DataFillHandler {
     }
 
     /**
-     * 设置更新常用参数
+     * 更新前审计字段填充。
+     * <p>
+     * 默认填充更新时间，并尝试从 {@link PermissionHandler} 获取当前办理人写入 updateBy。
      *
-     * @param object object
+     * @param object 待填充实体
      */
     default void updateFill(Object object) {
         RootEntity entity = (RootEntity) object;

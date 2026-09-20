@@ -19,6 +19,12 @@ import java.util.Map;
  */
 public class FlatJsonConvert implements JsonConvert {
 
+    /**
+     * 将测试用的扁平 JSON 对象转换为 Map。
+     *
+     * @param jsonStr JSON 字符串
+     * @return Map
+     */
     @Override
     public Map<String, Object> strToMap(String jsonStr) {
         Map<String, Object> map = new LinkedHashMap<>();
@@ -34,6 +40,12 @@ public class FlatJsonConvert implements JsonConvert {
         return map;
     }
 
+    /**
+     * 将对象序列化为测试用的扁平 JSON。
+     *
+     * @param obj 待序列化对象
+     * @return JSON 字符串
+     */
     @Override
     public String objToStr(Object obj) {
         if (obj == null) {
@@ -44,6 +56,14 @@ public class FlatJsonConvert implements JsonConvert {
         return sb.toString();
     }
 
+    /**
+     * 将测试用 JSON 转换为指定类型实体。
+     *
+     * @param jsonStr JSON 字符串
+     * @param clazz 目标类型
+     * @param <T> 目标类型
+     * @return 转换结果
+     */
     @Override
     public <T> T strToBean(String jsonStr, Class<T> clazz) {
         if (jsonStr == null) {
@@ -52,6 +72,13 @@ public class FlatJsonConvert implements JsonConvert {
         return clazz.cast(bind(parse(jsonStr.trim()), clazz));
     }
 
+    /**
+     * 将测试用 JSON 数组转换为列表。
+     *
+     * @param jsonStr JSON 数组字符串
+     * @param <T> 元素类型
+     * @return 转换结果
+     */
     @Override
     public <T> List<T> strToList(String jsonStr) {
         List<T> result = new ArrayList<>();

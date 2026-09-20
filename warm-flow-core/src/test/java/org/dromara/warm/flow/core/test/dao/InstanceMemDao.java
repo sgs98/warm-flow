@@ -14,10 +14,16 @@ import java.util.stream.Collectors;
  */
 public class InstanceMemDao<T extends Instance> extends InMemoryDao<T> implements FlowInstanceDao<T> {
 
+    /**
+     * 创建流程实例内存 DAO，并复用基类的实体工厂与调用日志。
+     */
     public InstanceMemDao(Supplier<T> factory, List<String> log) {
         super(factory, log);
     }
 
+    /**
+     * 按流程定义 ID 集合查询流程实例。
+     */
     @Override
     public List<T> getByDefIds(List<Long> defIds) {
         log.add(name() + ".getByDefIds" + defIds);

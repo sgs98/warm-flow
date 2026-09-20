@@ -20,7 +20,9 @@ import lombok.Getter;
 import org.dromara.warm.flow.core.utils.StringUtils;
 
 /**
- * 审批动作
+ * 流程跳转类型。
+ * <p>
+ * 用于区分通过、退回和无动作等流转动作。
  *
  * @author warm
  * @since 2023/3/31 12:16
@@ -28,9 +30,7 @@ import org.dromara.warm.flow.core.utils.StringUtils;
 @Getter
 @AllArgsConstructor
 public enum SkipType {
-    /**
-     * 审批动作
-     */
+
     PASS("PASS", "审批通过"),
 
     REJECT("REJECT", "退回"),
@@ -40,6 +40,12 @@ public enum SkipType {
     private final String key;
     private final String value;
 
+    /**
+     * 根据展示文案获取跳转类型 key。
+     *
+     * @param value 展示文案
+     * @return 跳转类型 key；未匹配时返回 {@code null}
+     */
     public static String getKeyByValue(String value) {
         for (SkipType item : SkipType.values()) {
             if (item.getValue().equals(value)) {
@@ -49,6 +55,12 @@ public enum SkipType {
         return null;
     }
 
+    /**
+     * 根据跳转类型 key 获取展示文案。
+     *
+     * @param key 跳转类型 key
+     * @return 展示文案；未匹配时返回 {@code null}
+     */
     public static String getValueByKey(String key) {
         for (SkipType item : SkipType.values()) {
             if (item.getKey().equals(key)) {
@@ -58,6 +70,12 @@ public enum SkipType {
         return null;
     }
 
+    /**
+     * 根据跳转类型 key 获取枚举。
+     *
+     * @param key 跳转类型 key
+     * @return 跳转类型枚举；未匹配时返回 {@code null}
+     */
     public static SkipType getByKey(String key) {
         for (SkipType item : SkipType.values()) {
             if (item.getKey().equals(key)) {
@@ -71,7 +89,7 @@ public enum SkipType {
      * 判断是否通过类型
      *
      * @param key 枚举key
-     * @return boolean
+     * @return 是通过类型时返回 {@code true}
      */
     public static Boolean isPass(String key) {
         return StringUtils.isNotEmpty(key) && (SkipType.PASS.getKey().equals(key));
@@ -81,7 +99,7 @@ public enum SkipType {
      * 判断是否退回类型
      *
      * @param key 枚举key
-     * @return boolean
+     * @return 是退回类型时返回 {@code true}
      */
     public static Boolean isReject(String key) {
         return StringUtils.isNotEmpty(key) && (SkipType.REJECT.getKey().equals(key));
@@ -91,7 +109,7 @@ public enum SkipType {
      * 判断是否无动作类型
      *
      * @param key 枚举key
-     * @return boolean
+     * @return 是无动作类型时返回 {@code true}
      */
     public static Boolean isNone(String key) {
         return StringUtils.isNotEmpty(key) && (SkipType.NONE.getKey().equals(key));

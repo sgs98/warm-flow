@@ -31,7 +31,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 流程定义json对象
+ * 流程定义 JSON 传输对象。
+ * <p>
+ * 用于设计器、流程图接口和定义导入导出，除流程定义基础属性外，还承载节点、
+ * 连线、实例、扩展属性和前端展示配置。它与持久化实体 {@link Definition} 解耦。
  *
  * @author warm
  * @since 2023-03-29
@@ -58,7 +61,7 @@ public class DefJson {
     private String flowName;
 
     /**
-     * 设计器模型（CLASSICS经典模型 MIMIC仿钉钉模型）
+     * 设计器模型（CLASSICS 经典模型，MIMIC 仿钉钉模型）。
      */
     private String modelValue;
 
@@ -73,17 +76,17 @@ public class DefJson {
     private String version;
 
     /**
-     * 是否发布（0未开启 1开启）
+     * 发布状态（0 未发布，1 已发布，9 已失效）。
      */
     private Integer isPublish;
 
     /**
-     * 审批表单是否自定义（Y=是 N=否）
+     * 是否使用自定义表单（Y=是，N=否）。
      */
     private String formCustom;
 
     /**
-     * 审批表单是否自定义（Y=是 N=否）
+     * 自定义表单路径或表单标识。
      */
     private String formPath;
 
@@ -113,7 +116,7 @@ public class DefJson {
     private Map<String, Object> extMap;
 
     /**
-     * 所有节点结合
+     * 流程图中的全部节点及其连线。
      */
     private List<NodeJson> nodeList = new ArrayList<>();
 
@@ -132,8 +135,14 @@ public class DefJson {
      */
     private boolean topTextShow;
 
+    /**
+     * 创建人。
+     */
     private String createBy;
 
+    /**
+     * 最后更新人。
+     */
     private String updateBy;
 
     /**
@@ -147,6 +156,11 @@ public class DefJson {
     private List<Tree> formPathList;
 
 
+    /**
+     * 获取设计器模型；未设置时默认使用经典模型。
+     *
+     * @return 设计器模型
+     */
     public String getModelValue() {
         if (StringUtils.isEmpty(modelValue)) {
             modelValue = "CLASSICS";
@@ -154,6 +168,12 @@ public class DefJson {
         return modelValue;
     }
 
+    /**
+     * 将流程定义实体转换为设计器 JSON 对象，并复制节点及其连线。
+     *
+     * @param definition 流程定义实体
+     * @return 流程定义 JSON 对象
+     */
     public static DefJson copyDef(Definition definition) {
         DefJson defJson = new DefJson()
             .setFlowCode(definition.getFlowCode())
@@ -211,6 +231,12 @@ public class DefJson {
         return defJson;
     }
 
+    /**
+     * 将设计器 JSON 对象转换为 core 流程定义实体及节点、连线实体。
+     *
+     * @param defJson 流程定义 JSON 对象
+     * @return 流程定义实体
+     */
     public static Definition copyDef(DefJson defJson) {
         Definition definition = FlowEngine.newDef()
             .setId(defJson.getId())
@@ -269,6 +295,14 @@ public class DefJson {
         return definition;
     }
 
+    /**
+     * 将设计器 JSON 转换为流程执行使用的聚合数据。
+     * <p>
+     * 聚合对象同时保存定义、全部节点和扁平化后的全部连线，便于路径解析复用内存中的流程图。
+     *
+     * @param defJson 流程定义 JSON 对象
+     * @return 流程图聚合数据
+     */
     public static FlowCombine copyCombine(DefJson defJson) {
         Definition definition = copyDef(defJson);
         FlowCombine flowCombine = new FlowCombine();

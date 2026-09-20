@@ -25,7 +25,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 提示信息
+ * 流程图节点或连线的提示内容配置。
+ * <p>
+ * 该对象只描述展示结构和样式，不参与流程流转判断。
  *
  * @author warm
  * @since 2025/6/5
@@ -36,17 +38,19 @@ import java.util.Map;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PromptContent {
+
     /**
-     * 弹窗样式
+     * 弹窗整体样式配置。
      */
     private Map<String, Object> dialogStyle;
+
     /**
-     * 提示信息
+     * 弹窗中的提示信息项。
      */
     private List<InfoItem> info;
 
     /**
-     * 提示信息项
+     * 单条提示信息及其样式。
      */
     @Getter
     @Setter
@@ -54,24 +58,29 @@ public class PromptContent {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class InfoItem {
+
         /**
-         * 前缀
+         * 信息前缀文本。
          */
         private String prefix;
+
         /**
-         * 前缀样式
+         * 前缀样式配置。
          */
         private Map<String, Object> prefixStyle;
+
         /**
-         * 内容
+         * 信息主体内容。
          */
         private String content;
+
         /**
-         * 内容样式
+         * 内容样式配置。
          */
         private Map<String, Object> contentStyle;
+
         /**
-         * 行样式
+         * 当前信息行样式配置。
          */
         private Map<String, Object> rowStyle;
 

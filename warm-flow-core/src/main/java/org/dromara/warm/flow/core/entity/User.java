@@ -75,6 +75,12 @@ public interface User extends RootEntity {
      */
     String getType();
 
+    /**
+     * 设置人员类型。
+     *
+     * @param type 人员类型
+     * @return 当前用户记录
+     */
     User setType(String type);
 
     /**
@@ -84,14 +90,28 @@ public interface User extends RootEntity {
      */
     String getProcessedBy();
 
+    /**
+     * 设置权限人或已处理人标识。
+     *
+     * @param processedBy 权限人或已处理人标识
+     * @return 当前用户记录
+     */
     User setProcessedBy(String processedBy);
 
     /**
-     * 获取 任务表ID
+     * 获取关联业务表 ID。
      *
-     * @return 任务表ID
+     * @return 关联业务表 ID
      */
     Long getAssociated();
 
+    /**
+     * 设置关联业务表 ID。
+     * <p>
+     * 当前字段可关联待办任务、历史任务、流程实例或节点等记录，具体含义由 {@link #getType()} 区分。
+     *
+     * @param associated 关联业务表 ID
+     * @return 当前用户记录
+     */
     User setAssociated(Long associated);
 }

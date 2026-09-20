@@ -23,7 +23,6 @@ import lombok.Getter;
  * @author warm
  */
 public final class FlowException extends RuntimeException {
-    private static final long serialVersionUID = 1L;
 
     /**
      * 错误码

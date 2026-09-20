@@ -19,7 +19,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * 表单类型
+ * 流程表单来源标识。
  *
  * @author warm
  * @since 2025/6/25
@@ -29,12 +29,12 @@ import lombok.Getter;
 public enum FormCustomEnum {
 
     /**
-     * 表单路径
+     * 使用外挂表单路径。
      */
     N,
 
     /**
-     * 表单路径
+     * 使用内置表单内容。
      */
     Y,
 }

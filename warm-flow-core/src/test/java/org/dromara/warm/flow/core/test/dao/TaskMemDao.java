@@ -15,10 +15,16 @@ import java.util.stream.Collectors;
  */
 public class TaskMemDao<T extends Task> extends InMemoryDao<T> implements FlowTaskDao<T> {
 
+    /**
+     * 创建待办任务内存 DAO，并复用基类的实体工厂与调用日志。
+     */
     public TaskMemDao(Supplier<T> factory, List<String> log) {
         super(factory, log);
     }
 
+    /**
+     * 删除指定流程实例关联的全部待办任务。
+     */
     @Override
     public int deleteByInsIds(List<Long> instanceIds) {
         log.add(name() + ".deleteByInsIds" + instanceIds);
@@ -30,6 +36,9 @@ public class TaskMemDao<T extends Task> extends InMemoryDao<T> implements FlowTa
         return keys.size();
     }
 
+    /**
+     * 按实例 ID 与节点编码集合查询待办任务。
+     */
     @Override
     public List<T> getByInsIdAndNodeCodes(Long instanceId, List<String> nodeCodes) {
         log.add(name() + ".getByInsIdAndNodeCodes[instanceId=" + instanceId + ",nodeCodes=" + nodeCodes + "]");

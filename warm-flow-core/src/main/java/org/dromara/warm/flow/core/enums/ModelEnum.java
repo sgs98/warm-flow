@@ -19,7 +19,9 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * 设计器模型（CLASSICS经典模型 MIMIC仿钉钉模型）
+ * 流程设计器模型。
+ * <p>
+ * CLASSICS 为经典模型，MIMIC 为仿钉钉模型。不同模型可使用不同的流程图渲染配置。
  *
  * @author warm
  * @since 2025/6/25

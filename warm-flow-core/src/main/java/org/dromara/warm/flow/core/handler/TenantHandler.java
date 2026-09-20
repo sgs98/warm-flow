@@ -16,16 +16,18 @@
 package org.dromara.warm.flow.core.handler;
 
 /**
- * 全局租户处理器接口
+ * 全局租户处理器接口。
+ * <p>
+ * ORM 适配层可通过该扩展点获取当前租户 ID，并把租户条件写入查询、保存或逻辑删除操作。
  *
  * @author warm
  */
 public interface TenantHandler {
 
     /**
-     * 获取租户ID
+     * 获取当前租户 ID。
      *
-     * @return 租户ID
+     * @return 租户 ID
      */
     String getTenantId();
 

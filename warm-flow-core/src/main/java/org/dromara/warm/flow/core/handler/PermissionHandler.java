@@ -18,20 +18,22 @@ package org.dromara.warm.flow.core.handler;
 import java.util.List;
 
 /**
- * 办理人权限处理器
- * 用户获取工作流中用到的permissionFlag和handler
- * permissionFlag: 办理人权限标识，比如用户，角色，部门等，用于校验是否有权限办理任务
- * handler: 当前办理人唯一标识，就是确定唯一用的，如用户id，通常用来入库，记录流程实例创建人，办理人
+ * 办理人与权限处理器。
+ * <p>
+ * 引擎通过该扩展点获取当前用户的权限标识和唯一办理人标识：
+ * permissionFlag 表示可办理权限（用户、角色、部门等），用于任务权限校验；
+ * handler 表示当前操作者唯一标识（通常是用户 ID），用于入库记录发起人、办理人和审计字段。
  *
  * @author shadow
  */
 public interface PermissionHandler {
 
     /**
-     * 办理人权限标识，比如用户，角色，部门等，用于校验是否有权限办理任务
-     * 流程引擎会在执行上下文中使用该集合进行权限匹配
-     * 返回当前用户权限集合
+     * 获取当前用户权限集合。
+     * <p>
+     * 权限标识可表示用户、角色、部门等，流程引擎会用该集合匹配节点配置的办理权限。
      *
+     * @return 当前用户权限集合
      */
     List<String> permissions();
 
@@ -44,7 +46,12 @@ public interface PermissionHandler {
     String getHandler();
 
     /**
-     * 转换办理人，比如设计器中预设了能办理的人，如果其中包含角色或者部门id等，可以通过此接口进行转换成用户id
+     * 转换办理人权限标识。
+     * <p>
+     * 设计器中预设的办理人可能是角色、部门等业务标识，业务方可在这里转换为真实用户 ID。
+     *
+     * @param permissions 原始权限标识
+     * @return 转换后的权限标识
      */
     default List<String> convertPermissions(List<String> permissions) {
         return permissions;

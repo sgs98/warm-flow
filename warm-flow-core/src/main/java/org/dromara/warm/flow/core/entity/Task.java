@@ -88,6 +88,12 @@ public interface Task extends RootEntity {
 
     String getFlowName();
 
+    /**
+     * 设置流程名称。
+     *
+     * @param flowName 流程名称
+     * @return 当前待办任务
+     */
     Task setFlowName(String flowName);
 
     /**
@@ -99,16 +105,50 @@ public interface Task extends RootEntity {
 
     Task setBusinessId(String businessId);
 
+    /**
+     * 获取当前任务节点编码。
+     *
+     * @return 节点编码
+     */
     String getNodeCode();
 
+    /**
+     * 设置当前任务节点编码。
+     *
+     * @param nodeCode 节点编码
+     * @return 当前待办任务
+     */
     Task setNodeCode(String nodeCode);
 
+    /**
+     * 获取当前任务节点名称。
+     *
+     * @return 节点名称
+     */
     String getNodeName();
 
+    /**
+     * 设置当前任务节点名称。
+     *
+     * @param nodeName 节点名称
+     * @return 当前待办任务
+     */
     Task setNodeName(String nodeName);
 
+    /**
+     * 获取当前任务节点类型。
+     *
+     * @return 节点类型
+     * @see org.dromara.warm.flow.core.enums.NodeType
+     */
     Integer getNodeType();
 
+    /**
+     * 设置当前任务节点类型。
+     *
+     * @param nodeType 节点类型
+     * @return 当前待办任务
+     */
     Task setNodeType(Integer nodeType);
 
     /**
@@ -121,19 +161,63 @@ public interface Task extends RootEntity {
 
     Task setFlowStatus(String flowStatus);
 
+    /**
+     * 获取可办理该任务的权限标识列表。
+     *
+     * @return 权限标识列表
+     */
     List<String> getPermissionList();
 
+    /**
+     * 设置可办理该任务的权限标识列表。
+     *
+     * @param permissionList 权限标识列表
+     * @return 当前待办任务
+     */
     Task setPermissionList(List<String> permissionList);
 
+    /**
+     * 获取任务关联的办理人记录。
+     *
+     * @return 办理人记录列表
+     */
     List<User> getUserList();
 
+    /**
+     * 设置任务关联的办理人记录。
+     *
+     * @param userList 办理人记录列表
+     * @return 当前待办任务
+     */
     Task setUserList(List<User> userList);
 
+    /**
+     * 获取任务表单自定义标识。
+     *
+     * @return 表单自定义标识
+     */
     String getFormCustom();
 
+    /**
+     * 设置任务表单自定义标识。
+     *
+     * @param formCustom 表单自定义标识
+     * @return 当前待办任务
+     */
     Task setFormCustom(String formCustom);
 
+    /**
+     * 获取任务表单路径或标识。
+     *
+     * @return 表单路径或标识
+     */
     String getFormPath();
 
+    /**
+     * 设置任务表单路径或标识。
+     *
+     * @param formPath 表单路径或标识
+     * @return 当前待办任务
+     */
     Task setFormPath(String formPath);
 }

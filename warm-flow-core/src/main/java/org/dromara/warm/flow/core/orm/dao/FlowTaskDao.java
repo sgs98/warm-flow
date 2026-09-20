@@ -20,7 +20,10 @@ import org.dromara.warm.flow.core.entity.Task;
 import java.util.List;
 
 /**
- * 待办任务Mapper接口
+ * 待办任务 DAO 接口。
+ * <p>
+ * 待办任务表示实例当前可办理的节点任务。办理、终止、撤回、跳转、并行网关汇合等
+ * 流程操作会通过该接口清理实例待办或按节点编码回查当前待办。
  *
  * @author warm
  * @since 2023-03-29
@@ -28,12 +31,21 @@ import java.util.List;
 public interface FlowTaskDao<T extends Task> extends WarmDao<T> {
 
     /**
-     * 根据instanceIds删除
+     * 根据实例 ID 集合删除待办任务。
      *
-     * @param instanceIds 主键
-     * @return 结果
+     * @param instanceIds 流程实例 ID 集合
+     * @return 受影响行数
      */
     int deleteByInsIds(List<Long> instanceIds);
 
+    /**
+     * 根据实例 ID 和节点编码集合查询待办任务。
+     * <p>
+     * 并行网关、任意跳转、退回路径判断等场景需要确认某些节点是否仍存在活动待办。
+     *
+     * @param instanceId 流程实例 ID
+     * @param nodeCodes 节点编码集合
+     * @return 待办任务列表
+     */
     List<T> getByInsIdAndNodeCodes(Long instanceId, List<String> nodeCodes);
 }

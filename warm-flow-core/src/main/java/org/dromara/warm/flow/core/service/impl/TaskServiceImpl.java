@@ -53,12 +53,26 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
      */
     private final FlowPathResolver pathResolver = new FlowPathResolver();
 
+    /**
+     * 注入待办任务 DAO。
+     *
+     * @param warmDao 待办任务 DAO
+     * @return 当前任务服务
+     */
     @Override
     public TaskService setDao(FlowTaskDao<Task> warmDao) {
         this.warmDao = warmDao;
         return this;
     }
 
+    /**
+     * 办理当前待办，并按传入跳转类型执行通过、退回或指定节点跳转。
+     *
+     * @param taskId   待办任务主键
+     * @param context  流程执行上下文
+     * @param skipType 跳转类型
+     * @return 办理后的流程实例
+     */
     @Override
     public Instance execute(Long taskId, WorkflowContext context, String skipType) {
         AssertUtil.isNull(taskId, ExceptionCons.NULL_TASK_ID);
@@ -67,6 +81,13 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
             .pipeline().run(execution);
     }
 
+    /**
+     * 撤回指定流程实例到发起后的首个待办节点。
+     *
+     * @param instanceId 流程实例主键
+     * @param context    流程执行上下文
+     * @return 撤回后的流程实例
+     */
     @Override
     public Instance revoke(Long instanceId, WorkflowContext context) {
         AssertUtil.isNull(instanceId, ExceptionCons.NULL_INSTANCE_ID);
@@ -74,6 +95,13 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         return new FlowRevokeChain(this, instanceId).pipeline().run(execution);
     }
 
+    /**
+     * 根据流程实例终止流程，使用实例下任一当前待办进入权限和状态校验。
+     *
+     * @param instanceId 流程实例主键
+     * @param context    流程执行上下文
+     * @return 终止后的流程实例
+     */
     @Override
     public Instance terminateByInstanceId(Long instanceId, WorkflowContext context) {
         AssertUtil.isNull(instanceId, ExceptionCons.NULL_INSTANCE_ID);
@@ -84,11 +112,25 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         return terminate(task, context);
     }
 
+    /**
+     * 根据当前待办终止流程。
+     *
+     * @param taskId  待办任务主键
+     * @param context 流程执行上下文
+     * @return 终止后的流程实例
+     */
     @Override
     public Instance terminateByTaskId(Long taskId, WorkflowContext context) {
         return terminate(getById(taskId), context);
     }
 
+    /**
+     * 终止流程的内部入口，复用已加载任务并装配终止执行链。
+     *
+     * @param task    当前待办任务
+     * @param context 流程执行上下文
+     * @return 终止后的流程实例
+     */
     private Instance terminate(Task task, WorkflowContext context) {
         AssertUtil.isNull(task, ExceptionCons.NOT_FOUNT_TASK);
         AssertUtil.isNull(task.getId(), ExceptionCons.NULL_TASK_ID);
@@ -97,6 +139,12 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         return new FlowTerminateChain(this).pipeline().run(execution);
     }
 
+    /**
+     * 按流程实例批量删除待办任务，删除前先校验每个实例所属定义与实例仍处于允许清理的状态。
+     *
+     * @param instanceIds 流程实例主键集合
+     * @return 是否删除成功
+     */
     @Override
     public boolean deleteByInsIds(List<Long> instanceIds) {
         List<Instance> instanceList = FlowEngine.insService().getByIds(instanceIds);
@@ -110,6 +158,16 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         return SqlHelper.retBool(getDao().deleteByInsIds(instanceIds));
     }
 
+    /**
+     * 调整当前待办办理人并记录协作历史，覆盖转办、委派、加签和减签。
+     *
+     * @param taskId         待办任务主键
+     * @param context        流程执行上下文
+     * @param addHandlers    需要新增的办理人
+     * @param removeHandlers 需要移除的办理人
+     * @param cooperateType  协作类型
+     * @return 调整后的流程实例
+     */
     @Override
     public Instance updateHandlers(Long taskId, WorkflowContext context, List<String> addHandlers
         , List<String> removeHandlers, Integer cooperateType) {
@@ -119,6 +177,16 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
             .pipeline().run(execution);
     }
 
+    /**
+     * 根据目标节点创建尚未持久化的待办任务，并继承节点或定义上的表单配置。
+     *
+     * @param node       目标节点
+     * @param instance   流程实例
+     * @param definition 流程定义
+     * @param context    流程执行上下文
+     * @param skipType   跳转类型
+     * @return 尚未持久化的待办任务
+     */
     @Override
     public Task addTask(Node node, Instance instance, Definition definition, WorkflowContext context
         , String skipType) {
@@ -145,16 +213,36 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         return addTask;
     }
 
+    /**
+     * 查询流程实例下的当前待办任务。
+     *
+     * @param instanceId 流程实例主键
+     * @return 当前待办任务集合
+     */
     @Override
     public List<Task> getByInsId(Long instanceId) {
         return list(FlowEngine.newTask().setInstanceId(instanceId));
     }
 
+    /**
+     * 按流程实例和节点编码集合查询当前待办任务。
+     *
+     * @param instanceId 流程实例主键
+     * @param nodeCodes  节点编码集合
+     * @return 命中的待办任务集合
+     */
     @Override
     public List<Task> getByInsIdAndNodeCodes(Long instanceId, List<String> nodeCodes) {
         return getDao().getByInsIdAndNodeCodes(instanceId, nodeCodes);
     }
 
+    /**
+     * 更新实例上的当前节点、流程状态和变量。后续任务包含结束节点时会移除结束任务并以其状态收口实例。
+     *
+     * @param instance  流程实例
+     * @param addTasks  新建待办任务集合，可被原地移除结束任务
+     * @param variables 本次需要合并到实例的变量
+     */
     @Override
     public void setInsFinishInfo(Instance instance, List<Task> addTasks, Map<String, Object> variables) {
         instance.setUpdateTime(new Date());
@@ -179,6 +267,12 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         }
     }
 
+    /**
+     * 将本次流程变量合并到实例已持久化的变量 JSON 中。
+     *
+     * @param instance 流程实例
+     * @param variable 本次新增或覆盖的变量
+     */
     @Override
     public void mergeVariable(Instance instance, Map<String, Object> variable) {
         if (MapUtil.isNotEmpty(variable)) {
@@ -189,6 +283,12 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         }
     }
 
+    /**
+     * 从新增待办中选择用于回写实例当前位置的任务；多任务时优先结束节点，否则取主键最大的任务。
+     *
+     * @param tasks 新增待办任务集合
+     * @return 用于回写实例当前位置的任务
+     */
     private Task getNextTask(List<Task> tasks) {
         if (tasks.size() == 1) {
             return tasks.get(0);
@@ -280,6 +380,12 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
     }
 
 
+    /**
+     * 加载当前待办表单与已保存的表单数据，节点自定义表单优先于定义表单。
+     *
+     * @param taskId 待办任务主键
+     * @return 表单与表单数据
+     */
     @Override
     public FlowDto load(Long taskId) {
         FlowExecution execution = getAndCheck(taskId, null, FlowOp.LOAD);
@@ -304,6 +410,12 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         return flowDto;
     }
 
+    /**
+     * 加载历史任务对应的表单与历史变量数据。
+     *
+     * @param hisTaskId 历史任务主键
+     * @return 表单与表单数据
+     */
     @Override
     public FlowDto hisLoad(Long hisTaskId) {
         HisTask hisTask = FlowEngine.hisTaskService().getById(hisTaskId);

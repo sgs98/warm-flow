@@ -20,11 +20,14 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 
 /**
- * 表格分页数据对象
+ * 流程接口表格分页响应对象。
+ * <p>
+ * 兼容常见前端表格组件的 rows、total、code、msg 字段结构。
  *
  * @author ruoyi
  */
@@ -34,32 +37,33 @@ import java.util.List;
 @Accessors(chain = true)
 public class FlowPage<T> implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     /**
-     * 总记录数
+     * 查询结果总记录数。
      */
     private long total;
 
     /**
-     * 列表数据
+     * 当前页数据。
      */
     private List<T> rows;
 
     /**
-     * 消息状态码
+     * 响应状态码。
      */
     private int code;
 
     /**
-     * 消息内容
+     * 响应提示消息。
      */
     private String msg;
 
     /**
-     * 分页
+     * 使用当前页数据和总记录数创建分页响应。
      *
-     * @param list  列表数据
+     * @param list  当前页数据
      * @param total 总记录数
      */
     public FlowPage(List<T> list, int total) {

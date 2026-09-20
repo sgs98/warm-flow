@@ -21,7 +21,10 @@ import java.io.Serializable;
 import java.util.Collection;
 
 /**
- * 节点跳转关联Mapper接口
+ * 节点跳转关联 DAO 接口。
+ * <p>
+ * 连线记录描述当前节点到目标节点的跳转类型、条件表达式和目标节点类型，
+ * 是通过、退回和网关路由的基础数据。
  *
  * @author warm
  * @since 2023-03-29
@@ -29,10 +32,10 @@ import java.util.Collection;
 public interface FlowSkipDao<T extends Skip> extends WarmDao<T> {
 
     /**
-     * 批量删除节点跳转关联
+     * 根据流程定义 ID 集合批量删除节点跳转关联。
      *
-     * @param defIds 需要删除的数据主键集合
-     * @return 结果
+     * @param defIds 流程定义 ID 集合
+     * @return 受影响行数
      */
     public int deleteSkipByDefIds(Collection<? extends Serializable> defIds);
 }

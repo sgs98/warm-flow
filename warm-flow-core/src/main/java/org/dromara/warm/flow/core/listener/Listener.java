@@ -18,7 +18,10 @@ package org.dromara.warm.flow.core.listener;
 import java.io.Serializable;
 
 /**
- * 监听器
+ * 节点监听器接口。
+ * <p>
+ * 节点可配置多个监听器路径和监听器类型，引擎在对应生命周期点构造 {@link ListenerVariable}
+ * 并调用该接口。实现类应避免依赖具体框架，若需要容器能力由框架适配层提供。
  *
  * @author warm
  */
@@ -50,9 +53,9 @@ public interface Listener extends Serializable {
     String LISTENER_FORM_LOAD = "formLoad";
 
     /**
-     * 通知
+     * 执行监听器回调。
      *
-     * @param variable variable
+     * @param variable 监听器上下文变量
      */
     void notify(ListenerVariable variable);
 }

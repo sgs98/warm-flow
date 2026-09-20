@@ -21,22 +21,37 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 票签表达式接口
+ * 票签表达式策略接口。
+ * <p>
+ * 票签规则需要根据当前投票上下文判断是否满足通过或驳回条件。默认规则与 SpEL 等扩展规则
+ * 都通过该接口注册到统一策略列表中。
  *
  * @author warm
  */
 public interface VoteSignStrategy extends ExpressionStrategy<Boolean> {
 
     /**
-     * 票签表达式策略实现类集合
+     * 票签表达式策略实现集合。
+     * <p>
+     * {@code ExpressionUtil} 倒序遍历该集合，因此后注册的策略优先级更高。
      */
     List<ExpressionStrategy<Boolean>> EXPRESSION_STRATEGY_LIST = new ArrayList<>();
 
+    /**
+     * 注册票签表达式策略。
+     *
+     * @param expressionStrategy 票签表达式策略
+     */
     @Override
     default void setExpression(ExpressionStrategy<Boolean> expressionStrategy) {
         EXPRESSION_STRATEGY_LIST.add(expressionStrategy);
     }
 
+    /**
+     * 票签表达式默认使用 {@code @@} 分隔策略类型和表达式主体。
+     *
+     * @return 表达式分隔符
+     */
     @Override
     default String interceptStr() {
         return FlowCons.SPLIT_AT;

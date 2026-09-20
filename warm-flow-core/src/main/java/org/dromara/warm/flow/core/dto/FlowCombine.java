@@ -30,7 +30,10 @@ import java.util.List;
 
 
 /**
- * 流程数据集合
+ * 流程定义运行时聚合数据。
+ * <p>
+ * 将定义、节点和连线集中在一个对象中，供流程路径解析、网关路由和流程执行阶段复用，
+ * 避免在一次操作中反复查询同一份流程图。
  *
  * @author warm
  * @since 2023/3/30 14:27
@@ -40,18 +43,19 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FlowCombine {
+
     /**
-     * 所有的流程定义
+     * 流程定义主体。
      */
     private Definition definition = FlowEngine.newDef();
 
     /**
-     * 所有的流程节点
+     * 当前流程定义的全部节点。
      */
     private List<Node> allNodes = new ArrayList<>();
 
     /**
-     * 所有的流程节点跳转关联
+     * 当前流程定义的全部节点跳转连线，按扁平列表保存。
      */
     private List<Skip> allSkips = new ArrayList<>();
 

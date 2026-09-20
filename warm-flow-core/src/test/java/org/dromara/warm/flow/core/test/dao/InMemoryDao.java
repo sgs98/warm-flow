@@ -36,37 +36,60 @@ public abstract class InMemoryDao<T extends RootEntity> implements WarmDao<T> {
     protected final List<String> log;
     private volatile List<Method> columnGetters;
 
+    /**
+     * 绑定实体工厂与共享调用日志，所有子类共用同一套内存行存储语义。
+     */
     protected InMemoryDao(Supplier<T> entityFactory, List<String> log) {
         this.entityFactory = entityFactory;
         this.log = log;
     }
 
+    /**
+     * 返回 DAO 简名，用于构造可读的调用日志。
+     */
     protected String name() {
         return getClass().getSimpleName();
     }
 
-    /** 测试侧直接读取存储（不走查询日志、不拷贝） */
+    /**
+     * 返回当前内存表行数，供测试直接断言持久化副作用。
+     */
     public int size() {
         return store.size();
     }
 
+    /**
+     * 直接读取原始行对象，不记录查询日志、不执行列拷贝。
+     */
     public T raw(Serializable id) {
         return store.get(id);
     }
 
+    /**
+     * 直接删除原始行对象，用于测试准备特殊存储状态。
+     */
     public T removeRaw(Serializable id) {
         return store.remove(id);
     }
 
+    /**
+     * 返回当前内存表所有原始行的快照列表。
+     */
     public List<T> all() {
         return new ArrayList<>(store.values());
     }
 
+    /**
+     * 创建 DAO 对应的测试实体实例，模拟 ORM 适配层实体供应能力。
+     */
     @Override
     public T newEntity() {
         return entityFactory.get();
     }
 
+    /**
+     * 按主键查询单行，返回列字段拷贝以避免测试误依赖瞬态对象引用。
+     */
     @Override
     public T selectById(Serializable id) {
         log.add(name() + ".selectById[" + id + "]");
@@ -74,12 +97,18 @@ public abstract class InMemoryDao<T extends RootEntity> implements WarmDao<T> {
         return row == null ? null : copyOf(row);
     }
 
+    /**
+     * 按主键集合查询多行，仅返回存在的记录并保持入参顺序。
+     */
     @Override
     public List<T> selectByIds(Collection<? extends Serializable> ids) {
         log.add(name() + ".selectByIds" + ids);
         return ids.stream().map(store::get).filter(Objects::nonNull).map(this::copyOf).collect(Collectors.toList());
     }
 
+    /**
+     * 按非空字段分页查询，模拟服务层分页接口依赖的 total 与 list 回填。
+     */
     @Override
     public Page<T> selectPage(T entity, Page<T> page) {
         log.add(name() + ".selectPage" + criteria(entity));
@@ -91,18 +120,27 @@ public abstract class InMemoryDao<T extends RootEntity> implements WarmDao<T> {
         return page;
     }
 
+    /**
+     * 按查询实体的非空字段等值匹配列表，WarmQuery 在测试内暂不参与过滤。
+     */
     @Override
     public List<T> selectList(T entity, WarmQuery<T> query) {
         log.add(name() + ".selectList" + criteria(entity));
         return selectQuietly(entity).stream().map(this::copyOf).collect(Collectors.toList());
     }
 
+    /**
+     * 按查询实体的非空字段统计匹配行数。
+     */
     @Override
     public long selectCount(T entity) {
         log.add(name() + ".selectCount" + criteria(entity));
         return selectQuietly(entity).size();
     }
 
+    /**
+     * 内部无日志查询入口，供分页、删除等组合操作复用。
+     */
     private List<T> selectQuietly(T entity) {
         if (entity == null) {
             return new ArrayList<>(store.values());
@@ -110,6 +148,9 @@ public abstract class InMemoryDao<T extends RootEntity> implements WarmDao<T> {
         return store.values().stream().filter(t -> matches(entity, t)).collect(Collectors.toList());
     }
 
+    /**
+     * 保存单行并回填主键，存储端保留列字段拷贝来模拟数据库行。
+     */
     @Override
     public int save(T entity) {
         log.add(name() + ".save" + criteria(entity));
@@ -120,6 +161,9 @@ public abstract class InMemoryDao<T extends RootEntity> implements WarmDao<T> {
         return 1;
     }
 
+    /**
+     * 按主键更新单行，只合并非空列以贴近默认 ORM 更新策略。
+     */
     @Override
     public int updateById(T entity) {
         log.add(name() + ".updateById[" + entity.getId() + "]");
@@ -131,6 +175,9 @@ public abstract class InMemoryDao<T extends RootEntity> implements WarmDao<T> {
         return 1;
     }
 
+    /**
+     * 按查询实体的非空字段删除匹配行，返回实际删除数量。
+     */
     @Override
     public int delete(T entity) {
         log.add(name() + ".delete" + criteria(entity));
@@ -139,12 +186,18 @@ public abstract class InMemoryDao<T extends RootEntity> implements WarmDao<T> {
         return keys.size();
     }
 
+    /**
+     * 按主键删除单行，返回是否删除成功的计数。
+     */
     @Override
     public int deleteById(Serializable id) {
         log.add(name() + ".deleteById[" + id + "]");
         return store.remove(id) != null ? 1 : 0;
     }
 
+    /**
+     * 按主键集合批量删除，返回实际删除数量。
+     */
     @Override
     public int deleteByIds(Collection<? extends Serializable> ids) {
         log.add(name() + ".deleteByIds" + ids);
@@ -155,6 +208,9 @@ public abstract class InMemoryDao<T extends RootEntity> implements WarmDao<T> {
         return removed;
     }
 
+    /**
+     * 批量保存并逐条回填主键，保持与单行保存一致的行拷贝语义。
+     */
     @Override
     public void saveBatch(List<T> list) {
         log.add(name() + ".saveBatch[n=" + list.size() + "]");
@@ -166,6 +222,9 @@ public abstract class InMemoryDao<T extends RootEntity> implements WarmDao<T> {
         }
     }
 
+    /**
+     * 批量按主键更新，存在的行执行非空列合并，不存在的行忽略。
+     */
     @Override
     public void updateBatch(List<T> list) {
         log.add(name() + ".updateBatch[n=" + list.size() + "]");
@@ -177,7 +236,9 @@ public abstract class InMemoryDao<T extends RootEntity> implements WarmDao<T> {
         }
     }
 
-    /** 列字段拷贝：瞬态集合字段保持未加载状态 */
+    /**
+     * 复制持久化列字段：集合、Map、数组等瞬态关联字段保持未加载状态。
+     */
     protected T copyOf(T src) {
         T dst = entityFactory.get();
         for (Method getter : columnGetters()) {
@@ -201,7 +262,9 @@ public abstract class InMemoryDao<T extends RootEntity> implements WarmDao<T> {
         return dst;
     }
 
-    /** 按非空列合并（模拟 MyBatis-Plus updateById 的 NOT_NULL 更新策略） */
+    /**
+     * 按非空列合并，模拟 MyBatis-Plus updateById 的 NOT_NULL 更新策略。
+     */
     private void mergeNonNull(T src, T row) {
         for (Method getter : columnGetters()) {
             try {
@@ -223,6 +286,9 @@ public abstract class InMemoryDao<T extends RootEntity> implements WarmDao<T> {
         }
     }
 
+    /**
+     * 判断候选行是否满足查询实体的所有非空列条件。
+     */
     private boolean matches(T criterion, T candidate) {
         for (Method getter : columnGetters()) {
             try {
@@ -240,6 +306,9 @@ public abstract class InMemoryDao<T extends RootEntity> implements WarmDao<T> {
         return true;
     }
 
+    /**
+     * 缓存可持久化列的 getter，过滤集合类瞬态关联字段。
+     */
     private List<Method> columnGetters() {
         if (columnGetters == null) {
             List<Method> getters = new ArrayList<>();
@@ -258,6 +327,9 @@ public abstract class InMemoryDao<T extends RootEntity> implements WarmDao<T> {
         return columnGetters;
     }
 
+    /**
+     * 将查询实体中的非空列格式化为日志片段，便于测试断言调用路径。
+     */
     private String criteria(T entity) {
         if (entity == null) {
             return "[]";

@@ -18,10 +18,16 @@ import java.util.stream.Collectors;
  */
 public class NodeMemDao<T extends Node> extends InMemoryDao<T> implements FlowNodeDao<T> {
 
+    /**
+     * 创建流程节点内存 DAO，并复用基类的实体工厂与调用日志。
+     */
     public NodeMemDao(Supplier<T> factory, List<String> log) {
         super(factory, log);
     }
 
+    /**
+     * 按流程定义 ID 与节点编码集合查询节点。
+     */
     @Override
     public List<T> getByNodeCodes(List<String> nodeCodes, Long definitionId) {
         log.add(name() + ".getByNodeCodes[nodeCodes=" + nodeCodes + ",definitionId=" + definitionId + "]");
@@ -32,6 +38,9 @@ public class NodeMemDao<T extends Node> extends InMemoryDao<T> implements FlowNo
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 删除指定流程定义下的全部节点。
+     */
     @Override
     public int deleteNodeByDefIds(Collection<? extends Serializable> defIds) {
         log.add(name() + ".deleteNodeByDefIds" + defIds);

@@ -1,18 +1,3 @@
-/*
- *    Copyright 2024-2025, Warm-Flow (290631660@qq.com).
- *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
- *
- *       https://www.apache.org/licenses/LICENSE-2.0
- *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
- */
 package org.dromara.warm.flow.core.test.listener;
 
 import org.dromara.warm.flow.core.listener.GlobalListener;
@@ -28,7 +13,9 @@ import java.util.function.Consumer;
  */
 public class MutatingGlobalListener extends RecordingGlobalListener {
 
-    /** start 事件触发的库写钩子，测试在操作前装配、操作后必须清理 */
+    /**
+     * start 事件触发的库写钩子，测试在操作前装配、操作后必须清理。
+     */
     public static Consumer<ListenerVariable> onStart;
 
     private static final GlobalListener INSTANCE = new MutatingGlobalListener();
@@ -36,10 +23,20 @@ public class MutatingGlobalListener extends RecordingGlobalListener {
     private MutatingGlobalListener() {
     }
 
+    /**
+     * 返回支持测试注入回调的全局监听器单例。
+     *
+     * @return 全局监听器实例
+     */
     public static GlobalListener instance() {
         return INSTANCE;
     }
 
+    /**
+     * 记录开始事件后执行测试注入回调。
+     *
+     * @param variable 监听器上下文
+     */
     @Override
     public void start(ListenerVariable variable) {
         super.start(variable);
