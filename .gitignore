@@ -47,7 +47,6 @@ node_modules/
 /.playwright-cli/
 /output/
 /node_modules/
-/.codex/
 /.superpowers/
 /.workbuddy/
 /docs/

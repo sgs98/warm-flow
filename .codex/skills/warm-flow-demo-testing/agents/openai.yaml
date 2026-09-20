@@ -1,0 +1,4 @@
+interface:
+  display_name: "Warm-Flow Demo 流程测试"
+  short_description: "使用 Warm-Flow Demo 验证流程、网关和任务协作"
+  default_prompt: "请使用 $warm-flow-demo-testing 对当前 Warm-Flow Demo 做一次完整流程回归测试。"
