@@ -31,10 +31,12 @@ public class ValueHolder {
      * 监听器类路径。
      */
     private String path;
+
     /**
      * 已解析的监听器实例。
      */
     private Listener listener;
+
     /**
      * 监听器路径中携带的参数。
      */
