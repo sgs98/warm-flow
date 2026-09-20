@@ -131,15 +131,21 @@ public class WarmFlowService {
     /**
      * 获取流程图
      *
-     * @param id 流程实例id
+     * @param id 流程实例id/流程定义id
      * @return ApiResult<DefJson>
      */
     public static ApiResult<DefJson> queryFlowChart(Long id) {
         try {
+            DefJson defJson;
             Instance instance = FlowEngine.insService().getById(id);
-            String defJsonStr = instance.getDefJson();
-            DefJson defJson = FlowEngine.jsonConvert.strToBean(defJsonStr, DefJson.class);
-            defJson.setInstance(instance);
+            if (instance == null) {
+                String exportJson = FlowEngine.defService().exportJson(id);
+                defJson = FlowEngine.jsonConvert.strToBean(exportJson, DefJson.class);
+            }else {
+                String defJsonStr = instance.getDefJson();
+                defJson = FlowEngine.jsonConvert.strToBean(defJsonStr, DefJson.class);
+                defJson.setInstance(instance);
+            }
 
             // 获取流程图三原色
             defJson.setChartStatusColor(FlowEngine.chartService().getChartRgb(defJson.getModelValue()));

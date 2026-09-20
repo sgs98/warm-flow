@@ -70,7 +70,7 @@ public class WarmFlowController {
     /**
      * 获取流程图
      *
-     * @param id 流程实例id
+     * @param id 流程实例id/流程定义id
      * @return ApiResult<DefJson>
      */
     @GetMapping("/query-flow-chart/{id}")
