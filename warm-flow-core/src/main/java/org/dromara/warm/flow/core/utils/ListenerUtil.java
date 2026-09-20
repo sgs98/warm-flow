@@ -81,6 +81,7 @@ public class ListenerUtil {
     }
 
     public static void executeListener(ListenerVariable listenerVariable, String type) {
+        listenerVariable.setEventType(type);
         // 执行监听器
         //listenerPath({"name": "John Doe", "age": 30})@@listenerPath@@listenerPath
         String listenerType = listenerVariable.getNode().getListenerType();
@@ -89,11 +90,13 @@ public class ListenerUtil {
         execute(listenerVariable, type, definition.getListenerPath(), definition.getListenerType());
         GlobalListener globalListener = FlowEngine.globalListener();
         if (ObjectUtil.isNotNull(globalListener)) {
+            listenerVariable.setEventType(type);
             globalListener.notify(type, listenerVariable);
         }
     }
 
     public static void execute(ListenerVariable listenerVariable, String type, String listenerPaths, String listenerTypes) {
+        listenerVariable.setEventType(type);
         if (StringUtils.isNotEmpty(listenerTypes)) {
             String[] listenerTypeArr = listenerTypes.split(",");
             for (int i = 0; i < listenerTypeArr.length; i++) {
@@ -102,6 +105,7 @@ public class ListenerUtil {
                     if (StringUtils.isNotEmpty(listenerPaths)) {
                         String[] listenerPathArr = listenerPaths.split(FlowCons.SPLIT_AT);
                         String listenerPath = listenerPathArr[i].trim();
+                        listenerVariable.setEventType(type);
                         ValueHolder valueHolder = new ValueHolder();
                         //截取出path 和params
                         getListenerPath(listenerPath, valueHolder);

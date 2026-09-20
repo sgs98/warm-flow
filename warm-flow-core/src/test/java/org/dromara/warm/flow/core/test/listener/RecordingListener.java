@@ -42,6 +42,7 @@ public abstract class RecordingListener implements Listener {
                 + ",task=" + (task == null ? null : task.getNodeCode())
                 + ",ctx=" + (v.getContext() != null)
                 + ",taskUsers=" + (task != null && task.getUserList() != null)
+                + ",event=" + v.getEventType()
                 + ",vars=" + v.getVariable()
                 + "}";
     }

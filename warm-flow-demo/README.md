@@ -71,6 +71,17 @@ curl -F "file=@leave_1.json" "http://localhost:8080/api/definitions/import"
 - 前端无论走 vite 代理还是直连 8080，POST/PUT/DELETE 都会带 `Origin`，后端 `WebConfig` 已对 `/api/**` 放开本地联调跨域（`allowedOriginPatterns("*")`）；来源不在白名单时 Spring 会直接返回 403，正式集成请自行收紧。改完 CORS 需要重启后端才生效。
 - 引擎 `importIs` 按 JVM 默认字符集读取文件（JDK 18+ 默认 UTF-8）；若在 JDK 17 且默认字符集非 UTF-8 的环境（如部分 Windows）导入含中文的文件，可用 `-Dfile.encoding=UTF-8` 启动。
 
+## 监听器示例
+
+Demo 内置了全局监听器和任务监听器示例，便于观察 Warm-Flow 的监听器触发时机：
+
+- 全局监听器通过 `warm-flow.global-listener-path` 配置为
+  `org.dromara.warm.demo.listener.DemoGlobalListener`，覆盖 `start`、`assignment`、`finish`、`create` 四类全局事件；其中 `assignment` 还负责把 Demo 流程中的用户/部门权限标识展开为实际用户名。
+- 任务监听器为 `org.dromara.warm.demo.listener.DemoTaskListener`。在 iframe 流程设计器的节点监听器配置中手动填写该类路径，并按需配置 `start`、`assignment`、`finish`、`create` 事件；同一个监听器配置多个事件时，可通过 `ListenerVariable.getEventType()` 获取本次实际触发的事件。
+- 启动流程并办理任务后，可在 Demo 后端日志中查看监听器读取到的流程定义、实例、节点、任务和流程变量上下文。
+
+监听器示例只输出日志，不修改流程状态、办理人或流程变量；实际接入时可在此基础上实现审计、通知等业务逻辑。
+
 ## 说明与约束
 
 - 本目录不参与正式发布；设计器页面由后端 `warm-flow-plugin-ui-sb-web` 与 `warm-flow-plugin-vue3-ui` 提供，前端通过 `/warm-flow-ui/index.html` iframe 集成。

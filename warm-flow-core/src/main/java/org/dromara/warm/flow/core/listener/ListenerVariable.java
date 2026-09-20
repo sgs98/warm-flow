@@ -70,6 +70,11 @@ public class ListenerVariable {
     private Map<String, Object> variable;
 
     /**
+     * 本次实际触发的监听器事件类型，取值见 {@link Listener} 事件常量
+     */
+    private String eventType;
+
+    /**
      * 工作流内置参数
      */
     private WorkflowContext context;
@@ -323,6 +328,26 @@ public class ListenerVariable {
     }
 
     /**
+     * 获取本次实际触发的监听器事件类型。
+     *
+     * @return 监听器事件类型，取值见 {@link Listener} 事件常量
+     */
+    public String getEventType() {
+        return eventType;
+    }
+
+    /**
+     * 设置本次实际触发的监听器事件类型。
+     *
+     * @param eventType 监听器事件类型
+     * @return 当前监听器变量
+     */
+    public ListenerVariable setEventType(String eventType) {
+        this.eventType = eventType;
+        return this;
+    }
+
+    /**
      * 获取流程动作执行上下文。
      *
      * @return 流程动作执行上下文
@@ -353,6 +378,7 @@ public class ListenerVariable {
             ", nextNodes=" + nextNodes +
             ", nextTasks=" + nextTasks +
             ", variable=" + variable +
+            ", eventType='" + eventType + '\'' +
             ", context=" + context +
             '}';
     }
