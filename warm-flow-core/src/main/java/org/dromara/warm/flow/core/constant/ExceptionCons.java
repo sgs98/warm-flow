@@ -92,6 +92,11 @@ public class ExceptionCons {
     public static final String NULL_CONDITION_VALUE_NODE = "未找到跳转条件，不支持跳转!";
 
     /**
+     * 连续网关路由形成循环，无法解析出实际办理节点。
+     */
+    public static final String GATEWAY_CYCLE = "网关路由存在循环，无法解析目标节点!";
+
+    /**
      * 跳转条件表达式为空。
      */
     public static final String NULL_CONDITION_VALUE = "跳转条件不能为空!";

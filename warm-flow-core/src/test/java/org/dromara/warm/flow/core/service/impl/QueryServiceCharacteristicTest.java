@@ -17,23 +17,30 @@ package org.dromara.warm.flow.core.service.impl;
 
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.dto.FlowCombine;
+import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.entity.Node;
+import org.dromara.warm.flow.core.entity.Skip;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.entity.User;
+import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -67,6 +74,77 @@ class QueryServiceCharacteristicTest {
             reused.stream().map(Node::getNodeCode).collect(Collectors.toSet()));
         assertTrue(reused.stream().map(Node::getNodeCode).collect(Collectors.toSet())
             .containsAll(Set.of("a1", "b1")));
+    }
+
+    @Test
+    void prefixAndSuffixTraversal_preserveDepthFirstOrderWithoutRecursion() {
+        FlowCombine combine = linearCombine(2_000);
+
+        List<Node> suffix = FlowEngine.nodeService().suffixNodeList("n0", combine);
+        List<Node> previous = FlowEngine.nodeService().previousNodeList("n2000", combine);
+
+        assertEquals(2_000, suffix.size());
+        assertEquals("n1", suffix.get(0).getNodeCode());
+        assertEquals("n2000", suffix.get(suffix.size() - 1).getNodeCode());
+        assertEquals(2_000, previous.size());
+        assertEquals("n1999", previous.get(0).getNodeCode());
+        assertEquals("n0", previous.get(previous.size() - 1).getNodeCode());
+    }
+
+    @Test
+    void gatewayCycle_failsWithFlowExceptionInsteadOfOverflowingStack() {
+        Definition definition = FlowEngine.newDef().setId(1L);
+        Node first = node(1L, "g1", NodeType.PARALLEL.getKey());
+        Node second = node(1L, "g2", NodeType.PARALLEL.getKey());
+        FlowCombine combine = new FlowCombine(definition, List.of(first, second), List.of(
+            skip(1L, "g1", NodeType.PARALLEL.getKey(), "g2", NodeType.PARALLEL.getKey()),
+            skip(1L, "g2", NodeType.PARALLEL.getKey(), "g1", NodeType.PARALLEL.getKey())
+        ));
+
+        FlowException exception = assertThrows(FlowException.class,
+            () -> FlowEngine.nodeService().getNextByCheckGateway(Map.of(), first, null, combine));
+
+        assertEquals(org.dromara.warm.flow.core.constant.ExceptionCons.GATEWAY_CYCLE, exception.getMessage());
+    }
+
+    @Test
+    void duplicateGatewayDestination_returnsNodeOnce() {
+        Definition definition = FlowEngine.newDef().setId(1L);
+        Node gateway = node(1L, "g1", NodeType.PARALLEL.getKey());
+        Node target = node(1L, "target", NodeType.BETWEEN.getKey());
+        FlowCombine combine = new FlowCombine(definition, List.of(gateway, target), List.of(
+            skip(1L, "g1", NodeType.PARALLEL.getKey(), "target", NodeType.BETWEEN.getKey()),
+            skip(1L, "g1", NodeType.PARALLEL.getKey(), "target", NodeType.BETWEEN.getKey())
+        ));
+
+        List<Node> nodes = FlowEngine.nodeService().getNextByCheckGateway(Map.of(), gateway, null, combine);
+
+        assertEquals(List.of("target"), nodes.stream().map(Node::getNodeCode).toList());
+    }
+
+    private FlowCombine linearCombine(int edgeCount) {
+        Definition definition = FlowEngine.newDef().setId(1L);
+        List<Node> nodes = new ArrayList<>(edgeCount + 1);
+        List<Skip> skips = new ArrayList<>(edgeCount);
+        for (int index = 0; index <= edgeCount; index++) {
+            nodes.add(node(1L, "n" + index, NodeType.BETWEEN.getKey()));
+            if (index > 0) {
+                skips.add(skip(1L, "n" + (index - 1), NodeType.BETWEEN.getKey(), "n" + index,
+                    NodeType.BETWEEN.getKey()));
+            }
+        }
+        return new FlowCombine(definition, nodes, skips);
+    }
+
+    private Node node(Long definitionId, String nodeCode, Integer nodeType) {
+        return FlowEngine.newNode().setDefinitionId(definitionId).setNodeCode(nodeCode).setNodeType(nodeType);
+    }
+
+    private Skip skip(Long definitionId, String nowNodeCode, Integer nowNodeType, String nextNodeCode
+        , Integer nextNodeType) {
+        return FlowEngine.newSkip().setDefinitionId(definitionId).setNowNodeCode(nowNodeCode)
+            .setNowNodeType(nowNodeType).setNextNodeCode(nextNodeCode).setNextNodeType(nextNodeType)
+            .setSkipType(SkipType.PASS.getKey());
     }
 
     @Test
