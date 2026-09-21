@@ -121,8 +121,7 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
     public Definition insertFlow(Definition definition, List<Node> nodeList, List<Skip> skipList) {
         definition.setVersion(getNewVersion(definition));
         FlowEngine.defService().save(definition);
-        FlowEngine.nodeService().saveBatch(nodeList);
-        FlowEngine.skipService().saveBatch(skipList);
+        saveGraph(nodeList, skipList);
         return definition;
     }
 
@@ -169,24 +168,12 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
             if (!onlyNodeSkip) {
                 FlowEngine.defService().updateById(definition);
             }
-            // 删除所有节点和连线
-            FlowEngine.nodeService().remove(FlowEngine.newNode().setDefinitionId(id));
-            FlowEngine.skipService().remove(FlowEngine.newSkip().setDefinitionId(id));
+            removeGraph(id);
         }
 
-        // 保存流程节点和跳转
         List<Node> allNodes = flowCombine.getAllNodes();
-        allNodes.forEach(node -> {
-            if (StringUtils.isEmpty(node.getNodeRatio())) {
-                node.setNodeRatio(StringUtils.ZERO);
-            }
-        });
-        // 所有的流程连线
-        List<Skip> allSkips = flowCombine.getAllSkips();
-
-        // 保存节点，流程连线，权利人
-        FlowEngine.nodeService().saveBatch(allNodes);
-        FlowEngine.skipService().saveBatch(allSkips);
+        normalizeNodeRatios(allNodes);
+        saveGraph(allNodes, flowCombine.getAllSkips());
     }
 
     /**
@@ -209,6 +196,7 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
     @Override
     public Definition getAllDataDefinition(Long id) {
         Definition definition = getDao().selectById(id);
+        AssertUtil.isNull(definition, ExceptionCons.NOT_FOUNT_DEF);
         List<Node> nodeList = FlowEngine.nodeService().getByDefId(id);
         definition.setNodeList(nodeList);
         List<Skip> skips = FlowEngine.skipService().getByDefId(id);
@@ -251,6 +239,7 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
      */
     @Override
     public FlowCombine getFlowCombine(Definition definition) {
+        AssertUtil.isNull(definition, ExceptionCons.NOT_FOUNT_DEF);
         FlowCombine flowCombine = getFlowCombineNoDef(definition.getId());
         flowCombine.setDefinition(definition);
         return flowCombine;
@@ -385,10 +374,8 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
         FlowEngine.dataFillHandler().idFill(definition);
 
         nodeList.forEach(node -> node.setDefinitionId(definition.getId()));
-        FlowEngine.nodeService().saveBatch(nodeList);
-
         skipList.forEach(skip -> skip.setDefinitionId(definition.getId()));
-        FlowEngine.skipService().saveBatch(skipList);
+        saveGraph(nodeList, skipList);
         return save(definition);
     }
 
@@ -485,6 +472,33 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
         }
 
         return version;
+    }
+
+    /**
+     * 删除指定定义现有的节点和连线，保持节点先于连线的历史调用顺序。
+     */
+    private void removeGraph(Long definitionId) {
+        FlowEngine.nodeService().remove(FlowEngine.newNode().setDefinitionId(definitionId));
+        FlowEngine.skipService().remove(FlowEngine.newSkip().setDefinitionId(definitionId));
+    }
+
+    /**
+     * 保存节点和连线，统一各定义写入入口的图数据持久化顺序。
+     */
+    private void saveGraph(List<Node> nodes, List<Skip> skips) {
+        FlowEngine.nodeService().saveBatch(nodes);
+        FlowEngine.skipService().saveBatch(skips);
+    }
+
+    /**
+     * 设计器未设置协作比例时沿用既有默认值。
+     */
+    private void normalizeNodeRatios(List<Node> nodes) {
+        nodes.forEach(node -> {
+            if (StringUtils.isEmpty(node.getNodeRatio())) {
+                node.setNodeRatio(StringUtils.ZERO);
+            }
+        });
     }
 
     /**

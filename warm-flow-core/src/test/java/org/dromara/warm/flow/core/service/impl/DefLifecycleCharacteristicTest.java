@@ -170,6 +170,20 @@ class DefLifecycleCharacteristicTest {
     }
 
     @Test
+    void definitionGraphReads_unknownId_throwNotFoundInsteadOfNullPointer() {
+        FlowException allData = assertThrows(FlowException.class,
+            () -> FlowEngine.defService().getAllDataDefinition(-1L));
+        FlowException combine = assertThrows(FlowException.class,
+            () -> FlowEngine.defService().getFlowCombine(-1L));
+        FlowException design = assertThrows(FlowException.class,
+            () -> FlowEngine.defService().queryDesign(-1L));
+
+        assertEquals(ExceptionCons.NOT_FOUNT_DEF, allData.getMessage());
+        assertEquals(ExceptionCons.NOT_FOUNT_DEF, combine.getMessage());
+        assertEquals(ExceptionCons.NOT_FOUNT_DEF, design.getMessage());
+    }
+
+    @Test
     void insertFlow_assignsNumericAndTimestampVersions() {
         // 全新编码：无历史版本 → 1，再次插入 → 2
         Definition first = FlowEngine.defService().insertFlow(
