@@ -24,12 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.LongSupplier;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 核心公共工具 API 的直接覆盖测试。
@@ -45,6 +40,11 @@ class CoreUtilityApiTest {
 
     @Test
     void frameInvoker_page_andMapUtilities_keepPublicContracts() {
+        FrameInvoker.setBeanFunction(null);
+        FrameInvoker.setCfgFunction(null);
+        assertNull(FrameInvoker.getBean(String.class));
+        assertNull(FrameInvoker.getCfg("test"));
+
         FrameInvoker.setBeanFunction(type -> type.getName().equals(String.class.getName()) ? "bean" : null);
         FrameInvoker.setCfgFunction(key -> "cfg:" + key);
         assertEquals("bean", FrameInvoker.getBean(String.class));

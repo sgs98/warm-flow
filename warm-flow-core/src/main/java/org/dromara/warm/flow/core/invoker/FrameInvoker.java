@@ -35,7 +35,7 @@ public class FrameInvoker<M> {
     /**
      * 按类型获取 Bean 的函数。
      */
-    private Function<Class<M>, M> beanFunction;
+    private Function<Class<?>, Object> beanFunction;
 
     /**
      * 按配置 key 获取配置值的函数。
@@ -52,7 +52,7 @@ public class FrameInvoker<M> {
      * @param <M> Bean 类型
      */
     public static <M> void setBeanFunction(Function<Class<M>, M> function) {
-        frameInvoker.beanFunction = function;
+        invoker().beanFunction = function == null ? null : type -> applyBeanFunction(function, type);
     }
 
     /**
@@ -65,11 +65,23 @@ public class FrameInvoker<M> {
      * @return Bean 实例
      */
     public static <M> M getBean(Class<M> tClass) {
+        Function<Class<?>, Object> function = invoker().beanFunction;
+        if (function == null) {
+            return null;
+        }
         try {
-            return (M) frameInvoker.beanFunction.apply(tClass);
+            return tClass.cast(function.apply(tClass));
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /**
+     * 将公开泛型注册函数适配为内部统一函数，未检查转换集中在这一处。
+     */
+    @SuppressWarnings("unchecked")
+    private static <M> M applyBeanFunction(Function<Class<M>, M> function, Class<?> type) {
+        return function.apply((Class<M>) type);
     }
 
     /**
@@ -78,7 +90,7 @@ public class FrameInvoker<M> {
      * @param function 配置获取函数
      */
     public static void setCfgFunction(Function<String, String> function) {
-        frameInvoker.cfgFunction = function;
+        invoker().cfgFunction = function;
     }
 
     /**
@@ -88,11 +100,23 @@ public class FrameInvoker<M> {
      * @return 配置值；未注册函数或获取失败时返回 {@code null}
      */
     public static String getCfg(String key) {
+        Function<String, String> function = invoker().cfgFunction;
+        if (function == null) {
+            return null;
+        }
         try {
-            return (String) frameInvoker.cfgFunction.apply(key);
+            return function.apply(key);
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /**
+     * 将保留兼容性的公开原始类型字段收敛为内部参数化视图。
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static FrameInvoker<?> invoker() {
+        return frameInvoker;
     }
 
 }

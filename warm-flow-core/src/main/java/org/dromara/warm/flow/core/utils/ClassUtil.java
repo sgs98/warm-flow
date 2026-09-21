@@ -73,7 +73,9 @@ public class ClassUtil {
             // 遍历字段进行赋值
             for (Field field : fields) {
                 // 设置可访问性
-                makeAccessible(field);
+                if (!field.canAccess(Modifier.isStatic(field.getModifiers()) ? null : origin)) {
+                    makeAccessible(field);
+                }
                 // 跳过静态字段和常量字段
                 int modifiers = field.getModifiers();
                 if (Modifier.isStatic(modifiers) || Modifier.isFinal(modifiers)) {
@@ -98,8 +100,7 @@ public class ClassUtil {
     public static void makeAccessible(Field field) {
         if ((!Modifier.isPublic(field.getModifiers())
             || !Modifier.isPublic(field.getDeclaringClass().getModifiers())
-            || Modifier.isFinal(field.getModifiers()))
-            && !field.isAccessible()) {
+            || Modifier.isFinal(field.getModifiers()))) {
             field.setAccessible(true);
         }
     }
