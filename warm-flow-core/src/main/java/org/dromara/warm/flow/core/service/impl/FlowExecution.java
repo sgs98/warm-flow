@@ -18,11 +18,7 @@ package org.dromara.warm.flow.core.service.impl;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.dto.FlowCombine;
-import org.dromara.warm.flow.core.entity.Definition;
-import org.dromara.warm.flow.core.entity.Instance;
-import org.dromara.warm.flow.core.entity.Node;
-import org.dromara.warm.flow.core.entity.Task;
-import org.dromara.warm.flow.core.entity.User;
+import org.dromara.warm.flow.core.entity.*;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
@@ -156,6 +152,15 @@ final class FlowExecution {
         return execution;
     }
 
+    /**
+     * 创建一次操作独占的执行作用域；统一由静态加载方法完成前置校验后调用。
+     *
+     * @param task       当前待办任务，实例级或启动操作可为空
+     * @param instance   流程实例，启动操作创建前可为空
+     * @param definition 流程定义
+     * @param nowNode    当前节点，实例级操作可为空
+     * @param intent     调用方上下文
+     */
     private FlowExecution(Task task, Instance instance, Definition definition, Node nowNode
         , WorkflowContext intent) {
         this.task = task;

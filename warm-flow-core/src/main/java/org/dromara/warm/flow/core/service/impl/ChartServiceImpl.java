@@ -38,13 +38,23 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 流程图绘制Service业务层处理
+ * 流程图状态元数据服务实现。
+ *
+ * <p>根据实际流转路径更新设计快照中的节点、连线状态，并将结果序列化后保存到流程实例或返回给调用方。</p>
  *
  * @author warm
  * @since 2024-12-30
  */
 public class ChartServiceImpl implements ChartService {
 
+    /**
+     * 生成流程启动后的首份流程图元数据。
+     *
+     * <p>未经过的元素初始化为未完成，已经过的路径标记为完成，当前目标节点标记为待办；结束节点直接标记为完成。</p>
+     *
+     * @param pathWayData 启动阶段收集的定义ID、经过路径和目标节点
+     * @return 带运行状态的流程设计 JSON
+     */
     @Override
     public String startMetadata(PathWayData pathWayData) {
 
@@ -65,6 +75,14 @@ public class ChartServiceImpl implements ChartService {
         return FlowEngine.jsonConvert.objToStr(defJson);
     }
 
+    /**
+     * 在已有流程图快照上合并一次任务流转结果。
+     *
+     * <p>通过时推进完成路径，驳回时重置回退路径及其后续分支，避免流程图继续显示已失效的待办状态。</p>
+     *
+     * @param pathWayData 本次流转的实例ID、跳转类型、经过路径和目标节点
+     * @return 更新后的流程图元数据 JSON
+     */
     @Override
     public String skipMetadata(PathWayData pathWayData) {
         Instance instance = FlowEngine.insService().getById(pathWayData.getInsId());
@@ -120,6 +138,12 @@ public class ChartServiceImpl implements ChartService {
         return FlowEngine.jsonConvert.objToStr(defJson);
     }
 
+    /**
+     * 获取指定流程图配色模型对应的三种状态颜色。
+     *
+     * @param modelValue 配色模型标识
+     * @return 按已完成、待办、未完成顺序排列的 RGB 字符串
+     */
     @Override
     public List<String> getChartRgb(String modelValue) {
         List<String> chartStatusColor = new ArrayList<>();
@@ -132,6 +156,12 @@ public class ChartServiceImpl implements ChartService {
         return chartStatusColor;
     }
 
+    /**
+     * 使用连线的起点、类型、条件和终点构造设计快照中的唯一匹配键。
+     *
+     * @param skip 设计快照中的连线
+     * @return 连线唯一匹配键
+     */
     private String getSkipKey(SkipJson skip) {
         return StringUtils.join(new String[]{
             skip.getNowNodeCode(),
@@ -140,6 +170,12 @@ public class ChartServiceImpl implements ChartService {
             skip.getNextNodeCode()}, ":");
     }
 
+    /**
+     * 使用运行期连线的起点、类型、条件和终点构造唯一匹配键。
+     *
+     * @param skip 运行期连线
+     * @return 连线唯一匹配键
+     */
     private String getSkipKey(Skip skip) {
         return StringUtils.join(new String[]{
             skip.getNowNodeCode(),
@@ -148,6 +184,13 @@ public class ChartServiceImpl implements ChartService {
             skip.getNextNodeCode()}, ":");
     }
 
+    /**
+     * 从驳回目标开始递归重置后续非驳回路径，清除已不再有效的完成或待办状态。
+     *
+     * @param nodeCode    当前递归节点编码
+     * @param skipNextMap 按起点分组的后续连线
+     * @param nodeMap     按节点编码索引的设计节点
+     */
     private void rejectReset(String nodeCode, Map<String, List<SkipJson>> skipNextMap, Map<String, NodeJson> nodeMap) {
         List<SkipJson> oneNextSkips = skipNextMap.get(nodeCode);
         if (CollUtil.isNotEmpty(oneNextSkips)) {

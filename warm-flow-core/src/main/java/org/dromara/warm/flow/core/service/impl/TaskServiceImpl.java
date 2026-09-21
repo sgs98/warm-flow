@@ -20,7 +20,7 @@ import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.constant.FlowCons;
 import org.dromara.warm.flow.core.dto.FlowDto;
 import org.dromara.warm.flow.core.entity.*;
-import org.dromara.warm.flow.core.enums.*;
+import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.listener.Listener;
 import org.dromara.warm.flow.core.listener.ListenerVariable;
 import org.dromara.warm.flow.core.orm.dao.FlowTaskDao;
@@ -33,7 +33,9 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * 待办任务Service业务层处理
+ * 待办任务服务实现。
+ *
+ * <p>作为任务操作入口，编排办理、撤回、终止和办理人调整流程，并负责待办创建、权限校验、实例状态回写及表单加载。</p>
  *
  * @author warm
  * @since 2023-03-29

@@ -10,12 +10,7 @@ import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 /**
  * 流程执行内部状态机。
@@ -77,6 +72,9 @@ final class FlowStatusMachine {
         GUARDS = Collections.unmodifiableMap(table);
     }
 
+    /**
+     * 工具类不允许实例化。
+     */
     private FlowStatusMachine() {
     }
 

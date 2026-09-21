@@ -41,6 +41,9 @@ final class TaskCooperationRuleEvaluator {
         return false;
     }
 
+    /**
+     * 票签完成条件的内部规则契约。
+     */
     private interface Rule {
 
         /**
@@ -60,14 +63,27 @@ final class TaskCooperationRuleEvaluator {
         boolean matches(Context context);
     }
 
+    /** 使用表达式计算票签是否完成。 */
     private static final class ExpressionRule implements Rule {
 
+        /**
+         * 判断是否为默认票签表达式或驳回表达式配置。
+         *
+         * @param nodeRatio 节点票签规则配置
+         * @return 是否由表达式规则处理
+         */
         @Override
         public boolean supports(String nodeRatio) {
             return CooperateType.isVoteSignDefault(nodeRatio)
                 || CooperateType.isVoteSignRejectSpel(nodeRatio);
         }
 
+        /**
+         * 注入票签统计变量并执行表达式。
+         *
+         * @param context 票签统计上下文
+         * @return 表达式是否满足继续流转条件
+         */
         @Override
         public boolean matches(Context context) {
             // 表达式使用副本变量，避免把票签统计字段写回流程实例变量。
@@ -84,13 +100,26 @@ final class TaskCooperationRuleEvaluator {
         }
     }
 
+    /** 达到指定通过人数时完成，或在剩余票数已无法通过时提前驳回。 */
     private static final class PassCountRule implements Rule {
 
+        /**
+         * 判断是否为通过人数规则。
+         *
+         * @param nodeRatio 节点票签规则配置
+         * @return 是否由通过人数规则处理
+         */
         @Override
         public boolean supports(String nodeRatio) {
             return CooperateType.isVoteSignPassCount(nodeRatio);
         }
 
+        /**
+         * 计算通过人数是否达标，或驳回人数是否已使通过条件无法达成。
+         *
+         * @param context 票签统计上下文
+         * @return 是否满足继续流转条件
+         */
         @Override
         public boolean matches(Context context) {
             // 当前办理结果尚未写入历史列表，因此通过/驳回计数需要加上本次结果。
@@ -102,13 +131,26 @@ final class TaskCooperationRuleEvaluator {
         }
     }
 
+    /** 达到指定驳回人数时完成，或在剩余票数已无法驳回时提前通过。 */
     private static final class RejectCountRule implements Rule {
 
+        /**
+         * 判断是否为驳回人数规则。
+         *
+         * @param nodeRatio 节点票签规则配置
+         * @return 是否由驳回人数规则处理
+         */
         @Override
         public boolean supports(String nodeRatio) {
             return CooperateType.isVoteSignRejectCount(nodeRatio);
         }
 
+        /**
+         * 计算驳回人数是否达标，或通过人数是否已使驳回条件无法达成。
+         *
+         * @param context 票签统计上下文
+         * @return 是否满足继续流转条件
+         */
         @Override
         public boolean matches(Context context) {
             // 当前办理结果尚未写入历史列表，因此通过/驳回计数需要加上本次结果。
@@ -120,13 +162,26 @@ final class TaskCooperationRuleEvaluator {
         }
     }
 
+    /** 按通过比例计算票签结果，并作为其他格式均未命中时的兜底规则。 */
     private static final class PassRatioRule implements Rule {
 
+        /**
+         * 比例规则作为兜底规则，始终支持当前配置。
+         *
+         * @param nodeRatio 节点票签规则配置
+         * @return 固定返回 {@code true}
+         */
         @Override
         public boolean supports(String nodeRatio) {
             return true;
         }
 
+        /**
+         * 将本次办理结果计入统计后计算通过和驳回比例。
+         *
+         * @param context 票签统计上下文
+         * @return 是否满足继续流转条件
+         */
         @Override
         public boolean matches(Context context) {
             // 比例规则同样把当前办理结果计入分子，再与节点配置比例比较。
@@ -183,6 +238,18 @@ final class TaskCooperationRuleEvaluator {
          */
         private final Map<String, Object> variable;
 
+        /**
+         * 创建不可变统计快照，空列表和空变量统一转换为空集合。
+         *
+         * @param nodeRatio     节点票签规则配置
+         * @param skipType     当前跳转类型
+         * @param isPass       当前办理是否通过
+         * @param allNum       总办理人数
+         * @param todoList     尚未办理的人员列表
+         * @param donePassList 已通过的历史记录
+         * @param doneRejectList 已驳回的历史记录
+         * @param variable     流程变量
+         */
         Context(String nodeRatio, String skipType, boolean isPass, int allNum, List<?> todoList
             , List<?> donePassList, List<?> doneRejectList, Map<String, Object> variable) {
             this.nodeRatio = nodeRatio;
@@ -197,6 +264,9 @@ final class TaskCooperationRuleEvaluator {
 
         /**
          * 将可能为空的统计列表统一为空集合，保持规则计算安全。
+         *
+         * @param list 原始统计列表
+         * @return 原列表或空集合
          */
         private static List<?> defaultList(List<?> list) {
             return list == null ? List.of() : list;

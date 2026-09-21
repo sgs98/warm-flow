@@ -20,6 +20,8 @@ import java.util.Objects;
 /**
  * 待办任务协作处理器。
  *
+ * <p>处理委派回收、会签和票签的单人办理结果；返回值表示本次操作是否只记录协作结果而暂不推进节点。</p>
+ *
  * @author may
  */
 final class TaskCooperationHandler {
@@ -75,7 +77,7 @@ final class TaskCooperationHandler {
         }
 
         String nodeRatio = execution.nowNode.getNodeRatio();
-        // R5：从操作内办理人全集派生待办视图（与权限校验同一份快照），不再按类型二次查询
+        // 从操作内办理人全集派生待办视图，与权限校验共用同一份快照。
         List<User> todoList = execution.usersOfTypes(UserType.APPROVAL.getKey()
             , UserType.TRANSFER.getKey(), UserType.DEPUTE.getKey());
         AssertUtil.isEmpty(context.getHandler(), ExceptionCons.SIGN_NULL_HANDLER);

@@ -43,7 +43,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 流程节点Service业务层处理
+ * 流程节点服务实现。
+ *
+ * <p>除基础节点查询外，还负责沿连线解析前后节点、选择普通出口，并递归穿透串行、并行和包容网关。</p>
  *
  * @author warm
  * @since 2023-03-29
@@ -57,12 +59,24 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
     private final List<GatewayStrategy> gatewayStrategies = List.of(
         new SerialGatewayStrategy(), new ParallelGatewayStrategy(), new InclusiveGatewayStrategy());
 
+    /**
+     * 注入流程节点 DAO。
+     *
+     * @param warmDao 流程节点数据访问对象
+     * @return 当前服务实例
+     */
     @Override
     public NodeService setDao(FlowNodeDao<Node> warmDao) {
         this.warmDao = warmDao;
         return this;
     }
 
+    /**
+     * 按流程编码查询当前已发布版本的全部节点。
+     *
+     * @param flowCode 流程编码
+     * @return 已发布流程定义的节点集合，不存在已发布版本时返回空集合
+     */
     @Override
     public List<Node> getPublishByFlowCode(String flowCode) {
         Definition definition = FlowEngine.defService().getOne(FlowEngine.newDef()
@@ -73,64 +87,143 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
         return List.of();
     }
 
+    /**
+     * 按流程定义和节点编码集合批量查询节点。
+     *
+     * @param nodeCodes    节点编码集合
+     * @param definitionId 流程定义主键
+     * @return 命中的节点集合
+     */
     @Override
     public List<Node> getByNodeCodes(List<String> nodeCodes, Long definitionId) {
         return getDao().getByNodeCodes(nodeCodes, definitionId);
     }
 
+    /**
+     * 按节点主键查询所有可追溯的前置业务节点，结果不包含网关。
+     *
+     * @param nodeId 当前节点主键
+     * @return 前置业务节点集合
+     */
     @Override
     public List<Node> previousNodeList(Long nodeId) {
         Node nowNode = getById(nodeId);
         return previousNodeList(nowNode.getDefinitionId(), nowNode.getNodeCode());
     }
 
+    /**
+     * 按流程定义和节点编码查询所有前置业务节点。
+     *
+     * @param definitionId 流程定义主键
+     * @param nowNodeCode  当前节点编码
+     * @return 前置业务节点集合
+     */
     @Override
     public List<Node> previousNodeList(Long definitionId, String nowNodeCode) {
         return prefixOrSuffixNodes(definitionId, nowNodeCode, FlowCons.PREVIOUS);
     }
 
+    /**
+     * 基于已加载的流程组合查询所有前置业务节点，避免重复访问数据库。
+     *
+     * @param nowNodeCode 当前节点编码
+     * @param flowCombine 已加载的流程组合数据
+     * @return 前置业务节点集合
+     */
     @Override
     public List<Node> previousNodeList(String nowNodeCode, FlowCombine flowCombine) {
         return prefixOrSuffixNodes(nowNodeCode, FlowCons.PREVIOUS, flowCombine);
     }
 
+    /**
+     * 按节点主键查询所有可到达的后置业务节点，结果不包含网关。
+     *
+     * @param nodeId 当前节点主键
+     * @return 后置业务节点集合
+     */
     @Override
     public List<Node> suffixNodeList(Long nodeId) {
         Node nowNode = getById(nodeId);
         return suffixNodeList(nowNode.getDefinitionId(), nowNode.getNodeCode());
     }
 
+    /**
+     * 按流程定义和节点编码查询所有后置业务节点。
+     *
+     * @param definitionId 流程定义主键
+     * @param nowNodeCode  当前节点编码
+     * @return 后置业务节点集合
+     */
     @Override
     public List<Node> suffixNodeList(Long definitionId, String nowNodeCode) {
         return prefixOrSuffixNodes(definitionId, nowNodeCode, FlowCons.SUFFIX);
     }
 
+    /**
+     * 基于已加载的流程组合查询所有后置业务节点。
+     *
+     * @param nowNodeCode 当前节点编码
+     * @param flowCombine 已加载的流程组合数据
+     * @return 后置业务节点集合
+     */
     @Override
     public List<Node> suffixNodeList(String nowNodeCode, FlowCombine flowCombine) {
         return prefixOrSuffixNodes(nowNodeCode, FlowCons.SUFFIX, flowCombine);
     }
 
+    /**
+     * 按流程定义主键查询全部节点。
+     *
+     * @param definitionId 流程定义主键
+     * @return 流程节点集合
+     */
     @Override
     public List<Node> getByDefId(Long definitionId) {
         return list(FlowEngine.newNode().setDefinitionId(definitionId));
     }
 
+    /**
+     * 按流程定义主键和节点编码查询唯一节点。
+     *
+     * @param definitionId 流程定义主键
+     * @param nodeCode     节点编码
+     * @return 匹配节点，不存在时返回 {@code null}
+     */
     @Override
     public Node getByDefIdAndNodeCode(Long definitionId, String nodeCode) {
         return getOne(FlowEngine.newNode().setDefinitionId(definitionId).setNodeCode(nodeCode));
     }
 
+    /**
+     * 查询流程定义的开始节点。
+     *
+     * @param definitionId 流程定义主键
+     * @return 开始节点
+     */
     @Override
     public Node getStartNode(Long definitionId) {
         return getOne(FlowEngine.newNode().setDefinitionId(definitionId).setNodeType(NodeType.START.getKey()));
     }
 
+    /**
+     * 查询流程定义的全部中间业务节点。
+     *
+     * @param definitionId 流程定义主键
+     * @return 中间业务节点集合
+     */
     @Override
     public List<Node> getBetweenNode(Long definitionId) {
         return list(FlowEngine.newNode().setDefinitionId(definitionId).setNodeType(NodeType.BETWEEN.getKey()));
     }
 
 
+    /**
+     * 从开始节点出发解析首批可办理节点，流程变量用于判断条件和网关出口。
+     *
+     * @param definitionId 流程定义主键
+     * @param variable     流程变量
+     * @return 首批可办理节点
+     */
     @Override
     public List<Node> getFirstBetweenNode(Long definitionId, Map<String, Object> variable) {
         FlowCombine flowCombine = FlowEngine.defService().getFlowCombineNoDef(definitionId);
@@ -139,11 +232,25 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
             variable, null, flowCombine);
     }
 
+    /**
+     * 查询流程定义的结束节点。
+     *
+     * @param definitionId 流程定义主键
+     * @return 结束节点
+     */
     @Override
     public Node getEndNode(Long definitionId) {
         return getOne(FlowEngine.newNode().setDefinitionId(definitionId).setNodeType(NodeType.END.getKey()));
     }
 
+    /**
+     * 加载流程节点和连线后，查询当前节点的全部前置或后置业务节点。
+     *
+     * @param definitionId 流程定义主键
+     * @param nowNodeCode  当前节点编码
+     * @param type         查询方向
+     * @return 前置或后置业务节点集合
+     */
     public List<Node> prefixOrSuffixNodes(Long definitionId, String nowNodeCode, String type) {
         FlowCombine flowCombine = new FlowCombine();
         flowCombine.setAllNodes(FlowEngine.nodeService().getByDefId(definitionId));
@@ -151,6 +258,14 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
         return prefixOrSuffixNodes(nowNodeCode, type, flowCombine);
     }
 
+    /**
+     * 基于流程组合遍历前置或后置路径，过滤网关并按最终访问顺序去重。
+     *
+     * @param nowNodeCode 当前节点编码
+     * @param type        {@link FlowCons#PREVIOUS} 或 {@link FlowCons#SUFFIX}
+     * @param flowCombine 已加载的流程节点和连线
+     * @return 路径上的业务节点
+     */
     public List<Node> prefixOrSuffixNodes(String nowNodeCode, String type, FlowCombine flowCombine) {
         Map<String, Node> nodeMap = StreamUtils.toMap(flowCombine.getAllNodes(), Node::getNodeCode, node -> node);
         Map<String, List<Skip>> skipMap = flowCombine.getAllSkips().stream().filter(skip -> SkipType.isPass(skip.getSkipType()))
@@ -179,6 +294,16 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
         return prefixOrSuffixNodes;
     }
 
+    /**
+     * 加载流程结构并解析一次流转最终到达的业务节点列表。
+     *
+     * @param definitionId 流程定义主键
+     * @param nowNodeCode  当前节点编码
+     * @param anyNodeCode  指定目标节点编码
+     * @param skipType     跳转类型
+     * @param variable     流程变量
+     * @return 最终到达的业务节点集合
+     */
     @Override
     public List<Node> getNextNodeList(Long definitionId, String nowNodeCode, String anyNodeCode, String skipType,
                                       Map<String, Object> variable) {
@@ -191,6 +316,15 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
             null, flowCombine);
     }
 
+    /**
+     * 加载流程结构并选择当前节点的直接下一节点；该方法不递归穿透网关。
+     *
+     * @param definitionId 流程定义主键
+     * @param nowNodeCode  当前节点编码
+     * @param anyNodeCode  指定目标节点编码
+     * @param skipType     跳转类型
+     * @return 直接下一节点
+     */
     @Override
     public Node getNextNode(Long definitionId, String nowNodeCode, String anyNodeCode, String skipType) {
         // 查询当前节点
@@ -199,6 +333,17 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
         return getNextNode(nowNode, anyNodeCode, skipType, null, flowCombine);
     }
 
+    /**
+     * 基于已加载流程组合选择直接下一节点，并递归解析网关后的业务节点。
+     *
+     * @param nowNode     当前节点
+     * @param anyNodeCode 指定目标节点编码
+     * @param skipType    跳转类型
+     * @param variable    流程变量
+     * @param pathWayData 路径收集器，可为空
+     * @param flowCombine 已加载的流程组合数据
+     * @return 最终到达的业务节点集合
+     */
     @Override
     public List<Node> getNextNodeList(Node nowNode, String anyNodeCode, String skipType, Map<String, Object> variable
         , PathWayData pathWayData, FlowCombine flowCombine) {
@@ -207,6 +352,18 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
             , pathWayData, flowCombine), pathWayData, flowCombine);
     }
 
+    /**
+     * 选择当前节点的一条直接出口。
+     *
+     * <p>显式指定节点优先，其次使用驳回任意跳转配置，最后按跳转类型匹配普通连线；路径收集器非空时同步记录节点和连线。</p>
+     *
+     * @param nowNode     当前节点
+     * @param anyNodeCode 指定目标节点编码
+     * @param skipType    跳转类型
+     * @param pathWayData 路径收集器，可为空
+     * @param flowCombine 已加载的流程组合数据
+     * @return 直接下一节点
+     */
     @Override
     public Node getNextNode(Node nowNode, String anyNodeCode, String skipType, PathWayData pathWayData, FlowCombine flowCombine) {
         // 查询当前节点
@@ -247,6 +404,17 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
         return nextNode;
     }
 
+    /**
+     * 递归穿透网关并返回最终业务节点。
+     *
+     * <p>每个网关先由对应策略选择生效出口，出口仍为网关时继续递归，直到到达普通节点。</p>
+     *
+     * @param variable    流程变量
+     * @param nextNode    待解析节点
+     * @param pathWayData 路径收集器，可为空
+     * @param flowCombine 已加载的流程组合数据
+     * @return 最终业务节点集合
+     */
     @Override
     public List<Node> getNextByCheckGateway(Map<String, Object> variable, Node nextNode, PathWayData pathWayData
         , FlowCombine flowCombine) {
@@ -302,11 +470,23 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
     }
 
 
+    /**
+     * 批量删除指定流程定义下的全部节点。
+     *
+     * @param defIds 流程定义主键集合
+     * @return 受影响行数
+     */
     @Override
     public int deleteNodeByDefIds(Collection<? extends Serializable> defIds) {
         return getDao().deleteNodeByDefIds(defIds);
     }
 
+    /**
+     * 将节点扩展属性 JSON 转换为编码到值的映射，忽略编码或值为空的条目。
+     *
+     * @param node 流程节点
+     * @return 扩展属性映射
+     */
     @Override
     public Map<String, String> getExt(Node node) {
         Map<String, String> map = new HashMap<>();
@@ -327,6 +507,14 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
         return map;
     }
 
+    /**
+     * 遍历连线图并收集前置或后置节点编码。
+     *
+     * @param skipMap  按当前方向分组的连线
+     * @param nodeCode 起始节点编码
+     * @param supplier 从连线提取下一节点编码的函数
+     * @return 节点编码集合
+     */
     private List<String> prefixOrSuffixCodes(Map<String, List<Skip>> skipMap, String nodeCode,
                                              Function<Skip, String> supplier) {
         // 记录已访问节点，防止循环
@@ -336,6 +524,15 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
         return result;
     }
 
+    /**
+     * 深度遍历节点连线；通过访问集合阻止循环流程造成无限递归。
+     *
+     * @param skipMap  按当前方向分组的连线
+     * @param nodeCode 当前节点编码
+     * @param supplier 从连线提取下一节点编码的函数
+     * @param visited  已访问节点编码
+     * @param result   遍历结果
+     */
     private void prefixOrSuffixCodesRecursive(Map<String, List<Skip>> skipMap, String nodeCode,
                                               Function<Skip, String> supplier, Set<String> visited, List<String> result) {
         if (visited.contains(nodeCode)) {

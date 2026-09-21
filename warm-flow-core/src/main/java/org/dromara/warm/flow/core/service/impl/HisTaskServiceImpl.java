@@ -33,24 +33,45 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 历史任务记录Service业务层处理
+ * 历史任务服务实现。
+ *
+ * <p>统一构造普通流转、协作、委派和票签产生的历史记录，确保状态、变量和业务扩展信息按同一规则落库。</p>
  *
  * @author warm
  * @since 2023-03-29
  */
 public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>, HisTask> implements HisTaskService {
 
+    /**
+     * 注入历史任务 DAO。
+     *
+     * @param warmDao 历史任务数据访问对象
+     * @return 当前服务实例
+     */
     @Override
     public HisTaskService setDao(FlowHisTaskDao<HisTask> warmDao) {
         this.warmDao = warmDao;
         return this;
     }
 
+    /**
+     * 按原待办任务主键查询全部历史办理记录。
+     *
+     * @param taskId 原待办任务主键
+     * @return 历史办理记录
+     */
     @Override
     public List<HisTask> listByTaskId(Long taskId) {
         return list(FlowEngine.newHisTask().setTaskId(taskId));
     }
 
+    /**
+     * 按原待办任务主键及协作类型查询历史记录；协作类型为空时返回该任务全部记录。
+     *
+     * @param taskId         原待办任务主键
+     * @param cooperateTypes 协作类型
+     * @return 历史办理记录
+     */
     @Override
     public List<HisTask> listByTaskIdAndCooperateTypes(Long taskId, Integer... cooperateTypes) {
         if (ArrayUtil.isEmpty(cooperateTypes)) {
@@ -62,21 +83,52 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
         return getDao().listByTaskIdAndCooperateTypes(taskId, cooperateTypes);
     }
 
+    /**
+     * 按流程实例和节点编码集合查询历史任务。
+     *
+     * @param instanceId 流程实例主键
+     * @param nodeCodes  节点编码集合
+     * @return 历史任务集合
+     */
     @Override
     public List<HisTask> getByInsAndNodeCodes(Long instanceId, List<String> nodeCodes) {
         return getDao().getByInsAndNodeCodes(instanceId, nodeCodes);
     }
 
+    /**
+     * 按流程实例主键集合批量删除历史任务。
+     *
+     * @param instanceIds 流程实例主键集合
+     * @return 是否删除成功
+     */
     @Override
     public boolean deleteByInsIds(List<Long> instanceIds) {
         return SqlHelper.retBool(getDao().deleteByInsIds(instanceIds));
     }
 
+    /**
+     * 为实例级流转构造一条历史任务，目标节点可包含并行分支。
+     *
+     * @param task      当前待办任务
+     * @param nextNodes 目标节点集合
+     * @param context   流程执行上下文
+     * @param skipType  跳转类型
+     * @return 尚未持久化的历史任务
+     */
     @Override
     public HisTask setSkipInsHis(Task task, List<Node> nextNodes, WorkflowContext context, String skipType) {
         return setSkipHis(task, nextNodes, context, skipType, customStatus(context));
     }
 
+    /**
+     * 为多个当前待办批量构造流转历史，所有记录使用同一自定义状态解析结果。
+     *
+     * @param taskList  当前待办任务集合
+     * @param nextNodes 目标节点集合
+     * @param context   流程执行上下文
+     * @param skipType  跳转类型
+     * @return 尚未持久化的历史任务集合
+     */
     @Override
     public List<HisTask> setSkipHisList(List<Task> taskList, List<Node> nextNodes, WorkflowContext context
         , String skipType) {
@@ -89,12 +141,32 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
         return hisTasks;
     }
 
+    /**
+     * 为单个当前待办和目标节点构造流转历史。
+     *
+     * @param task     当前待办任务
+     * @param nextNode 目标节点
+     * @param context  流程执行上下文
+     * @param skipType 跳转类型
+     * @return 尚未持久化的历史任务
+     */
     @Override
     public HisTask setSkipHisTask(Task task, Node nextNode, WorkflowContext context, String skipType) {
         return setSkipHis(task, CollUtil.toList(nextNode), context, skipType, customStatus(context));
     }
 
 
+    /**
+     * 构造加签、减签或其他协作操作的历史记录。
+     *
+     * <p>协作者写入 {@code collaborator}，目标节点保持为当前节点，表示任务尚未发生节点流转。</p>
+     *
+     * @param task          当前待办任务
+     * @param context       流程执行上下文
+     * @param collaborators 协作者标识集合
+     * @param cooperateType 协作类型
+     * @return 尚未持久化的历史任务
+     */
     @Override
     public HisTask setCooperateHis(Task task, WorkflowContext context, List<String> collaborators
         , Integer cooperateType) {
@@ -124,6 +196,15 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
         return hisTask;
     }
 
+    /**
+     * 构造委派办理历史，记录实际办理人和原委托人。
+     *
+     * @param task          当前待办任务
+     * @param context       流程执行上下文
+     * @param entrustedUser 委派办理人记录
+     * @param skipType      跳转类型
+     * @return 尚未持久化的历史任务
+     */
     @Override
     public HisTask setDeputeHisTask(Task task, WorkflowContext context, User entrustedUser, String skipType) {
         String flowStatus = customStatus(context);
@@ -152,6 +233,15 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
         return hisTask;
     }
 
+    /**
+     * 构造会签或票签的单人办理历史。
+     *
+     * @param task      当前待办任务
+     * @param context   流程执行上下文
+     * @param nodeRatio 节点协作规则
+     * @param isPass 当前办理结果是否通过
+     * @return 尚未持久化的历史任务
+     */
     @Override
     public HisTask setSignHisTask(Task task, WorkflowContext context, String nodeRatio, boolean isPass) {
         String flowStatus = customStatus(context);
@@ -180,11 +270,27 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
         return hisTask;
     }
 
+    /**
+     * 按流程实例主键查询全部历史任务。
+     *
+     * @param instanceId 流程实例主键
+     * @return 历史任务集合
+     */
     @Override
     public List<HisTask> getByInsId(Long instanceId) {
         return FlowEngine.hisTaskService().list(FlowEngine.newHisTask().setInstanceId(instanceId));
     }
 
+    /**
+     * 构造普通节点流转历史，目标节点编码和名称支持多个分支合并记录。
+     *
+     * @param task       当前待办任务
+     * @param nextNodes  目标节点集合
+     * @param context    流程执行上下文
+     * @param skipType   跳转类型
+     * @param flowStatus 已解析的历史任务状态
+     * @return 尚未持久化的历史任务
+     */
     private HisTask setSkipHis(Task task, List<Node> nextNodes, WorkflowContext context, String skipType
         , String flowStatus) {
         HisTask hisTask = FlowEngine.newHisTask()
@@ -211,10 +317,22 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
         return hisTask;
     }
 
+    /**
+     * 按“历史任务状态优先、实例状态兜底”的规则解析自定义状态。
+     *
+     * @param context 流程执行上下文
+     * @return 自定义状态，未指定时返回空值
+     */
     private String customStatus(WorkflowContext context) {
         return FlowStatusMachine.customStatus(context.getHistoryTaskStatus(), context.getInstanceStatus());
     }
 
+    /**
+     * 将本次提交变量序列化为历史快照，避免后续实例变量变化影响审计记录。
+     *
+     * @param context 流程执行上下文
+     * @return 序列化后的变量 JSON
+     */
     private String variableStr(WorkflowContext context) {
         return FlowEngine.jsonConvert.objToStr(context.getVariables());
     }
