@@ -11,7 +11,7 @@
 
     <name>warm-flow-plugin-vue3-ui</name>
     <artifactId>warm-flow-plugin-vue3-ui</artifactId>
-    <url>https://github.com/dromara/warm-flow</url>
+    <url>https://github.com/sgs98/warm-flow</url>
 
     <build>
         <resources>

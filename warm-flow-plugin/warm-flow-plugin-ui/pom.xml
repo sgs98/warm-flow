@@ -12,7 +12,7 @@
     <name>warm-flow-plugin-ui</name>
     <artifactId>warm-flow-plugin-ui</artifactId>
     <packaging>pom</packaging>
-    <url>https://github.com/dromara/warm-flow</url>
+    <url>https://github.com/sgs98/warm-flow</url>
 
     <modules>
         <module>warm-flow-plugin-vue3-ui</module>

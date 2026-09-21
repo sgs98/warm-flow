@@ -11,7 +11,7 @@
 
     <name>warm-flow-plugin-json-jackson3</name>
     <artifactId>warm-flow-plugin-json-jackson3</artifactId>
-    <url>https://github.com/dromara/warm-flow</url>
+    <url>https://github.com/sgs98/warm-flow</url>
 
     <dependencies>
         <dependency>

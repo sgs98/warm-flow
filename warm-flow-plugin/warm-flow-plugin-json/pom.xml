@@ -12,7 +12,7 @@
     <name>warm-flow-plugin-json</name>
     <artifactId>warm-flow-plugin-json</artifactId>
     <packaging>pom</packaging>
-    <url>https://github.com/dromara/warm-flow</url>
+    <url>https://github.com/sgs98/warm-flow</url>
 
     <modules>
         <module>warm-flow-plugin-json-v1</module>

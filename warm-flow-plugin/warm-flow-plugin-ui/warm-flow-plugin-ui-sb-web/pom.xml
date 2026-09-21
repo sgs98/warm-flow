@@ -11,7 +11,7 @@
 
     <name>warm-flow-plugin-ui-sb-web</name>
     <artifactId>warm-flow-plugin-ui-sb-web</artifactId>
-    <url>https://github.com/dromara/warm-flow</url>
+    <url>https://github.com/sgs98/warm-flow</url>
 
     <dependencies>
         <dependency>

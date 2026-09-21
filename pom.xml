@@ -11,11 +11,11 @@
 
     <name>warm-flow</name>
     <description>Warm-Flow is a flow</description>
-    <url>https://github.com/dromara/warm-flow</url>
+    <url>https://github.com/sgs98/warm-flow</url>
 
     <issueManagement>
         <system>Github Issue</system>
-        <url>https://github.com/dromara/warm-flow/issues</url>
+        <url>https://github.com/sgs98/warm-flow/issues</url>
     </issueManagement>
     <licenses>
         <license>
@@ -24,8 +24,8 @@
         </license>
     </licenses>
     <scm>
-        <connection>https://github.com/dromara/warm-flow.git</connection>
-        <url>https://github.com/dromara/warm-flow</url>
+        <connection>https://github.com/sgs98/warm-flow.git</connection>
+        <url>https://github.com/sgs98/warm-flow</url>
     </scm>
     <developers>
         <developer>

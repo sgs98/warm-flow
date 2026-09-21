@@ -11,7 +11,7 @@
 
     <name>warm-flow-mybatis-plus-core</name>
     <artifactId>warm-flow-mybatis-plus-core</artifactId>
-    <url>https://github.com/dromara/warm-flow</url>
+    <url>https://github.com/sgs98/warm-flow</url>
 
     <dependencies>
         <dependency>

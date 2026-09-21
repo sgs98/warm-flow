@@ -7,7 +7,7 @@
     <a href='https://gitee.com/sgs98/warm-flow'><img src='https://gitee.com/sgs98/warm-flow/badge/fork.svg?theme=dark' alt='fork'></a>
     <a href='https://github.com/sgs98/warm-flow'><img src='https://img.shields.io/github/stars/sgs98/warm-flow.svg' alt='fork'></a>
     <a href='https://github.com/sgs98/warm-flow'><img src='https://img.shields.io/github/forks/sgs98/warm-flow.svg' alt='fork'></a>
-    <a href='https://gitee.com/sgs98/warm-flow/blob/master/LICENSE'><img src='https://img.shields.io/github/license/sgs98/warm-flow' alt='license'></a>
+    <a href='https://gitee.com/sgs98/warm-flow/blob/main/LICENSE'><img src='https://img.shields.io/github/license/sgs98/warm-flow' alt='license'></a>
 </p>
 
 
@@ -54,8 +54,8 @@ https://github.com/sgs98/warm-flow-doc
 
 ## 组件所需脚本
 
-- 首次导入，先创建数据库，找到对应数据库的全量脚本[warm-flow-all.sql](https://gitee.com/sgs98/warm-flow/tree/master/sql/mysql)，执行
-- 如果版本更新，找到对应数据库的更新版本，比如xx-upgrade，[warm-flow_x.x.x.sql](https://gitee.com/sgs98/warm-flow/tree/master/sql/mysql/v1-upgrade)，执行
+- 首次导入，先创建数据库，找到对应数据库的全量脚本[warm-flow-all.sql](https://gitee.com/sgs98/warm-flow/tree/main/sql/mysql)，执行
+- 如果版本更新，找到对应数据库的更新版本，比如xx-upgrade，[warm-flow_x.x.x.sql](https://gitee.com/sgs98/warm-flow/tree/main/sql/mysql/v1-upgrade)，执行
 
 ## 与Activiti、Flowable对比
 

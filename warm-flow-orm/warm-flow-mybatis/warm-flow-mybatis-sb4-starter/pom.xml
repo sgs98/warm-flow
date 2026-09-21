@@ -12,7 +12,7 @@
     <name>warm-flow-mybatis-sb4-starter</name>
     <artifactId>warm-flow-mybatis-sb4-starter</artifactId>
     <description>warm-flow orm为mybatis的springboot4 starter</description>
-    <url>https://github.com/dromara/warm-flow</url>
+    <url>https://github.com/sgs98/warm-flow</url>
 
     <dependencies>
         <dependency>
