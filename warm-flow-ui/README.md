@@ -1,7 +1,7 @@
 <p align="center">
 	<img alt="logo" src="https://foruda.gitee.com/images/1726820610127990120/c8c5f3a4_2218307.png" width="100">
 </p>
-<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">Warm-Flow工作流 v1.2.7</h1>
+<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">Warm-Flow工作流 v1.8.2</h1>
 <p align="center">
 	<a href="https://gitee.com/sgs98/warm-flow/stargazers"><img src="https://gitee.com/sgs98/warm-flow/badge/star.svg?theme=dark"></a>
 </p>
@@ -16,8 +16,8 @@ Warm-Flow国产工作流引擎🎉，其特点简洁轻量，五脏俱全，灵�
 4. 流程图：流程引擎自带流程图，可在不集成流程设计器情况下使用
 5. 条件表达式：内置常见的和spel条件表达式，并且支持自定义扩展
 6. 办理人表达式：内置${handler}和spel格式的表达式，可满足不同场景，灵活可扩展
-7. orm框架扩展：目前支持MyBatis、Mybatis-Plus、Mybatis-Flex和Jpa，后续会由社区提供其他支持，扩展方便
-8. 数据库支持：目前支持MySQL 、Oracle 和PostgreSQL，后续会继续支持其他数据库或者国产数据库
+7. orm框架扩展：官方支持 MyBatis、Mybatis-Plus，Mybatis-Flex、Jpa、BeetlSql 等由社区扩展提供，扩展方便
+8. 数据库支持：目前支持MySQL、Oracle、PostgreSQL 和 SQL Server，后续会继续支持其他数据库或者国产数据库
 9. 多租户与软删除：流程引擎自身维护多租户和软删除实现，也可使用对应orm框架的实现方式
 10. 支持角色、部门和用户等权限配置
 11. 支持spring
@@ -37,7 +37,6 @@ yarn --registry=https://registry.npmmirror.com
 # 启动服务
 yarn dev
 
-# 构建测试环境 yarn build:stage
 # 构建生产环境 yarn build:prod
-# 前端访问地址 http://localhost:80
+# 前端访问地址 http://localhost:8083
 ```

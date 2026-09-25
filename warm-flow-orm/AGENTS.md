@@ -11,7 +11,7 @@ ORM 适配层，实现 `warm-flow-core` 的 `WarmDao` 抽象与各实体。按�
   `*-sb4-starter`(SB4)。
 - `warm-flow-mybatis-plus`：同上三件套（含 `MybatisPlusIdGen` 等适配）。
 
-包根：ORM 实现 `org.dromara.warm.flow.orm`（`entity`/`mapper`/`dao`/`keygen`/`utils`）；Spring 适配
+包根：ORM 实现 `org.dromara.warm.flow.orm`（`entity`/`mapper`/`dao`/`utils`，`keygen` 仅 mybatis-plus 有）；Spring 适配
 `org.dromara.warm.flow.spring.boot`。
 
 ## 改动前必读

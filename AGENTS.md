@@ -26,8 +26,8 @@
   - `warm-flow-plugin-json`：JSON 序列化实现（`*-json-v1`：snack/snack4/jackson/fastjson2/gson；`*-json-jackson3`）。
   - `warm-flow-plugin-ui`：设计器 / 流程图后端（`*-ui-core`、`*-ui-sb-web`、`*-vue3-ui`）。
 - `warm-flow-ui`：流程设计器**前端工程（Vue3 + yarn）**，独立于 Maven 反应堆，不被父 `pom.xml` 的 `<modules>` 纳入。
-- `sql/`：建表与升级脚本，按数据库分目录：`mysql/`、`oracle/`、`postgresql/`、`sqlserver/`；每库一份全量 `*-all.sql`，MySQL 另有 `v1-upgrade/` 版本升级脚本。
-- 测试不在本仓库：官方测试在独立仓库 `warm-flow-test`（gitee），本仓库无 `src/test`。
+- `sql/`：建表与升级脚本，按数据库分目录：`mysql/`、`oracle/`、`postgresql/`、`sqlserver/`；每库一份全量建表脚本（文件名各库略有差异，如 `warm-flow-all.sql` / `oracle-wram-flow-all.sql` / `sqlserver.sql`），MySQL 另有 `v1-upgrade/` 版本升级脚本。
+- 测试分两处：`warm-flow-core/src/test` 有随仓库维护的单元 / 特性测试（JUnit 5，59 个类）；跨库、跨生态的集成测试在独立仓库 `warm-flow-test`（gitee）。
 
 ## 技术基线
 
@@ -35,7 +35,7 @@
 - **多 ORM**：MyBatis 3.5.19（mybatis-spring-boot 3.0.5 / 4.0.1）、MyBatis-Plus 3.5.17；README 另提到 JPA / BeetlSql 等生态由社区扩展。
 - **多 JSON**：snack3 3.2.139、snack4 4.0.59、jackson 2.22.2、jackson3 3.2.2、fastjson2 2.0.65、gson 2.14.0。
 - **多数据库**：MySQL、Oracle、PostgreSQL、SQL Server（其它库转换表结构即可）。
-- **基础依赖**：Lombok、`slf4j-api`（仅 API，不绑定日志实现）、JUnit 4（测试在独立仓库）。
+- **基础依赖**：Lombok、`slf4j-api`（仅 API，不绑定日志实现）、JUnit 5（`org.junit.jupiter`，core 自带测试用）。
 - **依赖版本统一在父 `pom.xml` 的 `dependencyManagement` 与 `properties` 管理**，子模块不私自写死或改版本号；版本属性 `${warm-flow}` 跟随 `${project.version}`。
 
 ## 架构与扩展机制（warm-flow 的灵魂，改动前必须理解）
@@ -88,7 +88,7 @@
 
 ## 品牌与版权保护
 
-- 不要移除、替换或弱化 `warm-flow`、`Warm-Flow`、`dromara`、`org.dromara.warm` 包名 / groupId、模块名、启动 banner、作者信息（`warm` / `290631660@qq.com` 等 `developers`）、README 中的 Star/赞助商/文档/演示链接，除非用户明确要求。
+- 不要移除、替换或弱化 `warm-flow`、`Warm-Flow`、`dromara`、`org.dromara.warm` 包名 / groupId、模块名、启动 banner、作者信息（`warm` / `290631660@qq.com` 等 `developers`）、README 中的 Star/Fork/License 徽章与文档链接，除非用户明确要求。
 - **每个 Java 文件保留 Apache 2.0 license header**（`Copyright 2024-2025, Warm-Flow (290631660@qq.com).` 开头的注释块）。新增 Java 文件必须照抄现有 header、`package`、Lombok 与注释风格。
 - 保留现有中文 README、中文注释、类注释中的 `@author warm` 与 `@since`，不要批量改成英文或通用模板。
 - 不改动 `LICENSE`，不弱化「永久开源免费、无商业版」的项目声明。
@@ -149,11 +149,14 @@
 
 ## 验证规则
 
-本仓库**无 `src/test`**（测试在独立仓库 `warm-flow-test`），验证以**分模块编译**为主，按风险选择范围：
+`warm-flow-core` 自带单元 / 特性测试（`warm-flow-core/src/test`），其余模块以**分模块编译**为主，跨库 / 跨生态集成测试在独立仓库 `warm-flow-test`。按风险选择范围：
 
 ```bash
 # 全量安装到本地仓库（最稳，先装核心再装下游）
 mvn clean install -DskipTests
+
+# 跑 core 自带测试（改 core 逻辑时优先）
+mvn -pl warm-flow-core test
 
 # 聚焦编译单个模块（按改动模块替换 -pl 路径或 -f 指定 pom）
 mvn -pl warm-flow-core -am -DskipTests compile
@@ -170,7 +173,7 @@ mvn -f warm-flow-orm/warm-flow-mybatis/warm-flow-mybatis-core/pom.xml -DskipTest
 
 ## 文档与 AI 产物归档
 
-- 面向用户的正式文档以 README 与官网（warm-flow.com）为准；引擎细节可参考本地 `.qoder/repowiki`（未纳入仓库，仅本地可选）。
+- 面向用户的正式文档以 README 与官方文档站（`https://sgs98.github.io/warm-flow-doc/`）为准；引擎细节可参考本地 `.qoder/repowiki`（未纳入仓库，仅本地可选）。
 - AI / agent 的一次性调研、决策记录、临时计划放 `.codex/` 或 `docs/`，不要塞进源码包，也不要当作长期必读入口。
 - 临时 / 备份代码、注释掉的旧实现、压测入口不留在源码树，确认无引用后删除（git 历史可追溯）。
 
@@ -201,7 +204,7 @@ mvn versions:commit                    # 确认版本修改（versions:revert �
 ```
 
 - 发布到中央仓库依赖 `release` profile（javadoc、gpg 签名、central-publishing），需本地 `settings.xml` 配置 `ossrh` 凭证与 GPG。
-- `.github/workflows/release.yml` 当前是**全注释的模板（CI 未启用）**，发布是**手动**执行，不要假设 CI 会自动发版。`.gitee/` 下有中文 issue / PR 模板，提 PR 时遵循。
+- 仓库当前**未配置 CI**（无 `.github/workflows`、无 `.gitee` 模板目录），发布与校验均为**手动**执行，不要假设 CI 会自动发版。
 
 ## 安全边界
 

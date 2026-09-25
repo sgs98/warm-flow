@@ -15,12 +15,14 @@
 - `entity`：`Definition`/`Node`/`Skip`/`Instance`/`Task`/`HisTask`/`User`/`Form` 等接口。
 - `service` + `service.impl`：`DefService`/`NodeService`/`SkipService`/`InsService`/`TaskService`/`HisTaskService`/
   `UserService`/`FormService`/`ChartService`。
+- `workflow`：v2.0.0 起对外的统一流程操作门面——`WorkflowService`（`start`/`complete`/`reject`/`jump`/`revoke`/`terminate`/`transfer`/`delegate`/`addSigner`/`removeSigner`，经 `FlowEngine.workflow()` 获取）、`command/`（`WorkflowCommand` 基类 + 各 `XxxCommand`）、`context/`（`WorkflowContext`/`OperatorContext`，字段为 `flowStatus`/`taskStatus`）、`result/`（`WorkflowResult`）、`WorkflowContextMapper`。**这是当前主推的对外写操作契约**，属 L2。
 - `orm`：抽象 `dao/WarmDao`、`agent/WarmQuery`、`service/WarmServiceImpl`（ORM 接缝，不含具体实现）。
 - `handler`：`DataFillHandler`/`TenantHandler`/`PermissionHandler`。
-- `listener`：`Listener`/`GlobalListener`/`ListenerVariable`。
+- `listener`：`Listener`/`GlobalListener`/`ListenerVariable`（`Listener` 含 create/start/assignment/finish/formLoad 五种事件常量）。
 - `strategy`：策略接口——`ConditionStrategy`（条件）、`HandlerStrategy`（办理人）、`ListenerStrategy`（监听器）、`VoteSignStrategy`
-  （票签）、`ExpressionStrategy`（表达式基类）；具体 SpEL 实现在 `plugin-modes`。
-- `condition`：条件比较运算的具体实现（`AbstractConditionStrategy` + `Eq`/`Ne`/`Gt`/`Ge`/`Lt`/`Le`/`Like`/`NotLike`）。
+  （票签）、`GatewayStrategy`（网关，实现见 `strategy/gateway/{Serial,Parallel,Inclusive}GatewayStrategy`）、`ExpressionStrategy`（表达式基类）；具体 SpEL 实现在 `plugin-modes`。
+- `strategy/condition`：条件比较运算的具体实现（`AbstractConditionStrategy` + `ConditionStrategyEq`/`Ne`/`Gt`/`Ge`/`Lt`/`Le`/`Like`/`NotLike`）。
+- `enums`/`constant`/`dto`/`exception`/`transaction`：状态与类型枚举（`NodeType`/`SkipType`/`CooperateType`/`FlowStatus` 等）、常量、传输对象、异常、事务抽象。
 - `utils/IdUtils`：core 默认 ID 生成与 ORM 原生生成器接入。
 - `json`：`JsonConvert` SPI 接口（实现在 plugin-json）。
 - `utils`：引擎自带工具（`StringUtils`/`ObjectUtil`/`CollUtil`/`MapUtil`/`AssertUtil` 等）。
@@ -44,7 +46,8 @@
 ## 聚焦验证
 
 ```bash
-mvn -pl warm-flow-core -am -DskipTests compile
+mvn -pl warm-flow-core -am -DskipTests compile   # 聚焦编译
+mvn -pl warm-flow-core test                       # 跑 core 自带单元 / 特性测试（改逻辑时优先）
 ```
 
 core 改动后至少再编译一个下游模块（如某 orm-core 或 plugin），确认接缝未破。

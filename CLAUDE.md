@@ -47,7 +47,7 @@ core 公共 API / 实体 / 抽象 DAO、扩展机制（`FlowEngine` / `FrameInvo
 
 ## 验证与安全边界
 
-- 本仓库无 `src/test`（测试在独立仓库 `warm-flow-test`），用**分模块编译**验证：`mvn -pl <module> -am -DskipTests compile` 或 `mvn clean install -DskipTests`；core 改动至少编译一个下游 orm/plugin 模块。无法验证时如实报告命令、现象、风险与下一步。
+- `warm-flow-core` 自带单元 / 特性测试（JUnit 5），改 core 逻辑优先跑 `mvn -pl warm-flow-core test`；其余模块用**分模块编译**验证：`mvn -pl <module> -am -DskipTests compile` 或 `mvn clean install -DskipTests`；跨库 / 跨生态集成测试在独立仓库 `warm-flow-test`。无法验证时如实报告命令、现象、风险与下一步。
 - 未经用户明确批准：不 `git commit` / `git push`、不 `mvn deploy` / 改版本推送、不改写历史、不执行 `DROP` / 批量 `DELETE`、不变更 JDK 基线 / 删编译插件、不输出真实发布凭证。
 
 完整规则见 **[AGENTS.md](./AGENTS.md)**。

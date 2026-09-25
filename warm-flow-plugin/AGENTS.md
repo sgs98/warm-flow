@@ -22,7 +22,7 @@
 ## 高风险点（按 L2）
 
 - **SPI 注册一致**：新增 / 改 JSON 实现必须同步 `META-INF/services/org.dromara.warm.flow.core.json.JsonConvert`；
-  `FlowEngine` 通过 `ServiceLoaderUtil.loadFirst` 取首个实现，注意实现优先级与 classpath 唯一性。
+  `WarmFlow` 配置加载时通过 `ServiceLoaderUtil.loadFirst` 取首个实现赋给 `FlowEngine.jsonConvert`（见 `WarmFlow.spiLoad()`），注意实现优先级与 classpath 唯一性。
 - **表达式安全**：SpEL 涉及脚本执行，沿用现有 `SafeMethodResolver` / `SafeTypeLocator` 等安全约束，**不要放开任意方法 /
   类型调用**，避免表达式注入风险。
 - **双模式 UI**：经典模式与仿钉钉模式都要兼顾，前端资源放 `*-vue3-ui`。
