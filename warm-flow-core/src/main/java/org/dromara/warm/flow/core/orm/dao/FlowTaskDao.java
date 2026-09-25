@@ -44,7 +44,7 @@ public interface FlowTaskDao<T extends Task> extends WarmDao<T> {
      * 并行网关、任意跳转、退回路径判断等场景需要确认某些节点是否仍存在活动待办。
      *
      * @param instanceId 流程实例 ID
-     * @param nodeCodes 节点编码集合
+     * @param nodeCodes  节点编码集合
      * @return 待办任务列表
      */
     List<T> getByInsIdAndNodeCodes(Long instanceId, List<String> nodeCodes);

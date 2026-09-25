@@ -106,9 +106,9 @@ final class FlowStatusMachine {
     /**
      * 应用单个状态前置并抛出与既有流程操作一致的业务异常。
      *
-     * @param guard       状态前置
-     * @param definition  流程定义
-     * @param instance    流程实例
+     * @param guard      状态前置
+     * @param definition 流程定义
+     * @param instance   流程实例
      */
     private static void apply(StateGuard guard, Definition definition, Instance instance) {
         switch (guard) {
@@ -123,12 +123,12 @@ final class FlowStatusMachine {
     /**
      * 获取历史任务使用的自定义状态，历史状态优先于流程状态。
      *
-     * @param historyTaskStatus 调用方指定的历史任务状态
-     * @param instanceStatus    调用方指定的流程实例状态
+     * @param taskStatus 调用方指定的任务状态
+     * @param flowStatus 调用方指定的流程实例状态
      * @return 自定义状态，未设置时返回空值
      */
-    static String customStatus(String historyTaskStatus, String instanceStatus) {
-        return StringUtils.emptyDefault(historyTaskStatus, instanceStatus);
+    static String customStatus(String taskStatus, String flowStatus) {
+        return StringUtils.emptyDefault(taskStatus, flowStatus);
     }
 
     /**

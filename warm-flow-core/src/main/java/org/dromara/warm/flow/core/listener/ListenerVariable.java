@@ -90,8 +90,8 @@ public class ListenerVariable {
      * 创建定义、实例和流程变量维度的监听器变量。
      *
      * @param definition 流程定义
-     * @param instance 流程实例
-     * @param variable 流程变量
+     * @param instance   流程实例
+     * @param variable   流程变量
      */
     public ListenerVariable(Definition definition, Instance instance, Map<String, Object> variable) {
         this.definition = definition;
@@ -103,9 +103,9 @@ public class ListenerVariable {
      * 创建带当前节点的监听器变量。
      *
      * @param definition 流程定义
-     * @param instance 流程实例
-     * @param node 当前节点
-     * @param variable 流程变量
+     * @param instance   流程实例
+     * @param node       当前节点
+     * @param variable   流程变量
      */
     public ListenerVariable(Definition definition, Instance instance, Node node, Map<String, Object> variable) {
         this.definition = definition;
@@ -118,9 +118,9 @@ public class ListenerVariable {
      * 创建带当前任务的监听器变量。
      *
      * @param definition 流程定义
-     * @param instance 流程实例
-     * @param variable 流程变量
-     * @param task 当前任务
+     * @param instance   流程实例
+     * @param variable   流程变量
+     * @param task       当前任务
      */
     public ListenerVariable(Definition definition, Instance instance, Map<String, Object> variable, Task task) {
         this.definition = definition;
@@ -133,10 +133,10 @@ public class ListenerVariable {
      * 创建带当前节点和任务的监听器变量。
      *
      * @param definition 流程定义
-     * @param instance 流程实例
-     * @param node 当前节点
-     * @param variable 流程变量
-     * @param task 当前任务
+     * @param instance   流程实例
+     * @param node       当前节点
+     * @param variable   流程变量
+     * @param task       当前任务
      */
     public ListenerVariable(Definition definition, Instance instance, Node node, Map<String, Object> variable, Task task) {
         this.definition = definition;
@@ -150,11 +150,11 @@ public class ListenerVariable {
      * 创建带后续节点集合的监听器变量。
      *
      * @param definition 流程定义
-     * @param instance 流程实例
-     * @param node 当前节点
-     * @param variable 流程变量
-     * @param task 当前任务
-     * @param nextNodes 后续节点集合
+     * @param instance   流程实例
+     * @param node       当前节点
+     * @param variable   流程变量
+     * @param task       当前任务
+     * @param nextNodes  后续节点集合
      */
     public ListenerVariable(Definition definition, Instance instance, Node node, Map<String, Object> variable, Task task, List<Node> nextNodes) {
         this.definition = definition;
@@ -169,12 +169,12 @@ public class ListenerVariable {
      * 创建带后续节点和新任务集合的监听器变量。
      *
      * @param definition 流程定义
-     * @param instance 流程实例
-     * @param node 当前节点
-     * @param variable 流程变量
-     * @param task 当前任务
-     * @param nextNodes 后续节点集合
-     * @param nextTasks 新创建任务集合
+     * @param instance   流程实例
+     * @param node       当前节点
+     * @param variable   流程变量
+     * @param task       当前任务
+     * @param nextNodes  后续节点集合
+     * @param nextTasks  新创建任务集合
      */
     public ListenerVariable(Definition definition, Instance instance, Node node, Map<String, Object> variable, Task task
         , List<Node> nextNodes, List<Task> nextTasks) {

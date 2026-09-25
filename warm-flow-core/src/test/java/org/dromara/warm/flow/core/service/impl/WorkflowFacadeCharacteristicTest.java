@@ -2,6 +2,7 @@ package org.dromara.warm.flow.core.service.impl;
 
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.entity.Instance;
+import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.handler.PermissionHandler;
@@ -23,6 +24,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -43,6 +46,18 @@ class WorkflowFacadeCharacteristicTest {
     @BeforeEach
     void setUp() {
         harness = new FlowTestHarness();
+        harness.register(PermissionHandler.class, new PermissionHandler() {
+            @Override
+            public List<String> permissions() {
+                return List.of(TestFlows.HANDLER);
+            }
+
+            @Override
+            public String getHandler() {
+                return TestFlows.HANDLER;
+            }
+        });
+        FlowEngine.initPermissionHandler(null);
     }
 
     @AfterEach
@@ -54,9 +69,9 @@ class WorkflowFacadeCharacteristicTest {
         return FlowEngine.workflow();
     }
 
-    /** 门面不绕过权限校验：operator 需携带与待办办理人匹配的权限集合 */
+    /** 门面不绕过权限校验：权限处理器提供当前执行用户的权限集合 */
     private OperatorContext operator(String handler) {
-        return new OperatorContext(handler, List.of(handler));
+        return new OperatorContext(handler);
     }
 
     @Test
@@ -80,6 +95,30 @@ class WorkflowFacadeCharacteristicTest {
     }
 
     @Test
+    void inheritedCommandOptions_mapToInstanceHistoryAndNextTask() {
+        TestFlows.serialFlow("wfc-options");
+        StartCommand command = new StartCommand();
+        command.setBusinessId("biz-wfc-options");
+        command.setFlowCode("wfc-options");
+        command.setOperator(operator(TestFlows.HANDLER));
+        command.setVariables(new HashMap<>(Map.of("source", "command")));
+        command.setExt("command-ext");
+        command.setFlowStatus(FlowStatus.PENDING.getKey());
+        command.setTaskStatus(FlowStatus.PASS.getKey());
+        command.setNextHandlers(List.of("lisi"));
+
+        WorkflowResult result = facade().start(command);
+
+        Instance instance = FlowEngine.insService().getById(result.getInstanceId());
+        assertEquals(FlowStatus.PENDING.getKey(), instance.getFlowStatus());
+        assertEquals("command", instance.getVariableMap().get("source"));
+        List<HisTask> history = FlowEngine.hisTaskService().getByInsId(instance.getId());
+        assertEquals(FlowStatus.PASS.getKey(), history.get(0).getFlowStatus());
+        assertEquals("command-ext", history.get(0).getExt());
+        assertEquals(List.of("lisi"), result.getCurrentTasks().get(0).getHandlers());
+    }
+
+    @Test
     void complete_flowsToEndWithEmptyPendingView() {
         Instance instance = TestFlows.start("wfc2", "biz-wf2");
         Long taskId = TestFlows.currentTask(instance.getId()).getId();
@@ -92,7 +131,7 @@ class WorkflowFacadeCharacteristicTest {
         assertTrue(result.isSuccess());
         assertEquals("complete", result.getOperation());
         assertEquals(taskId, result.getCompletedTaskId());
-        assertEquals(FlowStatus.FINISHED.getKey(), result.getInstanceStatus());
+        assertEquals(FlowStatus.FINISHED.getKey(), result.getFlowStatus());
         assertEquals(List.of(), result.getCurrentTasks(), "到达终点后无待办");
     }
 
@@ -108,7 +147,7 @@ class WorkflowFacadeCharacteristicTest {
         WorkflowResult result = facade().reject(cmd);
 
         assertEquals("reject", result.getOperation());
-        assertEquals(FlowStatus.REJECT.getKey(), result.getInstanceStatus());
+        assertEquals(FlowStatus.REJECT.getKey(), result.getFlowStatus());
         assertEquals("apply", result.getCurrentTasks().get(0).getNodeCode());
     }
 
@@ -134,7 +173,7 @@ class WorkflowFacadeCharacteristicTest {
         instanceCmd.setInstanceId(byInstance.getId());
         instanceCmd.setOperator(operator(TestFlows.HANDLER));
         WorkflowResult instanceResult = facade().terminate(instanceCmd);
-        assertEquals(FlowStatus.TERMINATE.getKey(), instanceResult.getInstanceStatus());
+        assertEquals(FlowStatus.TERMINATE.getKey(), instanceResult.getFlowStatus());
         assertEquals(List.of(), instanceResult.getCurrentTasks());
 
         Instance byTask = TestFlows.start("wfc6", "biz-wf6");
@@ -142,7 +181,7 @@ class WorkflowFacadeCharacteristicTest {
         taskCmd.setTaskId(TestFlows.currentTask(byTask.getId()).getId());
         taskCmd.setOperator(operator(TestFlows.HANDLER));
         WorkflowResult taskResult = facade().terminate(taskCmd);
-        assertEquals(FlowStatus.TERMINATE.getKey(), taskResult.getInstanceStatus());
+        assertEquals(FlowStatus.TERMINATE.getKey(), taskResult.getFlowStatus());
     }
 
     @Test
@@ -173,7 +212,7 @@ class WorkflowFacadeCharacteristicTest {
         WorkflowResult result = facade().jump(cmd);
 
         assertEquals("jump", result.getOperation());
-        assertEquals(FlowStatus.FINISHED.getKey(), result.getInstanceStatus());
+        assertEquals(FlowStatus.FINISHED.getKey(), result.getFlowStatus());
         assertEquals(List.of(), result.getCurrentTasks());
     }
 
@@ -263,5 +302,19 @@ class WorkflowFacadeCharacteristicTest {
 
         // 无 operator 时从 PermissionHandler 取办理人，写入实例创建人
         assertEquals(TestFlows.HANDLER, harness.insDao.raw(result.getInstanceId()).getCreateBy());
+    }
+
+    @Test
+    void operatorWithoutHandler_fallsBackToPermissionHandler() {
+        TestFlows.serialFlow("wfc10");
+        StartCommand cmd = new StartCommand();
+        cmd.setBusinessId("biz-wf10");
+        cmd.setFlowCode("wfc10");
+        cmd.setOperator(new OperatorContext());
+
+        WorkflowResult result = facade().start(cmd);
+
+        assertEquals(TestFlows.HANDLER, harness.insDao.raw(result.getInstanceId()).getCreateBy());
+        assertEquals(TestFlows.HANDLER, harness.hisTaskDao.all().get(0).getApprover());
     }
 }

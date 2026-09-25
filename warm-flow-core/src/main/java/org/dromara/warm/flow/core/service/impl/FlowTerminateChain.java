@@ -122,7 +122,7 @@ final class FlowTerminateChain {
         execution.instance.setNodeType(endNode.getNodeType())
             .setNodeCode(endNode.getNodeCode())
             .setNodeName(endNode.getNodeName())
-            .setFlowStatus(StringUtils.emptyDefault(execution.intent.getInstanceStatus()
+            .setFlowStatus(StringUtils.emptyDefault(execution.intent.getFlowStatus()
                 , FlowStatus.TERMINATE.getKey()));
         return Optional.empty();
     }
@@ -135,7 +135,7 @@ final class FlowTerminateChain {
      */
     private Optional<Instance> persist(FlowExecution execution) {
         // 待办任务转历史（顺序与办理链的 updateFlowInfo 不同，不合并）
-        execution.intent.setInstanceStatus(execution.instance.getFlowStatus());
+        execution.intent.setFlowStatus(execution.instance.getFlowStatus());
         HisTask insHis = FlowEngine.hisTaskService().setSkipInsHis(execution.task
             , Collections.singletonList(endNode), execution.intent, SkipType.PASS.getKey());
         FlowEngine.hisTaskService().save(insHis);

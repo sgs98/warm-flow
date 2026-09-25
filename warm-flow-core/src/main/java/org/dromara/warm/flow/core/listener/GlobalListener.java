@@ -67,7 +67,7 @@ public interface GlobalListener extends Serializable {
     /**
      * 按监听器类型分发到具体回调方法。
      *
-     * @param type 监听器类型
+     * @param type             监听器类型
      * @param listenerVariable 监听器变量
      */
     default void notify(String type, ListenerVariable listenerVariable) {

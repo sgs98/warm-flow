@@ -113,8 +113,8 @@ final class FlowExecution {
      * @return 执行作用域
      */
     static FlowExecution loadInstance(Long instanceId, WorkflowContext intent) {
-        if (StringUtils.isEmpty(intent.getInstanceStatus())) {
-            intent.setInstanceStatus(FlowStatus.CANCEL.getKey());
+        if (StringUtils.isEmpty(intent.getFlowStatus())) {
+            intent.setFlowStatus(FlowStatus.CANCEL.getKey());
         }
         Instance instance = FlowEngine.insService().getById(instanceId);
         AssertUtil.isNull(instance, ExceptionCons.NOT_FOUNT_INSTANCE);

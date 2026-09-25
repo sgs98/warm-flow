@@ -7,21 +7,15 @@ import org.dromara.warm.flow.core.entity.User;
 import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.UserType;
-import org.dromara.warm.flow.core.handler.PermissionHandler;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.StreamUtils;
 import org.dromara.warm.flow.core.workflow.command.*;
-import org.dromara.warm.flow.core.workflow.context.OperatorContext;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 import org.dromara.warm.flow.core.workflow.result.WorkflowResult;
 import org.dromara.warm.flow.core.workflow.result.WorkflowTaskView;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * 流程统一门面默认实现。
@@ -43,7 +37,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         check(command, "启动流程参数不能为空");
         AssertUtil.isEmpty(command.getBusinessId(), "业务ID不能为空");
         AssertUtil.isEmpty(command.getFlowCode(), "流程编码不能为空");
-        WorkflowContext context = context(command);
+        WorkflowContext context = WorkflowContextMapper.toContext(command);
         Instance instance = FlowEngine.insService().start(command.getBusinessId(), command.getFlowCode(), context);
         return result("start", instance, null);
     }
@@ -58,7 +52,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     public WorkflowResult complete(CompleteCommand command) {
         check(command, "完成任务参数不能为空");
         AssertUtil.isNull(command.getTaskId(), "任务ID不能为空");
-        WorkflowContext context = context(command);
+        WorkflowContext context = WorkflowContextMapper.toContext(command);
         Instance instance = FlowEngine.taskService().execute(command.getTaskId(), context, SkipType.PASS.getKey());
         return result("complete", instance, command.getTaskId());
     }
@@ -73,7 +67,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     public WorkflowResult reject(RejectCommand command) {
         check(command, "退回任务参数不能为空");
         AssertUtil.isNull(command.getTaskId(), "任务ID不能为空");
-        WorkflowContext context = context(command);
+        WorkflowContext context = WorkflowContextMapper.toContext(command);
         Instance instance = FlowEngine.taskService().execute(command.getTaskId(), context, SkipType.REJECT.getKey());
         return result("reject", instance, command.getTaskId());
     }
@@ -89,7 +83,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         check(command, "跳转任务参数不能为空");
         AssertUtil.isNull(command.getTaskId(), "任务ID不能为空");
         AssertUtil.isEmpty(command.getTargetNodeCode(), "目标节点编码不能为空");
-        WorkflowContext context = context(command);
+        WorkflowContext context = WorkflowContextMapper.toContext(command);
         Instance instance = FlowEngine.taskService().execute(command.getTaskId(), context, SkipType.PASS.getKey());
         return result("jump", instance, command.getTaskId());
     }
@@ -104,7 +98,8 @@ public class WorkflowServiceImpl implements WorkflowService {
     public WorkflowResult revoke(RevokeCommand command) {
         check(command, "撤回流程参数不能为空");
         AssertUtil.isNull(command.getInstanceId(), "流程实例ID不能为空");
-        Instance instance = FlowEngine.taskService().revoke(command.getInstanceId(), context(command));
+        Instance instance = FlowEngine.taskService().revoke(command.getInstanceId()
+            , WorkflowContextMapper.toContext(command));
         return result("revoke", instance, null);
     }
 
@@ -119,7 +114,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         check(command, "终止流程参数不能为空");
         AssertUtil.isTrue(command.getTaskId() == null && command.getInstanceId() == null
             , "流程实例ID和任务ID不能同时为空");
-        WorkflowContext context = context(command);
+        WorkflowContext context = WorkflowContextMapper.toContext(command);
         Instance instance = command.getTaskId() == null
             ? FlowEngine.taskService().terminateByInstanceId(command.getInstanceId(), context)
             : FlowEngine.taskService().terminateByTaskId(command.getTaskId(), context);
@@ -137,7 +132,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         check(command, "转办参数不能为空");
         AssertUtil.isNull(command.getTaskId(), "任务ID不能为空");
         AssertUtil.isEmpty(command.getTargetHandler(), "转办办理人不能为空");
-        WorkflowContext context = context(command);
+        WorkflowContext context = WorkflowContextMapper.toContext(command);
         Instance instance = FlowEngine.taskService().updateHandlers(command.getTaskId(), context
             , Collections.singletonList(command.getTargetHandler()), Collections.singletonList(context.getHandler())
             , CooperateType.TRANSFER.getKey());
@@ -155,7 +150,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         check(command, "委派参数不能为空");
         AssertUtil.isNull(command.getTaskId(), "任务ID不能为空");
         AssertUtil.isEmpty(command.getTargetHandler(), "委派办理人不能为空");
-        WorkflowContext context = context(command);
+        WorkflowContext context = WorkflowContextMapper.toContext(command);
         Instance instance = FlowEngine.taskService().updateHandlers(command.getTaskId(), context
             , Collections.singletonList(command.getTargetHandler()), Collections.singletonList(context.getHandler())
             , CooperateType.DEPUTE.getKey());
@@ -173,7 +168,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         check(command, "加签参数不能为空");
         AssertUtil.isNull(command.getTaskId(), "任务ID不能为空");
         AssertUtil.isTrue(CollUtil.isEmpty(command.getTargetHandlers()), "加签办理人不能为空");
-        WorkflowContext context = context(command);
+        WorkflowContext context = WorkflowContextMapper.toContext(command);
         Instance instance = FlowEngine.taskService().updateHandlers(command.getTaskId(), context
             , command.getTargetHandlers(), null, CooperateType.ADD_SIGNATURE.getKey());
         return result("addSigner", instance, command.getTaskId());
@@ -190,39 +185,10 @@ public class WorkflowServiceImpl implements WorkflowService {
         check(command, "减签参数不能为空");
         AssertUtil.isNull(command.getTaskId(), "任务ID不能为空");
         AssertUtil.isTrue(CollUtil.isEmpty(command.getTargetHandlers()), "减签办理人不能为空");
-        WorkflowContext context = context(command);
+        WorkflowContext context = WorkflowContextMapper.toContext(command);
         Instance instance = FlowEngine.taskService().updateHandlers(command.getTaskId(), context
             , null, command.getTargetHandlers(), CooperateType.REDUCTION_SIGNATURE.getKey());
         return result("removeSigner", instance, command.getTaskId());
-    }
-
-    /**
-     * 将公共 Command 转换为内部执行上下文。
-     *
-     * <p>命令级 {@link OperatorContext} 优先于全局 {@link PermissionHandler}，
-     * 便于后台任务等无会话场景显式指定操作者；两者均未提供时保持为空。</p>
-     *
-     * @param command 流程操作参数
-     * @return 内部执行上下文
-     */
-    private WorkflowContext context(WorkflowCommand command) {
-        WorkflowContext context = new WorkflowContext();
-        context.setExt(command.getExt());
-        OperatorContext operator = command.getOperator();
-        if (operator != null) {
-            context.setHandler(operator.getHandler());
-            context.setPermissions(operator.getPermissions());
-            context.setIgnorePermission(operator.isIgnorePermission());
-            context.setIgnore(operator.isIgnore());
-        } else {
-            PermissionHandler permissionHandler = FlowEngine.permissionHandler();
-            if (permissionHandler != null) {
-                context.setHandler(permissionHandler.getHandler());
-                context.setPermissions(permissionHandler.permissions());
-            }
-        }
-        command.fillContext(context);
-        return context;
     }
 
     /**
@@ -242,7 +208,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         if (instance != null) {
             result.setInstanceId(instance.getId());
             result.setBusinessId(instance.getBusinessId());
-            result.setInstanceStatus(instance.getFlowStatus());
+            result.setFlowStatus(instance.getFlowStatus());
             result.setCurrentTasks(currentTasks(instance.getId()));
         } else {
             result.setCurrentTasks(List.of());

@@ -60,3 +60,16 @@
 - 根因：历史接口直接把实例关联任务全部转换为当前任务，没有排除 `cancel`、`termination`、`finish`、`invalid` 等终态任务。
 - 检查：撤回或终止后同时查询待办接口和实例历史；历史中的终态操作应为非当前记录，活动任务集合应为空。
 - 处理：历史时间线只转换非终态任务，保留草稿、退回待提交和待审核等可继续办理状态。
+
+## 办理类操作需要请求级操作者权限（Demo 形态）
+
+- 症状：`start`、`revoke` 正常，但 `pass`/`jump`/`reject`/`terminate`/`transfer`/`depute`/`add-signature`/`reduction-signature` 全部失败，返回「无法跳转到该节点,请检查当前用户是否有权限!」或「请检查当前用户是否有权限!」，任务与实例状态不变。
+- 根因：`OperatorContext` 不再暴露 `permissions`，`WorkflowContext` 的权限只来自全局 `FlowEngine.permissionHandler()`。Demo 按请求确定操作者，若全局处理器拿不到当前用户，权限集合为空，`TaskServiceImpl.checkAuth` 与 `FlowUpdateHandlersChain.authGate` 直接判无权限。
+- 检查：Demo 侧按请求写入当前用户（`X-User-Name` 拦截器 → `DemoUserContext` → `DemoPermissionHandler.permissions()` 返回该用户的 `permissionFlags`）；curl 复测必须带 `X-User-Name`，只带 body 里的 `user` 字段不够。
+- 复测要求：修复后按矩阵重跑通过/驳回/终止/转办/委派/加减签；仅验证发起与撤回不足以证明办理链路可用。
+
+## 隐式并行汇聚会首到达即生成后续节点
+
+- 现象：并行分支直接汇入同一个中间节点（没有显式汇聚网关）时，完成任意一个分支就生成该汇聚节点，另一分支的待办随后被引擎清理。
+- 判定：`FlowPathResolver.retainJoinPath` 只在本次流转路径经过并行/包容网关（node_type 4/5）时才做汇聚等待，隐式汇聚不适用，属既有语义（09-25 01:11 的旧记录与本次一致）。
+- 检查：验证「完成最后一个实际分支才越过汇聚」必须使用带显式汇聚网关的定义；隐式汇聚场景只核对分支出口与最终节点，不要据此判定汇聚缺陷。

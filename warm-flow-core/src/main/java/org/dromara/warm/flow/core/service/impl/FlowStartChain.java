@@ -17,19 +17,11 @@ package org.dromara.warm.flow.core.service.impl;
 
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.dto.PathWayData;
-import org.dromara.warm.flow.core.entity.HisTask;
-import org.dromara.warm.flow.core.entity.Instance;
-import org.dromara.warm.flow.core.entity.Node;
-import org.dromara.warm.flow.core.entity.Task;
-import org.dromara.warm.flow.core.entity.User;
+import org.dromara.warm.flow.core.entity.*;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.SkipType;
-import org.dromara.warm.flow.core.utils.CollUtil;
-import org.dromara.warm.flow.core.utils.ExpressionUtil;
-import org.dromara.warm.flow.core.utils.ListenerUtil;
-import org.dromara.warm.flow.core.utils.StreamUtils;
-import org.dromara.warm.flow.core.utils.StringUtils;
+import org.dromara.warm.flow.core.utils.*;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.Date;
@@ -49,7 +41,7 @@ import java.util.Optional;
  * 历史任务、首待办）；非线程安全，禁止静态化或缓存复用。</p>
  *
  * <p>步骤体自原 {@code InsServiceImpl.start} 逐行搬移（原手工逐字段拷贝的 taskContext
- * 已删：addTask 只读取 instanceStatus，逐字段拷贝与直传调用方上下文等值），语句顺序
+ * 已删：addTask 只读取 flowStatus，逐字段拷贝与直传调用方上下文等值），语句顺序
  * 与引用语义为行为契约，由特征测试锁定。</p>
  *
  * @author warm
@@ -87,8 +79,8 @@ final class FlowStartChain {
     private List<Task> addTasks;
 
     /**
-     * @param insService  实例服务
-     * @param businessId  业务id
+     * @param insService 实例服务
+     * @param businessId 业务id
      */
     FlowStartChain(InsServiceImpl insService, String businessId) {
         this.insService = insService;
@@ -220,7 +212,7 @@ final class FlowStartChain {
             .setNodeType(firstBetweenNode.getNodeType())
             .setNodeCode(firstBetweenNode.getNodeCode())
             .setNodeName(firstBetweenNode.getNodeName())
-            .setFlowStatus(StringUtils.emptyDefault(context.getInstanceStatus()
+            .setFlowStatus(StringUtils.emptyDefault(context.getFlowStatus()
                 , FlowStatus.TOBESUBMIT.getKey()))
             .setActivityStatus(ActivityStatus.ACTIVITY.getKey())
             .setVariable(FlowEngine.jsonConvert.objToStr(context.getVariables()))

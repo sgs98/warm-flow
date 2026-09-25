@@ -94,7 +94,7 @@ public abstract class WarmServiceImpl<M extends WarmDao<T>, T> implements IWarmS
      * 委托 DAO 执行分页查询，并回填传入的分页对象。
      *
      * @param entity 查询条件实体
-     * @param page 分页参数与结果承载对象
+     * @param page   分页参数与结果承载对象
      * @return 分页查询结果
      */
     @Override
@@ -117,7 +117,7 @@ public abstract class WarmServiceImpl<M extends WarmDao<T>, T> implements IWarmS
      * 使用实体非空字段和扩展查询条件查询列表。
      *
      * @param entity 查询条件实体
-     * @param query 扩展查询条件
+     * @param query  扩展查询条件
      * @return 匹配的实体列表
      */
     @Override
@@ -238,7 +238,7 @@ public abstract class WarmServiceImpl<M extends WarmDao<T>, T> implements IWarmS
      * 每个实体在写入前执行新增数据填充；传入非正批次大小时使用 1000。
      * 空集合直接返回，不触发数据填充或 DAO 调用。
      *
-     * @param list 待新增实体集合
+     * @param list      待新增实体集合
      * @param batchSize 单批最大记录数
      */
     @Override

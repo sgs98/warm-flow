@@ -30,7 +30,9 @@ public class IdUtils {
      */
     private static volatile LongSupplier instanceNative;
 
-    /** 雪花算法的起始时间戳（保持与原有 19 位算法一致） */
+    /**
+     * 雪花算法的起始时间戳（保持与原有 19 位算法一致）
+     */
     private static final long TWEPOCH = 1420041600000L;
 
     private static final long MAX_WORKER_ID = 31L;

@@ -58,9 +58,9 @@ public enum ChartStatus {
      * <p>
      * 颜色配置按未办理、待办理、已办理顺序传入，每个颜色为 {@code r,g,b} 格式。
      *
-     * @param chartStatusColor 通用颜色配置
+     * @param chartStatusColor         通用颜色配置
      * @param chartStatusColorClassics 经典模型颜色配置
-     * @param chartStatusColorMimic 仿钉钉模型颜色配置
+     * @param chartStatusColorMimic    仿钉钉模型颜色配置
      */
     public static void initCustomColor(List<String> chartStatusColor, List<String> chartStatusColorClassics,
                                        List<String> chartStatusColorMimic) {
@@ -133,7 +133,7 @@ public enum ChartStatus {
      * 按状态和设计器模型获取颜色，优先使用模型专属配置，其次使用通用配置，最后使用枚举默认颜色。
      *
      * @param chartStatus 流程图状态
-     * @param modelValue 设计器模型
+     * @param modelValue  设计器模型
      * @return 颜色
      */
     public static Color getColorByKey(ChartStatus chartStatus, String modelValue) {

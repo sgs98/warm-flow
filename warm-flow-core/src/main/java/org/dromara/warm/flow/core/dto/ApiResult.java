@@ -74,7 +74,7 @@ public class ApiResult<T> implements Serializable {
      * 创建带业务数据的成功响应。
      *
      * @param data 业务数据
-     * @param <T> 业务数据类型
+     * @param <T>  业务数据类型
      * @return 成功响应
      */
     public static <T> ApiResult<T> ok(T data) {
@@ -85,8 +85,8 @@ public class ApiResult<T> implements Serializable {
      * 创建带业务数据和自定义消息的成功响应。
      *
      * @param data 业务数据
-     * @param msg 提示消息
-     * @param <T> 业务数据类型
+     * @param msg  提示消息
+     * @param <T>  业务数据类型
      * @return 成功响应
      */
     public static <T> ApiResult<T> ok(T data, String msg) {
@@ -118,7 +118,7 @@ public class ApiResult<T> implements Serializable {
      * 创建带业务数据的默认失败响应。
      *
      * @param data 业务数据
-     * @param <T> 业务数据类型
+     * @param <T>  业务数据类型
      * @return 失败响应
      */
     public static <T> ApiResult<T> fail(T data) {
@@ -129,8 +129,8 @@ public class ApiResult<T> implements Serializable {
      * 创建带业务数据和自定义消息的失败响应。
      *
      * @param data 业务数据
-     * @param msg 失败消息
-     * @param <T> 业务数据类型
+     * @param msg  失败消息
+     * @param <T>  业务数据类型
      * @return 失败响应
      */
     public static <T> ApiResult<T> fail(T data, String msg) {
@@ -141,8 +141,8 @@ public class ApiResult<T> implements Serializable {
      * 创建带自定义状态码和消息的失败响应。
      *
      * @param code 状态码
-     * @param msg 失败消息
-     * @param <T> 业务数据类型
+     * @param msg  失败消息
+     * @param <T>  业务数据类型
      * @return 失败响应
      */
     public static <T> ApiResult<T> fail(int code, String msg) {
@@ -154,8 +154,8 @@ public class ApiResult<T> implements Serializable {
      *
      * @param data 业务数据
      * @param code 状态码
-     * @param msg 提示消息
-     * @param <T> 业务数据类型
+     * @param msg  提示消息
+     * @param <T>  业务数据类型
      * @return 响应对象
      */
     private static <T> ApiResult<T> restResult(T data, int code, String msg) {

@@ -114,8 +114,8 @@ public class WorkflowServiceImpl implements WorkflowService {
             command.setBusinessId(request.getBusinessId());
             command.setFlowCode(request.getFlowCode());
             command.setVariables(request.getVariables());
-            command.setInstanceStatus(BusinessStatusEnum.DRAFT.getStatus());
-            command.setHistoryTaskStatus(TaskStatusEnum.PASS.getStatus());
+            command.setFlowStatus(BusinessStatusEnum.DRAFT.getStatus());
+            command.setTaskStatus(TaskStatusEnum.PASS.getStatus());
             WorkflowResult result = FlowEngine.workflow().start(command);
             Instance instance = requireInstance(result.getInstanceId());
             List<Task> tasks = FlowEngine.taskService().getByInsId(instance.getId());
@@ -561,7 +561,7 @@ public class WorkflowServiceImpl implements WorkflowService {
             command.setTaskId(task.getId());
             command.setTargetHandler(targetHandler);
             command.setMessage(req.getMessage());
-            command.setHistoryTaskStatus(TaskStatusEnum.TRANSFER.getStatus());
+            command.setTaskStatus(TaskStatusEnum.TRANSFER.getStatus());
             FlowEngine.workflow().transfer(command);
         } catch (FlowException e) {
             throw BizException.badRequest(e.getMessage());
@@ -586,7 +586,7 @@ public class WorkflowServiceImpl implements WorkflowService {
             command.setTaskId(task.getId());
             command.setTargetHandler(targetHandler);
             command.setMessage(req.getMessage());
-            command.setHistoryTaskStatus(TaskStatusEnum.DEPUTE.getStatus());
+            command.setTaskStatus(TaskStatusEnum.DEPUTE.getStatus());
             FlowEngine.workflow().delegate(command);
         } catch (FlowException e) {
             throw BizException.badRequest(e.getMessage());
@@ -614,7 +614,7 @@ public class WorkflowServiceImpl implements WorkflowService {
             command.setTaskId(task.getId());
             command.setTargetHandlers(addHandlers);
             command.setMessage(req.getMessage());
-            command.setHistoryTaskStatus(TaskStatusEnum.SIGN.getStatus());
+            command.setTaskStatus(TaskStatusEnum.SIGN.getStatus());
             FlowEngine.workflow().addSigner(command);
         } catch (FlowException e) {
             throw BizException.badRequest(e.getMessage());
@@ -639,7 +639,7 @@ public class WorkflowServiceImpl implements WorkflowService {
             command.setTaskId(task.getId());
             command.setTargetHandlers(req.getReductionHandlers());
             command.setMessage(req.getMessage());
-            command.setHistoryTaskStatus(TaskStatusEnum.SIGN_OFF.getStatus());
+            command.setTaskStatus(TaskStatusEnum.SIGN_OFF.getStatus());
             FlowEngine.workflow().removeSigner(command);
         } catch (FlowException e) {
             throw BizException.badRequest(e.getMessage());
@@ -658,8 +658,8 @@ public class WorkflowServiceImpl implements WorkflowService {
             RevokeCommand command = new RevokeCommand();
             command.setOperator(operator(user));
             command.setInstanceId(instanceId);
-            command.setInstanceStatus(BusinessStatusEnum.CANCEL.getStatus());
-            command.setHistoryTaskStatus(TaskStatusEnum.CANCEL.getStatus());
+            command.setFlowStatus(BusinessStatusEnum.CANCEL.getStatus());
+            command.setTaskStatus(TaskStatusEnum.CANCEL.getStatus());
             FlowEngine.workflow().revoke(command);
         } catch (FlowException e) {
             throw BizException.badRequest(e.getMessage());
@@ -680,8 +680,8 @@ public class WorkflowServiceImpl implements WorkflowService {
             TerminateCommand command = new TerminateCommand();
             command.setOperator(operator(user));
             command.setInstanceId(instanceId);
-            command.setInstanceStatus(BusinessStatusEnum.TERMINATION.getStatus());
-            command.setHistoryTaskStatus(TaskStatusEnum.TERMINATION.getStatus());
+            command.setFlowStatus(BusinessStatusEnum.TERMINATION.getStatus());
+            command.setTaskStatus(TaskStatusEnum.TERMINATION.getStatus());
             FlowEngine.workflow().terminate(command);
         } catch (FlowException e) {
             throw BizException.badRequest(e.getMessage());
@@ -700,8 +700,8 @@ public class WorkflowServiceImpl implements WorkflowService {
                 command.setMessage(req.getMessage());
                 command.setVariables(variables);
                 command.setNextHandlers(req.getNextHandlers());
-                command.setInstanceStatus(BusinessStatusEnum.BACK.getStatus());
-                command.setHistoryTaskStatus(TaskStatusEnum.BACK.getStatus());
+                command.setFlowStatus(BusinessStatusEnum.BACK.getStatus());
+                command.setTaskStatus(TaskStatusEnum.BACK.getStatus());
                 result = FlowEngine.workflow().reject(command);
             } else if (StringUtils.isNotEmpty(req.getNodeCode())) {
                 JumpCommand command = new JumpCommand();
@@ -711,8 +711,8 @@ public class WorkflowServiceImpl implements WorkflowService {
                 command.setMessage(req.getMessage());
                 command.setVariables(variables);
                 command.setNextHandlers(req.getNextHandlers());
-                command.setInstanceStatus(BusinessStatusEnum.WAITING.getStatus());
-                command.setHistoryTaskStatus(TaskStatusEnum.PASS.getStatus());
+                command.setFlowStatus(BusinessStatusEnum.WAITING.getStatus());
+                command.setTaskStatus(TaskStatusEnum.PASS.getStatus());
                 result = FlowEngine.workflow().jump(command);
             } else {
                 CompleteCommand command = new CompleteCommand();
@@ -721,8 +721,8 @@ public class WorkflowServiceImpl implements WorkflowService {
                 command.setMessage(req.getMessage());
                 command.setVariables(variables);
                 command.setNextHandlers(req.getNextHandlers());
-                command.setInstanceStatus(BusinessStatusEnum.WAITING.getStatus());
-                command.setHistoryTaskStatus(TaskStatusEnum.PASS.getStatus());
+                command.setFlowStatus(BusinessStatusEnum.WAITING.getStatus());
+                command.setTaskStatus(TaskStatusEnum.PASS.getStatus());
                 result = FlowEngine.workflow().complete(command);
             }
             Instance instance = requireInstance(result.getInstanceId());
@@ -755,7 +755,7 @@ public class WorkflowServiceImpl implements WorkflowService {
      * @return 操作者上下文
      */
     private OperatorContext operator(String user) {
-        return new OperatorContext(user, userService.permissionFlags(user));
+        return new OperatorContext(user);
     }
 
     private List<TaskNodeVo> nextNodes(Task task) {
@@ -1115,7 +1115,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         WorkflowContext copyContext = new WorkflowContext();
         copyContext.setHandler(user);
         copyContext.setPermissions(userService.permissionFlags(user));
-        copyContext.setHistoryTaskStatus(TaskStatusEnum.COPY.getStatus());
+        copyContext.setTaskStatus(TaskStatusEnum.COPY.getStatus());
         FlowEngine.hisTaskService().save(FlowEngine.hisTaskService().setSkipHisTask(task, node, copyContext
             , SkipType.NONE.getKey()));
         List<User> flowUsers = users.stream().map(userName -> FlowEngine.newUser()

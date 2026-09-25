@@ -2,7 +2,6 @@ package org.dromara.warm.flow.core.workflow.command;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.List;
 import java.util.Map;
@@ -17,32 +16,27 @@ import java.util.Map;
 public class CompleteCommand extends WorkflowCommand {
 
     /**
-     * 要完成的待办任务主键。
+     * 当前待办任务主键。
      */
     private Long taskId;
 
     /**
-     * 办理说明。
+     * 本次流程动作的说明。
      */
     private String message;
 
     /**
-     * 本次办理需要写入流程实例的变量。
+     * 本次操作需要写入流程实例的变量。
      */
     private Map<String, Object> variables;
 
     /**
-     * 可选的办理后流程实例状态，未设置时由引擎状态机决定。
+     * 可选的流程实例状态。
      */
-    private String instanceStatus;
+    private String flowStatus;
 
     /**
-     * 可选的已完成历史任务状态，未设置时由引擎状态机决定。
-     */
-    private String historyTaskStatus;
-
-    /**
-     * 指定后续节点办理人集合。
+     * 指定后续节点办理人。
      */
     private List<String> nextHandlers;
 
@@ -51,18 +45,4 @@ public class CompleteCommand extends WorkflowCommand {
      */
     private boolean nextHandlerAppend;
 
-    /**
-     * 将完成参数填充到执行上下文。
-     *
-     * @param context 流程执行上下文
-     */
-    @Override
-    public void fillContext(WorkflowContext context) {
-        context.setMessage(getMessage());
-        context.setVariables(getVariables());
-        context.setInstanceStatus(getInstanceStatus());
-        context.setHistoryTaskStatus(getHistoryTaskStatus());
-        context.setNextHandlers(getNextHandlers());
-        context.setNextHandlerAppend(isNextHandlerAppend());
-    }
 }

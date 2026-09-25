@@ -3,7 +3,6 @@ package org.dromara.warm.flow.core.workflow.command;
 import lombok.Getter;
 import lombok.Setter;
 import org.dromara.warm.flow.core.workflow.context.OperatorContext;
-import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 /**
  * 流程写操作参数基类。
@@ -25,10 +24,8 @@ public abstract class WorkflowCommand {
     private String ext;
 
     /**
-     * 将本命令携带的执行数据填充到上下文，由各命令子类按自身字段覆写。
-     *
-     * @param context 流程执行上下文
+     * 本次操作可选的历史任务状态。
      */
-    public void fillContext(WorkflowContext context) {
-    }
+    private String taskStatus;
+
 }

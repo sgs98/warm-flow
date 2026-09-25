@@ -9,8 +9,8 @@ import java.util.Map;
 /**
  * 流程动作的内部执行上下文。
  *
- * <p>该对象只承载多个流程动作共享的执行数据，不作为第三方公共调用参数，
- * 也不保存流程状态、历史状态和协作类型等由引擎内部决定的字段。</p>
+ * <p>该对象承载流程执行期间需要传递和演进的数据。标准业务操作优先使用各自的
+ * Command，由引擎映射为本上下文；引擎扩展场景也可以按需直接创建或传递本对象。</p>
  *
  * @author may
  */
@@ -51,12 +51,12 @@ public class WorkflowContext {
     /**
      * 调用方指定的流程实例状态，未设置时由引擎状态机决定。
      */
-    private String instanceStatus;
+    private String flowStatus;
 
     /**
      * 调用方指定的历史任务状态，未设置时由引擎状态机决定。
      */
-    private String historyTaskStatus;
+    private String taskStatus;
 
     /**
      * 流程动作的目标节点编码。

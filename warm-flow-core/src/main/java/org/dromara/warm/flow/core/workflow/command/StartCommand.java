@@ -2,7 +2,6 @@ package org.dromara.warm.flow.core.workflow.command;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.List;
 import java.util.Map;
@@ -27,22 +26,17 @@ public class StartCommand extends WorkflowCommand {
     private String flowCode;
 
     /**
-     * 启动流程时写入实例的变量。
+     * 本次操作需要写入流程实例的变量。
      */
     private Map<String, Object> variables;
 
     /**
-     * 可选的流程实例初始状态，未设置时使用引擎默认状态。
+     * 可选的流程实例状态。
      */
-    private String instanceStatus;
+    private String flowStatus;
 
     /**
-     * 可选的开始节点历史任务状态，未设置时使用引擎默认状态。
-     */
-    private String historyTaskStatus;
-
-    /**
-     * 指定首个待办节点的办理人集合。
+     * 指定首个待办的办理人。
      */
     private List<String> nextHandlers;
 
@@ -51,17 +45,4 @@ public class StartCommand extends WorkflowCommand {
      */
     private boolean nextHandlerAppend;
 
-    /**
-     * 将启动参数填充到执行上下文。
-     *
-     * @param context 流程执行上下文
-     */
-    @Override
-    public void fillContext(WorkflowContext context) {
-        context.setVariables(getVariables());
-        context.setInstanceStatus(getInstanceStatus());
-        context.setHistoryTaskStatus(getHistoryTaskStatus());
-        context.setNextHandlers(getNextHandlers());
-        context.setNextHandlerAppend(isNextHandlerAppend());
-    }
 }

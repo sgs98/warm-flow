@@ -63,7 +63,9 @@ final class TaskCooperationRuleEvaluator {
         boolean matches(Context context);
     }
 
-    /** 使用表达式计算票签是否完成。 */
+    /**
+     * 使用表达式计算票签是否完成。
+     */
     private static final class ExpressionRule implements Rule {
 
         /**
@@ -100,7 +102,9 @@ final class TaskCooperationRuleEvaluator {
         }
     }
 
-    /** 达到指定通过人数时完成，或在剩余票数已无法通过时提前驳回。 */
+    /**
+     * 达到指定通过人数时完成，或在剩余票数已无法通过时提前驳回。
+     */
     private static final class PassCountRule implements Rule {
 
         /**
@@ -131,7 +135,9 @@ final class TaskCooperationRuleEvaluator {
         }
     }
 
-    /** 达到指定驳回人数时完成，或在剩余票数已无法驳回时提前通过。 */
+    /**
+     * 达到指定驳回人数时完成，或在剩余票数已无法驳回时提前通过。
+     */
     private static final class RejectCountRule implements Rule {
 
         /**
@@ -162,7 +168,9 @@ final class TaskCooperationRuleEvaluator {
         }
     }
 
-    /** 按通过比例计算票签结果，并作为其他格式均未命中时的兜底规则。 */
+    /**
+     * 按通过比例计算票签结果，并作为其他格式均未命中时的兜底规则。
+     */
     private static final class PassRatioRule implements Rule {
 
         /**
@@ -241,14 +249,14 @@ final class TaskCooperationRuleEvaluator {
         /**
          * 创建不可变统计快照，空列表和空变量统一转换为空集合。
          *
-         * @param nodeRatio     节点票签规则配置
-         * @param skipType     当前跳转类型
-         * @param isPass       当前办理是否通过
-         * @param allNum       总办理人数
-         * @param todoList     尚未办理的人员列表
-         * @param donePassList 已通过的历史记录
+         * @param nodeRatio      节点票签规则配置
+         * @param skipType       当前跳转类型
+         * @param isPass         当前办理是否通过
+         * @param allNum         总办理人数
+         * @param todoList       尚未办理的人员列表
+         * @param donePassList   已通过的历史记录
          * @param doneRejectList 已驳回的历史记录
-         * @param variable     流程变量
+         * @param variable       流程变量
          */
         Context(String nodeRatio, String skipType, boolean isPass, int allNum, List<?> todoList
             , List<?> donePassList, List<?> doneRejectList, Map<String, Object> variable) {

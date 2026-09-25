@@ -37,7 +37,7 @@ public class WorkflowResult {
     /**
      * 操作完成后的流程实例状态。
      */
-    private String instanceStatus;
+    private String flowStatus;
 
     /**
      * 本次完成或协作操作关联的任务主键。

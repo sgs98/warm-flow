@@ -76,9 +76,9 @@ class TerminateCharacteristicTest {
         assertEquals(1, harness.hisTaskDao.all().stream()
                 .filter(h -> FlowStatus.TERMINATE.getKey().equals(h.getFlowStatus())).count(),
                 "应存在一条 TERMINATE 历史");
-        // 状态回写：终止后 context.instanceStatus 带回实例终态
-        assertNotNull(context.getInstanceStatus());
-        assertEquals(persisted.getFlowStatus(), context.getInstanceStatus());
+        // 状态回写：终止后 context.flowStatus 带回实例终态
+        assertNotNull(context.getFlowStatus());
+        assertEquals(persisted.getFlowStatus(), context.getFlowStatus());
     }
 
     @Test

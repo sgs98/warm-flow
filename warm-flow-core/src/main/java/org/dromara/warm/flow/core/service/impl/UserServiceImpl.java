@@ -167,9 +167,9 @@ public class UserServiceImpl extends WarmServiceImpl<FlowUserDao<User>, User> im
     /**
      * 按关联对象和办理人标识集合批量查询办理人记录。
      *
-     * @param associated 关联对象主键
+     * @param associated   关联对象主键
      * @param processedBys 办理人标识集合
-     * @param types      办理人类型
+     * @param types        办理人类型
      * @return 办理人记录集合
      */
     @Override
@@ -186,7 +186,7 @@ public class UserServiceImpl extends WarmServiceImpl<FlowUserDao<User>, User> im
      *
      * <p>{@code clear} 为真时先清理当前操作人创建的旧记录，再写入新的权限集合。</p>
      *
-     * @param associated 关联对象主键，任务场景下通常为任务ID
+     * @param associated  关联对象主键，任务场景下通常为任务ID
      * @param permissions 新办理人标识集合
      * @param type        办理人类型
      * @param clear       是否先清理旧权限
@@ -208,9 +208,9 @@ public class UserServiceImpl extends WarmServiceImpl<FlowUserDao<User>, User> im
     /**
      * 按办理人标识集合批量构造办理人记录。
      *
-     * @param associated   关联对象主键
+     * @param associated     关联对象主键
      * @param permissionList 办理人标识集合
-     * @param type         办理人类型
+     * @param type           办理人类型
      * @return 尚未持久化的办理人记录
      */
     @Override
@@ -234,10 +234,10 @@ public class UserServiceImpl extends WarmServiceImpl<FlowUserDao<User>, User> im
     /**
      * 按办理人标识集合和创建人批量构造办理人记录。
      *
-     * @param associated   关联对象主键
+     * @param associated     关联对象主键
      * @param permissionList 办理人标识集合
-     * @param type         办理人类型
-     * @param handler      创建人
+     * @param type           办理人类型
+     * @param handler        创建人
      * @return 尚未持久化的办理人记录
      */
     @Override

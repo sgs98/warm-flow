@@ -47,7 +47,7 @@ public interface FlowHisTaskDao<T extends HisTask> extends WarmDao<T> {
      * 用于判断指定节点在某个实例中是否产生过历史任务，常见于路径回溯和并行网关判断。
      *
      * @param instanceId 流程实例 ID
-     * @param nodeCodes 节点编码集合
+     * @param nodeCodes  节点编码集合
      * @return 历史任务列表
      */
     List<T> getByInsAndNodeCodes(Long instanceId, List<String> nodeCodes);
@@ -65,7 +65,7 @@ public interface FlowHisTaskDao<T extends HisTask> extends WarmDao<T> {
      * <p>
      * 协作类型覆盖会签、票签、加签、转办等任务协作记录，服务层用该查询统计或回溯协作行为。
      *
-     * @param taskId 待办任务 ID
+     * @param taskId         待办任务 ID
      * @param cooperateTypes 协作类型集合
      * @return 历史任务列表
      */

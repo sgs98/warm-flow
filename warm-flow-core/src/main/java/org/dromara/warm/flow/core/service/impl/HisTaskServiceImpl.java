@@ -239,7 +239,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
      * @param task      当前待办任务
      * @param context   流程执行上下文
      * @param nodeRatio 节点协作规则
-     * @param isPass 当前办理结果是否通过
+     * @param isPass    当前办理结果是否通过
      * @return 尚未持久化的历史任务
      */
     @Override
@@ -324,7 +324,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
      * @return 自定义状态，未指定时返回空值
      */
     private String customStatus(WorkflowContext context) {
-        return FlowStatusMachine.customStatus(context.getHistoryTaskStatus(), context.getInstanceStatus());
+        return FlowStatusMachine.customStatus(context.getTaskStatus(), context.getFlowStatus());
     }
 
     /**

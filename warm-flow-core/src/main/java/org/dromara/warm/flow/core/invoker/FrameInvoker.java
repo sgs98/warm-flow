@@ -49,7 +49,7 @@ public class FrameInvoker<M> {
      * 注册按类型获取 Bean 的函数。
      *
      * @param function Bean 获取函数
-     * @param <M> Bean 类型
+     * @param <M>      Bean 类型
      */
     public static <M> void setBeanFunction(Function<Class<M>, M> function) {
         invoker().beanFunction = function == null ? null : type -> applyBeanFunction(function, type);
@@ -61,7 +61,7 @@ public class FrameInvoker<M> {
      * 未注册函数或获取失败时返回 {@code null}，调用方需要按可选依赖处理。
      *
      * @param tClass Bean 类型
-     * @param <M> Bean 类型
+     * @param <M>    Bean 类型
      * @return Bean 实例
      */
     public static <M> M getBean(Class<M> tClass) {

@@ -64,7 +64,7 @@ public interface WarmDao<T> {
      * 根据实体非空字段分页查询。
      *
      * @param entity 查询条件实体
-     * @param page 分页参数与结果承载对象
+     * @param page   分页参数与结果承载对象
      * @return 回填总数和当前页数据后的分页对象
      */
     Page<T> selectPage(T entity, Page<T> page);
@@ -73,7 +73,7 @@ public interface WarmDao<T> {
      * 根据实体非空字段和扩展查询条件查询列表。
      *
      * @param entity 查询条件实体
-     * @param query ORM 无关的扩展查询条件，可为 {@code null}
+     * @param query  ORM 无关的扩展查询条件，可为 {@code null}
      * @return 匹配的实体列表
      */
     List<T> selectList(T entity, WarmQuery<T> query);

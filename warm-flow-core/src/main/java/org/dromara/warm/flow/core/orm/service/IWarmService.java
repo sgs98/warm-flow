@@ -69,7 +69,7 @@ public interface IWarmService<T> {
      * 按实体非空字段分页查询。
      *
      * @param entity 查询实体
-     * @param page 分页参数与结果承载对象
+     * @param page   分页参数与结果承载对象
      * @return 回填总数和当前页数据后的分页对象
      */
     Page<T> page(T entity, Page<T> page);
@@ -86,7 +86,7 @@ public interface IWarmService<T> {
      * 按实体非空字段和扩展查询条件查询列表。
      *
      * @param entity 查询实体
-     * @param query 查询条件，可包含排序信息
+     * @param query  查询条件，可包含排序信息
      * @return 匹配的实体列表
      */
     List<T> list(T entity, WarmQuery<T> query);
@@ -169,7 +169,7 @@ public interface IWarmService<T> {
      * <p>
      * 实现会先按批次拆分，再对每个实体执行新增数据填充；非正批次大小使用实现约定的默认值。
      *
-     * @param list 待新增实体集合
+     * @param list      待新增实体集合
      * @param batchSize 单批最大记录数
      */
     void saveBatch(List<T> list, int batchSize);
