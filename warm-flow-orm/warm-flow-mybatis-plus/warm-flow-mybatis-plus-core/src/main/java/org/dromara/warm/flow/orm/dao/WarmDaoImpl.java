@@ -18,6 +18,7 @@ package org.dromara.warm.flow.orm.dao;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.enums.SqlKeyword;
+import com.baomidou.mybatisplus.extension.toolkit.Db;
 import org.dromara.warm.flow.core.entity.RootEntity;
 import org.dromara.warm.flow.core.orm.agent.WarmQuery;
 import org.dromara.warm.flow.core.orm.dao.WarmDao;
@@ -130,16 +131,12 @@ public abstract class WarmDaoImpl<T extends RootEntity> implements WarmDao<T> {
 
     @Override
     public void saveBatch(List<T> list) {
-        for (T record : list) {
-            save(record);
-        }
+        Db.saveBatch(list);
     }
 
     @Override
     public void updateBatch(List<T> list) {
-        for (T record : list) {
-            updateById(record);
-        }
+        Db.updateBatchById(list);
     }
 
 }

@@ -71,7 +71,7 @@
                 :data="formPathList"
                 :props="{ value: 'id', label: 'name', children: 'children' }"
                 value-key="id"
-                placeholder="请选择流程类别"
+                placeholder="请选择表单唯一标识"
                 check-strictly/>
         </el-form-item>
       </div>
