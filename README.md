@@ -47,10 +47,7 @@
 
 ## 使用文档与联系方式
 
-https://github.com/sgs98/warm-flow-doc
-
-> 部分地区访问不了，可本地部署
-https://github.com/sgs98/warm-flow-doc
+https://sgs98.github.io/warm-flow-doc/
 
 ## 组件所需脚本
 
