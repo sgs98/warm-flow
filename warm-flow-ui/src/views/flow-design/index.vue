@@ -111,6 +111,7 @@ import {
     json2LogicFlowJson,
     logicFlowJsonToWarmFlow
 } from "@/components/design/common/js/tool";
+import { getMagnetPosition, SNAP_EPSILON } from "@/components/design/common/js/snapMagnet";
 import StartC from "@/components/design/classics/js/start";
 import BetweenC from "@/components/design/classics/js/between";
 import SerialC from "@/components/design/classics/js/serial";
@@ -309,7 +310,11 @@ function initLogicFlow() {
     lf.value = new LogicFlow({
       container: proxy.$refs.containerRef,
       textEdit: false,      // 是否开启文本编辑。
-      snapToGrid: true,   // 是否开启网格吸附，开启后拖动节点会有以网格大小为补步长移动
+      // 关闭网格量化：历史数据与导入的坐标不落在 20 的倍数上（如初始数据 end 节点 x=597），
+      // 量化会让新增节点落点被强行对齐到格点。精确对齐改由下面的 node:drop 磁吸保证。
+      snapToGrid: false,
+      // LogicFlow 默认只给 1px 容差，几乎拖不出对齐线
+      snaplineEpsilon: SNAP_EPSILON,
       hideAnchors: !isClassics(logicJson.value.modelValue) || disabled.value,   // 是否隐藏节点的锚点，静默模式下默认隐藏。
       adjustNodePosition: isClassics(logicJson.value.modelValue) && !disabled.value,   // 是否允许拖动节点。
       hoverOutline: isClassics(logicJson.value.modelValue) && !disabled.value,   // 鼠标 hover 的时候是否显示节点的外框。
@@ -942,8 +947,25 @@ function initEvent() {
       removeNode(lf.value, nodeModel)
     })
   } else {
-    // 中间节点双击事件
+    // 拖动结束后 LogicFlow 还会补发一次 node:click，直接就把属性抽屉弹出来了。
+    // 用时间窗口而不是布尔标记：拖到画布外没补发 click 时，不会把下一次正常单击也吞掉。
+    let lastDragEndAt = 0
+
+    // 拖拽结束磁吸：LogicFlow 的对齐线只画线、不改坐标，松手时自己把节点精确吸到对齐线上。
+    // 用 node:drop 而不是 node:mouseup —— 后者普通单击也会触发，会把节点无故挪动几像素。
+    eventCenter.on('node:drop', (args) => {
+      lastDragEndAt = Date.now()
+      const magnet = getMagnetPosition(lf.value, args.data.id)
+      if (magnet) {
+        lf.value.graphModel.moveNode2Coordinate(args.data.id, magnet.x, magnet.y)
+      }
+    })
+
+    // 中间节点单击事件
     eventCenter.on('node:click', (args) => {
+      if (Date.now() - lastDragEndAt < 250) {
+        return
+      }
       nodeClick.value = args.data
       let graphData = lf.value.getGraphData()
       nodes.value = graphData['nodes']
