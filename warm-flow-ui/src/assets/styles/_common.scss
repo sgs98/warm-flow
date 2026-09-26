@@ -94,6 +94,34 @@
 
     .tab-icon { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; }
     .tab-label { position: relative; z-index: 1; }
+
+    /* 页签计数徽标：不点进去也能看出这块配了多少 */
+    .tab-count {
+      min-width: 17px; height: 16px; padding: 0 5px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 600; line-height: 1;
+      color: var(--wf-primary, #409eff);
+      background: rgba(64, 158, 255, 0.12);
+      border-radius: 8px;
+      html.dark & { background: rgba(64, 158, 255, 0.22); }
+
+      &.is-empty {
+        color: var(--wf-text-secondary, #909399);
+        background: rgba(144, 147, 153, 0.14);
+        html.dark & { background: rgba(144, 147, 153, 0.24); }
+      }
+    }
+    &.is-ext-tab .tab-count {
+      color: var(--wf-success, #67c23a);
+      background: rgba(103, 194, 58, 0.14);
+      html.dark & { background: rgba(103, 194, 58, 0.22); }
+
+      &.is-empty {
+        color: var(--wf-text-secondary, #909399);
+        background: rgba(144, 147, 153, 0.14);
+        html.dark & { background: rgba(144, 147, 153, 0.24); }
+      }
+    }
   }
 
   .tabPane {

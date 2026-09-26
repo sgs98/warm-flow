@@ -13,6 +13,11 @@
           >
             <svg class="tab-icon" viewBox="0 0 24 24"><path :d="item.iconPath || TAB_ICONS.ext" fill="currentColor"/></svg>
             <span class="tab-label">{{ item.label }}</span>
+            <span
+              v-if="tabCounts[item.name] !== undefined"
+              class="tab-count"
+              :class="{ 'is-empty': tabCounts[item.name] === 0 }"
+            >{{ tabCounts[item.name] }}</span>
             <span v-if="index >= 3" class="tab-ext-tag">扩展</span>
           </div>
         </div>
@@ -23,13 +28,16 @@
         <!-- 基础配置卡片 -->
         <div class="base-settings-section">
           <div class="base-settings-content">
+        <form-section title="基础信息" :summary="baseInfoSummary">
         <el-form-item label="节点编码：" prop="nodeCode">
           <el-input v-model="form.nodeCode" :disabled="disabled"></el-input>
         </el-form-item>
         <el-form-item label="节点名称：" prop="nodeName">
           <el-input v-model="form.nodeName" :disabled="disabled"></el-input>
         </el-form-item>
+        </form-section>
 
+        <form-section title="协作方式" :summary="collaborativeWaySummary">
         <!-- 协作方式 - 卡片式单选 -->
         <el-form-item label="协作方式：" prop="collaborativeWay">
           <div class="radio-card-group">
@@ -95,7 +103,9 @@
           </el-select>
           <div v-if="form.collaborativeWay === '2'" class="field-hint">票签必须指定驳回节点</div>
         </el-form-item>
+        </form-section>
 
+        <form-section title="表单" :summary="formSummary" :default-open="false">
         <!-- 自定义表单 - 卡片式单选 -->
         <el-form-item label="自定义表单：" prop="formCustom">
           <div class="radio-card-group radio-card-sm">
@@ -136,6 +146,62 @@
                 placeholder="请选择流程类别"
                 check-strictly/>
         </el-form-item>
+        </form-section>
+        <form-section title="监听器" :summary="listenerSummary" ref="listenerSection" :default-open="false">
+        <div class="section-card section-purple">
+          <div class="section-card-body">
+            <el-table :data="form.listenerRows" style="width: 100%">
+              <el-table-column prop="listenerType" label="类型" :width="isMobile ? 60 : 160">
+                <template #default="scope">
+                  <el-form-item :prop="'listenerRows.' + scope.$index + '.listenerType'" :rules="rules.listenerType">
+                    <el-select v-model="scope.row.listenerType" placeholder="请选择">
+                      <el-option label="开始" value="start"></el-option>
+                      <el-option label="分派" value="assignment"></el-option>
+                      <el-option label="完成" value="finish"></el-option>
+                      <el-option label="创建" value="create"></el-option>
+                    </el-select>
+                  </el-form-item>
+                </template>
+              </el-table-column>
+              <el-table-column prop="listenerPath" label="监听器（可输入类路径）">
+                <template #default="scope">
+                  <el-form-item :prop="'listenerRows.' + scope.$index + '.listenerPath'" :rules="rules.listenerPath">
+                      <!-- 业务方没实现 ListenerListService 时候选为空，此时下拉只会误导用户，退化成输入框 -->
+                      <el-select
+                          v-if="ListenerVo.length > 0"
+                          v-model="scope.row.listenerPath"
+                          placeholder="请输入或选择"
+                          allow-create
+                          filterable
+                          clearable
+                          style="width: 100%"
+                          @change="(value) => handleListenerPathChange(value, scope.row)">
+                          <el-option
+                              v-for="item in ListenerVo"
+                              :key="item.path"
+                              :label="item.description"
+                              :value="item.path"/>
+                      </el-select>
+                      <el-input
+                          v-else
+                          v-model="scope.row.listenerPath"
+                          placeholder="请输入监听器全限定类路径"/>
+                  </el-form-item>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="65" align="center" v-if="!disabled">
+                <template #default="scope">
+                  <el-button link size="small" type="danger" :icon="Delete" @click="handleDeleteRow(scope.$index)"/>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="action-buttons">
+              <el-button v-if="!disabled" size="small" class="add-row-btn" @click="handleAddRow">增加行</el-button>
+            </div>
+          </div>
+        </div>
+        </form-section>
+
           </div>
         </div>
 
@@ -148,7 +214,8 @@
               </svg>
             </span>
             <span class="ext-attributes-title">节点扩展属性</span>
-            <span class="ext-attributes-badge">{{ baseList.length }}项</span>
+            <span class="ext-attributes-badge" :class="{ 'is-empty': baseFilled === 0 }">{{ baseFilled }}/{{ baseList.length }} 已填</span>
+            <span v-if="baseExtCollapsed" class="ext-collapse-summary">{{ baseExtSummary }}</span>
             <span class="ext-collapse-arrow">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" :class="{ 'arrow-rotated': !baseExtCollapsed }" fill="currentColor"/>
@@ -192,58 +259,9 @@
         </div>
       </div>
 
-      <!-- 监听器 -->
-      <div v-show="tabsValue === '3'" class="tabPane tabPane-full">
-        <div class="section-card section-purple">
-          <div class="section-card-body">
-            <el-table :data="form.listenerRows" style="width: 100%">
-              <el-table-column prop="listenerType" label="类型" :width="isMobile ? 60 : 160">
-                <template #default="scope">
-                  <el-form-item :prop="'listenerRows.' + scope.$index + '.listenerType'" :rules="rules.listenerType">
-                    <el-select v-model="scope.row.listenerType" placeholder="请选择">
-                      <el-option label="开始" value="start"></el-option>
-                      <el-option label="分派" value="assignment"></el-option>
-                      <el-option label="完成" value="finish"></el-option>
-                      <el-option label="创建" value="create"></el-option>
-                    </el-select>
-                  </el-form-item>
-                </template>
-              </el-table-column>
-              <el-table-column prop="listenerPath" label="监听器（可输入类路径）">
-                <template #default="scope">
-                  <el-form-item :prop="'listenerRows.' + scope.$index + '.listenerPath'" :rules="rules.listenerPath">
-                      <el-select
-                          v-model="scope.row.listenerPath"
-                          placeholder="请输入或选择"
-                          allow-create
-                          filterable
-                          clearable
-                          style="width: 100%"
-                          @change="(value) => handleListenerPathChange(value, scope.row)">
-                          <el-option
-                              v-for="item in ListenerVo"
-                              :key="item.path"
-                              :label="item.description"
-                              :value="item.path"/>
-                      </el-select>
-                  </el-form-item>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="65" align="center" v-if="!disabled">
-                <template #default="scope">
-                  <el-button link size="small" type="danger" :icon="Delete" @click="handleDeleteRow(scope.$index)"/>
-                </template>
-              </el-table-column>
-            </el-table>
-            <div class="action-buttons">
-              <el-button v-if="!disabled" size="small" class="add-row-btn" @click="handleAddRow">增加行</el-button>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- 动态页签（按钮权限等）- 都是节点扩展属性 -->
-      <div v-show="tabsValue !== '1' && tabsValue !== '2' && tabsValue !== '3'" class="tabPane tabPane-full">
+      <div v-show="tabsValue !== '1' && tabsValue !== '2'" class="tabPane tabPane-full">
         <div v-if="buttonList[tabsValue] && buttonList[tabsValue].length > 0" class="ext-attributes-section ext-secondary">
           <div class="ext-attributes-header ext-secondary-header">
             <span class="ext-attributes-icon ext-icon-puzzle">
@@ -252,7 +270,7 @@
               </svg>
             </span>
             <span class="ext-attributes-title ext-secondary-title">{{ getCurrentTabLabel() }}</span>
-            <span class="ext-attributes-badge ext-secondary-badge">节点扩展属性 · {{ buttonList[tabsValue].length }}项</span>
+            <span class="ext-attributes-badge ext-secondary-badge">节点扩展属性 · {{ countFilled(buttonList[tabsValue]) }}/{{ buttonList[tabsValue].length }} 已填</span>
           </div>
           <div class="ext-attributes-content">
             <nodeExtList :ref="`nodeExtList_${tabsValue}`" v-model="form.ext" :formList="buttonList[tabsValue]" :disabled="disabled"></nodeExtList>
@@ -275,6 +293,7 @@ import selectUser from "./selectUser";
 import { Delete } from '@element-plus/icons-vue'
 import {publishedList, handlerDict, nodeExt, handlerFeedback, listenerList} from "@/api/flow/definition";
 import nodeExtList from "./nodeExtList";
+import formSection from "./formSection";
 import {getPreviousNodes} from "@/components/design/common/js/tool.js";
 import {getFramework} from "@/utils/auth.js";
 const { proxy } = getCurrentInstance();
@@ -322,13 +341,11 @@ const baseExtCollapsed = ref(true);
 const TAB_ICONS = {
   base: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
   handler: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z',
-  listener: 'M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z',
   ext: 'M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z',
 };
 const tabsList = ref([
   { label: "基础设置", name: "1", iconPath: TAB_ICONS.base },
   { label: "办理人设置", name: "2", iconPath: TAB_ICONS.handler },
-  { label: "监听器", name: "3", iconPath: TAB_ICONS.listener },
 ]);
 const form = ref(props.modelValue);
 const userVisible = ref(false);
@@ -342,6 +359,65 @@ const dictList = ref(); // 办理人选项
 const permissionRows = ref([]); // 办理人表格
 const ListenerVo = ref([]); // 监听器列表
 const emit = defineEmits(['update:modelValue']);
+
+/** 扩展属性值是否算"已填写"：多选看数组长度，其余看去掉空白后是否有内容 */
+function isFilled(value) {
+  if (Array.isArray(value)) return value.length > 0;
+  return value !== null && value !== undefined && String(value).trim() !== '';
+}
+
+/** 一组扩展属性字段里已填写的数量 */
+function countFilled(fieldList) {
+  const ext = form.value.ext || {};
+  return (fieldList || []).filter((item) => isFilled(ext[item.code])).length;
+}
+
+const baseFilled = computed(() => countFilled(baseList.value));
+
+// 页签计数：只给「有条目语义」的分组加。基础设置是一组表单字段，没有数量含义，所以不加。
+// 监听器条数：填了类路径的行才算一条配置
+const listenerCount = computed(() => (form.value.listenerRows || []).filter((row) => isFilled(row.listenerPath)).length);
+
+const tabCounts = computed(() => {
+  const counts = {
+    '2': permissionRows.value.length,
+  };
+  Object.keys(buttonList.value).forEach((code) => {
+    counts[code] = countFilled(buttonList.value[code]);
+  });
+  return counts;
+});
+
+// 收起状态下给一行摘要，避免"收起来就完全看不见内容"
+const baseExtSummary = computed(() => {
+  const ext = form.value.ext || {};
+  const filled = baseList.value.filter((item) => isFilled(ext[item.code]));
+  if (filled.length === 0) return '未填写';
+  const first = filled[0];
+  const text = `${first.label}：${ext[first.code]}`;
+  return filled.length > 1 ? `${text}　等 ${filled.length} 项` : text;
+});
+
+// 基础设置三个分组的收起摘要
+const COLLABORATIVE_WAY_LABELS = {'1': '或签', '2': '票签', '3': '会签'};
+
+const baseInfoSummary = computed(() => {
+  const name = form.value.nodeName;
+  if (!name) return '未命名节点';
+  return form.value.nodeCode ? `${name}（${form.value.nodeCode}）` : name;
+});
+
+const collaborativeWaySummary = computed(() => {
+  const way = COLLABORATIVE_WAY_LABELS[form.value.collaborativeWay] || '未设置';
+  return form.value.collaborativeWay === '2' && form.value.nodeRatio ? `${way} · ${form.value.nodeRatio}` : way;
+});
+
+const formSummary = computed(() => {
+  if (form.value.formCustom === 'Y') return form.value.formPath ? `自定义表单 · ${form.value.formPath}` : '自定义表单';
+  return form.value.formPath ? `页面地址 · ${form.value.formPath}` : '未配置表单';
+});
+
+const listenerSummary = computed(() => listenerCount.value > 0 ? `已配置 ${listenerCount.value} 项` : '未配置监听器');
 
 function getCurrentTabLabel() {
   const currentTab = tabsList.value.find(t => t.name === tabsValue.value);
@@ -499,10 +575,6 @@ function handleTabChange(activeTabName) {
             // 办理人设置 tab
             getHandlerFeedback()
             break;
-        case '3':
-            // 监听器 tab
-            getListenerList()
-            break;
         default:
             // 自定义 tab
             break;
@@ -574,12 +646,11 @@ function handleListenerPathChange(path, row) {
     // 在下拉选项中查找匹配的项
     const matchedItem = ListenerVo.value.find(item => item.path === path);
     if (matchedItem && matchedItem.type) {
-        // 如果找到了匹配项且有 type，则更新 listenerType
+        // 候选自带类型才联动
         row.listenerType = matchedItem.type;
-    } else {
-        // 如果是手动输入的，清空类型（或者保持原值，根据需求决定）
-        row.listenerType = '';
     }
+    // 其余情况（手动输入、候选未声明类型）保持用户已选类型：
+    // 一个监听器类通常可配到开始/分派/完成/创建任意事件，清空会抹掉用户上一步的选择
 }
 
 /** 查询节点扩展属性 */
@@ -613,8 +684,11 @@ function getNodeExt() {
             }
           }
         });
-        if (e.type === 1) baseList.value.push(...e?.childs);
-        else if (e.type === 2) {
+        if (e.type === 1) {
+          baseList.value.push(...(e?.childs || []));
+          // 已经有值的默认展开，空的默认收起，避免打开抽屉先看到一长串空表单
+          baseExtCollapsed.value = countFilled(baseList.value) === 0;
+        } else if (e.type === 2) {
           tabsList.value.push({ label: e.name, name: e.code })
           buttonList.value[e.code] = e?.childs;
         }
@@ -665,20 +739,32 @@ getPermissionFlag();
 
 // getHandlerDict();
 
+// 监听器已收进基础设置分组，没有页签切换可挂钩，改为初始化时取一次候选
 getNodeExt();
+getListenerList();
 
 // 表单必填校验
 function validate() {
   return new Promise(async (resolve, reject) => {
     tabsValue.value = "1";
     await proxy.$nextTick();
-    proxy.$refs.formRef.validate((valid) => {
-      if (!valid) reject(false);
+    proxy.$refs.formRef.validate((valid, fields) => {
+      if (!valid) {
+        // 分组收起时校验红字是不可见的，命中监听器字段的错误就先把分组展开
+        if (fields && Object.keys(fields).some((key) => String(key).startsWith('listenerRows.'))) {
+          proxy.$refs.listenerSection?.open();
+        }
+        reject(false);
+      }
     });
     if (proxy.$refs.nodeBase && proxy.$refs.nodeBase.length > 0) {
       if (await proxy.$refs.nodeBase[0].validate()) {
         tabsValidate(resolve, reject);
-      } else reject(false);
+      } else {
+        // 同理：节点扩展属性收起时也要展开，否则保存"没反应"
+        baseExtCollapsed.value = false;
+        reject(false);
+      }
     } else tabsValidate(resolve, reject);
   });
 }
@@ -1176,7 +1262,23 @@ defineExpose({
   display: inline-flex; align-items: center; justify-content: center;
   padding: 1px 7px; font-size: 10px; font-weight: 600;
   color: var(--wf-primary, #409eff); background: rgba(64, 158, 255, 0.12); border-radius: 8px;
+  flex-shrink: 0;
   html.dark & { background: rgba(64, 158, 255, 0.2); color: var(--wf-primary, #409eff); }
+
+  /* 一项都没填时压成灰色，避免空分组也顶着主色抢注意力 */
+  &.is-empty {
+    color: var(--wf-text-secondary, #909399);
+    background: rgba(144, 147, 153, 0.14);
+    html.dark & { background: rgba(144, 147, 153, 0.24); color: #a8abb2; }
+  }
+}
+
+/* 折叠状态下的一行摘要 */
+.ext-collapse-summary {
+  flex: 1; min-width: 0;
+  font-size: 11.5px; color: var(--wf-text-regular, #606266);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  html.dark & { color: #a8abb2; }
 }
 .ext-attributes-content {
   padding: 14px 16px; background: var(--wf-bg-color, #fafbfc);

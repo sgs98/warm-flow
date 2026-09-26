@@ -2,6 +2,8 @@ package org.dromara.warm.demo.config;
 
 import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.enums.ButtonPermissionEnum;
+import org.dromara.warm.demo.listener.DemoFinishListener;
+import org.dromara.warm.demo.listener.DemoTaskListener;
 import org.dromara.warm.demo.service.UserService;
 import org.dromara.warm.demo.vo.DemoDepartmentVo;
 import org.dromara.warm.demo.vo.DemoUserVo;
@@ -147,9 +149,24 @@ public class WarmFlowUiProvider implements NodeExtService, HandlerSelectService,
         );
     }
 
+    /**
+     * 节点监听器候选，供设计器「监听器」分组下拉选择。两个示例分别演示两种用法：
+     * <ul>
+     *   <li>{@code DemoTaskListener}：开始 / 分派 / 完成 / 创建四种事件都适用，所以 type 留空，
+     *       由使用者自己在面板里选事件类型；</li>
+     *   <li>{@code DemoFinishListener}：只用于完成事件，带上 {@code type=finish}，
+     *       选中后事件类型自动联动。</li>
+     * </ul>
+     * 全局监听器 DemoGlobalListener 不在这里列出——它已经通过 warm-flow.global-listener-path 生效，
+     * 再配到节点上会重复触发。
+     */
     @Override
     public List<ListenerVo> listenerList() {
-        return new ArrayList<>();
+        return Arrays.asList(
+            new ListenerVo(null, DemoTaskListener.class.getName(),
+                "示例节点监听器：输出节点上下文日志（只读，事件类型自行选择）"),
+            new ListenerVo("finish", DemoFinishListener.class.getName(),
+                "示例完成监听器：节点完成时触发（选中后自动联动事件类型）"));
     }
 
     private NodeExt.DictItem option(String label, String value, boolean selected) {
