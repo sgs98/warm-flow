@@ -12,6 +12,9 @@ export class BaseNodeView extends HtmlNode {
     this.r = h(baseNode, {
       text: props.model.inputData,
       permissionFlag: props.model.properties.permissionFlag,
+      collaborativeWay: props.model.properties.collaborativeWay,
+      nodeRatio: props.model.properties.nodeRatio,
+      selected: props.model.isSelected,
       chartStatusColor: props.model.properties.chartStatusColor,
       status: props.model.properties.status,
       type: props.model.type,
@@ -39,7 +42,9 @@ export class BaseNodeView extends HtmlNode {
     if (this.preProperties) {
       const preProperties = JSON.parse(this.preProperties)
       let flag = false
-      if (currentProperties.permissionFlag !== preProperties.permissionFlag) {
+      if (currentProperties.permissionFlag !== preProperties.permissionFlag
+          || currentProperties.collaborativeWay !== preProperties.collaborativeWay
+          || currentProperties.nodeRatio !== preProperties.nodeRatio) {
         this.preProperties = this.currentProperties;
         flag = true
       }
@@ -47,11 +52,17 @@ export class BaseNodeView extends HtmlNode {
         this.preText = this.props.model.text.value
         flag = true
       }
+      // 选中态变化也要重渲染：卡片显示选中光圈
+      if (this.props.model.isSelected !== this.preSelected) {
+        this.preSelected = this.props.model.isSelected
+        flag = true
+      }
       return flag
     }
 
     this.preProperties = this.currentProperties;
     this.preText = this.props.model.text.value
+    this.preSelected = this.props.model.isSelected
     return true;
   }
 
@@ -67,6 +78,9 @@ export class BaseNodeView extends HtmlNode {
     } else {
       this.r.component.props.text = this.props.model.text.value
       this.r.component.props.permissionFlag = this.props.model.properties.permissionFlag
+      this.r.component.props.collaborativeWay = this.props.model.properties.collaborativeWay
+      this.r.component.props.nodeRatio = this.props.model.properties.nodeRatio
+      this.r.component.props.selected = this.props.model.isSelected
     }
   }
 }

@@ -502,6 +502,25 @@ defineExpose({
   }
 }
 
+/* ========== 下拉/树选择弹层：teleport 到 body，需全局统一圆角与投影 ========== */
+.el-select__popper.el-popper,
+.el-select-dropdown,
+.el-tree-select__popper.el-popper {
+  border-radius: 10px;
+}
+.el-select__popper .el-select-dropdown__item,
+.el-tree-select__popper .el-tree-node__content {
+  border-radius: 6px;
+  margin: 0 4px;
+  transition: background-color 0.15s ease;
+}
+.el-select__popper.el-popper,
+.el-tree-select__popper.el-popper {
+  .el-popper__arrow::before {
+    border-radius: 2px;
+  }
+}
+
 /* ========== 暗黑模式：el-drawer 抽屉完整适配（全局生效） ========== */
 html.dark {
   .property-drawer-modern {

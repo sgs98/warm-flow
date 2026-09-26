@@ -50,6 +50,10 @@ class ParallelView extends PolygonNode {
       [
         // 定义滤镜
         h('defs', {}, [
+          h('linearGradient', { id: `gw-grad-p-${model.id}`, x1: '0%', y1: '0%', x2: '100%', y2: '100%' }, [
+            h('stop', { offset: '0%', stopColor: `rgba(${sc}, 0.18)` }),
+            h('stop', { offset: '100%', stopColor: `rgba(${sc}, 0.05)` }),
+          ]),
           h('filter', { id: `gw-shadow-p-${model.id}`, x: '-30%', y: '-30%', width: '160%', height: '160%' }, [
             h('feDropShadow', { dx: 0, dy: 2, stdDeviation: 3, floodColor: '#000', floodOpacity: 0.05 }),
           ]),
@@ -60,6 +64,7 @@ class ParallelView extends PolygonNode {
           x,
           y,
           points,
+          fill: `url(#gw-grad-p-${model.id})`,
           filter: `url(#gw-shadow-p-${model.id})`,
         }),
         // + 图标（加粗 + 四臂末端圆角装饰，与菱形边缘保持间距）

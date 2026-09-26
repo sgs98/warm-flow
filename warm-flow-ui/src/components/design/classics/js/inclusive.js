@@ -49,6 +49,10 @@ class InclusiveView extends PolygonNode {
       [
         // 定义滤镜
         h('defs', {}, [
+          h('linearGradient', { id: `gw-grad-i-${model.id}`, x1: '0%', y1: '0%', x2: '100%', y2: '100%' }, [
+            h('stop', { offset: '0%', stopColor: `rgba(${sc}, 0.18)` }),
+            h('stop', { offset: '100%', stopColor: `rgba(${sc}, 0.05)` }),
+          ]),
           h('filter', { id: `gw-shadow-i-${model.id}`, x: '-30%', y: '-30%', width: '160%', height: '160%' }, [
             h('feDropShadow', { dx: 0, dy: 2, stdDeviation: 3, floodColor: '#000', floodOpacity: 0.05 }),
           ]),
@@ -59,6 +63,7 @@ class InclusiveView extends PolygonNode {
           x,
           y,
           points,
+          fill: `url(#gw-grad-i-${model.id})`,
           filter: `url(#gw-shadow-i-${model.id})`,
         }),
         // 同心双圆图标（替代原来的单圆）

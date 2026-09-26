@@ -1,7 +1,7 @@
 <template>
   <div
       class="mimic-node"
-      :class="{ 'is-runtime': isRuntime }"
+      :class="{ 'is-runtime': isRuntime, 'is-selected': selected }"
       :style="nodeStyle"
       ref="baseNodeDiv"
       @click="editNode">
@@ -26,6 +26,7 @@
       <div class="mimic-who" :title="handler">
         <span class="mimic-av">{{ handlerChar }}</span>
         <span class="mimic-handler">{{ handler }}</span>
+        <span v-if="collaborativeBadge" class="mimic-badge">{{ collaborativeBadge }}</span>
       </div>
     </div>
     <span class="mimic-go" aria-hidden="true">›</span>
@@ -51,6 +52,27 @@ const props = defineProps({
     type: String,
     default () {
       return ''
+    }
+  },
+  // 协作方式：'2' 票签 / '3' 会签 时卡片显示徽标（'1' 或签为默认不显示）；
+  // 缺失时按 nodeRatio 推导，与 propertySetting 的规则一致
+  collaborativeWay: {
+    type: String,
+    default () {
+      return ''
+    }
+  },
+  nodeRatio: {
+    type: String,
+    default () {
+      return ''
+    }
+  },
+  // 选中态：卡片显示光圈
+  selected: {
+    type: Boolean,
+    default () {
+      return false
     }
   },
   chartStatusColor: {
@@ -94,6 +116,20 @@ const editingNodeName = ref(false);
 const emit = defineEmits(['updateNodeName', 'deleteNode', 'editNode']);
 
 const isRuntime = computed(() => props.chartStatusColor && props.chartStatusColor.length > 0);
+
+// 协作方式徽标：仅票签 / 会签显示，避免默认或签造成视觉噪音；
+// collaborativeWay 缺失时按 nodeRatio 推导（0→或签、100→会签、其余→票签），
+// 与 propertySetting 打开抽屉时的推导规则保持一致
+const collaborativeBadge = computed(() => {
+  let way = props.collaborativeWay;
+  if (!way) {
+    const ratio = props.nodeRatio || '0';
+    way = parseFloat(ratio) === 0 ? '1' : parseFloat(ratio) === 100 ? '3' : (ratio ? '2' : '1');
+  }
+  if (way === '2') return '票签';
+  if (way === '3') return '会签';
+  return '';
+});
 
 const handlerChar = computed(() => {
   if (!handler.value || handler.value === '所有人') {
@@ -201,6 +237,12 @@ function handleLeave() {
   box-shadow: 0 10px 28px rgba(29, 33, 41, 0.08), 0 4px 12px rgba(64, 158, 255, 0.12);
 }
 
+/* 选中态：与经典模式 outline 主题呼应的柔和光圈 */
+.mimic-node.is-selected {
+  border-color: var(--wf-primary, #409eff);
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.15), 0 8px 24px rgba(29, 33, 41, 0.08);
+}
+
 .mimic-icon {
   width: 36px;
   height: 36px;
@@ -284,6 +326,19 @@ function handleLeave() {
   white-space: nowrap;
 }
 
+/* 协作方式徽标：票签 / 会签 */
+.mimic-badge {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--wf-primary-light, #ecf5ff);
+  color: var(--wf-primary, #409eff);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+}
+
 .mimic-go {
   flex: 0 0 auto;
   color: var(--wf-primary, #409eff);
@@ -340,5 +395,9 @@ function handleLeave() {
 
 :global(html.dark) .mimic-handler {
   color: var(--wf-text-regular, #a3a6ad);
+}
+
+:global(html.dark) .mimic-badge {
+  background: rgba(64, 158, 255, 0.16);
 }
 </style>

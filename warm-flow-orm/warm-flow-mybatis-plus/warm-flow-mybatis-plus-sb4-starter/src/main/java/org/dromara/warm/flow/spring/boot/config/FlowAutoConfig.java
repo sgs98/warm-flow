@@ -25,8 +25,11 @@ import org.dromara.warm.flow.core.workflow.WorkflowService;
 import org.dromara.warm.flow.core.workflow.WorkflowServiceImpl;
 import org.dromara.warm.flow.orm.dao.*;
 import org.dromara.warm.flow.orm.entity.*;
+import org.dromara.warm.flow.orm.handler.WarmFlowPostInitTableInfoHandler;
+import org.dromara.warm.plugin.modes.sb.config.WarmFlowProperties;
 import org.dromara.warm.flow.orm.keygen.MybatisPlusIdGen;
 import org.dromara.warm.plugin.modes.sb.config.BeanConfig;
+import com.baomidou.mybatisplus.core.handlers.PostInitTableInfoHandler;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -100,6 +103,16 @@ public class FlowAutoConfig extends BeanConfig {
     @Bean
     public WorkflowService workflowService() {
         return new WorkflowServiceImpl();
+    }
+
+    /**
+     * logic-delete=false 时关闭 MP 流程表的逻辑删除，删除操作变为物理删除；
+     * logic-delete=true（默认）时不注册本处理器，保持 MP @TableLogic 逻辑删除。
+     */
+    @Bean
+    @ConditionalOnProperty(prefix = "warm-flow", name = "logic-delete", havingValue = "false")
+    public PostInitTableInfoHandler warmFlowPostInitTableInfoHandler(WarmFlowProperties warmFlowProperties) {
+        return new WarmFlowPostInitTableInfoHandler(warmFlowProperties.isLogicDelete());
     }
 
     @Bean

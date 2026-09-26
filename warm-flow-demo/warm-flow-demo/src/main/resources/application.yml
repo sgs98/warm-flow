@@ -28,6 +28,8 @@ mybatis-plus:
 
 warm-flow:
   enabled: true
+  # 物理删除模式验证：false 全部表物理删除
+  logic-delete: false
   global-listener-path: org.dromara.warm.demo.listener.DemoGlobalListener
   data-source-type: mysql
   banner: true

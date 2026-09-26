@@ -51,9 +51,11 @@ public class WarmFlow implements Serializable {
     private boolean banner = true;
 
     /**
-     * 是否开启逻辑删除
+     * 删除模式开关：true 走逻辑删除（删除时更新 del_flag 为 logic-delete-value）；
+     * false 全部表物理删除（MyBatis-Plus 扩展包会绕过自身 @TableLogic 直接 DELETE）。
+     * 注意：MP 扩展包 @TableLogic 的查询过滤不受此开关影响。
      */
-    private boolean logicDelete = false;
+    private boolean logicDelete = true;
 
     /**
      * 逻辑删除字段值

@@ -56,6 +56,13 @@ export const json2LogicFlowJson = (definition) => {
         }
       }
       lfNode.text.value = node.nodeName
+      // 文本坐标回退：老数据 coordinate 只带节点坐标、没有文本坐标时，
+      // LogicFlow 会拿到 NaN 导致标题不渲染。网关回落到菱形下方（与模型层
+      // string 文本的 y+40 约定一致），其余节点兜底到中心
+      if (lfNode.text.value && !lfNode.text.x) {
+        lfNode.text.x = lfNode.x
+        lfNode.text.y = isGateWay(lfNode.type) ? lfNode.y + 40 : lfNode.y
+      }
       lfNode.properties.nodeRatio = node.nodeRatio.toString()
       lfNode.properties.permissionFlag = node.permissionFlag
       lfNode.properties.anyNodeSkip = node.anyNodeSkip

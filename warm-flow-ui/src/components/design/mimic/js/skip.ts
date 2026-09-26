@@ -115,9 +115,9 @@ class SkipView extends CurvedEdge {
   }
 
   private getForeignObject(midPoint: number[], stroke: string, text: string) {
-    let elements: h.JSX.Element[] = [];
-    elements = [
-      // 使用 SVG 图标代替原来的图形
+    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+    let elements: h.JSX.Element[] = [
+      // 条件图标：圆角底 + 白色分支符号，底色随条件语义色
       h('foreignObject', {
         x: midPoint[0] - 16,
         y: midPoint[1] - 20,
@@ -130,14 +130,17 @@ class SkipView extends CurvedEdge {
             alignItems: 'center',
             justifyContent: 'center',
             width: '100%',
-            height: '100%'
+            height: '100%',
+            filter: 'drop-shadow(0 2px 6px rgba(29, 33, 41, 0.18))',
           },
           innerHTML: `
-<div style="width: 32px; height: 32px; transform: rotate(0deg); display: flex; align-items: center; justify-content: center;">
-  <svg t="1751615394607" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="11883">
-    <path d="M853.5 960.7h-683c-59.3 0-106-46.8-106-106v-683c0-59.3 46.8-106 106-106h682.9c59.3 0 106 46.8 106 106v682.9c0.1 59.3-49.8 106.1-105.9 106.1z" fill="${stroke}" p-id="11884"></path>
-    <path d="M666.4 564.7c31.2 9.4 49.9 37.4 46.8 68.6-3.1 31.2-31.2 53-62.4 53s-59.3-21.8-62.4-53c-3.1-31.2 15.6-59.3 46.8-68.6v-65.5c0-9.4-6.2-15.6-15.6-15.6H401.3c-9.4 0-15.6 6.2-15.6 15.6v65.5c31.2 9.4 49.9 37.4 46.8 68.6-3.1 31.2-31.2 53-62.4 53s-59.3-21.8-62.4-53c-3.1-31.2 15.6-59.3 46.8-68.6v-81.1c0-18.7 12.5-31.2 31.2-31.2h109.1v-81.1c-31.2-9.4-49.9-37.4-46.8-68.6 3.1-31.2 31.2-53 62.4-53s59.3 21.8 62.4 53-15.6 59.3-46.8 68.6v81.1h109.1c18.7 0 31.2 12.5 31.2 31.2v81.1z m-156-218.3c18.7 0 31.2-12.5 31.2-31.2S529.1 284 510.4 284s-31.2 12.5-31.2 31.2c0.1 15.6 15.6 31.2 31.2 31.2zM370.1 655.1c18.7 0 31.2-12.5 31.2-31.2s-12.5-31.2-31.2-31.2-31.2 12.5-31.2 31.2 15.6 31.2 31.2 31.2z m280.7 0c18.7 0 31.2-12.5 31.2-31.2s-12.5-31.2-31.2-31.2-31.2 12.5-31.2 31.2 12.5 31.2 31.2 31.2z"
-    fill="#FFFFFF" p-id="11885"></path>
+<div style="width: 28px; height: 28px; margin: auto; border-radius: 8px; background: ${stroke}; display: flex; align-items: center; justify-content: center;">
+  <svg width="16" height="16" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M16 8v4" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M16 12c0 4-6 2.5-6 8.5M16 12c0 4 6 2.5 6 8.5" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+    <circle cx="16" cy="7.5" r="2.1" fill="#FFFFFF"/>
+    <circle cx="10" cy="23" r="2.1" fill="#FFFFFF"/>
+    <circle cx="22" cy="23" r="2.1" fill="#FFFFFF"/>
   </svg>
 </div>
 `,
@@ -150,20 +153,22 @@ class SkipView extends CurvedEdge {
       // 由于我们无法直接在当前环境中测量文本，我们使用一个估算方法
       // 通常每个字符大约占用 8-10 像素宽度（取决于字体）
       const charWidth = 8; // 每个字符的估计宽度
-      const padding = 10; // 左右内边距
-      const minWidth = 40; // 最小宽度
+      const padding = 16; // 左右内边距
+      const minWidth = 44; // 最小宽度
       const textWidth = Math.max(minWidth, text.length * charWidth + padding);
 
-      // 添加背景矩形
+      // 添加背景胶囊：颜色跟随主题，暗黑模式下不再硬编码白底
       elements.push(
           h('rect', {
             x: midPoint[0] - textWidth / 2,
-            y: midPoint[1] + 10,
+            y: midPoint[1] + 12,
             width: textWidth,
             height: 20,
-            fill: "#fff", // 背景颜色
-            rx: 3, // 圆角
-            ry: 3
+            fill: isDark ? '#1d1e1f' : '#ffffff',
+            stroke: isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(64, 158, 255, 0.35)',
+            'stroke-width': 1,
+            rx: 10, // 圆角
+            ry: 10
           })
       );
 
@@ -171,9 +176,10 @@ class SkipView extends CurvedEdge {
       elements.push(
           h('text', {
             x: midPoint[0],
-            y: midPoint[1] + 25,
-            fontSize: 13,
-            fill: "#000",
+            y: midPoint[1] + 26,
+            fontSize: 12,
+            fontWeight: 500,
+            fill: isDark ? '#a3a6ad' : '#4e5969',
             style: {
               userSelect: 'none',
               textAnchor: 'middle' // 文本居中对齐
@@ -195,18 +201,28 @@ class SkipView extends CurvedEdge {
       const y = midPoint[1]
       const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
       obj = [
+        // 透明大圆：扩大可点击范围，视觉不变
         h('circle', {
           cx: x,
           cy: y,
-          r: 12,
+          r: 16,
+          fill: 'transparent',
+        }),
+        h('circle', {
+          cx: x,
+          cy: y,
+          r: 11,
           fill: isDark ? '#1d1e1f' : '#ffffff',
           stroke: '#409eff',
-          'stroke-width': 1.5,
+          'stroke-width': 1.4,
+          style: {
+            filter: 'drop-shadow(0 2px 6px rgba(64, 158, 255, 0.35))',
+          },
         }),
         h('line', {
-          x1: x - 6,
+          x1: x - 5,
           y1: y,
-          x2: x + 6,
+          x2: x + 5,
           y2: y,
           stroke: '#409eff',
           'stroke-width': '2',
@@ -214,9 +230,9 @@ class SkipView extends CurvedEdge {
         }),
         h('line', {
           x1: x,
-          y1: y - 6,
+          y1: y - 5,
           x2: x,
-          y2: y + 6,
+          y2: y + 5,
           stroke: '#409eff',
           'stroke-width': '2',
           'stroke-linecap': 'round',

@@ -1,5 +1,5 @@
 <template>
-  <div :style="headerDiv">
+  <div class="design-root" :style="headerDiv">
     <!-- 顶部导航栏 -->
     <div class="design-header" v-if="!onlyDesignShow">
       <!-- 左侧：流程名称 -->
@@ -57,6 +57,11 @@
             <el-tooltip content="下载流程图" placement="bottom"><el-button size="small" icon="Picture" @click="downLoad"></el-button></el-tooltip>
             <el-tooltip content="下载JSON" placement="bottom"><el-button size="small" icon="Download" @click="downJson"></el-button></el-tooltip>
           </span>
+          <span class="toolbar-group" v-if="!disabled && !onlyDesignShow">
+            <el-tooltip :content="isClassicsModel ? '切换为仿钉钉模型' : '切换为经典模型'" placement="bottom">
+              <el-button size="small" icon="Switch" @click="switchModel"></el-button>
+            </el-tooltip>
+          </span>
           <span class="toolbar-group" v-if="onlyDesignShow && !disabled">
             <el-tooltip content="保存" placement="bottom"><el-button size="small" class="toolbar-save-btn" @click="saveJsonModel">
               <svg-icon icon-class="save" style="width: 14px; height: 14px;"/>
@@ -112,6 +117,9 @@ import {
     logicFlowJsonToWarmFlow
 } from "@/components/design/common/js/tool";
 import { getMagnetPosition, SNAP_EPSILON } from "@/components/design/common/js/snapMagnet";
+import { relayoutToMimic, clearEdgePoints } from "@/components/design/common/js/relayout";
+import { updateEdges } from "@/components/design/mimic/js/mimic";
+import { ElMessageBox } from 'element-plus';
 import StartC from "@/components/design/classics/js/start";
 import BetweenC from "@/components/design/classics/js/between";
 import SerialC from "@/components/design/classics/js/serial";
@@ -195,6 +203,13 @@ const headerStyle = computed(() => {
   return {
     position: "relative",
     zIndex: "2",
+    // flex 布局：el-header 占满顶部栏以下的剩余高度，画布在内部 flex:1 自动铺满，
+    // 不再用「视口减魔法数」算高度——iframe 嵌入 / 隐藏顶栏 / 移动端地址栏都自适应
+    display: "flex",
+    flexDirection: "column",
+    flex: "1",
+    minHeight: "0",
+    overflowY: "auto",
     height: "auto",
     padding: "0",
     backgroundColor: "transparent",
@@ -205,6 +220,7 @@ const headerStyle = computed(() => {
 });
 const baseInfoStyle = computed(() => {
   return {
+    flex: "1",
     margin: "5px",
     backgroundColor: "var(--wf-bg-white, #fff)",
   };
@@ -213,6 +229,10 @@ const baseInfoStyle = computed(() => {
 const headerDiv = computed(() => {
     return {
         backgroundColor: activeStep.value === 1 ? "var(--wf-bg-page, #eef1f6)" : "var(--wf-bg-white, #fff)",
+        // 100dvh 精确等于 iframe / 视口高度；不支持 dvh 的老浏览器由 CSS 回退到 100vh
+        display: "flex",
+        flexDirection: "column",
+        height: "100dvh",
         minHeight: "100vh",
         position: "relative",
     };
@@ -321,7 +341,9 @@ function initLogicFlow() {
       nodeSelectedOutline: isClassics(logicJson.value.modelValue) && !disabled.value,    // 节点被选中时是否显示节点的外框。
       edgeSelectedOutline: isClassics(logicJson.value.modelValue) && !disabled.value,    //	边被选中时是否显示边的外框。
       grid: {
-        size: 20,
+        size: 24,
+        // 点阵网格默认关闭（宿主可传 showGrid=true 开启）：画布保持纯色干净，
+        // 需要空间参照的场景由宿主自行决定是否打开
         visible: 'true' === appParams.value.showGrid,
         type: 'dot',
         config: {
@@ -544,6 +566,49 @@ function handleModelValueUpdate() {
       initLogicFlow();
     });
   }
+}
+
+/** 当前是否经典模式（工具栏切换按钮的提示与目标方向） */
+const isClassicsModel = computed(() => isClassics(logicJson.value?.modelValue));
+
+/**
+ * 切换设计器模型（经典 ↔ 仿钉钉）。
+ * 仅在画布内做「转换预览」：重排坐标 + 换 modelValue + 重建画布，
+ * 点击保存时才随 saveJson 把新模型与坐标落库；不保存则刷新页面即还原。
+ */
+function switchModel() {
+  if (!lf.value || !logicJson.value?.nodes?.length) {
+    return;
+  }
+  const toMimic = isClassicsModel.value;
+  const tip = toMimic
+    ? '将按上下结构自动重排节点布局（分支间距、网关配对），保存后生效并更新该流程的设计器模型。'
+    : '将保留当前坐标切换为自由布局，保存后生效并更新该流程的设计器模型。';
+  ElMessageBox.confirm(tip, toMimic ? '切换为仿钉钉模型' : '切换为经典模型', {
+    confirmButtonText: '确认转换',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    doSwitchModel(toMimic);
+  }).catch(() => {});
+}
+
+function doSwitchModel(toMimic) {
+  if (toMimic) {
+    relayoutToMimic(logicJson.value.nodes, logicJson.value.edges);
+    // 旧折点不再贴合新布局，丢弃后由 updateEdges 按新坐标重建
+    clearEdgePoints(logicJson.value.edges);
+  }
+  // 整体重建 logicJson：既换模型，也触发 BaseInfo 表单的模型卡片联动
+  logicJson.value = { ...logicJson.value, modelValue: toMimic ? 'MIMIC' : 'CLASSICS' };
+  // 与 handleModelValueUpdate 相同的重建链路：按新模式注册元素并重渲染
+  sidebarVisible.value = false;
+  nextTick(() => {
+    initLogicFlow();
+    if (toMimic && lf.value) {
+      updateEdges(lf.value);
+    }
+  });
 }
 
 async function saveJsonModel() {
@@ -1118,8 +1183,8 @@ async function downJson() {
 .container {
   flex: 1;
   width: 100%;
-  /* 真机兼容：使用 dvh（动态视口高度）+ vh 兜底，解决移动端地址栏导致 100vh 不准确的问题 */
-  height: calc(100dvh - 100px);
+  /* 高度由 flex 自动撑满顶部栏以下的剩余空间（不再用视口减魔法数），
+     iframe 嵌入 / onlyDesignShow 隐藏顶栏 / 移动端 dvh 全部自适应 */
   min-height: 400px;
   border-radius: 0;
   background: var(--wf-bg-page, #eef1f6);
@@ -1130,16 +1195,10 @@ async function downJson() {
   position: relative;
 }
 
-/* 自定义拖拽侧边栏为浮动卡片，不再需要画布偏移 */
-.container:has(.diagram-sidebar) {
-  /* 浮动式侧边栏覆盖在画布上方，无需左侧 padding 偏移 */
-}
-
+/* 不支持 dvh 的老浏览器：根容器回退到 100vh（行内 100dvh 会被忽略） */
 @supports not (height: 100dvh) {
-  .container {
-    /* 浏览器不支持 dvh 时回退到标准 vh */
-    height: calc(100vh - 100px);
-    height: calc(-webkit-fill-available - 100px);
+  .design-root {
+    height: 100vh;
   }
 }
 
@@ -1158,7 +1217,7 @@ async function downJson() {
 
 .container :deep(.lf-container-bg) {
   display: block !important;
-  background-color: var(--wf-bg-page, #eef1f6) !important;
+  background-color: var(--wf-bg-page, #f8f9fb) !important;
 }
 
 html.dark .container {
@@ -1252,6 +1311,7 @@ html.dark .flow-name {
   gap: 4px;
   padding: 4px;
   background: var(--wf-bg-white, #fff);
+  border: 1px solid var(--wf-border-lighter, #ebeef5);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
 }

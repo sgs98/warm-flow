@@ -2,7 +2,7 @@
     <div :style="tooltipStyle" @mouseenter="handleTooltipEnter" @mouseleave="handleTooltipLeave">
         <div class="tooltip-container">
             <div v-for="(item, index) in options" :key="index" @click="handleClick(item)" class="tooltip-item">
-                <svg-icon :icon-class="item.icon" class="tooltip-icon" />
+                <span class="tooltip-icon" :style="iconStyle(item)" v-html="item.svg"></span>
                 <span>{{ item.label }}</span>
             </div>
         </div>
@@ -20,14 +20,37 @@ const props = defineProps({
   tooltipEdge: Object,
 });
 
+// 节点类型语义色：与钉钉风格一致，插入菜单里一眼区分节点类型；
+// 图标内联绘制（描边走 currentColor），sprite 图标写死 fill 无法跟随语义色
+const GW_DIAMOND = '<rect x="6.3" y="6.3" width="11.4" height="11.4" rx="2" transform="rotate(45 12 12)"/>';
 const options = [
-  { icon: 'between', label: '审批' },
-  { icon: 'serial', label: '互斥网关' },
-  { icon: 'parallel', label: '并行网关' },
-  { icon: 'inclusive', label: '包含网关' },
+  {
+    icon: 'between', label: '审批', color: '#409eff',
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="3"/><circle cx="12" cy="10.2" r="2.1"/><path d="M7.8 16.2c.8-1.9 2.3-2.8 4.2-2.8s3.4.9 4.2 2.8"/></svg>`,
+  },
+  {
+    icon: 'serial', label: '互斥网关', color: '#ff9f43',
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${GW_DIAMOND}<path d="M9.6 9.6l4.8 4.8M14.4 9.6l-4.8 4.8"/></svg>`,
+  },
+  {
+    icon: 'parallel', label: '并行网关', color: '#8b5cf6',
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${GW_DIAMOND}<path d="M12 9.4v5.2M9.4 12h5.2"/></svg>`,
+  },
+  {
+    icon: 'inclusive', label: '包含网关', color: '#34c38f',
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${GW_DIAMOND}<circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="0.8" fill="currentColor" stroke="none"/></svg>`,
+  },
 ]
 
 const emit = defineEmits(['option-click', 'close-tooltip']);
+
+/** 图标底色 = 语义色 12% 透明度，图标描边用语义色 */
+function iconStyle(item) {
+  return {
+    color: item.color,
+    backgroundColor: `color-mix(in srgb, ${item.color} 12%, transparent)`,
+  };
+}
 
 /** 动态计算 tooltip 样式，根据暗黑模式切换颜色 */
 const tooltipStyle = computed(() => ({

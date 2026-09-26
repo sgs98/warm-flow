@@ -1,5 +1,6 @@
 import {RectNode, RectNodeModel, h} from "@logicflow/core";
 import {setCommonStyle, applyClassicDesignColor} from "@/components/design/common/js/tool.js";
+import {handlerFeedback} from "@/api/flow/definition.js";
 
 class BetweenModel extends RectNodeModel {
 
@@ -8,7 +9,23 @@ class BetweenModel extends RectNodeModel {
     this.width = 100;
     this.height = 80;
     this.radius = 8;
+    this.fetchHandlerName();
   }
+
+  // 办理人名称回显：与仿钉钉卡片共用 handler-feedback 接口，
+  // 结果写入 properties 触发视图重绘，卡片副标题展示
+  fetchHandlerName() {
+    const flag = this.properties.permissionFlag;
+    if (!flag || this.properties._handlerName) {
+      return;
+    }
+    handlerFeedback({storageIds: flag.split("@@")}).then(response => {
+      if (response.code === 200 && response.data) {
+        this.setProperties({_handlerName: response.data.map(item => item.handlerName).join('、')});
+      }
+    }).catch(() => {});
+  }
+
   getNodeStyle() {
     const style = setCommonStyle(super.getNodeStyle(), this.properties, "node");
     // 设计态语义色：中间 / 审批节点用品牌蓝
@@ -18,61 +35,90 @@ class BetweenModel extends RectNodeModel {
 
 class BetweenView extends RectNode {
 
-  /** 现代化审批/任务图标 */
+  /** 现代化审批/任务图标：柔和色块章 + 语义色符号 */
   getIconShape() {
     const {model} = this.props;
     const {x, y} = model;
     const style = model.getNodeStyle();
     const sc = style._statusColorRGB || '166,178,189';
     const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-    const iconX = x - 46; // 左上角
-    const iconY = y - 34;
+    const size = 24;
+    const iconX = x - 40; // 左上角
+    const iconY = y - 32; // 底边 y-8，避开居中标题的纵向区间
 
     return h(
-        'svg',
-        {
-          x: iconX,
-          y: iconY,
-          width: 26,
-          height: 26,
-          viewBox: '0 0 24 24',
-        },
+        'g',
+        {},
         [
-          // 圆角矩形卡片背景（暗黑模式加深）
+          // 柔和色块章（语义色低饱和底）
           h('rect', {
-            x: 2, y: 3,
-            width: 18, height: 16,
-            rx: 3, ry: 3,
-            fill: `rgba(${sc}, ${isDark ? 0.15 : 0.08})`,
-            stroke: `rgb(${sc})`,
-            strokeWidth: 1.2,
-            strokeLinejoin: 'round',
+            x: iconX,
+            y: iconY,
+            width: size,
+            height: size,
+            rx: 7,
+            ry: 7,
+            fill: `rgba(${sc}, ${isDark ? 0.16 : 0.1})`,
           }),
-          // 对勾或用户标识（暗黑模式加深）
-          h('circle', {
-            cx: 11, cy: 10,
-            r: 3.5,
-            fill: `rgba(${sc}, ${isDark ? 0.25 : 0.15})`,
-            stroke: `rgb(${sc})`,
-            strokeWidth: 1,
-          }),
-          h('path', {
-            d: 'M9 10 l2 2 l4 -4',
-            fill: 'none',
-            stroke: `rgb(${sc})`,
-            strokeWidth: 1.5,
-            strokeLinecap: 'round',
-            strokeLinejoin: 'round',
-          }),
-          // 底部线条装饰（暗黑模式可见度提升）
-          h('line', {
-            x1: 6, y1: 16.5, x2: 16, y2: 16.5,
-            stroke: `rgba(${sc}, ${isDark ? 0.4 : 0.25})`,
-            strokeWidth: 1,
-            strokeLinecap: 'round',
-          }),
+          h(
+              'svg',
+              {
+                x: iconX + 3,
+                y: iconY + 3,
+                width: size - 6,
+                height: size - 6,
+                viewBox: '0 0 24 24',
+              },
+              [
+                // 用户 + 对勾标识
+                h('circle', {
+                  cx: 10.2, cy: 9.2, r: 3.4,
+                  fill: 'none',
+                  stroke: `rgb(${sc})`,
+                  strokeWidth: 1.7,
+                }),
+                h('path', {
+                  d: 'M4.6 18.4c1-2.8 3-4.2 5.6-4.2 1 0 1.9.2 2.7.6',
+                  fill: 'none',
+                  stroke: `rgb(${sc})`,
+                  strokeWidth: 1.7,
+                  strokeLinecap: 'round',
+                }),
+                h('path', {
+                  d: 'M14.6 15.6l2 2 3.6-4',
+                  fill: 'none',
+                  stroke: `rgb(${sc})`,
+                  strokeWidth: 1.8,
+                  strokeLinecap: 'round',
+                  strokeLinejoin: 'round',
+                }),
+              ]
+          ),
         ]
     );
+  }
+
+  /** 底部办理人副标题 */
+  getSubtitleShape() {
+    const {model} = this.props;
+    const {x, y} = model;
+    const style = model.getNodeStyle();
+    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+    const name = model.properties._handlerName;
+    if (!name) {
+      return null;
+    }
+    return h('text', {
+      x,
+      y: y + 16,
+      fontSize: 10,
+      fill: isDark ? '#a3a6ad' : '#86909c',
+      style: {
+        userSelect: 'none',
+        textAnchor: 'middle',
+        dominantBaseline: 'middle',
+      },
+    }, name.length > 12 ? name.slice(0, 12) + '…' : name);
   }
 
   // 自定义节点外观
@@ -134,6 +180,8 @@ class BetweenView extends RectNode {
 
       // 图标
       this.getIconShape(),
+      // 办理人副标题
+      this.getSubtitleShape(),
     ]);
   }
 }

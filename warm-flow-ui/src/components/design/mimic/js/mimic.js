@@ -164,8 +164,8 @@ function LevelNotMoveNode(targetEdges, nodes, edges, lf, visitedIds, type = true
 }
 
 
-// 更新边
-function updateEdges(lf) {
+// 更新边（按当前节点坐标重建全部连线的折点，供模式转换等场景复用）
+export function updateEdges(lf) {
   const nodes = lf.getGraphData().nodes;
   const startNode = nodes.find(node => node.type === "start")
   // 以上两行重构，改成一行

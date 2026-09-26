@@ -36,11 +36,11 @@ export const lightColors = {
   // ---- 背景颜色 ----
   bgColor: '#f5f7fa',
   bgWhite: '#ffffff',
-  bgPage: '#eef1f6',         // 画布背景（浅灰，让白卡片/胶囊立住）
+  bgPage: '#f8f9fb',         // 画布背景（近白，嵌入白色宿主页面时不突兀，卡片靠投影立住）
   bgContainer: '#f5f7fa',    // 容器背景
 
   // ---- LogicFlow 专用 ----
-  gridColor: '#ccc',
+  gridColor: '#e6eaf2',      // 画布点阵颜色（比 bgPage 略深一档，保持若隐若现）
   nodeTextColor: '#303133',
   nodeTextFill: '#303133',
   edgeTextBg: '#fff',
@@ -114,7 +114,7 @@ export const darkColors = {
   bgContainer: '#141414',        // 容器背景（侧栏/面板容器）
 
   // ---- LogicFlow 专用 ----
-  gridColor: '#404040',          // 画布网格线颜色
+  gridColor: '#262626',          // 画布网格线颜色（暗黑下仅隐约可见）
   nodeTextColor: '#e0e0e0',      // 节点内文字颜色
   nodeTextFill: '#e0e0e0',       // 节点文字填充色（SVG text fill）
   edgeTextBg: '#141414',         // 连线文字背景（避免遮挡线段）

@@ -1,14 +1,26 @@
-import { PolylineEdge, PolylineEdgeModel } from "@logicflow/core";
-import {setCommonStyle} from "@/components/design/common/js/tool.js";
+import { CurvedEdge, CurvedEdgeModel } from "@logicflow/extension";
+import { setCommonStyle } from "@/components/design/common/js/tool.js";
 
-class SkipModel extends PolylineEdgeModel {
+class SkipModel extends CurvedEdgeModel {
   setAttributes() {
     this.offset = 20;
+    // 圆角折线：拐角处做弧形过渡（CurvedEdgeModel 继承自 PolylineEdgeModel，
+    // pointsList / offset / 文本定位与旧 Polyline 数据完全兼容）
+    this.radius = 10;
+    // 小号箭头：轻量指向，替代默认的大黑箭头
+    this.arrowConfig = { offset: 7, verticalLength: 4 };
   }
 
   getEdgeStyle() {
-    return setCommonStyle(super.getEdgeStyle(), this.properties, "skip");
-
+    const style = setCommonStyle(super.getEdgeStyle(), this.properties, "skip");
+    const inDesigner = typeof window !== 'undefined' && window.__WF_FLOW_DESIGN_MODE__;
+    const isRuntime = this.properties.chartStatusColor && this.properties.chartStatusColor.length > 0;
+    // 设计态用品牌蓝细线；运行态保留状态语义色（与仿钉钉模式一致）
+    if (inDesigner && !isRuntime) {
+      style.stroke = 'rgba(64, 158, 255, 0.55)';
+      style.strokeWidth = 2;
+    }
+    return style;
   }
 
   getTextStyle() {
@@ -41,6 +53,6 @@ class SkipModel extends PolylineEdgeModel {
 
 export default {
   type: "skip",
-  view: PolylineEdge,
+  view: CurvedEdge,
   model: SkipModel,
 };

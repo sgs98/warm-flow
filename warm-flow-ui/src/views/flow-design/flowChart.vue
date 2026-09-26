@@ -9,9 +9,9 @@
 
         <!-- 中间：节点状态演示（居中） -->
         <div class="toolbar-center">
-          <el-tooltip content="未完成" placement="bottom"><el-button size="small" :style="`border: 1px solid rgb(${statusColors.notDone})`">未完成</el-button></el-tooltip>
-          <el-tooltip content="进行中" placement="bottom"><el-button size="small" :style="`background-color: rgb(${statusColors.todo}, 0.15); border: 1px solid rgb(${statusColors.todo})`">进行中</el-button></el-tooltip>
-          <el-tooltip content="已完成" placement="bottom"><el-button size="small" :style="`background-color: rgb(${statusColors.done}, 0.15); border: 1px solid rgb(${statusColors.done})`">已完成</el-button></el-tooltip>
+          <span v-for="item in legendItems" :key="item.label" class="legend-chip">
+            <span class="legend-dot" :style="{ backgroundColor: item.color }"></span>{{ item.label }}
+          </span>
         </div>
 
         <!-- 右侧：工具栏（仅图标，tooltip悬浮显示） -->
@@ -25,9 +25,9 @@
 
       <!-- 移动端/平板：第二行，节点状态演示独占一行 -->
       <div class="chart-toolbar-mobile-status">
-        <el-tooltip content="未完成" placement="bottom"><el-button size="small" :style="`border: 1px solid rgb(${statusColors.notDone})`">未完成</el-button></el-tooltip>
-        <el-tooltip content="进行中" placement="bottom"><el-button size="small" :style="`background-color: rgb(${statusColors.todo}, 0.15); border: 1px solid rgb(${statusColors.todo})`">进行中</el-button></el-tooltip>
-        <el-tooltip content="已完成" placement="bottom"><el-button size="small" :style="`background-color: rgb(${statusColors.done}, 0.15); border: 1px solid rgb(${statusColors.done})`">已完成</el-button></el-tooltip>
+        <span v-for="item in legendItems" :key="item.label" class="legend-chip">
+          <span class="legend-dot" :style="{ backgroundColor: item.color }"></span>{{ item.label }}
+        </span>
       </div>
     </el-header>
     <div class="containerView" ref="containerRef"></div>
@@ -85,6 +85,13 @@ const statusColors = ref({
   todo: "",
   notDone: ""
 });
+
+// 图例 chip 数据：圆点颜色 = 节点状态语义色
+const legendItems = computed(() => [
+  { label: '未完成', color: `rgb(${statusColors.value.notDone})` },
+  { label: '进行中', color: `rgb(${statusColors.value.todo})` },
+  { label: '已完成', color: `rgb(${statusColors.value.done})` },
+]);
 
 // 使用统一的暗黑模式 composable
 const { isDark, themeColors, initFromUrl, applyDarkTheme, setupMessageListener, cleanupMessageListener } = useDark();
@@ -315,7 +322,7 @@ onMounted(async () => {
               nodeSelectedOutline: false,
               edgeSelectedOutline: false,
               grid: {
-                size: 20,
+                size: 24,
                 visible: 'true' === appParams.value.showGrid,
                 type: 'dot',
                 config: {
@@ -685,35 +692,35 @@ html.dark .log-text {
   background-color: var(--wf-bg-white);
 }
 
-/* 暗黑模式：中间状态按钮（无描边，透明背景，文字+icon 白色） */
-:global(html.dark) .toolbar-center :deep(.el-button) {
-  --el-button-text-color: #ffffff;
-  --el-button-hover-text-color: #ffffff;
-  --el-button-bg-color: transparent;
-  --el-button-hover-bg-color: transparent;
-  --el-button-border-color: transparent;
-  color: #ffffff;
-  background-color: transparent;
-  border-color: transparent;
+/* 图例 chip：圆点 + 文字，替代原彩色描边大按钮 */
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--wf-bg-white, #fff);
+  border: 1px solid var(--wf-border-light, #e4e7ed);
+  box-shadow: 0 1px 3px rgba(29, 33, 41, 0.05);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--wf-text-regular, #4e5969);
+  white-space: nowrap;
+  user-select: none;
+}
 
-  /* icon 强制白色 */
-  .el-icon,
-  svg,
-  i {
-    color: #ffffff !important;
-  }
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 8px;
+}
 
-  &:hover,
-  &:focus {
-    color: var(--wf-primary);
-    background-color: rgba(64, 158, 255, 0.08);
-
-    .el-icon,
-    svg,
-    i {
-      color: var(--wf-primary) !important;
-    }
-  }
+:global(html.dark) .legend-chip {
+  background: var(--wf-bg-color, #1d1e1f);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+  color: var(--wf-text-regular, #a3a6ad);
 }
 
 /* 暗黑模式：右侧工具按钮（细边框 + icon 白色） */
