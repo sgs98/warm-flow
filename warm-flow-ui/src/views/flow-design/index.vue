@@ -57,7 +57,8 @@
             <el-tooltip content="下载流程图" placement="bottom"><el-button size="small" icon="Picture" @click="downLoad"></el-button></el-tooltip>
             <el-tooltip content="下载JSON" placement="bottom"><el-button size="small" icon="Download" @click="downJson"></el-button></el-tooltip>
           </span>
-          <span class="toolbar-group" v-if="!disabled && !onlyDesignShow">
+          <!-- 嵌入模式（onlyDesignShow）同样允许切换模型：切换会重排坐标，保存时单独回写 model_value -->
+          <span class="toolbar-group" v-if="!disabled">
             <el-tooltip :content="isClassicsModel ? '切换为仿钉钉模型' : '切换为经典模型'" placement="bottom">
               <el-button size="small" icon="Switch" @click="switchModel"></el-button>
             </el-tooltip>
@@ -571,6 +572,9 @@ function handleModelValueUpdate() {
 /** 当前是否经典模式（工具栏切换按钮的提示与目标方向） */
 const isClassicsModel = computed(() => isClassics(logicJson.value?.modelValue));
 
+/** 画布内是否切换过设计器模型：嵌入模式下保存时据此单独回写 model_value */
+const modelValueDirty = ref(false);
+
 /**
  * 切换设计器模型（经典 ↔ 仿钉钉）。
  * 仅在画布内做「转换预览」：重排坐标 + 换 modelValue + 重建画布，
@@ -601,6 +605,7 @@ function doSwitchModel(toMimic) {
   }
   // 整体重建 logicJson：既换模型，也触发 BaseInfo 表单的模型卡片联动
   logicJson.value = { ...logicJson.value, modelValue: toMimic ? 'MIMIC' : 'CLASSICS' };
+  modelValueDirty.value = true;
   // 与 handleModelValueUpdate 相同的重建链路：按新模式注册元素并重渲染
   sidebarVisible.value = false;
   nextTick(() => {
@@ -609,6 +614,19 @@ function doSwitchModel(toMimic) {
       updateEdges(lf.value);
     }
   });
+}
+
+/**
+ * 嵌入模式下的最小定义载荷：只回写设计器模型，不携带宿主管理的其它定义字段。
+ * flowCode 必须保留，否则 checkFlowLegal 会以「流程flowCode为空」拒绝保存。
+ */
+function modelValuePayload(json) {
+  return {
+    id: json.id,
+    flowCode: json.flowCode,
+    modelValue: json.modelValue,
+    nodeList: json.nodeList
+  };
 }
 
 async function saveJsonModel() {
@@ -630,7 +648,12 @@ async function saveJsonModel() {
   logicJson.value['id'] = definitionId.value
 
   let jsonString = logicFlowJsonToWarmFlow(logicJson.value);
-  saveJson(jsonString, onlyDesignShow.value).then(response => {
+  // 嵌入模式下定义元数据由宿主管理，只有画布内切换过模型时才以最小载荷回写 model_value
+  const writeModelValue = onlyDesignShow.value && modelValueDirty.value && !!logicJson.value['id'];
+  if (writeModelValue) {
+    jsonString = modelValuePayload(JSON.parse(jsonString));
+  }
+  saveJson(jsonString, onlyDesignShow.value && !writeModelValue).then(response => {
     if (response.code === 200) {
       proxy.$modal.msgSuccess("保存成功");
       // 延迟500ms后关闭页面
