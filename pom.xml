@@ -349,6 +349,7 @@
                             <encoding>UTF-8</encoding>
                             <docencoding>UTF-8</docencoding>
                             <doclint>none</doclint>
+                            <failOnError>false</failOnError>
                         </configuration>
                         <executions>
                             <execution>
@@ -374,26 +375,43 @@
                         </executions>
                     </plugin>
                     <plugin>
-                        <groupId>org.sonatype.central</groupId>
-                        <artifactId>central-publishing-maven-plugin</artifactId>
-                        <version>0.6.0</version>
-                        <extensions>true</extensions>
-                        <configuration>
-                            <!--  对应maven的setting.xml<servers> <server> <id>ossrh</id> -->
-                            <publishingServerId>ossrh</publishingServerId>
-                            <!-- 是否自动发布，false需要在手动发布：https://central.sonatype.com/publishing -->
-                            <autoPublish>true</autoPublish>
-                            <!-- 只生成 md5 + sha1，砍掉 sha256/sha512，减少文件数 -->
-                            <checksums>required</checksums>
-                        </configuration>
-                    </plugin>
-                    <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-deploy-plugin</artifactId>
                         <version>3.1.2</version>
                     </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.9.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <!-- 对应 ~/.m2/settings.xml 中 <servers><server><id>central</id> -->
+                            <publishingServerId>central</publishingServerId>
+                            <!-- 是否自动发布，false 需在 https://central.sonatype.com/publishing 手动发布 -->
+                            <autoPublish>true</autoPublish>
+                            <waitUntil>published</waitUntil>
+                            <deploymentName>warm-flow-${project.version}</deploymentName>
+                        </configuration>
+                    </plugin>
                 </plugins>
             </build>
+        </profile>
+
+        <!-- 备选发布通道：GitHub Packages，mvn clean deploy -P github -DskipTests -->
+        <profile>
+            <id>github</id>
+            <distributionManagement>
+                <repository>
+                    <id>github</id>
+                    <name>GitHub sgs98 Apache Maven Packages</name>
+                    <url>https://maven.pkg.github.com/sgs98/warm-flow</url>
+                </repository>
+                <snapshotRepository>
+                    <id>github</id>
+                    <name>GitHub sgs98 Apache Maven Packages</name>
+                    <url>https://maven.pkg.github.com/sgs98/warm-flow</url>
+                </snapshotRepository>
+            </distributionManagement>
         </profile>
     </profiles>
 
