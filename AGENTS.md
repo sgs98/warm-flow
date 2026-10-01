@@ -11,7 +11,7 @@
 
 ## 项目概览
 
-`warm-flow` 是 [Dromara](https://dromara.org/) 社区的国产轻量级工作流引擎，`groupId=org.dromara.warm`，发布到 Maven 中央仓库供他人依赖。它**是一个被集成的类库 / SDK，不是业务应用**：简洁轻量（核心仅 7 张表）、五脏俱全、扩展性强，可通过 jar 包快速集成流程设计器，原生支持经典与仿钉钉双模式。
+`warm-flow` 是 [Dromara](https://dromara.org/) 社区的国产轻量级工作流引擎，当前 Maven 发布坐标为 `groupId=io.github.sgs98`，发布到 Maven 中央仓库供他人依赖。它**是一个被集成的类库 / SDK，不是业务应用**：简洁轻量（核心仅 7 张表）、五脏俱全、扩展性强，可通过 jar 包快速集成流程设计器，原生支持经典与仿钉钉双模式。
 
 核心定位决定了最高优先约束：**对外公共 API、实体字段、数据库表结构、配置项都是契约，向后兼容是红线**；**核心引擎与具体框架 / ORM / JSON 库解耦**。
 
@@ -88,7 +88,7 @@
 
 ## 品牌与版权保护
 
-- 不要移除、替换或弱化 `warm-flow`、`Warm-Flow`、`dromara`、`org.dromara.warm` 包名 / groupId、模块名、启动 banner、作者信息（`warm` / `290631660@qq.com` 等 `developers`）、README 中的 Star/Fork/License 徽章与文档链接，除非用户明确要求。
+- 不要移除、替换或弱化 `warm-flow`、`Warm-Flow`、`dromara`、`org.dromara.warm` 包名、模块名、启动 banner、作者信息（`warm` / `290631660@qq.com` 等 `developers`）、README 中的 Star/Fork/License 徽章与文档链接，除非用户明确要求。
 - **每个 Java 文件保留 Apache 2.0 license header**（`Copyright 2024-2025, Warm-Flow (290631660@qq.com).` 开头的注释块）。新增 Java 文件必须照抄现有 header、`package`、Lombok 与注释风格。
 - 保留现有中文 README、中文注释、类注释中的 `@author warm` 与 `@since`，不要批量改成英文或通用模板。
 - 不改动 `LICENSE`，不弱化「永久开源免费、无商业版」的项目声明。

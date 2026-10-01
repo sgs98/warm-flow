@@ -18,7 +18,7 @@ alwaysApply: true
 
 ## 项目性质
 
-被他人依赖的**开源类库 / SDK**（Maven 中央仓库，`groupId=org.dromara.warm`），不是业务应用。三大最高约束：**JDK 17 基线**、**对外契约向后兼容**、**核心与框架 / ORM / JSON 解耦**。
+被他人依赖的**开源类库 / SDK**（Maven 中央仓库，`groupId=io.github.sgs98`），不是业务应用。三大最高约束：**JDK 17 基线**、**对外契约向后兼容**、**核心与框架 / ORM / JSON 解耦**。
 
 ## 模块速览
 

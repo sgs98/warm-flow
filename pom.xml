@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.dromara.warm</groupId>
+    <groupId>io.github.sgs98</groupId>
     <artifactId>warm-flow</artifactId>
     <version>2.0.0</version>
     <packaging>pom</packaging>
@@ -193,79 +193,79 @@
 
             <!-- warm-flow自身 依赖 -->
             <dependency>
-                <groupId>org.dromara.warm</groupId>
+                <groupId>io.github.sgs98</groupId>
                 <artifactId>warm-flow-core</artifactId>
                 <version>${warm-flow}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.dromara.warm</groupId>
+                <groupId>io.github.sgs98</groupId>
                 <artifactId>warm-flow-mybatis-core</artifactId>
                 <version>${warm-flow}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.dromara.warm</groupId>
+                <groupId>io.github.sgs98</groupId>
                 <artifactId>warm-flow-mybatis-sb3-starter</artifactId>
                 <version>${warm-flow}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.dromara.warm</groupId>
+                <groupId>io.github.sgs98</groupId>
                 <artifactId>warm-flow-mybatis-sb4-starter</artifactId>
                 <version>${warm-flow}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.dromara.warm</groupId>
+                <groupId>io.github.sgs98</groupId>
                 <artifactId>warm-flow-mybatis-plus-core</artifactId>
                 <version>${warm-flow}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.dromara.warm</groupId>
+                <groupId>io.github.sgs98</groupId>
                 <artifactId>warm-flow-mybatis-plus-sb3-starter</artifactId>
                 <version>${warm-flow}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.dromara.warm</groupId>
+                <groupId>io.github.sgs98</groupId>
                 <artifactId>warm-flow-mybatis-plus-sb4-starter</artifactId>
                 <version>${warm-flow}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.dromara.warm</groupId>
+                <groupId>io.github.sgs98</groupId>
                 <artifactId>warm-flow-plugin-modes-sb</artifactId>
                 <version>${warm-flow}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.dromara.warm</groupId>
+                <groupId>io.github.sgs98</groupId>
                 <artifactId>warm-flow-plugin-json-v1</artifactId>
                 <version>${warm-flow}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.dromara.warm</groupId>
+                <groupId>io.github.sgs98</groupId>
                 <artifactId>warm-flow-plugin-json-jackson3</artifactId>
                 <version>${warm-flow}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.dromara.warm</groupId>
+                <groupId>io.github.sgs98</groupId>
                 <artifactId>warm-flow-plugin-vue3-ui</artifactId>
                 <version>${warm-flow}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.dromara.warm</groupId>
+                <groupId>io.github.sgs98</groupId>
                 <artifactId>warm-flow-plugin-ui-core</artifactId>
                 <version>${warm-flow}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.dromara.warm</groupId>
+                <groupId>io.github.sgs98</groupId>
                 <artifactId>warm-flow-plugin-ui-sb-web</artifactId>
                 <version>${warm-flow}</version>
             </dependency>

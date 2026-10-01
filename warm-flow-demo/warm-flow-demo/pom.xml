@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>org.dromara.warm</groupId>
+    <groupId>io.github.sgs98</groupId>
     <artifactId>warm-flow-demo</artifactId>
     <version>2.0.0</version>
     <name>warm-flow-demo</name>
@@ -26,14 +26,14 @@
     <dependencies>
         <!-- Warm-Flow 引擎：MyBatis-Plus + Spring Boot 3 starter -->
         <dependency>
-            <groupId>org.dromara.warm</groupId>
+            <groupId>io.github.sgs98</groupId>
             <artifactId>warm-flow-mybatis-plus-sb3-starter</artifactId>
             <version>${warm-flow.version}</version>
         </dependency>
 
         <!-- Warm-Flow iframe 设计器及标准 /warm-flow 接口。 -->
         <dependency>
-            <groupId>org.dromara.warm</groupId>
+            <groupId>io.github.sgs98</groupId>
             <artifactId>warm-flow-plugin-ui-sb-web</artifactId>
             <version>${warm-flow.version}</version>
         </dependency>

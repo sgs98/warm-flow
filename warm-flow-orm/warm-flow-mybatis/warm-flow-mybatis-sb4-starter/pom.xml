@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>org.dromara.warm</groupId>
+        <groupId>io.github.sgs98</groupId>
         <artifactId>warm-flow-mybatis</artifactId>
         <version>2.0.0</version>
     </parent>
@@ -16,12 +16,12 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.dromara.warm</groupId>
+            <groupId>io.github.sgs98</groupId>
             <artifactId>warm-flow-plugin-json-jackson3</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.dromara.warm</groupId>
+            <groupId>io.github.sgs98</groupId>
             <artifactId>warm-flow-mybatis-core</artifactId>
         </dependency>
 
@@ -32,7 +32,7 @@
         </dependency>
 
         <dependency>
-            <groupId>org.dromara.warm</groupId>
+            <groupId>io.github.sgs98</groupId>
             <artifactId>warm-flow-plugin-modes-sb</artifactId>
         </dependency>
     </dependencies>
