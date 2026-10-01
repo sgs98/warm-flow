@@ -1,5 +1,59 @@
 const NODE_TYPE_MAP = {0: 'start', 1: 'between', 2: 'end', 3: 'serial', 4: 'parallel', 5: 'inclusive'}
 
+// 各设计器模型下节点的默认尺寸 [宽, 高]：用于判断连线标签是否压在节点上
+const NODE_SIZE_MAP = {
+  CLASSICS: {
+    start: [50, 50],
+    end: [50, 50],
+    between: [100, 80],
+    serial: [50, 50],
+    parallel: [50, 50],
+    inclusive: [50, 50]
+  },
+  MIMIC: {
+    start: [76, 40],
+    end: [76, 40],
+    between: [260, 76],
+    serial: [36, 36],
+    parallel: [36, 36],
+    inclusive: [36, 36]
+  }
+}
+
+// 标签落点判定容差：标签贴着节点边框同样算压住节点
+const LABEL_NODE_PADDING = 8
+
+/**
+ * 判断标签落点是否落在某个节点范围内
+ * @param {Object} point 标签坐标 {x, y}
+ * @param {Array} nodeBoxes 节点范围 [{x, y, width, height}]
+ * @returns {boolean}
+ */
+const isLabelOnNode = (point, nodeBoxes) => {
+  return nodeBoxes.some(box => point.x >= box.x - box.width / 2 - LABEL_NODE_PADDING
+    && point.x <= box.x + box.width / 2 + LABEL_NODE_PADDING
+    && point.y >= box.y - box.height / 2 - LABEL_NODE_PADDING
+    && point.y <= box.y + box.height / 2 + LABEL_NODE_PADDING)
+}
+
+/**
+ * 取折线中点作为标签回退位置（与 LogicFlow 未指定标签坐标时的默认位置一致）
+ * @param {Array} pointsList 连线折点
+ * @returns {Object|null}
+ */
+const getPolylineMiddle = (pointsList) => {
+  if (!pointsList || pointsList.length === 0) {
+    return null
+  }
+  const middle = Math.floor(pointsList.length / 2)
+  const prev = pointsList[middle - 1] || pointsList[middle]
+  const next = pointsList[middle]
+  return {
+    x: Math.round((prev.x + next.x) / 2),
+    y: Math.round((prev.y + next.y) / 2)
+  }
+}
+
 /**
  * 将warm-flow的定义json数据转成LogicFlow支持的数据格式
  * @param {*} json
@@ -32,6 +86,9 @@ export const json2LogicFlowJson = (definition) => {
     return acc;
   }, [])
   const allNodes = definition.nodeList;
+  // 节点范围：用于连线标签防重叠判定
+  const nodeSize = NODE_SIZE_MAP[isClassics(definition.modelValue) ? 'CLASSICS' : 'MIMIC']
+  const nodeBoxes = []
   // 解析节点
   if (allNodes.length) {
     for (var i = 0, len = allNodes.length; i < len; i++) {
@@ -84,6 +141,8 @@ export const json2LogicFlowJson = (definition) => {
           console.error("Error parsing JSON:", error);
         }
       }
+      const size = nodeSize[lfNode.type] || nodeSize.between
+      nodeBoxes.push({x: lfNode.x, y: lfNode.y, width: size[0], height: size[1]})
       graphData.nodes.push(lfNode)
     }
   }
@@ -128,6 +187,15 @@ export const json2LogicFlowJson = (definition) => {
           let textXy = coordinateXy[1].split(",");
           edge.text.x = parseInt(textXy[0])
           edge.text.y = parseInt(textXy[1])
+          // 钉钉转经典等布局变更后，残留的标签坐标会压在新布局的节点上，
+          // 落点在节点内时回退到连线折线中点，避免节点标题与标签文字叠加
+          if (isLabelOnNode(edge.text, nodeBoxes)) {
+            const middle = getPolylineMiddle(edge.pointsList)
+            if (middle) {
+              edge.text.x = middle.x
+              edge.text.y = middle.y
+            }
+          }
         }
       }
       graphData.edges.push(edge)

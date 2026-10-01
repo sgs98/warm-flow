@@ -12,11 +12,24 @@ class BetweenModel extends RectNodeModel {
     this.fetchHandlerName();
   }
 
+  // 运行态判定：流程图带运行态颜色配置，或节点已带运行状态字段
+  isRuntime() {
+    const {chartStatusColor, status} = this.properties;
+    const hasColor = Array.isArray(chartStatusColor) && chartStatusColor.length > 0;
+    return hasColor || (status !== undefined && status !== null && status !== '');
+  }
+
+  // 运行态下仅已完成（status=2）节点展示办理人，未完成节点隐藏
+  shouldShowHandler() {
+    return !this.isRuntime() || Number(this.properties.status) === 2;
+  }
+
   // 办理人名称回显：与仿钉钉卡片共用 handler-feedback 接口，
-  // 结果写入 properties 触发视图重绘，卡片副标题展示
+  // 结果写入 properties 触发视图重绘，卡片副标题展示。
+  // 运行态未完成节点不请求、不展示，避免暴露未办理节点的办理人。
   fetchHandlerName() {
     const flag = this.properties.permissionFlag;
-    if (!flag || this.properties._handlerName) {
+    if (!flag || this.properties._handlerName || !this.shouldShowHandler()) {
       return;
     }
     handlerFeedback({storageIds: flag.split("@@")}).then(response => {
@@ -98,19 +111,19 @@ class BetweenView extends RectNode {
     );
   }
 
-  /** 底部办理人副标题 */
+  /** 底部办理人副标题（运行态未完成节点不展示） */
   getSubtitleShape() {
     const {model} = this.props;
-    const {x, y} = model;
+    const {x, y, height} = model;
     const style = model.getNodeStyle();
     const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
     const name = model.properties._handlerName;
-    if (!name) {
+    if (!name || !model.shouldShowHandler()) {
       return null;
     }
     return h('text', {
       x,
-      y: y + 16,
+      y: y + (height || 80) / 2 - 13,
       fontSize: 10,
       fill: isDark ? '#a3a6ad' : '#86909c',
       style: {

@@ -44,7 +44,9 @@ export class BaseNodeView extends HtmlNode {
       let flag = false
       if (currentProperties.permissionFlag !== preProperties.permissionFlag
           || currentProperties.collaborativeWay !== preProperties.collaborativeWay
-          || currentProperties.nodeRatio !== preProperties.nodeRatio) {
+          || currentProperties.nodeRatio !== preProperties.nodeRatio
+          || currentProperties.status !== preProperties.status
+          || currentProperties.chartStatusColor !== preProperties.chartStatusColor) {
         this.preProperties = this.currentProperties;
         flag = true
       }
@@ -80,8 +82,9 @@ export class BaseNodeView extends HtmlNode {
       this.r.component.props.permissionFlag = this.props.model.properties.permissionFlag
       this.r.component.props.collaborativeWay = this.props.model.properties.collaborativeWay
       this.r.component.props.nodeRatio = this.props.model.properties.nodeRatio
+      this.r.component.props.status = this.props.model.properties.status
+      this.r.component.props.chartStatusColor = this.props.model.properties.chartStatusColor
       this.r.component.props.selected = this.props.model.isSelected
     }
   }
 }
-

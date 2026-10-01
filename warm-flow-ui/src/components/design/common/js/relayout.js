@@ -20,12 +20,12 @@ const TOP_Y = 100
 
 // 仿钉钉各节点类型的尺寸（边线路由与锚点计算依赖）
 const MIMIC_SIZE = {
-  0: { width: 76, height: 40 },
-  2: { width: 76, height: 40 },
-  1: { width: 260, height: 76 },
-  3: { width: 36, height: 36 },
-  4: { width: 36, height: 36 },
-  5: { width: 36, height: 36 }
+  start: { width: 76, height: 40 },
+  end: { width: 76, height: 40 },
+  between: { width: 260, height: 76 },
+  serial: { width: 36, height: 36 },
+  parallel: { width: 36, height: 36 },
+  inclusive: { width: 36, height: 36 }
 }
 
 /**
@@ -57,6 +57,7 @@ export const relayoutToMimic = (nodes, edges) => {
 
   // 1) 拓扑分层：y = 最长路径层数 × 层高（防环：只允许沿未定层节点前进）
   const layer = new Map()
+  const maxLayer = nodes.length
   const queue = [start.id]
   layer.set(start.id, 0)
   while (queue.length > 0) {
@@ -66,8 +67,8 @@ export const relayoutToMimic = (nodes, edges) => {
       if (!layer.has(childId)) {
         layer.set(childId, nextLayer)
         queue.push(childId)
-      } else if (layer.get(childId) < nextLayer) {
-        // 环或汇聚回边：取最长路径，重新入队其子节点
+      } else if (layer.get(childId) < nextLayer && nextLayer <= maxLayer) {
+        // 汇聚回边取最长路径；异常环路受 maxLayer 限制，避免转换无限循环。
         layer.set(childId, nextLayer)
         queue.push(childId)
       }
@@ -118,6 +119,10 @@ export const relayoutToMimic = (nodes, edges) => {
     }
     const size = MIMIC_SIZE[node.type]
     if (size) {
+      // LogicFlow 会同时读取节点自身尺寸和 properties 尺寸；转换时两处必须保持一致，
+      // 否则保存后重新加载可能按旧尺寸计算文本与边线锚点。
+      node.width = size.width
+      node.height = size.height
       node.properties = node.properties || {}
       node.properties.width = size.width
       node.properties.height = size.height

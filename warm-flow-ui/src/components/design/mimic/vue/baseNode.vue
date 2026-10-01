@@ -23,7 +23,7 @@
             @keyup.enter="saveNodeName"
             @blur="saveNodeName"/>
       </div>
-      <div class="mimic-who" :title="handler">
+      <div v-if="showHandler" class="mimic-who" :title="handler">
         <span class="mimic-av">{{ handlerChar }}</span>
         <span class="mimic-handler">{{ handler }}</span>
         <span v-if="collaborativeBadge" class="mimic-badge">{{ collaborativeBadge }}</span>
@@ -115,7 +115,11 @@ const nodeNameInput = ref(null);
 const editingNodeName = ref(false);
 const emit = defineEmits(['updateNodeName', 'deleteNode', 'editNode']);
 
-const isRuntime = computed(() => props.chartStatusColor && props.chartStatusColor.length > 0);
+// 运行态优先以节点状态判断；状态字段缺失时，流程图的三原色配置仍可识别运行态。
+// 运行态只展示已完成节点（status=2）的办理人，未完成节点不泄露办理人信息。
+const isRuntime = computed(() => (props.status !== null && props.status !== undefined)
+  || (Array.isArray(props.chartStatusColor) && props.chartStatusColor.length === 3));
+const showHandler = computed(() => !isRuntime.value || Number(props.status) === 2);
 
 // 协作方式徽标：仅票签 / 会签显示，避免默认或签造成视觉噪音；
 // collaborativeWay 缺失时按 nodeRatio 推导（0→或签、100→会签、其余→票签），
@@ -162,8 +166,12 @@ watch(
 );
 
 watch(
-    () => props.permissionFlag,
-    (newVal) => {
+    () => [props.permissionFlag, props.status, props.chartStatusColor],
+    ([newVal]) => {
+      if (!showHandler.value) {
+        handler.value = '';
+        return;
+      }
       if (newVal) {
         handlerFeedback({storageIds: newVal.split("@@")}).then(response => {
           if (response.code === 200 && response.data) {
