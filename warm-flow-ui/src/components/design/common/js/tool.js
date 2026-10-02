@@ -29,7 +29,7 @@ const LABEL_NODE_PADDING = 8
  * @param {Array} nodeBoxes 节点范围 [{x, y, width, height}]
  * @returns {boolean}
  */
-const isLabelOnNode = (point, nodeBoxes) => {
+export const isLabelOnNode = (point, nodeBoxes) => {
   return nodeBoxes.some(box => point.x >= box.x - box.width / 2 - LABEL_NODE_PADDING
     && point.x <= box.x + box.width / 2 + LABEL_NODE_PADDING
     && point.y >= box.y - box.height / 2 - LABEL_NODE_PADDING

@@ -168,7 +168,10 @@ function LevelNotMoveNode(targetEdges, nodes, edges, lf, visitedIds, type = true
 export function updateEdges(lf) {
   const nodes = lf.getGraphData().nodes;
   const startNode = nodes.find(node => node.type === "start")
-  // 以上两行重构，改成一行
+  // 画布没有开始节点（结构不完整 / 刚清空）时无法按拓扑重建连线，直接跳过
+  if (!startNode) {
+    return;
+  }
 
   const edges = lf.getGraphData().edges;
   // 获取源节点的后置节点

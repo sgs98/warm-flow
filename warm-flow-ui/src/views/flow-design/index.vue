@@ -118,7 +118,13 @@ import {
     logicFlowJsonToWarmFlow
 } from "@/components/design/common/js/tool";
 import { getMagnetPosition, SNAP_EPSILON } from "@/components/design/common/js/snapMagnet";
-import { relayoutToMimic, clearEdgePoints } from "@/components/design/common/js/relayout";
+import {
+  relayoutToMimic,
+  clearEdgePoints,
+  normalizeClassicNodes,
+  resetEdgeTextPositions,
+  resetHistory
+} from "@/components/design/common/js/relayout";
 import { updateEdges } from "@/components/design/mimic/js/mimic";
 import { ElMessageBox } from 'element-plus';
 import StartC from "@/components/design/classics/js/start";
@@ -406,7 +412,14 @@ function initLogicFlow() {
     // 将触摸事件转换为鼠标事件以支持手机/平板端拖动画布
     initTouchEventBridge();
     if (logicJson.value) {
+      if (isClassics(logicJson.value.modelValue)) {
+        // 经典节点尺寸由注册元素决定，清掉模式转换残留的仿钉钉尺寸（否则审批卡会保持 260x76），
+        // 并把仿钉钉居中文本的网关标签回正到菱形下方
+        normalizeClassicNodes(logicJson.value.nodes);
+      }
       lf.value.render(logicJson.value);
+      // 标签坐标可能来自上一个布局（模式转换 / 保存回写），压在节点上时回退到连线默认位置
+      resetEdgeTextPositions(lf.value);
       // 打开即自适应显示全部节点（所有端）
       fitViewAll();
     }
@@ -598,10 +611,21 @@ function switchModel() {
 }
 
 function doSwitchModel(toMimic) {
+  // logicJson 只在保存时同步画布，转换前必须先取画布最新数据：
+  // 否则本次新增的节点/连线不在数据里，转换后会被静默丢弃；拖动过的坐标也会回退到旧值。
+  if (lf.value) {
+    const graphData = lf.value.getGraphData();
+    logicJson.value = {
+      ...logicJson.value,
+      nodes: graphData['nodes'],
+      edges: graphData['edges']
+    };
+  }
+  // 折点/端点都是按上一个模型的节点尺寸算出来的（如仿钉钉卡片宽 260、经典卡片宽 100），
+  // 换模型后不再贴合节点，先整体丢弃，重建后由 updateEdges 按目标模型尺寸重新生成
+  clearEdgePoints(logicJson.value.edges);
   if (toMimic) {
     relayoutToMimic(logicJson.value.nodes, logicJson.value.edges);
-    // 旧折点不再贴合新布局，丢弃后由 updateEdges 按新坐标重建
-    clearEdgePoints(logicJson.value.edges);
   }
   // 整体重建 logicJson：既换模型，也触发 BaseInfo 表单的模型卡片联动
   logicJson.value = { ...logicJson.value, modelValue: toMimic ? 'MIMIC' : 'CLASSICS' };
@@ -610,8 +634,15 @@ function doSwitchModel(toMimic) {
   sidebarVisible.value = false;
   nextTick(() => {
     initLogicFlow();
-    if (toMimic && lf.value) {
+    if (lf.value) {
+      // 重建后按「目标模型的节点尺寸」重算全部折点：只换 modelValue 会让旧模型的折点留在画布上，
+      // 端点对不上新节点尺寸（如仿钉钉折点按 260 宽卡片算，经典卡片只有 100 宽就会脱开节点）
       updateEdges(lf.value);
+      // 连线已按新模型重建，标签坐标按新几何全部重算，避免旧坐标落到别的节点/连线上
+      resetEdgeTextPositions(lf.value, true);
+      // 转换是整体重建，历史里残留的「删边/加边」中间态会让「上一步」退成错乱路由，
+      // 这里把转换后的状态设为新的撤销基准（后续编辑仍可撤销）
+      resetHistory(lf.value);
     }
   });
 }

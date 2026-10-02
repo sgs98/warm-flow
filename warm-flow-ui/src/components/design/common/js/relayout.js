@@ -12,11 +12,14 @@
  * @author warm
  * @since 2026/9/26
  */
+import {isGateWay, isLabelOnNode} from '@/components/design/common/js/tool.js'
 
 const LAYER_HEIGHT = 140
 const MIN_GAP = 300
 const CENTER_X = 700
 const TOP_Y = 100
+// 经典网关的标签画在菱形下方（与 tool.js 旧数据回退约定一致）
+const GATEWAY_LABEL_OFFSET = 40
 
 // 仿钉钉各节点类型的尺寸（边线路由与锚点计算依赖）
 const MIMIC_SIZE = {
@@ -129,6 +132,83 @@ export const relayoutToMimic = (nodes, edges) => {
     }
   })
   return true
+}
+
+/**
+ * 把仿钉钉节点数据归一到经典模式：清尺寸 + 回正网关标签。
+ *
+ * 尺寸：经典模式的节点尺寸本该由注册元素（矩形 / 菱形 / 圆形）决定，但 RectNodeModel.setAttributes
+ * 会把 properties.width/height 重新应用回节点尺寸；「仿钉钉 → 经典」若不清理，
+ * 审批卡会保持仿钉钉的 260x76，与经典默认的 100x80 不一致。
+ *
+ * 标签：仿钉钉把节点文本放在节点中心，转回经典后网关标签会压住菱形（经典网关标签约定在
+ * 菱形下方 40px）；经典模式标签不可拖拽，回正不会覆盖用户意图。
+ *
+ * @param {Array} nodes LogicFlow 节点数组（原地修改）
+ */
+export const normalizeClassicNodes = nodes => {
+  if (!nodes || nodes.length === 0) {
+    return
+  }
+  nodes.forEach(node => {
+    delete node.width
+    delete node.height
+    if (node.properties) {
+      delete node.properties.width
+      delete node.properties.height
+    }
+    if (isGateWay(node.type) && node.text && node.text.value) {
+      node.text.x = node.x
+      node.text.y = node.y + GATEWAY_LABEL_OFFSET
+    }
+  })
+}
+
+/**
+ * 重置画布历史，把转换后的画布状态作为新的撤销基准。
+ *
+ * 模式转换会通过 updateEdges 删除并重建全部连线，这些中间状态会被 LogicFlow 记进历史；
+ * 转换后按「上一步」会退回「节点已是新模型、连线还是旧模型路由」的错乱状态。
+ * 这里在转换完成后重建基准：转换本身不可撤销，之后的编辑仍可正常撤销与重做。
+ *
+ * @param {Object} lf LogicFlow 实例
+ */
+export const resetHistory = lf => {
+  const history = lf?.history
+  if (!history || typeof history.destroy !== 'function' || typeof history.watch !== 'function') {
+    return
+  }
+  // destroy 清空 undos/redos/curData 并停掉旧观察器，watch 以当前画布重新建立基准
+  history.destroy()
+  history.watch(lf.graphModel)
+}
+
+/**
+ * 校正连线标签坐标（设计器不允许拖拽标签，坐标一律由连线几何算出，重置不会丢失用户意图）。
+ *
+ * @param {Object} lf LogicFlow 实例
+ * @param {boolean} force true=按当前连线几何全部重算（布局转换后旧坐标已属于上一个布局）；
+ *                        false=只修正压在节点上的标签，避免标签文字与节点文字叠加
+ */
+export const resetEdgeTextPositions = (lf, force = false) => {
+  if (!lf || !lf.graphModel) {
+    return
+  }
+  const nodeBoxes = lf.graphModel.nodes.map(node => ({
+    x: node.x,
+    y: node.y,
+    width: node.width,
+    height: node.height
+  }))
+  lf.graphModel.edges.forEach(edge => {
+    const text = edge.text
+    if (!text || !text.value || !Number.isFinite(text.x) || !Number.isFinite(text.y)) {
+      return
+    }
+    if (force || isLabelOnNode(text, nodeBoxes)) {
+      edge.resetTextPosition()
+    }
+  })
 }
 
 /**
