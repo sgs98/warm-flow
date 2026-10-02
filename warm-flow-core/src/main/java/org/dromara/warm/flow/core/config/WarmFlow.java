@@ -60,7 +60,7 @@ public class WarmFlow implements Serializable {
     /**
      * 逻辑删除字段值
      */
-    private String logicDeleteValue = "2";
+    private String logicDeleteValue = "1";
 
     /**
      * 逻辑未删除字段
