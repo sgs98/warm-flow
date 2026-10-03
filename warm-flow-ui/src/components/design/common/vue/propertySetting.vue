@@ -115,7 +115,7 @@ const title = computed(() => {
   } else if (props.node && props.node.type === 'parallel') {
     return '设置并行网关属性'
   } else if (props.node && props.node.type === 'inclusive') {
-      return '设置包含网关属性'
+      return '设置包容网关属性'
   }  else if (props.node && props.node.type === 'start') {
     return '设置开始属性'
   } else if (props.node && props.node.type === 'end') {

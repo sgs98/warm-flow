@@ -62,7 +62,7 @@ const flowNodes = [
 const gatewayNodes = [
   { type: 'serial', text: '', label: '互斥网关', icon: serialIcon, properties: {} },
   { type: 'parallel', text: '', label: '并行网关', icon: parallelIcon, properties: {} },
-  { type: 'inclusive', text: '', label: '包含网关', icon: inclusiveIcon, properties: {} },
+  { type: 'inclusive', text: '', label: '包容网关', icon: inclusiveIcon, properties: {} },
 ]
 
 function handleDragInNode(item) {

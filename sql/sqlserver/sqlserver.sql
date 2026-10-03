@@ -205,7 +205,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关）',
+'MS_Description', N'节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_node',
 'COLUMN', N'node_type'
@@ -390,7 +390,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'当前节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关）',
+'MS_Description', N'当前节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_skip',
 'COLUMN', N'now_node_type'
@@ -404,7 +404,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'下一个节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关）',
+'MS_Description', N'下一个节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_skip',
 'COLUMN', N'next_node_type'
@@ -534,7 +534,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关）',
+'MS_Description', N'节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_instance',
 'COLUMN', N'node_type'
@@ -696,7 +696,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关）',
+'MS_Description', N'节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_task',
 'COLUMN', N'node_type'
@@ -845,7 +845,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'开始节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关）',
+'MS_Description', N'开始节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_his_task',
 'COLUMN', N'node_type'

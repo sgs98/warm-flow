@@ -94,7 +94,7 @@ export const parallelIcon = `
 </svg>`
 
 /**
- * 包含网关：正方形 + 同心双圆 + 中心点
+ * 包容网关：正方形 + 同心双圆 + 中心点
  */
 export const inclusiveIcon = `
 <svg viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">

@@ -28,8 +28,8 @@ mybatis-plus:
 
 warm-flow:
   enabled: true
-  # 物理删除模式验证：false 全部表物理删除
-  logic-delete: false
+  # 逻辑删除为默认行为（2.0 起默认开启）；如需验证物理删除模式，可改为 false
+  logic-delete: true
   global-listener-path: org.dromara.warm.demo.listener.DemoGlobalListener
   data-source-type: mysql
   banner: true

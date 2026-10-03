@@ -37,7 +37,7 @@ const options = [
     svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${GW_DIAMOND}<path d="M12 9.4v5.2M9.4 12h5.2"/></svg>`,
   },
   {
-    icon: 'inclusive', label: '包含网关', color: '#34c38f',
+    icon: 'inclusive', label: '包容网关', color: '#34c38f',
     svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${GW_DIAMOND}<circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="0.8" fill="currentColor" stroke="none"/></svg>`,
   },
 ]

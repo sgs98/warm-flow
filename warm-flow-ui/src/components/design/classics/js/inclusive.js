@@ -25,7 +25,7 @@ class InclusiveModel extends PolygonNodeModel {
 
   getNodeStyle() {
     const style = setCommonStyle(super.getNodeStyle(), this.properties, "node");
-    // 设计态语义色：包含网关用紫色（包容多选）
+    // 设计态语义色：包容网关用紫色（包容多选）
     applyClassicDesignColor(style, this.properties, '146,84,222');
     style.fill = style._statusRgba ? style._statusRgba(0.06) : 'rgba(166,178,189,0.06)';
     style.strokeWidth = 2;
