@@ -95,6 +95,7 @@ cd warm-flow-demo/warm-flow-demo-web && pnpm install && pnpm dev
 
 - 使用文档：<https://sgs98.github.io/warm-flow-doc/>
 - 更新日志：<https://sgs98.github.io/warm-flow-doc/master/other/update.html>
+- 版本变更说明：[CHANGELOG.md](./CHANGELOG.md)
 - 升级指南：<https://sgs98.github.io/warm-flow-doc/master/other/upgrade_guide.html>
 - 问题反馈：<https://gitee.com/sgs98/warm-flow/issues>
 
