@@ -162,6 +162,11 @@ public class ExceptionCons {
     public static final String NOT_FOUNT_DEF = "流程定义不存在!";
 
     /**
+     * 已发布或已失效的流程定义不允许修改。
+     */
+    public static final String PUBLISHED_DEF_NOT_EDITABLE = "已发布或已失效的流程定义不可修改，请复制新版本后编辑!";
+
+    /**
      * 未找到流程实例。
      */
     public static final String NOT_FOUNT_INSTANCE = "流程实例获取失败!";

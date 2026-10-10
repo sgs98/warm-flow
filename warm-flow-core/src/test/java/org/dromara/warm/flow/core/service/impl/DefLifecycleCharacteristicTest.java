@@ -90,6 +90,42 @@ class DefLifecycleCharacteristicTest {
     }
 
     @Test
+    void publish_invalidStoredGraph_doesNotChangeVersionStatuses() {
+        Definition current = TestFlows.serialFlow("dl3b", "1", PublishStatus.PUBLISHED.getKey());
+        Definition candidate = TestFlows.serialFlow("dl3b", "2", PublishStatus.UNPUBLISHED.getKey());
+        harness.nodeDao.all().stream()
+            .filter(node -> candidate.getId().equals(node.getDefinitionId())
+                && NodeType.START.getKey().equals(node.getNodeType()))
+            .findFirst().ifPresent(node -> harness.nodeDao.deleteById(node.getId()));
+
+        assertThrows(FlowException.class, () -> FlowEngine.defService().publish(candidate.getId()));
+        assertEquals(PublishStatus.PUBLISHED.getKey(), harness.defDao.raw(current.getId()).getIsPublish());
+        assertEquals(PublishStatus.UNPUBLISHED.getKey(), harness.defDao.raw(candidate.getId()).getIsPublish());
+    }
+
+    @Test
+    void publish_missingStoredNextNodeType_cannotBypassMultipleBetweenBranches() {
+        Definition current = TestFlows.serialFlow("dl3c", "1", PublishStatus.PUBLISHED.getKey());
+        Definition candidate = TestFlows.serialFlow("dl3c", "2", PublishStatus.UNPUBLISHED.getKey());
+        for (String code : List.of("reviewA", "reviewB")) {
+            FlowEngine.nodeService().save(FlowEngine.newNode().setDefinitionId(candidate.getId())
+                .setNodeCode(code).setNodeName(code).setNodeType(NodeType.BETWEEN.getKey())
+                .setNodeRatio("0").setPermissionFlag(TestFlows.HANDLER));
+            FlowEngine.skipService().save(FlowEngine.newSkip().setDefinitionId(candidate.getId())
+                .setNowNodeCode("apply").setNowNodeType(NodeType.BETWEEN.getKey())
+                .setNextNodeCode(code).setSkipType("PASS"));
+            FlowEngine.skipService().save(FlowEngine.newSkip().setDefinitionId(candidate.getId())
+                .setNowNodeCode(code).setNowNodeType(NodeType.BETWEEN.getKey())
+                .setNextNodeCode("end").setSkipType("PASS"));
+        }
+
+        assertEquals(ExceptionCons.MUL_SKIP_BETWEEN,
+            assertThrows(FlowException.class, () -> FlowEngine.defService().publish(candidate.getId())).getMessage());
+        assertEquals(PublishStatus.PUBLISHED.getKey(), harness.defDao.raw(current.getId()).getIsPublish());
+        assertEquals(PublishStatus.UNPUBLISHED.getKey(), harness.defDao.raw(candidate.getId()).getIsPublish());
+    }
+
+    @Test
     void unPublish_guardsAndSetsStatus() {
         Definition def = TestFlows.serialFlow("dl4", "1", PublishStatus.PUBLISHED.getKey());
         FlowEngine.insService().start("biz-dl4", "dl4", TestFlows.context(TestFlows.HANDLER));
@@ -270,6 +306,8 @@ class DefLifecycleCharacteristicTest {
         FlowEngine.defService().saveDef(threeNodeJson("sd4", "初版"), false);
         Definition saved = harness.defDao.all().get(0);
         Long defId = saved.getId();
+        // 内存 DAO 不模拟数据库的发布状态默认值及空字段更新行为。
+        harness.defDao.raw(defId).setIsPublish(PublishStatus.UNPUBLISHED.getKey());
         List<Long> oldNodeIds = harness.nodeDao.all().stream()
                 .filter(n -> n.getDefinitionId().equals(defId)).map(Node::getId).toList();
 
@@ -277,6 +315,7 @@ class DefLifecycleCharacteristicTest {
         DefJson updated = threeNodeJson("sd4", "改名版");
         updated.setId(defId);
         FlowEngine.defService().saveDef(updated, false);
+        harness.defDao.raw(defId).setIsPublish(PublishStatus.UNPUBLISHED.getKey());
         assertEquals("改名版", harness.defDao.raw(defId).getFlowName());
         assertEquals(3, harness.nodeDao.size(), "节点删除后重建");
         assertTrue(harness.nodeDao.all().stream()
@@ -290,6 +329,93 @@ class DefLifecycleCharacteristicTest {
         FlowEngine.defService().saveDef(nodesOnly, true);
         assertEquals("改名版", harness.defDao.raw(defId).getFlowName(), "定义字段不被更新");
         assertEquals("sd4", harness.defDao.raw(defId).getFlowCode());
+    }
+
+    @Test
+    void saveDef_nodesOnlyUsesStoredDefinitionForValidation() throws Exception {
+        Definition draft = TestFlows.serialFlow("sd5", "1", PublishStatus.UNPUBLISHED.getKey());
+        DefJson nodesOnly = threeNodeJson(null, null);
+        nodesOnly.setId(draft.getId());
+
+        FlowEngine.defService().saveDef(nodesOnly, true);
+
+        assertEquals("sd5", harness.defDao.raw(draft.getId()).getFlowCode());
+        assertEquals(PublishStatus.UNPUBLISHED.getKey(), harness.defDao.raw(draft.getId()).getIsPublish());
+        assertEquals(3, FlowEngine.nodeService().getByDefId(draft.getId()).size());
+    }
+
+    @Test
+    void saveDef_publishedDefinitionRejectsBothUpdatePaths() {
+        Definition published = TestFlows.serialFlow("sd6", "1", PublishStatus.PUBLISHED.getKey());
+        List<Long> nodeIds = FlowEngine.nodeService().getByDefId(published.getId()).stream()
+            .map(Node::getId).toList();
+        int skipCount = FlowEngine.skipService().getByDefId(published.getId()).size();
+        DefJson nodesOnly = threeNodeJson(null, null);
+        nodesOnly.setId(published.getId());
+        DefJson fullUpdate = threeNodeJson("sd6", "新名称");
+        fullUpdate.setId(published.getId());
+        fullUpdate.setIsPublish(PublishStatus.UNPUBLISHED.getKey());
+
+        assertEquals(ExceptionCons.PUBLISHED_DEF_NOT_EDITABLE,
+            assertThrows(FlowException.class, () -> FlowEngine.defService().saveDef(nodesOnly, true)).getMessage());
+        assertEquals(ExceptionCons.PUBLISHED_DEF_NOT_EDITABLE,
+            assertThrows(FlowException.class, () -> FlowEngine.defService().saveDef(fullUpdate, false)).getMessage());
+
+        assertEquals(nodeIds, FlowEngine.nodeService().getByDefId(published.getId()).stream()
+            .map(Node::getId).toList());
+        assertEquals(skipCount, FlowEngine.skipService().getByDefId(published.getId()).size());
+        assertEquals(PublishStatus.PUBLISHED.getKey(), harness.defDao.raw(published.getId()).getIsPublish());
+        assertEquals("串行测试流程", harness.defDao.raw(published.getId()).getFlowName());
+    }
+
+    @Test
+    void saveDef_expiredDefinitionRejectsBothUpdatePaths() {
+        Definition expired = TestFlows.serialFlow("sd6b", "1", PublishStatus.PUBLISHED.getKey());
+        FlowEngine.insService().start("biz-sd6b", "sd6b", TestFlows.context(TestFlows.HANDLER));
+        Definition next = TestFlows.serialFlow("sd6b", "2", PublishStatus.UNPUBLISHED.getKey());
+        FlowEngine.defService().publish(next.getId());
+        assertEquals(PublishStatus.EXPIRED.getKey(), harness.defDao.raw(expired.getId()).getIsPublish());
+
+        List<Long> nodeIds = FlowEngine.nodeService().getByDefId(expired.getId()).stream()
+            .map(Node::getId).toList();
+        int skipCount = FlowEngine.skipService().getByDefId(expired.getId()).size();
+        DefJson nodesOnly = threeNodeJson(null, null);
+        nodesOnly.setId(expired.getId());
+        DefJson fullUpdate = threeNodeJson("sd6b", "新名称");
+        fullUpdate.setId(expired.getId());
+        fullUpdate.setIsPublish(PublishStatus.UNPUBLISHED.getKey());
+
+        assertEquals(ExceptionCons.PUBLISHED_DEF_NOT_EDITABLE,
+            assertThrows(FlowException.class, () -> FlowEngine.defService().saveDef(nodesOnly, true)).getMessage());
+        assertEquals(ExceptionCons.PUBLISHED_DEF_NOT_EDITABLE,
+            assertThrows(FlowException.class, () -> FlowEngine.defService().saveDef(fullUpdate, false)).getMessage());
+
+        assertEquals(nodeIds, FlowEngine.nodeService().getByDefId(expired.getId()).stream()
+            .map(Node::getId).toList());
+        assertEquals(skipCount, FlowEngine.skipService().getByDefId(expired.getId()).size());
+        assertEquals("串行测试流程", harness.defDao.raw(expired.getId()).getFlowName());
+    }
+
+    @Test
+    void saveDef_missingNextNodeType_cannotBypassMultipleBetweenBranches() {
+        DefJson invalid = threeNodeJson("sd7", "多出口");
+        NodeJson apply = invalid.getNodeList().get(1);
+        apply.getSkipList().clear();
+        apply.getSkipList().add(new SkipJson().setNowNodeCode("apply")
+            .setNextNodeCode("reviewA").setSkipType("PASS"));
+        apply.getSkipList().add(new SkipJson().setNowNodeCode("apply")
+            .setNextNodeCode("reviewB").setSkipType("PASS"));
+        for (String nodeCode : List.of("reviewA", "reviewB")) {
+            NodeJson review = new NodeJson().setNodeType(NodeType.BETWEEN.getKey())
+                .setNodeCode(nodeCode).setPermissionFlag(TestFlows.HANDLER);
+            review.getSkipList().add(new SkipJson().setNowNodeCode(nodeCode)
+                .setNextNodeCode("end").setSkipType("PASS"));
+            invalid.getNodeList().add(review);
+        }
+
+        assertEquals(ExceptionCons.MUL_SKIP_BETWEEN,
+            assertThrows(FlowException.class, () -> FlowEngine.defService().saveDef(invalid, false)).getMessage());
+        assertTrue(harness.defDao.all().isEmpty());
     }
 
     /** 构造 start → apply → end 的设计器 json（apply 带办理人） */
