@@ -101,13 +101,10 @@ public class DefinitionServiceImpl implements DefinitionService {
     public Long copy(Long id) {
         exists(id);
         try {
-            FlowEngine.defService().copyDef(id);
+            return FlowEngine.defService().copyDefReturnId(id);
         } catch (FlowException e) {
             throw BizException.badRequest(e.getMessage());
         }
-        Definition origin = FlowEngine.defService().getById(id);
-        List<Definition> copies = FlowEngine.defService().getByFlowCode(origin.getFlowCode());
-        return copies.stream().mapToLong(Definition::getId).max().orElse(id);
     }
 
     public DefinitionExportVo export(Long id) {

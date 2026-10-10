@@ -178,6 +178,14 @@ public interface DefService extends IWarmService<Definition> {
     boolean copyDef(Long id);
 
     /**
+     * 复制流程定义并返回新定义主键
+     *
+     * @param id 流程定义id
+     * @return 新定义主键，保存失败时为 null
+     */
+    Long copyDefReturnId(Long id);
+
+    /**
      * 激活流程
      *
      * @param id 流程定义id

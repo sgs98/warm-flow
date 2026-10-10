@@ -36,7 +36,8 @@
           <el-button link type="primary" @click="doPublish(row)" v-if="row.isPublish !== 1">发布</el-button>
           <el-button link type="primary" @click="doCopy(row)">复制</el-button>
           <el-button link type="primary" @click="doExport(row)">导出</el-button>
-          <el-button link type="primary" @click="goEdit(row)">设计</el-button>
+          <el-button link type="primary" @click="goEdit(row)" v-if="row.isPublish === 0">设计</el-button>
+          <el-button link type="primary" @click="copyAndEdit(row)" v-else>复制并设计</el-button>
           <el-button link type="danger" @click="doDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -136,6 +137,12 @@ async function doCopy(row: DefinitionRow) {
   const newId = await httpPost<string>(`/definitions/${row.id}/copy`)
   ElMessage.success(`已复制为新流程 ${newId}`)
   load()
+}
+
+async function copyAndEdit(row: DefinitionRow) {
+  const newId = await httpPost<string>(`/definitions/${row.id}/copy`)
+  ElMessage.success(`已复制为新流程 ${newId}，正在打开新版本`)
+  router.push(`/definitions/design/${newId}`)
 }
 
 async function doExport(row: DefinitionRow) {

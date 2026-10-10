@@ -309,18 +309,19 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
     /**
      * 发布指定版本，并调整同流程编码下其他已发布版本的状态。
      *
-     * <p>已被实例使用的旧版本转为失效，未被使用的旧版本退回未发布，确保同一流程编码只有一个当前发布版本。</p>
+     * <p>发布前校验持久化流程图的结构合法性；已被实例使用的旧版本转为失效，
+     * 未被使用的旧版本退回未发布，确保同一流程编码只有一个当前发布版本。</p>
      *
      * @param id 待发布定义主键
      * @return 是否更新成功
      */
     @Override
     public boolean publish(Long id) {
-        List<Node> nodeList = FlowEngine.nodeService().getByDefId(id);
-        AssertUtil.isEmpty(nodeList, ExceptionCons.NOT_DRAW_FLOW_ERROR);
         Definition definition = getById(id);
         AssertUtil.isNull(definition, ExceptionCons.NOT_FOUNT_DEF);
-        checkFlowLegal(getFlowCombine(definition));
+        FlowCombine combine = getFlowCombine(definition);
+        AssertUtil.isEmpty(combine.getAllNodes(), ExceptionCons.NOT_DRAW_FLOW_ERROR);
+        checkFlowLegal(combine);
         List<Definition> definitions = getByFlowCode(definition.getFlowCode());
         // 已发布流程定义，改为已失效或者未发布状态
         List<Long> otherDefIds = definitions.stream()
@@ -360,6 +361,7 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
      */
     @Override
     public boolean unPublish(Long id) {
+        AssertUtil.isNull(getById(id), ExceptionCons.NOT_FOUNT_DEF);
         List<Instance> instances = FlowEngine.insService().getByDefId(id);
         AssertUtil.isNotEmpty(instances, ExceptionCons.EXIST_START_TASK);
         Definition definition = FlowEngine.newDef().setId(id);
@@ -375,10 +377,23 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
      */
     @Override
     public boolean copyDef(Long id) {
+        return copyDefReturnId(id) != null;
+    }
+
+    /**
+     * 复制流程定义及其节点、连线，生成同编码下的新版本，并返回新定义主键。
+     *
+     * @param id 源流程定义主键
+     * @return 新定义主键，保存失败时为 null
+     */
+    @Override
+    public Long copyDefReturnId(Long id) {
         Definition source = getById(id);
         AssertUtil.isNull(source, ExceptionCons.NOT_FOUNT_DEF);
         Definition definition = source.copy();
         definition.setVersion(getNewVersion(definition));
+        // 复制产物固定为未发布草稿，不依赖数据库默认值
+        definition.setIsPublish(PublishStatus.UNPUBLISHED.getKey());
 
         List<Node> nodeList = FlowEngine.nodeService().getByDefId(id).stream().map(Node::copy).collect(Collectors.toList());
         List<Skip> skipList = FlowEngine.skipService().getByDefId(id).stream().map(Skip::copy).collect(Collectors.toList());
@@ -387,7 +402,7 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
         nodeList.forEach(node -> node.setDefinitionId(definition.getId()));
         skipList.forEach(skip -> skip.setDefinitionId(definition.getId()));
         saveGraph(nodeList, skipList);
-        return save(definition);
+        return save(definition) ? definition.getId() : null;
     }
 
     /**
@@ -515,7 +530,8 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
     /**
      * 校验并初始化设计器提交的流程结构。
      *
-     * <p>校验流程编码、孤立连线、开始节点数量、节点编码唯一性、跳转合法性和目标节点存在性，同时补齐节点定义主键及条件配置。</p>
+     * <p>校验流程编码与孤立连线后，结构校验核（开始节点数量、节点编码唯一性、跳转合法性、
+     * 目标节点存在性）委托 {@link FlowConfigUtil#validateGraph(FlowCombine)}，与导入路径共用。</p>
      *
      * @param flowCombine 待校验的流程组合数据
      */
@@ -532,21 +548,8 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
             skipMap.remove(node.getNodeCode());
         });
         AssertUtil.isNotEmpty(skipMap, "[" + flowName + "]" + ExceptionCons.FLOW_HAVE_USELESS_SKIP);
-        // 每一个流程的开始节点个数
-        Set<String> nodeCodeSet = new HashSet<>();
-        // 便利一个流程中的各个节点
-        int startNum = 0;
-        for (Node node : allNodes) {
-            FlowConfigUtil.initNodeAndCondition(node, definition.getId());
-            startNum = FlowConfigUtil.checkStartAndSame(node, startNum, flowName, nodeCodeSet);
-        }
-        AssertUtil.isTrue(startNum == 0, "[" + flowName + "]" + ExceptionCons.LOST_START_NODE);
-        Map<String, Integer> nodeTypeMap = StreamUtils.toMap(allNodes, Node::getNodeCode, Node::getNodeType);
-        allSkips.forEach(skip -> skip.setNextNodeType(nodeTypeMap.get(skip.getNextNodeCode())));
-        // 校验跳转节点的合法性
-        FlowConfigUtil.checkSkipNode(allSkips);
-        // 校验所有目标节点是否都存在
-        FlowConfigUtil.validaIsExistDestNode(allSkips, nodeCodeSet);
+        // 结构校验核与导入路径共用，规则保持一致
+        FlowConfigUtil.validateGraph(flowCombine);
     }
 
 }

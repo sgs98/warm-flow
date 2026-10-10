@@ -45,10 +45,6 @@ public class FlowConfigUtil {
         FlowCombine combine = new FlowCombine();
         // 流程定义
         combine.setDefinition(definition);
-        // 所有的流程节点
-        List<Node> allNodes = combine.getAllNodes();
-        // 所有的流程连线
-        List<Skip> allSkips = combine.getAllSkips();
 
         String flowName = definition.getFlowName();
         AssertUtil.isEmpty(definition.getFlowCode(), "【" + flowName + "】流程flowCode为空!");
@@ -57,25 +53,43 @@ public class FlowConfigUtil {
         definition.setUpdateTime(new Date());
         FlowEngine.dataFillHandler().idFill(definition);
 
-        List<Node> nodeList = definition.getNodeList();
+        // 节点与连线汇入定义图后统一校验
+        definition.getNodeList().forEach(node -> {
+            combine.getAllNodes().add(node);
+            combine.getAllSkips().addAll(node.getSkipList());
+        });
+        validateGraph(combine);
+        return combine;
+    }
+
+    /**
+     * 校验定义图的结构合法性：补齐节点与连线配置、保证唯一开始节点和节点编码唯一，
+     * 并从目标节点派生连线目标节点类型后，校验中间节点多出口限制与目标节点存在性。
+     * 设计器保存与定义导入共用此校验核，保证两条路径规则一致。
+     *
+     * @param combine 含定义、节点和连线的流程组合数据，节点与连线须已齐备
+     */
+    public static void validateGraph(FlowCombine combine) {
+        Definition definition = combine.getDefinition();
+        String flowName = definition.getFlowName();
+        List<Node> allNodes = combine.getAllNodes();
+        List<Skip> allSkips = combine.getAllSkips();
         // 每一个流程的开始节点个数
         int startNum = 0;
         Set<String> nodeCodeSet = new HashSet<>();
         // 遍历一个流程中的各个节点
-        for (Node node : nodeList) {
+        for (Node node : allNodes) {
             initNodeAndCondition(node, definition.getId());
             startNum = checkStartAndSame(node, startNum, flowName, nodeCodeSet);
-            allNodes.add(node);
-            allSkips.addAll(node.getSkipList());
         }
-        Map<String, Integer> skipMap = StreamUtils.toMap(allNodes, Node::getNodeCode, Node::getNodeType);
-        allSkips.forEach(allSkip -> allSkip.setNextNodeType(skipMap.get(allSkip.getNextNodeCode())));
         AssertUtil.isTrue(startNum == 0, "[" + flowName + "]" + ExceptionCons.LOST_START_NODE);
+        // 从目标节点派生连线目标节点类型，不信任调用方回传值
+        Map<String, Integer> nodeTypeMap = StreamUtils.toMap(allNodes, Node::getNodeCode, Node::getNodeType);
+        allSkips.forEach(skip -> skip.setNextNodeType(nodeTypeMap.get(skip.getNextNodeCode())));
         // 校验跳转节点的合法性
         checkSkipNode(allSkips);
         // 校验所有目标节点是否都存在
         validaIsExistDestNode(allSkips, nodeCodeSet);
-        return combine;
     }
 
     public static int checkStartAndSame(Node node, int startNum, String flowName, Set<String> nodeCodeSet) {

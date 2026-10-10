@@ -8,6 +8,7 @@ import org.dromara.warm.flow.core.dto.SkipJson;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
+import org.dromara.warm.flow.core.entity.Skip;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.PublishStatus;
@@ -134,6 +135,11 @@ class DefLifecycleCharacteristicTest {
                 () -> FlowEngine.defService().unPublish(def.getId()));
         assertEquals(ExceptionCons.EXIST_START_TASK, guarded.getMessage());
 
+        // 未知 id 与 publish 一致报定义不存在
+        FlowException unknown = assertThrows(FlowException.class,
+                () -> FlowEngine.defService().unPublish(-1L));
+        assertEquals(ExceptionCons.NOT_FOUNT_DEF, unknown.getMessage());
+
         // 无实例的版本可取消发布
         Definition fresh = TestFlows.serialFlow("dl4b", "1", PublishStatus.PUBLISHED.getKey());
         assertTrue(FlowEngine.defService().unPublish(fresh.getId()));
@@ -206,6 +212,21 @@ class DefLifecycleCharacteristicTest {
     }
 
     @Test
+    void copyDefReturnId_returnsNewDraftId() {
+        Definition v1 = TestFlows.serialFlow("dl7b", "1", PublishStatus.PUBLISHED.getKey());
+
+        Long newId = FlowEngine.defService().copyDefReturnId(v1.getId());
+
+        assertNotNull(newId);
+        Definition copy = harness.defDao.raw(newId);
+        assertEquals("dl7b", copy.getFlowCode());
+        assertEquals("2", copy.getVersion());
+        assertEquals(PublishStatus.UNPUBLISHED.getKey(), copy.getIsPublish(), "复制产物必为未发布草稿");
+        assertTrue(harness.nodeDao.all().stream()
+                .anyMatch(n -> n.getDefinitionId().equals(newId)), "节点图挂在新定义下");
+    }
+
+    @Test
     void definitionGraphReads_unknownId_throwNotFoundInsteadOfNullPointer() {
         FlowException allData = assertThrows(FlowException.class,
             () -> FlowEngine.defService().getAllDataDefinition(-1L));
@@ -274,6 +295,31 @@ class DefLifecycleCharacteristicTest {
     }
 
     @Test
+    void exportJson_stripsPublishStatus_importJsonProducesDraft() {
+        Definition def = TestFlows.serialFlow("dl11", "1", PublishStatus.PUBLISHED.getKey());
+
+        String json = FlowEngine.defService().exportJson(def.getId());
+        assertNull(FlowEngine.jsonConvert.strToBean(json, DefJson.class).getIsPublish(),
+                "导出不携带发布状态");
+
+        Definition imported = FlowEngine.defService().importJson(json);
+        assertEquals(PublishStatus.UNPUBLISHED.getKey(), imported.getIsPublish(), "导入产物必为未发布草稿");
+    }
+
+    @Test
+    void importJson_invalidGraph_throwsAndPersistsNothing() {
+        DefJson invalid = threeNodeJson("sd8", "非法导入");
+        invalid.getNodeList().removeIf(n -> NodeType.START.getKey().equals(n.getNodeType()));
+        String json = FlowEngine.jsonConvert.objToStr(invalid);
+
+        FlowException ex = assertThrows(FlowException.class,
+                () -> FlowEngine.defService().importJson(json));
+        assertTrue(ex.getMessage().contains(ExceptionCons.LOST_START_NODE), "实际消息: " + ex.getMessage());
+        assertTrue(harness.defDao.all().stream()
+                .noneMatch(d -> "sd8".equals(d.getFlowCode())), "校验失败不落库");
+    }
+
+    @Test
     void saveDef_newGraph_persistsWithValidation() throws Exception {
         FlowEngine.defService().saveDef(threeNodeJson("sd1", "设计器流程"), false);
 
@@ -283,6 +329,12 @@ class DefLifecycleCharacteristicTest {
         assertEquals("1", saved.getVersion(), "新增定义自动分配版本");
         assertEquals(3, harness.nodeDao.size());
         assertEquals(2, harness.skipDao.size());
+
+        // 提交 json 的连线不含目标节点类型，落库值由服务端派生
+        Skip startSkip = harness.skipDao.all().stream()
+                .filter(s -> "start".equals(s.getNowNodeCode())).findFirst().orElseThrow();
+        assertEquals(NodeType.BETWEEN.getKey(), startSkip.getNextNodeType());
+        harness.skipDao.all().forEach(s -> assertNotNull(s.getNextNodeType(), "连线目标节点类型已派生"));
 
         // 缺少开始节点 → 报错（消息带流程名前缀）
         DefJson noStart = threeNodeJson("sd2", "缺开始");
