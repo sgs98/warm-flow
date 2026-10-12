@@ -2,7 +2,7 @@
 
 本文件记录 warm-flow（sgs98 二次开发版）的重要版本变更。使用文档、在线更新日志与升级指南见 [sgs98.github.io/warm-flow-doc](https://sgs98.github.io/warm-flow-doc/)。
 
-## 2.0.1（未发布）
+## 2.0.1（2026-10-12）
 
 ### 引擎
 
@@ -13,9 +13,14 @@
 - 新增 `copyDefReturnId`：复制流程定义并返回新定义主键；复制产物显式置为未发布草稿，不再依赖数据库默认值。
 - `unPublish` 对不存在的流程定义报「流程定义不存在」，不再静默返回 false，与 `publish` 行为对齐。
 
+### 数据库
+
+- `flow_instance.node_code` 长度由 `varchar(40)` 扩至 `varchar(100)`，与节点编码长度对齐；四套全量脚本已同步，MySQL 升级脚本见 [sql/mysql/v1-upgrade/warm-flow_2.0.1.sql](./sql/mysql/v1-upgrade/warm-flow_2.0.1.sql)。
+
 ### 升级提示
 
 - 行为变化：已发布或已失效的流程定义不可再经 `saveDef` 就地改图（返回「请复制新版本后编辑」），发布前会校验持久化流程图结构；依赖就地编辑已发布定义的集成方需改为复制新版本。
+- 表结构：升级到 2.0.1 前执行对应数据库脚本，MySQL 库需将 `flow_instance.node_code` 扩至 `varchar(100)`。
 
 ## 2.0.0（2026-10-03）
 

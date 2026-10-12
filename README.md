@@ -58,14 +58,14 @@
 <dependency>
     <groupId>io.github.sgs98</groupId>
     <artifactId>warm-flow-mybatis-plus-sb3-starter</artifactId>
-    <version>2.0.0</version>
+    <version>2.0.1</version>
 </dependency>
 
 <!-- 需要流程设计器时引入，内置设计器静态资源 -->
 <dependency>
     <groupId>io.github.sgs98</groupId>
     <artifactId>warm-flow-plugin-ui-sb-web</artifactId>
-    <version>2.0.0</version>
+    <version>2.0.1</version>
 </dependency>
 ```
 
