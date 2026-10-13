@@ -188,6 +188,7 @@ CREATE TABLE flow_node (
     update_time datetime2(7)  NULL,
     update_by nvarchar(64) NULL,
     ext nvarchar(max) NULL,
+    node_config nvarchar(max) NULL,
     del_flag nchar(1) DEFAULT('0') NULL,
     tenant_id nvarchar(40) NULL,
     CONSTRAINT PK__flow_nod__3213E83F372470DE PRIMARY KEY CLUSTERED (id)
@@ -205,7 +206,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关）',
+'MS_Description', N'节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关 6服务任务）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_node',
 'COLUMN', N'node_type'
@@ -323,6 +324,13 @@ EXEC sp_addextendedproperty
 'COLUMN', N'ext'
 GO
 
+EXEC sp_addextendedproperty
+'MS_Description', N'节点配置（服务任务等节点的引擎配置json）',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_node',
+'COLUMN', N'node_config'
+GO
+
 
 EXEC sp_addextendedproperty
 'MS_Description', N'删除标志',
@@ -390,7 +398,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'当前节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关）',
+'MS_Description', N'当前节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关 6服务任务）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_skip',
 'COLUMN', N'now_node_type'
@@ -404,7 +412,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'下一个节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关）',
+'MS_Description', N'下一个节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关 6服务任务）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_skip',
 'COLUMN', N'next_node_type'
@@ -534,7 +542,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关）',
+'MS_Description', N'节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关 6服务任务）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_instance',
 'COLUMN', N'node_type'
@@ -696,7 +704,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关）',
+'MS_Description', N'节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关 6服务任务）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_task',
 'COLUMN', N'node_type'
@@ -791,6 +799,7 @@ CREATE TABLE flow_his_task (
     message nvarchar(500) NULL,
     variable nvarchar(max) NULL,
     ext nvarchar(max) NULL,
+    node_config nvarchar(max) NULL,
     create_time datetime2(7)  NULL,
     update_time datetime2(7)  NULL,
     del_flag nchar(1) DEFAULT('0') NULL,
@@ -845,7 +854,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'开始节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关）',
+'MS_Description', N'开始节点类型（0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关 6服务任务）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_his_task',
 'COLUMN', N'node_type'
@@ -933,6 +942,13 @@ EXEC sp_addextendedproperty
 'SCHEMA', N'dbo',
 'TABLE', N'flow_his_task',
 'COLUMN', N'ext'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'节点配置（服务任务等节点的引擎配置json）',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_his_task',
+'COLUMN', N'node_config'
 GO
 
 EXEC sp_addextendedproperty

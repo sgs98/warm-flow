@@ -39,6 +39,7 @@ public class TestHisTask implements HisTask {
     private String message;
     private String variable;
     private String ext;
+    private String nodeConfig;
     private String formCustom;
     private String formPath;
 }

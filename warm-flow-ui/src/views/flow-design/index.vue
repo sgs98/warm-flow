@@ -129,6 +129,7 @@ import { updateEdges } from "@/components/design/mimic/js/mimic";
 import { ElMessageBox } from 'element-plus';
 import StartC from "@/components/design/classics/js/start";
 import BetweenC from "@/components/design/classics/js/between";
+import ServiceC from "@/components/design/classics/js/service";
 import SerialC from "@/components/design/classics/js/serial";
 import ParallelC from "@/components/design/classics/js/parallel";
 import InclusiveC from "@/components/design/classics/js/inclusive";
@@ -136,6 +137,7 @@ import EndC from "@/components/design/classics/js/end";
 import SkipC from "@/components/design/classics/js/skip";
 import StartM from "@/components/design/mimic/js/start";
 import BetweenM from "@/components/design/mimic/js/between";
+import ServiceM from "@/components/design/mimic/js/service";
 import SerialM from "@/components/design/mimic/js/serial";
 import ParallelM from "@/components/design/mimic/js/parallel";
 import InclusiveM from "@/components/design/mimic/js/inclusive";
@@ -146,7 +148,7 @@ import {computed, onMounted, onUnmounted, ref, watch} from "vue";
 import BaseInfo from "@/components/design/common/vue/baseInfo.vue";
 import initClassicsData from "@/components/design/classics/initClassicsData.json";
 import initMimicData from "@/components/design/mimic/initMimicData.json";
-import {addBetweenNode, addGatewayNode, gatewayAddNode, removeNode} from "@/components/design/mimic/js/mimic.js";
+import {addBetweenNode, addServiceNode, addGatewayNode, gatewayAddNode, removeNode} from "@/components/design/mimic/js/mimic.js";
 import EdgeTooltip from "@/components/design/mimic/vue/EdgeTooltip.vue";
 import DiagramSidebar from "@/components/design/common/vue/DiagramSidebar.vue";
 import { useDark } from '@/composables/useDark';
@@ -259,6 +261,8 @@ const tooltipEdge = ref({});
 const handleOptionClick = (item) => {
   if (item.icon === "between") {
     addBetweenNode(lf.value, item.tooltipEdge);
+  } else if (item.icon === "service") {
+    addServiceNode(lf.value, item.tooltipEdge);
   } else {
     addGatewayNode(lf.value, item.tooltipEdge, item.icon);
   }
@@ -978,6 +982,7 @@ function register() {
   if (isClassics(logicJson.value.modelValue)) {
     lf.value.register(StartC);
     lf.value.register(BetweenC);
+    lf.value.register(ServiceC);
     lf.value.register(SerialC);
     lf.value.register(ParallelC);
     lf.value.register(InclusiveC);
@@ -986,6 +991,7 @@ function register() {
   } else {
     lf.value.register(StartM);
     lf.value.register(BetweenM);
+    lf.value.register(ServiceM);
     lf.value.register(SerialM);
     lf.value.register(ParallelM);
     lf.value.register(InclusiveM);

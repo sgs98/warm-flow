@@ -28,6 +28,7 @@ import parallel from '@/components/design/common/vue/gateway.vue'
 import inclusive from '@/components/design/common/vue/gateway.vue'
 import end from '@/components/design/common/vue/end.vue'
 import skip from '@/components/design/common/vue/skip.vue'
+import service from '@/components/design/common/vue/serviceTask.vue'
 import BaseInfo from "@/components/design/common/vue/baseInfo.vue";
 
 const { proxy } = getCurrentInstance();
@@ -49,6 +50,7 @@ let lastOpenTime = 0;
 const COMPONENT_LIST = {
   start,
   between,
+  service,
   serial,
   parallel,
   inclusive,
@@ -120,9 +122,24 @@ const title = computed(() => {
     return '设置开始属性'
   } else if (props.node && props.node.type === 'end') {
     return '设置结束属性'
+  } else if (props.node && props.node.type === 'service') {
+    return '设置服务任务属性'
   }
   return '设置中间属性'
 });
+
+// 解析服务任务节点配置（nodeConfig 为 JSON 字符串，结构见后端 ServiceTaskConfig）
+function parseServiceTaskConfig(nodeConfig) {
+  if (!nodeConfig) {
+    return {}
+  }
+  try {
+    const parsed = JSON.parse(nodeConfig)
+    return (parsed && parsed.serviceTask) || {}
+  } catch (e) {
+    return {}
+  }
+}
 
 // 组件类型
 const componentType = computed(() => {
@@ -158,6 +175,25 @@ watch(() => props.node, n => {
         condition: condition,
         conditionType: conditionType,
         conditionValue: conditionValue
+      }
+    } else if (n.type === 'service') {
+      // 服务任务节点：仅暴露服务配置与监听器，不参与协作方式 / 节点比率 / 自定义表单推导
+      const serviceTask = parseServiceTaskConfig(n.properties.nodeConfig);
+      let listenerTypes = n.properties.listenerType ? n.properties.listenerType.split(",") : [];
+      let listenerPaths = n.properties.listenerPath ? n.properties.listenerPath.split("@@") : [];
+      n.properties.listenerRows = listenerTypes && listenerTypes.length > 0 ? listenerTypes.map((type, index) => ({
+        listenerType: type,
+        listenerPath: listenerPaths[index]
+      })) : [{}];
+      form.value = {
+        nodeType: n.type,
+        nodeCode: n.id,
+        ...n.properties,
+        nodeName: n.text instanceof Object ? n.text.value : n.text,
+        serviceType: serviceTask.type || 'class',
+        serviceHandler: serviceTask.handler || '',
+        serviceExpression: serviceTask.expression || '',
+        resultVariable: serviceTask.resultVariable || '',
       }
     } else {
       let nodeRatio = n.properties.nodeRatio || "0";
@@ -280,6 +316,29 @@ watch(() => form.value.formPath, (n) => {
     formPath: n
   })
 });
+
+// 服务任务配置：执行方式 / 处理类 / 表达式 / 结果变量变化时序列化回 nodeConfig。
+// 未填写必填项时不下发，避免把无效配置写进节点（关闭抽屉时的 validate 会拦截）。
+watch(() => [form.value.serviceType, form.value.serviceHandler, form.value.serviceExpression, form.value.resultVariable], () => {
+  if (props.node?.type !== 'service') {
+    return
+  }
+  const type = form.value.serviceType
+  const serviceTask = { type }
+  if (type === 'class') {
+    if (!String(form.value.serviceHandler || '').trim()) return
+    serviceTask.handler = form.value.serviceHandler
+  } else {
+    if (!String(form.value.serviceExpression || '').trim()) return
+    serviceTask.expression = form.value.serviceExpression
+    if (type === 'expression' && form.value.resultVariable) {
+      serviceTask.resultVariable = form.value.resultVariable
+    }
+  }
+  props.lf.setProperties(objId.value, {
+    nodeConfig: JSON.stringify({ serviceTask })
+  })
+})
 
 watch(() => form.value.skipName, (n) => {
   if (['skip'].includes(props.node.type)) {

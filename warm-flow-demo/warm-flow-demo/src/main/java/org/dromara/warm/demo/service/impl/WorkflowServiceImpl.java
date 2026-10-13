@@ -12,40 +12,19 @@ import org.dromara.warm.demo.mapper.DemoTaskQueryMapper;
 import org.dromara.warm.demo.service.UserService;
 import org.dromara.warm.demo.service.WorkflowService;
 import org.dromara.warm.demo.utils.ButtonPermissionUtils;
-import org.dromara.warm.demo.vo.ButtonPermissionVo;
-import org.dromara.warm.demo.vo.DemoUserVo;
-import org.dromara.warm.demo.vo.HistoryVo;
-import org.dromara.warm.demo.vo.InstanceVo;
-import org.dromara.warm.demo.vo.PageVo;
-import org.dromara.warm.demo.vo.StartInstanceVo;
-import org.dromara.warm.demo.vo.TaskNodeVo;
-import org.dromara.warm.demo.vo.TaskVo;
+import org.dromara.warm.demo.vo.*;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.FlowCons;
-import org.dromara.warm.flow.core.entity.Definition;
-import org.dromara.warm.flow.core.entity.HisTask;
-import org.dromara.warm.flow.core.entity.Instance;
-import org.dromara.warm.flow.core.entity.Node;
-import org.dromara.warm.flow.core.entity.Task;
-import org.dromara.warm.flow.core.entity.User;
-import org.dromara.warm.flow.core.enums.NodeType;
+import org.dromara.warm.flow.core.entity.*;
 import org.dromara.warm.flow.core.enums.CooperateType;
+import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.core.utils.page.Page;
-import org.dromara.warm.flow.core.workflow.command.AddSignerCommand;
-import org.dromara.warm.flow.core.workflow.command.CompleteCommand;
-import org.dromara.warm.flow.core.workflow.command.DelegateCommand;
-import org.dromara.warm.flow.core.workflow.command.JumpCommand;
-import org.dromara.warm.flow.core.workflow.command.RejectCommand;
-import org.dromara.warm.flow.core.workflow.command.RemoveSignerCommand;
-import org.dromara.warm.flow.core.workflow.command.RevokeCommand;
-import org.dromara.warm.flow.core.workflow.command.StartCommand;
-import org.dromara.warm.flow.core.workflow.command.TerminateCommand;
-import org.dromara.warm.flow.core.workflow.command.TransferCommand;
+import org.dromara.warm.flow.core.workflow.command.*;
 import org.dromara.warm.flow.core.workflow.context.OperatorContext;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 import org.dromara.warm.flow.core.workflow.result.WorkflowResult;
@@ -55,15 +34,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Comparator;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -226,7 +197,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     /**
      * 分页查询当前用户待办任务。
      *
-     * @param user     当前用户名
+     * @param user      当前用户名
      * @param pageQuery 分页参数
      * @return 待办任务分页数据
      */
@@ -248,7 +219,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     /**
      * 分页查询当前用户已办任务。
      *
-     * @param user     当前用户名
+     * @param user      当前用户名
      * @param pageQuery 分页参数
      * @return 已办任务分页数据
      */
@@ -265,7 +236,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     /**
      * 分页查询当前用户收到的抄送。
      *
-     * @param user     当前用户名
+     * @param user      当前用户名
      * @param pageQuery 分页参数
      * @return 抄送分页数据
      */
@@ -762,8 +733,8 @@ public class WorkflowServiceImpl implements WorkflowService {
         Instance instance = requireInstance(task.getInstanceId());
         try {
             List<TaskNodeVo> nodes = FlowEngine.nodeService().getNextNodeList(
-                task.getDefinitionId(), task.getNodeCode(), null,
-                SkipType.PASS.getKey(), instance.getVariableMap()).stream()
+                    task.getDefinitionId(), task.getNodeCode(), null,
+                    SkipType.PASS.getKey(), instance.getVariableMap()).stream()
                 .filter(node -> NodeType.BETWEEN.getKey().equals(node.getNodeType()))
                 .map(this::toTaskNodeVo)
                 .collect(Collectors.toList());
@@ -808,7 +779,7 @@ public class WorkflowServiceImpl implements WorkflowService {
      * 获取单个目标办理人。
      *
      * @param handlers 办理人集合
-     * @param message 办理人数量不合法时的提示
+     * @param message  办理人数量不合法时的提示
      * @return 唯一目标办理人
      */
     private String singleHandler(List<String> handlers, String message) {

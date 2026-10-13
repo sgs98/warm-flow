@@ -22,7 +22,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class DemoTaskListener implements Listener {
 
-    /** Demo 任务监听器日志。 */
+    /**
+     * Demo 任务监听器日志。
+     */
     private static final Logger log = LoggerFactory.getLogger(DemoTaskListener.class);
 
     /**

@@ -147,6 +147,31 @@ public class ExpressionUtil {
     }
 
     /**
+     * 执行服务任务表达式并返回结果。
+     *
+     * @param expression 表达式
+     * @param variable   流程变量
+     * @return 表达式结果
+     */
+    public static Object evalServiceTask(String expression, Map<String, Object> variable) {
+        if (StringUtils.isEmpty(expression)) {
+            throw new FlowException(ExceptionCons.NULL_SERVICE_TASK_EXPRESSION);
+        }
+        List<ExpressionStrategy<Object>> strategies = ServiceTaskStrategy.EXPRESSION_STRATEGY_LIST;
+        for (int i = strategies.size() - 1; i >= 0; i--) {
+            ExpressionStrategy<Object> strategy = strategies.get(i);
+            if (strategy != null && expression.startsWith(strategy.getType())) {
+                String expr = expression;
+                if (StringUtils.isNotEmpty(strategy.interceptStr())) {
+                    expr = expr.replace(strategy.getType() + strategy.interceptStr(), "");
+                }
+                return strategy.eval(expr, MapUtil.isEmpty(variable) ? new HashMap<>() : variable);
+            }
+        }
+        throw new FlowException(ExceptionCons.NULL_SERVICE_TASK_STRATEGY);
+    }
+
+    /**
      * 获取表达式对应的值
      *
      * @param strategyList 表达式策略列表

@@ -371,4 +371,49 @@ public class ExceptionCons {
      */
     public static final String NOT_DRAW_FLOW_ERROR = "未绘制流程图，不可发布";
 
+    /**
+     * 服务任务节点配置为空或不是合法 JSON 对象。
+     */
+    public static final String NULL_SERVICE_TASK_CONFIG = "服务任务节点配置不能为空";
+
+    /**
+     * 服务任务节点配置缺少 serviceTask 段。
+     */
+    public static final String NULL_SERVICE_TASK_SECTION = "服务任务节点缺少 serviceTask 配置段";
+
+    /**
+     * 服务任务 type 不是 class / delegateExpression / expression。
+     */
+    public static final String ILLEGAL_SERVICE_TASK_TYPE = "服务任务 type 只能是 class / delegateExpression / expression";
+
+    /**
+     * 服务任务 class 模式缺少 handler，或表达式模式缺少 expression。
+     */
+    public static final String NULL_SERVICE_TASK_EXPRESSION = "服务任务处理器或表达式不能为空";
+
+    /**
+     * resultVariable 只允许出现在 expression 模式。
+     */
+    public static final String ILLEGAL_RESULT_VARIABLE = "服务任务 resultVariable 仅支持 expression 模式";
+
+    /**
+     * 服务任务节点出口连线只允许 PASS。
+     */
+    public static final String SERVICE_TASK_ONLY_PASS = "服务任务节点只允许 PASS 出口";
+
+    /**
+     * 服务任务表达式未匹配到已注册策略。
+     */
+    public static final String NULL_SERVICE_TASK_STRATEGY = "服务任务表达式未匹配到已注册策略";
+
+    /**
+     * 一次流程操作内自动节点执行次数超过安全上限。
+     */
+    public static final String SERVICE_TASK_LOOP_LIMIT = "自动节点执行次数超过安全上限，可能存在服务任务环路";
+
+    /**
+     * 未找到处理服务任务节点的自动节点执行器。
+     */
+    public static final String NULL_SERVICE_TASK_EXECUTOR = "未找到服务任务自动节点执行器";
+
 }

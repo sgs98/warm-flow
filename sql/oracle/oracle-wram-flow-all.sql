@@ -65,6 +65,7 @@ create table FLOW_NODE
     UPDATE_TIME     DATE,
     UPDATE_BY       VARCHAR2(64) default '',
     EXT        CLOB,
+    NODE_CONFIG CLOB,
     DEL_FLAG        VARCHAR2(1)   default '0',
     TENANT_ID       VARCHAR2(40)
 );
@@ -92,6 +93,7 @@ comment on column FLOW_NODE.CREATE_BY is '创建人';
 comment on column FLOW_NODE.UPDATE_TIME is '更新时间';
 comment on column FLOW_NODE.UPDATE_BY is '更新人';
 comment on column FLOW_NODE.EXT is '节点扩展属性';
+comment on column FLOW_NODE.NODE_CONFIG is '节点配置（服务任务等节点的引擎配置json）';
 comment on column FLOW_NODE.DEL_FLAG is '删除标志';
 comment on column FLOW_NODE.TENANT_ID is '租户id';
 comment on column FLOW_NODE.PERMISSION_FLAG is '权限标识（权限类型:权限标识，可以多个，用@@隔开)';
@@ -122,10 +124,10 @@ alter table FLOW_SKIP
 comment on table FLOW_SKIP is '节点跳转关联表';
 comment on column FLOW_SKIP.ID is '主键id';
 comment on column FLOW_SKIP.DEFINITION_ID is '流程定义id';
-comment on column FLOW_SKIP.NOW_NODE_CODE is '当前流程节点类型 (0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关)';
-comment on column FLOW_SKIP.NOW_NODE_TYPE is '下一个流程节点类型 (0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关)';
+comment on column FLOW_SKIP.NOW_NODE_CODE is '当前流程节点类型 (0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关 6服务任务)';
+comment on column FLOW_SKIP.NOW_NODE_TYPE is '下一个流程节点类型 (0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关 6服务任务)';
 comment on column FLOW_SKIP.NEXT_NODE_CODE is '下一个流程节点编码';
-comment on column FLOW_SKIP.NEXT_NODE_TYPE is '下一个流程节点类型 (0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关)';
+comment on column FLOW_SKIP.NEXT_NODE_TYPE is '下一个流程节点类型 (0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关 6服务任务)';
 comment on column FLOW_SKIP.SKIP_NAME is '跳转名称';
 comment on column FLOW_SKIP.SKIP_TYPE is '跳转类型 (PASS审批通过 REJECT退回)';
 comment on column FLOW_SKIP.SKIP_CONDITION is '跳转条件';
@@ -165,7 +167,7 @@ comment on table FLOW_INSTANCE is '流程实例表';
 comment on column FLOW_INSTANCE.ID is '主键id';
 comment on column FLOW_INSTANCE.DEFINITION_ID is '对应flow_definition表的id';
 comment on column FLOW_INSTANCE.BUSINESS_ID is '业务id';
-comment on column FLOW_INSTANCE.NODE_TYPE is '开始节点类型 (0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关)';
+comment on column FLOW_INSTANCE.NODE_TYPE is '开始节点类型 (0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关 6服务任务)';
 comment on column FLOW_INSTANCE.NODE_CODE is '开始节点编码';
 comment on column FLOW_INSTANCE.NODE_NAME is '开始节点名称';
 comment on column FLOW_INSTANCE.VARIABLE is '任务变量';
@@ -208,7 +210,7 @@ comment on column FLOW_TASK.DEFINITION_ID is '对应flow_definition表的id';
 comment on column FLOW_TASK.INSTANCE_ID is '对应flow_instance表的id';
 comment on column FLOW_TASK.NODE_CODE is '节点编码';
 comment on column FLOW_TASK.NODE_NAME is '节点名称';
-comment on column FLOW_TASK.NODE_TYPE is '节点类型 (0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关)';
+comment on column FLOW_TASK.NODE_TYPE is '节点类型 (0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关 6服务任务)';
 comment on column FLOW_TASK.FLOW_STATUS is '流程状态（0待提交 1审批中 2审批通过 4终止 5作废 6撤销 8已完成 9已退回 10失效 11拿回）';
 comment on column FLOW_TASK.FORM_CUSTOM is '审批表单是否自定义 (Y是 N否)';
 comment on column FLOW_TASK.FORM_PATH is '审批表单路径';
@@ -240,6 +242,7 @@ create table FLOW_HIS_TASK
     MESSAGE          VARCHAR2(500),
     VARIABLE         CLOB,
     EXT              CLOB,
+    NODE_CONFIG      CLOB,
     CREATE_TIME      DATE,
     UPDATE_TIME      DATE,
     DEL_FLAG         VARCHAR2(1) default '0',
@@ -257,7 +260,7 @@ comment on column FLOW_HIS_TASK.INSTANCE_ID is '对应flow_instance表的id';
 comment on column FLOW_HIS_TASK.TASK_ID is '对应flow_task表的id';
 comment on column FLOW_HIS_TASK.NODE_CODE is '开始节点编码';
 comment on column FLOW_HIS_TASK.NODE_NAME is '开始节点名称';
-comment on column FLOW_HIS_TASK.NODE_TYPE is '开始节点类型 (0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关)';
+comment on column FLOW_HIS_TASK.NODE_TYPE is '开始节点类型 (0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关 6服务任务)';
 comment on column FLOW_HIS_TASK.TARGET_NODE_CODE is '目标节点编码';
 comment on column FLOW_HIS_TASK.TARGET_NODE_NAME is '目标节点名称';
 comment on column FLOW_HIS_TASK.SKIP_TYPE is '流转类型（PASS通过 REJECT退回 NONE无动作）';
@@ -267,6 +270,7 @@ comment on column FLOW_HIS_TASK.FORM_PATH is '审批表单路径';
 comment on column FLOW_HIS_TASK.MESSAGE is '审批意见';
 comment on column FLOW_HIS_TASK.VARIABLE is '任务变量';
 comment on column FLOW_HIS_TASK.EXT is '扩展字段，预留给业务系统使用';
+comment on column FLOW_HIS_TASK.NODE_CONFIG is '节点配置（服务任务等节点的引擎配置json）';
 comment on column FLOW_HIS_TASK.CREATE_TIME is '任务开始时间';
 comment on column FLOW_HIS_TASK.UPDATE_TIME is '审批完成时间';
 comment on column FLOW_HIS_TASK.DEL_FLAG is '删除标志';

@@ -21,7 +21,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class DemoFinishListener implements Listener {
 
-    /** Demo 节点完成监听器日志。 */
+    /**
+     * Demo 节点完成监听器日志。
+     */
     private static final Logger log = LoggerFactory.getLogger(DemoFinishListener.class);
 
     /**

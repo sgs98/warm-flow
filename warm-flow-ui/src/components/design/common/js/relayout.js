@@ -26,6 +26,7 @@ const MIMIC_SIZE = {
   start: { width: 76, height: 40 },
   end: { width: 76, height: 40 },
   between: { width: 260, height: 76 },
+  service: { width: 260, height: 76 },
   serial: { width: 36, height: 36 },
   parallel: { width: 36, height: 36 },
   inclusive: { width: 36, height: 36 }

@@ -267,6 +267,21 @@ public interface Node extends RootEntity {
     Node setExt(String ext);
 
     /**
+     * 获取引擎节点配置 JSON。
+     *
+     * @return 节点配置
+     */
+    String getNodeConfig();
+
+    /**
+     * 设置引擎节点配置 JSON。
+     *
+     * @param nodeConfig 节点配置
+     * @return 当前节点
+     */
+    Node setNodeConfig(String nodeConfig);
+
+    /**
      * 获取当前节点的出口连线列表。
      *
      * @return 出口连线列表
@@ -304,6 +319,7 @@ public interface Node extends RootEntity {
             .setListenerPath(this.getListenerPath())
             .setFormCustom(this.getFormCustom())
             .setFormPath(this.getFormPath())
-            .setExt(this.getExt());
+            .setExt(this.getExt())
+            .setNodeConfig(this.getNodeConfig());
     }
 }

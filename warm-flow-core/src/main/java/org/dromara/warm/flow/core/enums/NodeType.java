@@ -59,7 +59,12 @@ public enum NodeType {
     /**
      * 包容网关
      */
-    INCLUSIVE(5, "inclusive");
+    INCLUSIVE(5, "inclusive"),
+
+    /**
+     * 服务任务
+     */
+    SERVICE(6, "service");
 
     private final Integer key;
     private final String value;
@@ -127,6 +132,27 @@ public enum NodeType {
      */
     public static Boolean isBetween(Integer key) {
         return ObjectUtil.isNotNull(key) && (NodeType.BETWEEN.getKey().equals(key));
+    }
+
+    /**
+     * 判断是否服务任务节点
+     *
+     * @param key 枚举key
+     * @return 是服务任务时返回 {@code true}
+     */
+    public static Boolean isService(Integer key) {
+        return ObjectUtil.isNotNull(key) && (NodeType.SERVICE.getKey().equals(key));
+    }
+
+    /**
+     * 判断是否工作节点：人工中间节点或服务任务。
+     * <p>仅用于流程图合法性与自动路由判断；办理人、表单、协作逻辑继续使用 {@link #isBetween}。</p>
+     *
+     * @param key 枚举key
+     * @return 是工作节点时返回 {@code true}
+     */
+    public static Boolean isWorkNode(Integer key) {
+        return isBetween(key) || isService(key);
     }
 
     /**

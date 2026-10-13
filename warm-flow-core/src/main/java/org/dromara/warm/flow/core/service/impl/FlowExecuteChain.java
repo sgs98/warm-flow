@@ -62,6 +62,10 @@ final class FlowExecuteChain {
      */
     private final FlowPathResolver pathResolver;
     /**
+     * 自动节点（服务任务）推进器。
+     */
+    private final AutoNodeAdvancer advancer;
+    /**
      * 流转类型。
      */
     private final String skipType;
@@ -92,6 +96,7 @@ final class FlowExecuteChain {
         this.cooperationHandler = cooperationHandler;
         this.historyHandler = historyHandler;
         this.pathResolver = pathResolver;
+        this.advancer = new AutoNodeAdvancer(pathResolver);
         this.skipType = skipType;
     }
 
@@ -235,6 +240,9 @@ final class FlowExecuteChain {
         // 更新流程信息
         historyHandler.updateFlowInfo(taskService, execution.task, execution.instance, addTasks
             , execution.intent, skipType, nextNodes);
+
+        // 推进自动节点（服务任务）：临时待办已随本批落库，可复用汇聚判断
+        advancer.advance(execution, nextNodes, addTasks);
 
         // 一票否决（谨慎使用），如果退回，退回指向节点后还存在其他正在执行的待办任务，转历史任务，状态都为失效,重走流程。
         if (CollUtil.isNotEmpty(nextNodes) && SkipType.isReject(skipType)) {

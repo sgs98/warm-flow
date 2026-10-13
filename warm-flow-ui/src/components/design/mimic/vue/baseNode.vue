@@ -6,7 +6,10 @@
       ref="baseNodeDiv"
       @click="editNode">
     <div class="mimic-icon" aria-hidden="true">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <svg v-if="props.type === 'service'" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path :d="GEAR_PATH"/>
+      </svg>
+      <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="9" r="3.1" stroke="currentColor" stroke-width="1.7"/>
         <path d="M6.6 18.2c.9-2.5 2.8-3.8 5.4-3.8s4.5 1.3 5.4 3.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
       </svg>
@@ -23,15 +26,19 @@
             @keyup.enter="saveNodeName"
             @blur="saveNodeName"/>
       </div>
-      <div v-if="showHandler" class="mimic-who" :title="handler">
+      <div v-if="showHandler && props.type !== 'service'" class="mimic-who" :title="handler">
         <span class="mimic-av">{{ handlerChar }}</span>
         <span class="mimic-handler">{{ handler }}</span>
         <span v-if="collaborativeBadge" class="mimic-badge">{{ collaborativeBadge }}</span>
       </div>
+      <div v-else-if="props.type === 'service'" class="mimic-who" :title="serviceTarget">
+        <span class="mimic-handler">{{ serviceTarget || '未配置处理器' }}</span>
+        <span class="mimic-badge">{{ serviceTypeLabel }}</span>
+      </div>
     </div>
     <span class="mimic-go" aria-hidden="true">›</span>
     <span
-        v-show="props.type === 'between' && !isRuntime"
+        v-show="(props.type === 'between' || props.type === 'service') && !isRuntime"
         class="mimic-del"
         @click.stop="deleteNode">×</span>
   </div>
@@ -40,6 +47,9 @@
 <script setup name="BaseInfo">
 import {computed, nextTick, ref} from 'vue';
 import {handlerFeedback} from "@/api/flow/definition.js";
+
+// 齿轮图标路径（Material settings，viewBox 0 0 24 24），服务任务节点图标
+const GEAR_PATH = 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z'
 
 const props = defineProps({
   text: {
@@ -63,6 +73,13 @@ const props = defineProps({
     }
   },
   nodeRatio: {
+    type: String,
+    default () {
+      return ''
+    }
+  },
+  // 服务任务节点配置（JSON 字符串），仅 service 节点使用
+  nodeConfig: {
     type: String,
     default () {
       return ''
@@ -133,6 +150,27 @@ const collaborativeBadge = computed(() => {
   if (way === '2') return '票签';
   if (way === '3') return '会签';
   return '';
+});
+
+// 服务任务配置解析：类型 + 处理器 / 表达式，用于卡片摘要展示
+const serviceTaskConfig = computed(() => {
+  if (props.type !== 'service') return {};
+  try {
+    const parsed = JSON.parse(props.nodeConfig || '{}');
+    return (parsed && parsed.serviceTask) || {};
+  } catch (e) {
+    return {};
+  }
+});
+
+const serviceTypeLabel = computed(() => {
+  const labels = { class: '类Bean', delegateExpression: '委托', expression: '表达式' };
+  return labels[serviceTaskConfig.value.type] || '未配置';
+});
+
+const serviceTarget = computed(() => {
+  const cfg = serviceTaskConfig.value;
+  return cfg.type === 'class' ? (cfg.handler || '') : (cfg.expression || '');
 });
 
 const handlerChar = computed(() => {

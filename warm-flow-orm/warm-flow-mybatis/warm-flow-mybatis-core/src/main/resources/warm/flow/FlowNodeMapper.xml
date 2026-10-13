@@ -21,6 +21,7 @@
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
         <result property="ext" column="ext"/>
+        <result property="nodeConfig" column="node_config"/>
         <result property="delFlag" column="del_flag"/>
         <result property="tenantId" column="tenant_id"/>
         <result property="updateBy" column="update_by"/>
@@ -44,6 +45,7 @@
                t.create_time,
                t.update_time,
                t.ext,
+               t.node_config,
                t.del_flag,
                t.tenant_id,
                t.create_by,
@@ -89,6 +91,7 @@
             <if test="entity.createTime != null">and t.create_time = #{entity.createTime}</if>
             <if test="entity.updateTime != null">and t.update_time = #{entity.updateTime}</if>
             <if test="entity.ext != null">and t.ext = #{entity.ext}</if>
+            <if test="entity.nodeConfig != null">and t.node_config = #{entity.nodeConfig}</if>
             <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
             <if test="entity.tenantId != null  and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
             <if test="entity.updateBy != null and entity.updateBy != ''">and t.update_by = #{entity.updateBy}</if>
@@ -115,6 +118,7 @@
         update_time,
         ext,
         del_flag,
+        node_config,
         tenant_id,
         create_by,
         update_by
@@ -139,6 +143,7 @@
             #{item.updateTime},
             #{item.ext},
             #{item.delFlag},
+            #{item.nodeConfig},
             #{item.tenantId},
             #{item.createBy},
             #{item.updateBy}
@@ -167,6 +172,7 @@
         update_time,
         ext,
         del_flag,
+        node_config,
         tenant_id,
         create_by,
         update_by
@@ -190,6 +196,7 @@
             #{item.updateTime},
             #{item.ext},
             #{item.delFlag},
+            #{item.nodeConfig},
             #{item.tenantId},
             #{item.createBy},
             #{item.updateBy}
@@ -276,6 +283,7 @@
             <if test="createTime != null">create_time,</if>
             <if test="updateTime != null">update_time,</if>
             <if test="ext != null">ext,</if>
+            <if test="nodeConfig != null">node_config,</if>
             <if test="delFlag != null and delFlag != ''">del_flag,</if>
             <if test="tenantId != null and tenantId != ''">tenant_id,</if>
             <if test="createBy != null and createBy != ''">create_by,</if>
@@ -299,6 +307,7 @@
             <if test="createTime != null">#{createTime},</if>
             <if test="updateTime != null">#{updateTime},</if>
             <if test="ext != null">#{ext},</if>
+            <if test="nodeConfig != null">#{nodeConfig},</if>
             <if test="delFlag != null and delFlag != ''">#{delFlag},</if>
             <if test="tenantId != null and tenantId != ''">#{tenantId},</if>
             <if test="createBy != null and createBy != ''">#{createBy},</if>
@@ -324,6 +333,7 @@
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="ext != null">ext = #{ext},</if>
+            <if test="nodeConfig != null">node_config = #{nodeConfig},</if>
             <if test="createBy != null and createBy != ''">create_by = #{createBy},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
         </trim>
@@ -387,6 +397,7 @@
             <if test="createTime != null">and create_time = #{createTime}</if>
             <if test="updateTime != null">and update_time = #{updateTime}</if>
             <if test="ext != null">and ext = #{ext}</if>
+            <if test="nodeConfig != null">and node_config = #{nodeConfig}</if>
             <if test="tenantId != null and tenantId != ''">and tenant_id = #{tenantId}</if>
         </where>
     </delete>
@@ -420,6 +431,7 @@
             <if test="entity.createTime != null">and create_time = #{entity.createTime}</if>
             <if test="entity.updateTime != null">and update_time = #{entity.updateTime}</if>
             <if test="entity.ext != null">and ext = #{entity.ext}</if>
+            <if test="entity.nodeConfig != null">and node_config = #{entity.nodeConfig}</if>
             <if test="entity.tenantId != null and entity.tenantId != ''">and tenant_id = #{entity.tenantId}</if>
             <if test="logicNotDeleteValue != null and logicNotDeleteValue != ''">and del_flag =
                 #{logicNotDeleteValue}

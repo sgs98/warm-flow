@@ -76,6 +76,7 @@ public class BeanConfig {
         ExpressionUtil.setExpression(new HandlerStrategySpel());
         ExpressionUtil.setExpression(new VoteSignStrategyDefault());
         ExpressionUtil.setExpression(new VoteSignStrategySpel());
+        ExpressionUtil.setExpression(new ServiceTaskStrategySpel());
     }
 
     public void setNewEntity() {

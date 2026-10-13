@@ -16,12 +16,12 @@ public enum BusinessStatusEnum {
 
     /**
      * -- GETTER --
-     *  获取业务状态编码。
+     * 获取业务状态编码。
      */
     private final String status;
     /**
      * -- GETTER --
-     *  获取业务状态描述。
+     * 获取业务状态描述。
      */
     private final String desc;
 

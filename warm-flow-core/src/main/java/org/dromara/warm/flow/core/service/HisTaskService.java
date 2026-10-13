@@ -23,6 +23,7 @@ import org.dromara.warm.flow.core.orm.service.IWarmService;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 历史任务记录Service接口
@@ -114,6 +115,19 @@ public interface HisTaskService extends IWarmService<HisTask> {
      * @return HisTask 历史任务
      */
     HisTask setSignHisTask(Task task, WorkflowContext context, String nodeRatio, boolean isPass);
+
+    /**
+     * 构造服务任务成功历史（AUTO_PASS / NONE / node_config 快照）。
+     *
+     * @param serviceNode 服务任务节点，用于取 node_config 快照
+     * @param task        服务任务临时待办
+     * @param nextNodes   服务任务后实际到达的节点集合
+     * @param context     流程执行上下文
+     * @param variables   服务任务执行后的流程变量
+     * @return 服务任务历史
+     */
+    HisTask setServiceTaskHis(Node serviceNode, Task task, List<Node> nextNodes, WorkflowContext context
+        , Map<String, Object> variables);
 
     /**
      * 设置流程历史任务信息

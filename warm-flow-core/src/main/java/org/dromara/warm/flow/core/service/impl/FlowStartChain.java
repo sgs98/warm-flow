@@ -56,6 +56,10 @@ final class FlowStartChain {
      * 业务id。
      */
     private final String businessId;
+    /**
+     * 自动节点（服务任务）推进器。
+     */
+    private final AutoNodeAdvancer advancer;
 
     /**
      * 路由结果。
@@ -85,6 +89,7 @@ final class FlowStartChain {
     FlowStartChain(InsServiceImpl insService, String businessId) {
         this.insService = insService;
         this.businessId = businessId;
+        this.advancer = new AutoNodeAdvancer(new FlowPathResolver());
     }
 
     /**
@@ -189,6 +194,9 @@ final class FlowStartChain {
     private Optional<Instance> persistAndFinish(FlowExecution execution) {
         // 开启流程，保存流程信息
         saveFlowInfo(instance, addTasks, hisTask, execution.intent);
+
+        // 推进自动节点（服务任务）：首批临时待办已随 saveFlowInfo 落库，可复用汇聚判断
+        advancer.advance(execution, nextNodes, addTasks);
 
         // 执行完成和创建监听器
         ListenerUtil.endCreateListener(execution.contextListener(null, execution.nowNode, nextNodes, addTasks));

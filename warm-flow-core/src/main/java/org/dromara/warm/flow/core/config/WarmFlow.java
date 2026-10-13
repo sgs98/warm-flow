@@ -21,9 +21,11 @@ import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.enums.ChartStatus;
 import org.dromara.warm.flow.core.enums.FrameworkType;
 import org.dromara.warm.flow.core.json.JsonConvert;
+import org.dromara.warm.flow.core.service.impl.ServiceTaskExecutor;
 import org.dromara.warm.flow.core.utils.ServiceLoaderUtil;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -142,6 +144,9 @@ public class WarmFlow implements Serializable {
 
         // 初始化流程状态对应的自定义三原色
         ChartStatus.initCustomColor(this.getChartStatusColor(), this.getChartStatusColorClassics(), this.getChartStatusColorMimic());
+
+        // 自动节点执行器：内置服务任务执行器，第三方可在其后追加
+        FlowEngine.setAutoNodeExecutors(new ArrayList<>(List.of(new ServiceTaskExecutor())));
 
         // 通过SPI机制
         spiLoad();

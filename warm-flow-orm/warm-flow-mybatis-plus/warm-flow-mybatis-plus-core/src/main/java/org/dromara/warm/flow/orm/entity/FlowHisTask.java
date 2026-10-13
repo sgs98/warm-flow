@@ -162,6 +162,11 @@ public class FlowHisTask implements HisTask {
     private String ext;
 
     /**
+     * 引擎节点配置 JSON
+     */
+    private String nodeConfig;
+
+    /**
      * 审批表单是否自定义（Y=是 N=否）
      */
     private String formCustom;

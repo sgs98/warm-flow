@@ -49,6 +49,7 @@ import { Snapshot } from "@logicflow/extension";
 import "@logicflow/core/lib/style/index.css";
 import StartC from "@/components/design/classics/js/start";
 import BetweenC from "@/components/design/classics/js/between";
+import ServiceC from "@/components/design/classics/js/service";
 import SerialC from "@/components/design/classics/js/serial";
 import ParallelC from "@/components/design/classics/js/parallel";
 import InclusiveC from "@/components/design/classics/js/inclusive";
@@ -56,6 +57,7 @@ import EndC from "@/components/design/classics/js/end";
 import SkipC from "@/components/design/classics/js/skip";
 import StartM from "@/components/design/mimic/js/start";
 import BetweenM from "@/components/design/mimic/js/between";
+import ServiceM from "@/components/design/mimic/js/service";
 import SerialM from "@/components/design/mimic/js/serial";
 import ParallelM from "@/components/design/mimic/js/parallel";
 import InclusiveM from "@/components/design/mimic/js/inclusive";
@@ -124,6 +126,7 @@ const register = () => {
   if (isClassics(defJson.value.modelValue)) {
     lf.value.register(StartC);
     lf.value.register(BetweenC);
+    lf.value.register(ServiceC);
     lf.value.register(SerialC);
     lf.value.register(ParallelC);
     lf.value.register(InclusiveC);
@@ -132,6 +135,7 @@ const register = () => {
   } else {
     lf.value.register(StartM);
     lf.value.register(BetweenM);
+    lf.value.register(ServiceM);
     lf.value.register(SerialM);
     lf.value.register(ParallelM);
     lf.value.register(InclusiveM);

@@ -1,5 +1,7 @@
 package org.dromara.warm.demo.listener;
 
+import org.dromara.warm.demo.service.UserService;
+import org.dromara.warm.demo.vo.DemoUserVo;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
@@ -7,16 +9,10 @@ import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.invoker.FrameInvoker;
 import org.dromara.warm.flow.core.listener.GlobalListener;
 import org.dromara.warm.flow.core.listener.ListenerVariable;
-import org.dromara.warm.demo.service.UserService;
-import org.dromara.warm.demo.vo.DemoUserVo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -27,7 +23,9 @@ import java.util.stream.Collectors;
  */
 public class DemoGlobalListener implements GlobalListener {
 
-    /** Demo 全局监听器日志。 */
+    /**
+     * Demo 全局监听器日志。
+     */
     private static final Logger log = LoggerFactory.getLogger(DemoGlobalListener.class);
 
     /**
@@ -88,7 +86,7 @@ public class DemoGlobalListener implements GlobalListener {
     /**
      * 输出全局监听器的通用上下文，发起阶段实例可能尚未创建，因此统一判空。
      *
-     * @param event 监听事件
+     * @param event            监听事件
      * @param listenerVariable 监听器变量
      */
     private void logEvent(String event, ListenerVariable listenerVariable) {
@@ -118,7 +116,7 @@ public class DemoGlobalListener implements GlobalListener {
      * 将设计器权限标识展开为实际用户名，避免权限前缀落入 flow_user.processed_by。
      * 部门权限需要展开为部门下的用户，不能简单截去 dept: 前缀。
      *
-     * @param userService demo 用户服务
+     * @param userService     demo 用户服务
      * @param permissionFlags 设计器权限标识
      * @return 实际用户名集合
      */

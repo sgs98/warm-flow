@@ -1,4 +1,4 @@
-const NODE_TYPE_MAP = {0: 'start', 1: 'between', 2: 'end', 3: 'serial', 4: 'parallel', 5: 'inclusive'}
+const NODE_TYPE_MAP = {0: 'start', 1: 'between', 2: 'end', 3: 'serial', 4: 'parallel', 5: 'inclusive', 6: 'service'}
 
 // 各设计器模型下节点的默认尺寸 [宽, 高]：用于判断连线标签是否压在节点上
 const NODE_SIZE_MAP = {
@@ -8,7 +8,8 @@ const NODE_SIZE_MAP = {
     between: [100, 80],
     serial: [50, 50],
     parallel: [50, 50],
-    inclusive: [50, 50]
+    inclusive: [50, 50],
+    service: [100, 80]
   },
   MIMIC: {
     start: [76, 40],
@@ -16,7 +17,8 @@ const NODE_SIZE_MAP = {
     between: [260, 76],
     serial: [36, 36],
     parallel: [36, 36],
-    inclusive: [36, 36]
+    inclusive: [36, 36],
+    service: [260, 76]
   }
 }
 
@@ -130,6 +132,10 @@ export const json2LogicFlowJson = (definition) => {
       lfNode.properties.status = node.status
       lfNode.properties.chartStatusColor = definition.chartStatusColor
       lfNode.properties.promptContent = node.promptContent
+      // 服务任务节点配置（JSON 字符串）：仅透传，结构由后端 ServiceTaskConfig 定义
+      if (node.nodeConfig) {
+        lfNode.properties.nodeConfig = node.nodeConfig
+      }
       lfNode.properties.ext = {};
       if (node.ext && typeof node.ext === "string") {
         try {
@@ -306,6 +312,11 @@ export const logicFlowJsonToWarmFlow = (data) => {
     }
     node.handlerType = anyNode.properties.handlerType
     node.handlerPath = anyNode.properties.handlerPath
+    // 服务任务节点配置：设计器只做字符串透传，后端保存 / 运行期解析
+    if (anyNode.properties.nodeConfig !== undefined && anyNode.properties.nodeConfig !== null
+        && anyNode.properties.nodeConfig !== '') {
+      node.nodeConfig = anyNode.properties.nodeConfig
+    }
     node.version = definition.version
     node.skipList = []
     data.edges.forEach(anyEdge => {

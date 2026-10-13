@@ -200,6 +200,21 @@ public interface HisTask extends RootEntity {
 
     HisTask setExt(String ext);
 
+    /**
+     * 获取引擎节点配置 JSON 快照。
+     *
+     * @return 节点配置
+     */
+    String getNodeConfig();
+
+    /**
+     * 设置引擎节点配置 JSON 快照。
+     *
+     * @param nodeConfig 节点配置
+     * @return 当前对象
+     */
+    HisTask setNodeConfig(String nodeConfig);
+
     String getFormCustom();
 
     HisTask setFormCustom(String formCustom);

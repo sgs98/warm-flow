@@ -37,5 +37,6 @@ public class TestNode implements Node {
     private String formCustom;
     private String formPath;
     private String ext;
+    private String nodeConfig;
     private List<Skip> skipList = new ArrayList<>();
 }

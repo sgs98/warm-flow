@@ -46,7 +46,7 @@
 <script setup>
 import {
   startIcon, betweenIcon, endIcon,
-  serialIcon, parallelIcon, inclusiveIcon,
+  serialIcon, parallelIcon, inclusiveIcon, serviceIcon,
 } from '@/components/design/classics/js/sidebarIcons.js'
 
 const emit = defineEmits(['dragInNode'])
@@ -55,6 +55,7 @@ const emit = defineEmits(['dragInNode'])
 const flowNodes = [
   { type: 'start', text: '开始', label: '开始', icon: startIcon },
   { type: 'between', text: '中间节点', label: '中间节点', icon: betweenIcon, properties: { collaborativeWay: '1' } },
+  { type: 'service', text: '服务任务', label: '服务任务', icon: serviceIcon, properties: {} },
   { type: 'end', text: '结束', label: '结束', icon: endIcon },
 ]
 
@@ -214,6 +215,7 @@ function handleDragInNode(item) {
 .item-serial .item-icon-wrap  { background: linear-gradient(135deg, #fffbeb, #fef3c7); }
 .item-parallel .item-icon-wrap{ background: linear-gradient(135deg, #ecfeff, #cffafe); }
 .item-inclusive .item-icon-wrap { background: linear-gradient(135deg, #faf5ff, #f3e8ff); }
+.item-service .item-icon-wrap { background: linear-gradient(135deg, #eef2ff, #e0e7ff); }
 
 /* ====== 标签文字 ====== */
 .item-label {

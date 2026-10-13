@@ -39,7 +39,7 @@ import java.util.Map;
 public class NodeJson {
 
     /**
-     * 节点类型（0 开始，1 中间，2 结束，3 互斥网关，4 并行网关，5 包容网关）。
+     * 节点类型（0 开始，1 中间，2 结束，3 互斥网关，4 并行网关，5 包容网关，6 服务任务）。
      */
     private Integer nodeType;
 
@@ -97,6 +97,11 @@ public class NodeJson {
      * 节点扩展属性
      */
     private String ext;
+
+    /**
+     * 引擎节点配置 JSON。
+     */
+    private String nodeConfig;
 
     /**
      * 办理状态: 0未办理 1待办理 2已办理

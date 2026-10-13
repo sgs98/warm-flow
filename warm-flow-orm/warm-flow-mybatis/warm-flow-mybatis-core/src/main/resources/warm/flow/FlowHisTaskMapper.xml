@@ -24,6 +24,7 @@
         <result property="message" column="message"/>
         <result property="variable" column="variable"/>
         <result property="ext" column="ext"/>
+        <result property="nodeConfig" column="node_config"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
         <result property="businessId" column="business_id"/>
@@ -52,6 +53,7 @@
                t.message,
                t.variable,
                t.ext,
+               t.node_config,
                t.create_time,
                t.update_time,
                t.tenant_id,
@@ -96,6 +98,7 @@
             <if test="entity.message != null  and entity.message != ''">and t.message = #{entity.message}</if>
             <if test="entity.variable != null  and entity.variable != ''">and t.variable = #{entity.variable}</if>
             <if test="entity.ext != null  and entity.ext != ''">and t.ext = #{entity.ext}</if>
+            <if test="entity.nodeConfig != null  and entity.nodeConfig != ''">and t.node_config = #{entity.nodeConfig}</if>
             <if test="entity.createTime != null">and t.create_time = #{entity.createTime}</if>
             <if test="entity.updateTime != null">and t.update_time = #{entity.updateTime}</if>
             <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
@@ -154,6 +157,7 @@
         variable,
         ext,
         create_time,
+        node_config,
         update_time,
         tenant_id,
         del_flag
@@ -181,6 +185,7 @@
             #{item.variable},
             #{item.ext},
             #{item.createTime},
+            #{item.nodeConfig},
             #{item.updateTime},
             #{item.tenantId},
             #{item.delFlag}
@@ -210,6 +215,7 @@
         variable,
         ext,
         create_time,
+        node_config,
         update_time,
         tenant_id,
         del_flag
@@ -236,6 +242,7 @@
             #{item.variable},
             #{item.ext},
             #{item.createTime},
+            #{item.nodeConfig},
             #{item.updateTime},
             #{item.tenantId},
             #{item.delFlag}
@@ -322,6 +329,7 @@
             <if test="message != null">message,</if>
             <if test="variable != null">variable,</if>
             <if test="ext != null">ext,</if>
+            <if test="nodeConfig != null">node_config,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateTime != null">update_time,</if>
             <if test="tenantId != null and tenantId != ''">tenant_id,</if>
@@ -347,6 +355,7 @@
             <if test="message != null">#{message},</if>
             <if test="variable != null">#{variable},</if>
             <if test="ext != null">#{ext},</if>
+            <if test="nodeConfig != null">#{nodeConfig},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateTime != null">#{updateTime},</if>
             <if test="tenantId != null and tenantId != ''">#{tenantId},</if>
@@ -374,6 +383,7 @@
             <if test="message != null">message = #{message},</if>
             <if test="variable != null">variable = #{variable},</if>
             <if test="ext != null">ext = #{ext},</if>
+            <if test="nodeConfig != null">node_config = #{nodeConfig},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </trim>
@@ -459,6 +469,7 @@
             <if test="message != null">and message = #{message}</if>
             <if test="variable != null">and variable = #{variable}</if>
             <if test="ext != null">and ext = #{ext}</if>
+            <if test="nodeConfig != null">and node_config = #{nodeConfig}</if>
             <if test="createTime != null">and create_time = #{createTime}</if>
             <if test="updateTime != null">and update_time = #{updateTime}</if>
             <if test="tenantId != null and tenantId != ''">and tenant_id = #{tenantId}</if>
@@ -494,6 +505,7 @@
             <if test="entity.message != null">and message = #{entity.message}</if>
             <if test="entity.variable != null">and variable = #{entity.variable}</if>
             <if test="entity.ext != null">and ext = #{entity.ext}</if>
+            <if test="entity.nodeConfig != null">and node_config = #{entity.nodeConfig}</if>
             <if test="entity.createTime != null">and create_time = #{entity.createTime}</if>
             <if test="entity.updateTime != null">and update_time = #{entity.updateTime}</if>
             <if test="entity.tenantId != null and entity.tenantId != ''">and tenant_id = #{entity.tenantId}</if>

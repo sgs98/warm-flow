@@ -69,6 +69,127 @@ public final class TestFlows {
     }
 
     /**
+     * 构建并保存服务任务 + 人工审批流程：start(0) → s1(6) → apply(1) → end(2)，全部连线为 PASS。
+     *
+     * @param flowCode 流程编码
+     * @param serviceConfig s1 节点的 node_config
+     * @return 已保存的流程定义
+     */
+    public static Definition serviceThenHumanFlow(String flowCode, String serviceConfig) {
+        Definition def = FlowEngine.newDef()
+                .setFlowCode(flowCode)
+                .setFlowName("服务任务测试流程")
+                .setVersion("1")
+                .setIsPublish(PublishStatus.PUBLISHED.getKey())
+                .setActivityStatus(ActivityStatus.ACTIVITY.getKey());
+        FlowEngine.defService().save(def);
+        node(def, "start", NodeType.START.getKey(), null);
+        serviceNode(def, "s1", serviceConfig);
+        node(def, "apply", NodeType.BETWEEN.getKey(), HANDLER);
+        node(def, "end", NodeType.END.getKey(), null);
+        skip(def, "start", NodeType.START.getKey(), "s1", NodeType.SERVICE.getKey());
+        skip(def, "s1", NodeType.SERVICE.getKey(), "apply", NodeType.BETWEEN.getKey());
+        skip(def, "apply", NodeType.BETWEEN.getKey(), "end", NodeType.END.getKey());
+        return def;
+    }
+
+    /**
+     * 构建并保存连续两个服务任务的流程：start(0) → s1(6) → s2(6) → apply(1) → end(2)。
+     *
+     * @param flowCode      流程编码
+     * @param serviceConfig s1、s2 节点的 node_config
+     * @return 已保存的流程定义
+     */
+    public static Definition chainedServiceThenHumanFlow(String flowCode, String serviceConfig) {
+        Definition def = FlowEngine.newDef()
+                .setFlowCode(flowCode)
+                .setFlowName("连续服务任务测试流程")
+                .setVersion("1")
+                .setIsPublish(PublishStatus.PUBLISHED.getKey())
+                .setActivityStatus(ActivityStatus.ACTIVITY.getKey());
+        FlowEngine.defService().save(def);
+        node(def, "start", NodeType.START.getKey(), null);
+        serviceNode(def, "s1", serviceConfig);
+        serviceNode(def, "s2", serviceConfig);
+        node(def, "apply", NodeType.BETWEEN.getKey(), HANDLER);
+        node(def, "end", NodeType.END.getKey(), null);
+        skip(def, "start", NodeType.START.getKey(), "s1", NodeType.SERVICE.getKey());
+        skip(def, "s1", NodeType.SERVICE.getKey(), "s2", NodeType.SERVICE.getKey());
+        skip(def, "s2", NodeType.SERVICE.getKey(), "apply", NodeType.BETWEEN.getKey());
+        skip(def, "apply", NodeType.BETWEEN.getKey(), "end", NodeType.END.getKey());
+        return def;
+    }
+
+    /**
+     * 保存服务任务节点并写入 node_config。
+     *
+     * @param def          流程定义
+     * @param code         节点编码
+     * @param nodeConfig   节点配置 JSON
+     */
+    private static void serviceNode(Definition def, String code, String nodeConfig) {
+        FlowEngine.nodeService().save(FlowEngine.newNode()
+                .setDefinitionId(def.getId())
+                .setNodeCode(code)
+                .setNodeName(code)
+                .setNodeType(NodeType.SERVICE.getKey())
+                .setNodeRatio("0")
+                .setNodeConfig(nodeConfig));
+    }
+
+    /**
+     * 构建并保存并行含服务任务流程：start(0) → forkP → [a1(1), s1(6)] → joinP → end(2)。
+     *
+     * @param flowCode 流程编码
+     * @param serviceConfig s1 节点的 node_config
+     * @return 已保存的流程定义
+     */
+    public static Definition parallelWithServiceFlow(String flowCode, String serviceConfig) {
+        Definition def = FlowEngine.newDef()
+                .setFlowCode(flowCode)
+                .setFlowName("并行含服务任务测试流程")
+                .setVersion("1")
+                .setIsPublish(PublishStatus.PUBLISHED.getKey())
+                .setActivityStatus(ActivityStatus.ACTIVITY.getKey());
+        FlowEngine.defService().save(def);
+        node(def, "start", NodeType.START.getKey(), null);
+        node(def, "forkP", NodeType.PARALLEL.getKey(), null);
+        node(def, "a1", NodeType.BETWEEN.getKey(), HANDLER);
+        serviceNode(def, "s1", serviceConfig);
+        node(def, "joinP", NodeType.PARALLEL.getKey(), null);
+        node(def, "end", NodeType.END.getKey(), null);
+        skip(def, "start", NodeType.START.getKey(), "forkP", NodeType.PARALLEL.getKey());
+        skip(def, "forkP", NodeType.PARALLEL.getKey(), "a1", NodeType.BETWEEN.getKey());
+        skip(def, "forkP", NodeType.PARALLEL.getKey(), "s1", NodeType.SERVICE.getKey());
+        skip(def, "a1", NodeType.BETWEEN.getKey(), "joinP", NodeType.PARALLEL.getKey());
+        skip(def, "s1", NodeType.SERVICE.getKey(), "joinP", NodeType.PARALLEL.getKey());
+        skip(def, "joinP", NodeType.PARALLEL.getKey(), "end", NodeType.END.getKey());
+        return def;
+    }
+
+    /**
+     * 构建并保存服务任务自环流程：start(0) → s1(6) → s1(6)，用于循环保护验证。
+     *
+     * @param flowCode 流程编码
+     * @param serviceConfig s1 节点的 node_config
+     * @return 已保存的流程定义
+     */
+    public static Definition serviceLoopFlow(String flowCode, String serviceConfig) {
+        Definition def = FlowEngine.newDef()
+                .setFlowCode(flowCode)
+                .setFlowName("服务任务自环测试流程")
+                .setVersion("1")
+                .setIsPublish(PublishStatus.PUBLISHED.getKey())
+                .setActivityStatus(ActivityStatus.ACTIVITY.getKey());
+        FlowEngine.defService().save(def);
+        node(def, "start", NodeType.START.getKey(), null);
+        serviceNode(def, "s1", serviceConfig);
+        skip(def, "start", NodeType.START.getKey(), "s1", NodeType.SERVICE.getKey());
+        skip(def, "s1", NodeType.SERVICE.getKey(), "s1", NodeType.SERVICE.getKey());
+        return def;
+    }
+
+    /**
      * 构建并保存带驳回线的串行测试流程：start(0) → apply(1) → audit(1) → end(2)，
      * 前向连线全为 PASS，另含 audit → apply 的 REJECT 驳回线。
      *

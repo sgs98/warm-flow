@@ -13,6 +13,7 @@ const COLOR = {
   serial: '245,158,11',    // 橙：互斥
   parallel: '19,194,194',  // 青：并行
   inclusive: '146,84,222', // 紫：包含
+  service: '79,70,229',    // 靛蓝：服务任务
 }
 
 const stroke = (rgb) => `rgb(${rgb})`
@@ -20,6 +21,9 @@ const rgba = (rgb, a) => `rgba(${rgb},${a})`
 
 /** 图标背景色 — 用 CSS 变量支持暗黑模式自动切换 */
 const ICON_BG = 'var(--wf-icon-bg, #ffffff)'
+
+/** 齿轮图标路径（Material settings，viewBox 0 0 24 24），服务任务节点图标符号 */
+const GEAR_PATH = 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z'
 
 /**
  * 开始节点：圆环 + 内核实心渐变圆（与 start.js 一致）
@@ -55,6 +59,16 @@ export const endIcon = `
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
   <circle cx="50" cy="50" r="42" fill="${ICON_BG}" stroke="${stroke(COLOR.end)}" stroke-width="3.5"/>
   <circle cx="50" cy="50" r="30" fill="none" stroke="${rgba(COLOR.end, 0.25)}" stroke-width="1"/>
+</svg>`
+
+/**
+ * 服务任务节点：圆角矩形卡片 + 齿轮图标（与 service.js 一致）
+ */
+export const serviceIcon = `
+<svg viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg">
+  <rect x="5" y="5" width="90" height="70" rx="8" fill="${ICON_BG}" stroke="${stroke(COLOR.service)}" stroke-width="1.5"/>
+  <rect x="12" y="10" width="32" height="26" rx="5" ry="5" fill="${rgba(COLOR.service, 0.08)}" stroke="${stroke(COLOR.service)}" stroke-width="1.2"/>
+  <path transform="translate(19,17) scale(0.75)" d="${GEAR_PATH}" fill="${stroke(COLOR.service)}"/>
 </svg>`
 
 // ========== 网关节点公共部分 ==========
@@ -117,4 +131,5 @@ export const nodeIcons = {
   serial: serialIcon,
   parallel: parallelIcon,
   inclusive: inclusiveIcon,
+  service: serviceIcon,
 }

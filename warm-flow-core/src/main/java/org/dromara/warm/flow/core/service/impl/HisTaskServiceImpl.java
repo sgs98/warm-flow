@@ -31,6 +31,7 @@ import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 历史任务服务实现。
@@ -263,6 +264,43 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
             .setFormPath(task.getFormPath())
             .setMessage(context.getMessage())
             .setVariable(variableStr(context))
+            //业务详情添加至历史记录
+            .setExt(context.getExt())
+            .setCreateTime(task.getCreateTime());
+        FlowEngine.dataFillHandler().idFill(hisTask);
+        return hisTask;
+    }
+
+    /**
+     * 构造服务任务成功历史：状态 AUTO_PASS、跳转 NONE，并快照执行时的 node_config。
+     *
+     * @param serviceNode 服务任务节点，用于取 node_config 快照
+     * @param task        服务任务临时待办
+     * @param nextNodes   服务任务后实际到达的节点集合
+     * @param context     流程执行上下文
+     * @param variables   服务任务执行后的流程变量
+     * @return 尚未持久化的历史任务
+     */
+    @Override
+    public HisTask setServiceTaskHis(Node serviceNode, Task task, List<Node> nextNodes, WorkflowContext context
+        , Map<String, Object> variables) {
+        HisTask hisTask = FlowEngine.newHisTask()
+            .setTaskId(task.getId())
+            .setInstanceId(task.getInstanceId())
+            .setCooperateType(CooperateType.APPROVAL.getKey())
+            .setNodeCode(serviceNode.getNodeCode())
+            .setNodeName(serviceNode.getNodeName())
+            .setNodeType(serviceNode.getNodeType())
+            .setDefinitionId(serviceNode.getDefinitionId())
+            .setTargetNodeCode(StreamUtils.join(nextNodes, Node::getNodeCode))
+            .setTargetNodeName(StreamUtils.join(nextNodes, Node::getNodeName))
+            .setSkipType(SkipType.NONE.getKey())
+            .setFlowStatus(FlowStatus.AUTO_PASS.getKey())
+            .setFormCustom(serviceNode.getFormCustom())
+            .setFormPath(serviceNode.getFormPath())
+            .setMessage(context.getMessage())
+            .setVariable(FlowEngine.jsonConvert.objToStr(variables))
+            .setNodeConfig(serviceNode.getNodeConfig())
             //业务详情添加至历史记录
             .setExt(context.getExt())
             .setCreateTime(task.getCreateTime());

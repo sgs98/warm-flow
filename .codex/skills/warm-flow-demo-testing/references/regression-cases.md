@@ -87,3 +87,27 @@
 - 现象：并行分支直接汇入同一个中间节点（没有显式汇聚网关）时，完成任意一个分支就生成该汇聚节点，另一分支的待办随后被引擎清理。
 - 判定：`FlowPathResolver.retainJoinPath` 只在本次流转路径经过并行/包容网关（node_type 4/5）时才做汇聚等待，隐式汇聚不适用，属既有语义（09-25 01:11 的旧记录与本次一致）。
 - 检查：验证「完成最后一个实际分支才越过汇聚」必须使用带显式汇聚网关的定义；隐式汇聚场景只核对分支出口与最终节点，不要据此判定汇聚缺陷。
+
+## 服务任务（node_type=6）漏触发节点监听器
+
+- 症状：含服务任务的流程发起后，全局/节点监听器只收到服务任务的 `create`；服务节点自身的 `start`、`finish` 以及自动推进创建的后继节点 `create` 全部缺失，人工节点监听器配置在「服务任务之后的首个人工节点」上会静默不生效。
+- 根因：自动节点推进（`AutoNodeAdvancer`）只做临时待办、历史与路由编排，未接入 `ListenerUtil`，绕过了正常办理链 `FlowExecuteChain` 的 start 与 endCreate 监听器。
+- 检查：发起一条 `开始 → 服务任务 → 人工审批` 的流程，按全局监听器日志核对事件序列，应为 `start(服务任务) → finish(服务任务) → assignment(后继人工节点) → create(后继人工节点)`；服务任务临时待办无办理人，不产生 `flow_user`。
+- 边界区分：事件顺序上，外部链路的 `finish(当前人工节点)/create(服务任务)` 仍在 `advanceAuto` 之后触发（设计如此），核对时不要据此判定重复或缺失。
+- 处理：保留日志现场；修复应落在自动节点编排内补 `start`、`endCreateListener` 与后继人工节点的 `assignment`，不要为绕过问题在 Demo 监听器里特殊处理。
+
+## 服务任务后继人工节点漏触发 assignment（办理人未展开）
+
+- 症状：`开始 → 服务任务 → 人工审批` 发起后，后继人工节点只触发 `create`、不触发 `assignment`；Demo 全局监听器负责把 `user:xxx`/`dept:xxx` 展开为实际用户名，于是 `flow_user.processed_by` 落成 `user:approver1` 而不是 `approver1`，人工节点上的通知/展开类监听器静默失效。
+- 根因：`AutoNodeAdvancer` 建后继待办时只补了 `endCreateListener`，缺少 `FlowExecuteChain#buildTasks` 中的 `executeAssignment`；且 `assignment` 必须在 `taskAddUsers` 之前触发，否则监听器对 `permissionList` 的改写无法随办理人落库。
+- 检查：发起含服务任务且后继为人工节点的流程，`flow_user.processed_by` 必须是展开后的用户名；事件序列应为 `start(服务任务) → finish(服务任务) → assignment(后继人工节点) → create(后继人工节点)`。
+- 边界区分：`assignment` 事件按人工办理链约定以**上游节点**为 `node`（此处是服务任务），被分派对象在 `nextTasks` 里（后继人工节点）；只看 `node` 会误判成「服务任务触发了 assignment」。发起链路的 `assignment`（`node=开始`）本来就会携带服务任务临时待办，属既有行为。
+- 处理：修复落在 `AutoNodeAdvancer`，只对后继人工节点触发分派，不要改 `FlowStartChain` 的既有语义。
+
+## 服务任务自动推进后流程图停在进入服务任务之前
+
+- 症状：含服务任务的流程在人工节点提交后，实例详情流程图里服务任务节点一直显示"进行中/未完成"，后续人工节点也不显示"进行中"，看起来像卡在服务任务上；但任务列表已出现后继人工节点待办。
+- 根因：`AutoNodeAdvancer` 只更新历史、待办与实例状态，未调用 `ChartService#skipMetadata` 合并流程图元数据，实例 `def_json` 快照停留在进入服务任务之前（提交人工节点时标记的"下一个节点=服务任务=待办理"）。
+- 检查：提交人工节点后直查 `flow_instance.def_json`：本跳服务任务应为 `2`（已办理）、后继人工节点应为 `1`（待办理）；连续多个服务任务要逐跳核对，不能只看最后一个。
+- 边界区分：服务任务历史是 `flow_status=3`（AUTO_PASS）/`skip_type=NONE` 且无办理人；"办理历史"条数与流程图着色是两套数据，不要用办理历史推断节点状态。
+- 处理：修复落在 `AutoNodeAdvancer` 每跳解析后继之后补 `skipMetadata`，与办理链 `route()` 语义一致；不要在前端或 Demo 侧做状态补偿。

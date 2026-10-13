@@ -28,6 +28,7 @@ import org.dromara.warm.flow.core.service.impl.HisTaskServiceImpl;
 import org.dromara.warm.flow.core.service.impl.InsServiceImpl;
 import org.dromara.warm.flow.core.service.impl.NodeServiceImpl;
 import org.dromara.warm.flow.core.service.impl.SkipServiceImpl;
+import org.dromara.warm.flow.core.service.impl.ServiceTaskExecutor;
 import org.dromara.warm.flow.core.service.impl.TaskServiceImpl;
 import org.dromara.warm.flow.core.service.impl.UserServiceImpl;
 import org.dromara.warm.flow.core.test.dao.DefinitionMemDao;
@@ -150,6 +151,7 @@ public class FlowTestHarness implements AutoCloseable {
         registry.put(GlobalListener.class, RecordingGlobalListener.instance());
 
         FlowEngine.jsonConvert = new FlatJsonConvert();
+        FlowEngine.setAutoNodeExecutors(new ArrayList<>(List.of(new ServiceTaskExecutor())));
         FlowEngine.initDataFillHandler(null);
         FlowEngine.initGlobalListener(null);
         FlowEngine.initTenantHandler(null);

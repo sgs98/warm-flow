@@ -135,4 +135,9 @@ public class FlowNode implements Node {
      */
     private String ext;
 
+    /**
+     * 引擎节点配置 JSON
+     */
+    private String nodeConfig;
+
 }

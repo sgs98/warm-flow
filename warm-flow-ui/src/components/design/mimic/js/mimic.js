@@ -3,6 +3,11 @@ import {isGateWay} from "@/components/design/common/js/tool.js";
 const OFFSET_X = 150;
 const OFFSET_Y = 150;
 
+// 服务任务节点与审批节点同为整宽卡片（260x76），水平/垂直布局计算里按同类处理
+function isCardNode(nodeType) {
+  return nodeType === 'between' || nodeType === 'service';
+}
+
 function addNode(lf, nodeType, x, y, name) {
   let text = null;
   if (name) {
@@ -236,6 +241,26 @@ export const addGatewayNode = (lf, edge, nodeType) => {
   updateEdges(lf)
 }
 
+// 在边中间插入服务任务节点（结构同审批节点：单进单出）
+export const addServiceNode = (lf, edge) => {
+  const nodes = lf.getGraphData().nodes;
+  const sourceNode = nodes.find(node => node.id === edge.sourceNodeId);
+  const targetNode = nodes.find(node => node.id === edge.targetNodeId);
+
+  const serviceNode = addNode(lf, 'service', sourceNode.x, getMoveY(sourceNode, 'service'), "服务任务")
+  addEdge(lf, "skip", sourceNode.id, serviceNode.id)
+
+  // 找到并删除开始节点和结束节点之间的直接连接
+  lf.deleteEdge(edge.id);
+
+  addEdgeAll(lf, "skip", serviceNode.id, targetNode.id, edge.properties)
+
+  // 当目标节点减新增节点差，小于竖向偏移量，才移动节点
+  recursivelyMoveNodes(lf, serviceNode);
+
+  updateEdges(lf)
+}
+
 export const gatewayAddNode = (lf, gatewayNode) => {
   const incomingEdges = lf.getNodeIncomingEdge(gatewayNode.id)
   // 如果是网关的结束节点，则不新增节点
@@ -252,7 +277,7 @@ export const gatewayAddNode = (lf, gatewayNode) => {
   const regionNodes = findAllNextNodes(gatewayNode.id, nodes, edges, gatewayEnd);
   let xSet = new Set()
   regionNodes.forEach(node => {
-    if (node.type === 'between' && !xSet.has(node.x)) {
+    if (isCardNode(node.type) && !xSet.has(node.x)) {
       xSet.add(node.x)
     }
   })
@@ -327,7 +352,7 @@ export const removeNode = (lf, nodeModel) => {
       const regionNodes = findAllNextNodes(sourceNode.id, nodes, edges, gatewayEnd);
       let xSet = new Set()
       regionNodes.forEach(node => {
-        if (node.type === 'between' && !xSet.has(node.x)) {
+        if (isCardNode(node.type) && !xSet.has(node.x)) {
           xSet.add(node.x)
         }
       })
@@ -432,24 +457,27 @@ function moveLevelNode(nodes, edges, targetEdges, lf, betweenLeft, betweenRight,
 
 function getMoveY(sourceNode, targetType) {
   let moveY;
+  // 服务任务卡片尺寸与审批卡一致，布局偏移量按 between 计算
+  const sourceType = sourceNode.type === 'service' ? 'between' : sourceNode.type;
+  const type = targetType === 'service' ? 'between' : targetType;
   // 开始 / 结束都是 40 高胶囊，审批卡 76 高；OFFSET_Y=150 以审批卡为基准，开始作源时减 18 对齐视觉间距
-  if (sourceNode.type === 'start' && targetType === 'between') {
+  if (sourceType === 'start' && type === 'between') {
     moveY = sourceNode.y + OFFSET_Y - 18;
-  } else if (sourceNode.type === 'start' && targetType === 'end') {
+  } else if (sourceType === 'start' && type === 'end') {
     moveY = sourceNode.y + OFFSET_Y - 36;
-  } else if (sourceNode.type === 'start' && isGateWay(targetType)) {
+  } else if (sourceType === 'start' && isGateWay(type)) {
     moveY = sourceNode.y + OFFSET_Y - 43;
-  } else if (sourceNode.type === 'between' && targetType === 'between') {
+  } else if (sourceType === 'between' && type === 'between') {
     moveY = sourceNode.y + OFFSET_Y;
-  } else if (sourceNode.type === 'between' && targetType === 'end') {
+  } else if (sourceType === 'between' && type === 'end') {
     moveY = sourceNode.y + OFFSET_Y - 20;
-  } else if (sourceNode.type === 'between' && isGateWay(targetType)) {
+  } else if (sourceType === 'between' && isGateWay(type)) {
     moveY = sourceNode.y + OFFSET_Y - 25;
-  } else if (isGateWay(sourceNode.type) && isGateWay(targetType)) {
+  } else if (isGateWay(sourceType) && isGateWay(type)) {
     moveY = sourceNode.y + OFFSET_Y - 50;
-  } else if (isGateWay(sourceNode.type) && targetType === 'between') {
+  } else if (isGateWay(sourceType) && type === 'between') {
     moveY = sourceNode.y + OFFSET_Y - 25;
-  } else if (isGateWay(sourceNode.type) && targetType === 'end') {
+  } else if (isGateWay(sourceType) && type === 'end') {
     moveY = sourceNode.y + OFFSET_Y - 45;
   }
   return moveY;

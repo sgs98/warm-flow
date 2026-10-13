@@ -24,12 +24,15 @@ import org.dromara.warm.flow.core.invoker.FrameInvoker;
 import org.dromara.warm.flow.core.json.JsonConvert;
 import org.dromara.warm.flow.core.listener.GlobalListener;
 import org.dromara.warm.flow.core.service.*;
+import org.dromara.warm.flow.core.service.task.AutoNodeExecutor;
 import org.dromara.warm.flow.core.utils.ClassUtil;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.core.workflow.WorkflowService;
 
 import java.lang.reflect.Constructor;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -62,6 +65,29 @@ public class FlowEngine {
      * JSON 转换器 SPI 实例，由 {@link WarmFlow#spiLoad()} 装配。
      */
     public static JsonConvert jsonConvert;
+
+    /**
+     * 自动节点执行器列表。
+     */
+    private static List<AutoNodeExecutor> autoNodeExecutors = new ArrayList<>();
+
+    /**
+     * 设置自动节点执行器列表。
+     *
+     * @param executors 执行器列表
+     */
+    public static void setAutoNodeExecutors(List<AutoNodeExecutor> executors) {
+        autoNodeExecutors = executors == null ? new ArrayList<>() : executors;
+    }
+
+    /**
+     * 获取自动节点执行器列表。
+     *
+     * @return 执行器列表
+     */
+    public static List<AutoNodeExecutor> autoNodeExecutors() {
+        return autoNodeExecutors;
+    }
 
     /**
      * 获取流程定义服务。

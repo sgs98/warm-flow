@@ -7,31 +7,18 @@ import org.dromara.warm.demo.listener.DemoTaskListener;
 import org.dromara.warm.demo.service.UserService;
 import org.dromara.warm.demo.vo.DemoDepartmentVo;
 import org.dromara.warm.demo.vo.DemoUserVo;
+import org.dromara.warm.flow.core.dto.FlowPage;
 import org.dromara.warm.flow.core.dto.Tree;
+import org.dromara.warm.flow.ui.dto.HandlerQuery;
 import org.dromara.warm.flow.ui.service.HandlerDictService;
 import org.dromara.warm.flow.ui.service.HandlerSelectService;
 import org.dromara.warm.flow.ui.service.ListenerListService;
 import org.dromara.warm.flow.ui.service.NodeExtService;
-import org.dromara.warm.flow.ui.dto.HandlerQuery;
-import org.dromara.warm.flow.ui.vo.Dict;
-import org.dromara.warm.flow.ui.vo.HandlerAuth;
-import org.dromara.warm.flow.ui.vo.HandlerFeedBackVo;
-import org.dromara.warm.flow.ui.vo.HandlerSelectVo;
-import org.dromara.warm.flow.ui.vo.ListenerVo;
-import org.dromara.warm.flow.ui.vo.NodeExt;
-import org.dromara.warm.flow.core.dto.FlowPage;
 import org.dromara.warm.flow.ui.utils.TreeUtil;
+import org.dromara.warm.flow.ui.vo.*;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**

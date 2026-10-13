@@ -1,16 +1,9 @@
 package org.dromara.warm.demo.service;
 
-import org.dromara.warm.demo.dto.StartInstanceRequest;
 import org.dromara.warm.demo.dto.PageQuery;
+import org.dromara.warm.demo.dto.StartInstanceRequest;
 import org.dromara.warm.demo.dto.TaskActionRequest;
-import org.dromara.warm.demo.vo.ButtonPermissionVo;
-import org.dromara.warm.demo.vo.DemoUserVo;
-import org.dromara.warm.demo.vo.HistoryVo;
-import org.dromara.warm.demo.vo.InstanceVo;
-import org.dromara.warm.demo.vo.PageVo;
-import org.dromara.warm.demo.vo.StartInstanceVo;
-import org.dromara.warm.demo.vo.TaskNodeVo;
-import org.dromara.warm.demo.vo.TaskVo;
+import org.dromara.warm.demo.vo.*;
 
 import java.util.List;
 
@@ -70,7 +63,7 @@ public interface WorkflowService {
     /**
      * 分页查询当前用户待办任务。
      *
-     * @param user     当前用户名
+     * @param user      当前用户名
      * @param pageQuery 分页参数
      * @return 待办任务分页数据
      */
@@ -79,7 +72,7 @@ public interface WorkflowService {
     /**
      * 分页查询当前用户已办任务。
      *
-     * @param user     当前用户名
+     * @param user      当前用户名
      * @param pageQuery 分页参数
      * @return 已办任务分页数据
      */
@@ -130,7 +123,7 @@ public interface WorkflowService {
     /**
      * 分页查询当前用户收到的抄送。
      *
-     * @param user     当前用户名
+     * @param user      当前用户名
      * @param pageQuery 分页参数
      * @return 抄送分页数据
      */

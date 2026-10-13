@@ -23,6 +23,7 @@ import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Skip;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.service.task.ServiceTaskConfig;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -90,6 +91,31 @@ public class FlowConfigUtil {
         checkSkipNode(allSkips);
         // 校验所有目标节点是否都存在
         validaIsExistDestNode(allSkips, nodeCodeSet);
+        // 校验服务任务节点配置与出口
+        Map<String, List<Skip>> skipGroup = StreamUtils.groupByKey(allSkips, Skip::getNowNodeCode);
+        for (Node node : allNodes) {
+            checkServiceNode(node, skipGroup.get(node.getNodeCode()));
+        }
+    }
+
+    /**
+     * 校验服务任务节点配置与出口。
+     *
+     * @param node     节点
+     * @param outgoing 该节点的出口连线
+     */
+    private static void checkServiceNode(Node node, List<Skip> outgoing) {
+        if (!NodeType.isService(node.getNodeType())) {
+            return;
+        }
+        // 保存期只做格式校验，不加载处理器类
+        ServiceTaskConfig.parse(node.getNodeConfig());
+        if (CollUtil.isEmpty(outgoing)) {
+            return;
+        }
+        for (Skip skip : outgoing) {
+            AssertUtil.isTrue(!SkipType.isPass(skip.getSkipType()), ExceptionCons.SERVICE_TASK_ONLY_PASS);
+        }
     }
 
     public static int checkStartAndSame(Node node, int startNum, String flowName, Set<String> nodeCodeSet) {
