@@ -315,6 +315,142 @@ public final class TestFlows {
     }
 
     /**
+     * 构建自动审批测试流程：start(0) → apply(1, applyFlag) → audit(1, auditFlag) → end(2)。
+     *
+     * @param flowCode  流程编码
+     * @param defConfig 流程定义配置（如 {"autoPass":true}）
+     * @param applyFlag apply 节点办理人权限
+     * @param auditFlag audit 节点办理人权限
+     * @return 已保存的流程定义
+     */
+    public static Definition autoPassFlow(String flowCode, String defConfig, String applyFlag, String auditFlag) {
+        Definition def = defConfigDefinition(flowCode, "自动审批测试流程", defConfig);
+        node(def, "start", NodeType.START.getKey(), null);
+        node(def, "apply", NodeType.BETWEEN.getKey(), applyFlag);
+        node(def, "audit", NodeType.BETWEEN.getKey(), auditFlag);
+        node(def, "end", NodeType.END.getKey(), null);
+        skip(def, "start", NodeType.START.getKey(), "apply", NodeType.BETWEEN.getKey());
+        skip(def, "apply", NodeType.BETWEEN.getKey(), "audit", NodeType.BETWEEN.getKey());
+        skip(def, "audit", NodeType.BETWEEN.getKey(), "end", NodeType.END.getKey());
+        return def;
+    }
+
+    /**
+     * 构建会签形态的自动审批流程：start(0) → apply(1, applyFlag) → audit(1, nodeRatio=100, auditFlag)
+     * → end(2)，audit 为会签节点，需全部办理人通过。
+     *
+     * @param flowCode  流程编码
+     * @param defConfig 流程定义配置
+     * @param applyFlag apply 节点办理人权限
+     * @param auditFlag audit 节点办理人权限
+     * @return 已保存的流程定义
+     */
+    public static Definition countersignAutoPassFlow(String flowCode, String defConfig, String applyFlag
+            , String auditFlag) {
+        Definition def = defConfigDefinition(flowCode, "会签自动审批测试流程", defConfig);
+        node(def, "start", NodeType.START.getKey(), null);
+        node(def, "apply", NodeType.BETWEEN.getKey(), applyFlag);
+        node(def, "audit", NodeType.BETWEEN.getKey(), auditFlag, "100");
+        node(def, "end", NodeType.END.getKey(), null);
+        skip(def, "start", NodeType.START.getKey(), "apply", NodeType.BETWEEN.getKey());
+        skip(def, "apply", NodeType.BETWEEN.getKey(), "audit", NodeType.BETWEEN.getKey());
+        skip(def, "audit", NodeType.BETWEEN.getKey(), "end", NodeType.END.getKey());
+        return def;
+    }
+
+    /**
+     * 构建连续三个审批节点的自动审批流程：start(0) → apply(1, HANDLER) → audit(1, auditFlag)
+     * → review(1, reviewFlag) → end(2)。
+     *
+     * @param flowCode   流程编码
+     * @param defConfig  流程定义配置
+     * @param auditFlag  audit 节点办理人权限
+     * @param reviewFlag review 节点办理人权限
+     * @return 已保存的流程定义
+     */
+    public static Definition chainedAutoPassFlow(String flowCode, String defConfig, String auditFlag
+            , String reviewFlag) {
+        Definition def = defConfigDefinition(flowCode, "连续自动审批测试流程", defConfig);
+        node(def, "start", NodeType.START.getKey(), null);
+        node(def, "apply", NodeType.BETWEEN.getKey(), HANDLER);
+        node(def, "audit", NodeType.BETWEEN.getKey(), auditFlag);
+        node(def, "review", NodeType.BETWEEN.getKey(), reviewFlag);
+        node(def, "end", NodeType.END.getKey(), null);
+        skip(def, "start", NodeType.START.getKey(), "apply", NodeType.BETWEEN.getKey());
+        skip(def, "apply", NodeType.BETWEEN.getKey(), "audit", NodeType.BETWEEN.getKey());
+        skip(def, "audit", NodeType.BETWEEN.getKey(), "review", NodeType.BETWEEN.getKey());
+        skip(def, "review", NodeType.BETWEEN.getKey(), "end", NodeType.END.getKey());
+        return def;
+    }
+
+    /**
+     * 构建服务任务后自动审批流程：start(0) → apply(1, HANDLER) → s1(6) → review(1, HANDLER) → end(2)。
+     *
+     * @param flowCode      流程编码
+     * @param defConfig     流程定义配置
+     * @param serviceConfig s1 节点的 node_config
+     * @return 已保存的流程定义
+     */
+    public static Definition autoPassAfterServiceFlow(String flowCode, String defConfig, String serviceConfig) {
+        Definition def = defConfigDefinition(flowCode, "服务任务后自动审批测试流程", defConfig);
+        node(def, "start", NodeType.START.getKey(), null);
+        node(def, "apply", NodeType.BETWEEN.getKey(), HANDLER);
+        serviceNode(def, "s1", serviceConfig);
+        node(def, "review", NodeType.BETWEEN.getKey(), HANDLER);
+        node(def, "end", NodeType.END.getKey(), null);
+        skip(def, "start", NodeType.START.getKey(), "apply", NodeType.BETWEEN.getKey());
+        skip(def, "apply", NodeType.BETWEEN.getKey(), "s1", NodeType.SERVICE.getKey());
+        skip(def, "s1", NodeType.SERVICE.getKey(), "review", NodeType.BETWEEN.getKey());
+        skip(def, "review", NodeType.BETWEEN.getKey(), "end", NodeType.END.getKey());
+        return def;
+    }
+
+    /**
+     * 构建带驳回线的自动审批流程：start(0) → apply(1, applyFlag) → audit(1, auditFlag) → end(2)，
+     * 另含 audit → apply 的 REJECT 驳回线。
+     *
+     * @param flowCode  流程编码
+     * @param defConfig 流程定义配置
+     * @param applyFlag apply 节点办理人权限
+     * @param auditFlag audit 节点办理人权限
+     * @return 已保存的流程定义
+     */
+    public static Definition rejectAutoPassFlow(String flowCode, String defConfig, String applyFlag
+            , String auditFlag) {
+        Definition def = defConfigDefinition(flowCode, "带驳回线的自动审批测试流程", defConfig);
+        node(def, "start", NodeType.START.getKey(), null);
+        node(def, "apply", NodeType.BETWEEN.getKey(), applyFlag);
+        node(def, "audit", NodeType.BETWEEN.getKey(), auditFlag);
+        node(def, "end", NodeType.END.getKey(), null);
+        skip(def, "start", NodeType.START.getKey(), "apply", NodeType.BETWEEN.getKey());
+        skip(def, "apply", NodeType.BETWEEN.getKey(), "audit", NodeType.BETWEEN.getKey());
+        skip(def, "audit", NodeType.BETWEEN.getKey(), "end", NodeType.END.getKey());
+        skip(def, "audit", NodeType.BETWEEN.getKey(), "apply", NodeType.BETWEEN.getKey()
+                , SkipType.REJECT.getKey());
+        return def;
+    }
+
+    /**
+     * 保存指定流程定义配置的已发布流程定义。
+     *
+     * @param flowCode  流程编码
+     * @param flowName  流程名称
+     * @param defConfig 流程定义配置
+     * @return 已保存的流程定义
+     */
+    private static Definition defConfigDefinition(String flowCode, String flowName, String defConfig) {
+        Definition def = FlowEngine.newDef()
+                .setFlowCode(flowCode)
+                .setFlowName(flowName)
+                .setVersion("1")
+                .setIsPublish(PublishStatus.PUBLISHED.getKey())
+                .setActivityStatus(ActivityStatus.ACTIVITY.getKey())
+                .setDefConfig(defConfig);
+        FlowEngine.defService().save(def);
+        return def;
+    }
+
+    /**
      * 保存节点并为中间节点挂载记录型监听器，便于断言节点生命周期事件。
      */
     private static void node(Definition def, String code, Integer nodeType, String permissionFlag

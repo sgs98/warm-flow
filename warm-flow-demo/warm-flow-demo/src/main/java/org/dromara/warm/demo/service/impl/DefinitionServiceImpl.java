@@ -23,7 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -36,6 +38,11 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class DefinitionServiceImpl implements DefinitionService {
+
+    /**
+     * 流程定义配置（def_config）中开启自动审批的键名，与引擎 AutoPassAdvancer 保持一致。
+     */
+    private static final String AUTO_PASS_KEY = "autoPass";
 
     private final DemoFlowDefinitionMapper flowDefinitionMapper;
 
@@ -104,6 +111,22 @@ public class DefinitionServiceImpl implements DefinitionService {
             return FlowEngine.defService().copyDefReturnId(id);
         } catch (FlowException e) {
             throw BizException.badRequest(e.getMessage());
+        }
+    }
+
+    public void updateAutoPass(Long id, Boolean autoPass) {
+        if (ObjectUtil.isNull(autoPass)) {
+            throw BizException.badRequest("自动审批开关不能为空");
+        }
+        requireDefinition(id);
+        Definition update = FlowEngine.newDef().setId(id);
+        // def_config 显式声明 autoPass（true/false 都写），引擎只读定义配置，不回退读 ext
+        Map<String, Object> defConfig = new HashMap<>(4);
+        defConfig.put(AUTO_PASS_KEY, autoPass);
+        update.setDefConfig(FlowEngine.jsonConvert.objToStr(defConfig));
+        // 只带主键与 def_config 更新，避免整行回写覆盖并发修改；已发布版本同样可改，引擎办理时实时读取
+        if (!FlowEngine.defService().updateById(update)) {
+            throw BizException.badRequest("更新自动审批失败: " + id);
         }
     }
 
@@ -186,6 +209,7 @@ public class DefinitionServiceImpl implements DefinitionService {
         vo.setListenerType(d.getListenerType());
         vo.setListenerPath(d.getListenerPath());
         vo.setExt(d.getExt());
+        vo.setDefConfig(d.getDefConfig());
         vo.setCreateTime(d.getCreateTime());
         vo.setUpdateTime(d.getUpdateTime());
         return vo;

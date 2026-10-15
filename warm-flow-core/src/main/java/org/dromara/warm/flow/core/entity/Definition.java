@@ -207,6 +207,21 @@ public interface Definition extends RootEntity {
     Definition setExt(String ext);
 
     /**
+     * 获取引擎流程定义配置 JSON（自动审批等定义级引擎配置）。
+     *
+     * @return 流程定义配置
+     */
+    String getDefConfig();
+
+    /**
+     * 设置引擎流程定义配置 JSON。
+     *
+     * @param defConfig 流程定义配置
+     * @return 当前流程定义
+     */
+    Definition setDefConfig(String defConfig);
+
+    /**
      * 获取流程定义下的节点列表。
      *
      * @return 节点列表
@@ -303,6 +318,7 @@ public interface Definition extends RootEntity {
             .setListenerType(this.getListenerType())
             .setListenerPath(this.getListenerPath())
             .setExt(this.getExt())
+            .setDefConfig(this.getDefConfig())
             .setCreateBy(this.getCreateBy())
             .setUpdateBy(this.getUpdateBy());
 

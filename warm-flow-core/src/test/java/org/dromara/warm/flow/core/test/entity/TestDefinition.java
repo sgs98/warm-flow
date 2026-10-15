@@ -37,6 +37,7 @@ public class TestDefinition implements Definition {
     private String listenerType;
     private String listenerPath;
     private String ext;
+    private String defConfig;
     private List<Node> nodeList = new ArrayList<>();
     private List<User> userList = new ArrayList<>();
 }

@@ -202,6 +202,34 @@
         </div>
         </form-section>
 
+        <!-- 扩展属性（KV，存 nodeConfig 顶层键，serviceTask 为引擎保留键） -->
+        <form-section title="扩展属性" :summary="kvExtSummary" :default-open="false">
+          <div class="section-card section-blue">
+            <div class="section-card-body">
+              <el-table :data="kvRows" style="width: 100%" empty-text="暂无扩展属性">
+                <el-table-column prop="code" :width="isMobile ? 80 : 160" label="属性名">
+                  <template #default="scope">
+                    <el-input v-model="scope.row.code" :disabled="disabled" placeholder="请输入属性名" maxlength="50" @input="syncNodeConfig" />
+                  </template>
+                </el-table-column>
+                <el-table-column prop="value" label="属性值" min-width="120">
+                  <template #default="scope">
+                    <el-input v-model="scope.row.value" :disabled="disabled" placeholder="请输入属性值" maxlength="500" @input="syncNodeConfig" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="60" align="center" v-if="!disabled">
+                  <template #default="scope">
+                    <el-button link size="small" type="danger" :icon="Delete" @click="handleDeleteKvRow(scope.$index)" />
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div class="action-buttons">
+                <el-button v-if="!disabled" size="small" class="add-row-btn" @click="handleAddKvRow">增加行</el-button>
+              </div>
+            </div>
+          </div>
+        </form-section>
+
           </div>
         </div>
 
@@ -337,6 +365,8 @@ const props = defineProps({
 const tabsValue = ref("1");
 // 节点扩展属性折叠状态（默认收起）
 const baseExtCollapsed = ref(true);
+// 扩展属性行（KV，存 flow_node.node_config 顶层键）
+const kvRows = ref([]);
 // Tab 图标（单路径 SVG，viewBox 0 0 24 24，跟随 tab 文字色 currentColor）
 const TAB_ICONS = {
   base: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
@@ -396,6 +426,53 @@ const baseExtSummary = computed(() => {
   const first = filled[0];
   const text = `${first.label}：${ext[first.code]}`;
   return filled.length > 1 ? `${text}　等 ${filled.length} 项` : text;
+});
+
+/** 引擎保留的节点配置键：服务任务配置，不参与自定义 KV 行 */
+const NODE_CONFIG_RESERVED_KEYS = ['serviceTask'];
+
+/** 初始化 KV 行：从 form.nodeConfig 读取非保留键 */
+function initKvRows() {
+  const config = form.value.nodeConfig && typeof form.value.nodeConfig === 'object'
+    ? form.value.nodeConfig : {};
+  kvRows.value = Object.keys(config)
+    .filter(code => !NODE_CONFIG_RESERVED_KEYS.includes(code))
+    .map(code => ({ code, value: config[code] }));
+}
+
+/** KV 行变化时重建 nodeConfig：保留 serviceTask 引擎配置，剔除空属性名 */
+function syncNodeConfig() {
+  const config = {};
+  kvRows.value.forEach(row => {
+    const code = (row.code || '').trim();
+    if (code && !NODE_CONFIG_RESERVED_KEYS.includes(code)) {
+      config[code] = row.value;
+    }
+  });
+  if (form.value.nodeConfig && typeof form.value.nodeConfig === 'object'
+      && form.value.nodeConfig.serviceTask !== undefined) {
+    config.serviceTask = form.value.nodeConfig.serviceTask;
+  }
+  form.value.nodeConfig = config;
+}
+
+// 增加扩展属性行
+function handleAddKvRow() {
+  kvRows.value.push({ code: "", value: "" });
+}
+
+// 删除扩展属性行
+function handleDeleteKvRow(index) {
+  kvRows.value.splice(index, 1);
+  syncNodeConfig();
+}
+
+// 收起状态下的摘要（配合 form-section 折叠展示）
+const kvExtSummary = computed(() => {
+  const filled = kvRows.value.filter(row => (row.code || '').trim() !== '');
+  if (filled.length === 0) return '未填写';
+  const first = filled[0];
+  return filled.length > 1 ? `${first.code}：${first.value}　等 ${filled.length} 项` : `${first.code}：${first.value}`;
 });
 
 // 基础设置三个分组的收起摘要
@@ -742,6 +819,8 @@ getPermissionFlag();
 // 监听器已收进基础设置分组，没有页签切换可挂钩，改为初始化时取一次候选
 getNodeExt();
 getListenerList();
+// 扩展属性（KV）行初始化
+initKvRows();
 
 // 表单必填校验
 function validate() {

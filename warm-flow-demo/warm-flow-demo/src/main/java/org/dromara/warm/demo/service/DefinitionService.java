@@ -59,6 +59,17 @@ public interface DefinitionService {
     Long copy(Long id);
 
     /**
+     * 更新流程定义的自动审批开关（定义配置 {@code def_config} 中的 {@code autoPass} 键）。
+     *
+     * <p>自动审批是定义级的运行时开关，引擎在每次办理时重新读取定义，因此已发布版本也可修改，
+     * 改完对后续办理立即生效。只写 {@code autoPass} 一个键，业务扩展属性 {@code ext} 不受影响。</p>
+     *
+     * @param id       流程定义主键
+     * @param autoPass 是否开启同一办理人自动审批
+     */
+    void updateAutoPass(Long id, Boolean autoPass);
+
+    /**
      * 导出流程定义（含流程节点与流程跳转），由 Controller 输出为 json 文件下载。
      *
      * @param id 流程定义主键

@@ -141,6 +141,22 @@ function parseServiceTaskConfig(nodeConfig) {
   }
 }
 
+// 解析节点配置（nodeConfig 为 JSON 字符串，容错转对象）：顶层键为引擎配置（serviceTask）与自定义扩展属性（KV）
+function parseNodeConfig(nodeConfig) {
+  if (!nodeConfig) {
+    return {}
+  }
+  if (typeof nodeConfig === 'object') {
+    return nodeConfig
+  }
+  try {
+    const parsed = JSON.parse(nodeConfig)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch (e) {
+    return {}
+  }
+}
+
 // 组件类型
 const componentType = computed(() => {
   if (!props.node || !props.node.type) return
@@ -235,6 +251,7 @@ watch(() => props.node, n => {
         nodeName: n.text instanceof Object ? n.text.value : n.text,
         nodeRatioType: nodeRatioType,
         nodeRatioValue: nodeRatioValue,
+        nodeConfig: parseNodeConfig(n.properties.nodeConfig)
       }
     }
   }
@@ -335,8 +352,11 @@ watch(() => [form.value.serviceType, form.value.serviceHandler, form.value.servi
       serviceTask.resultVariable = form.value.resultVariable
     }
   }
+  // 保留节点上已有的自定义扩展属性（serviceTask 之外的键），避免保存服务配置时被整体覆盖
+  const existing = parseNodeConfig(props.node?.properties?.nodeConfig)
+  const { serviceTask: _ignored, ...extConfig } = existing
   props.lf.setProperties(objId.value, {
-    nodeConfig: JSON.stringify({ serviceTask })
+    nodeConfig: JSON.stringify({ ...extConfig, serviceTask })
   })
 })
 
@@ -363,6 +383,17 @@ watch(() => form.value.ext, (n) => {
   // 监听节点属性变化并更新
   props.lf.setProperties(objId.value, {
     ext: n
+  })
+}, { deep: true });
+
+// 自定义扩展属性（nodeConfig 顶层 KV）：编辑时序列化回画布节点，保存/导出由 tool.js 透传
+watch(() => form.value.nodeConfig, (n) => {
+  // 服务任务节点的 nodeConfig 由服务配置 watch 统一序列化，此处跳过避免互相覆盖
+  if (props.node?.type === 'service') {
+    return
+  }
+  props.lf.setProperties(objId.value, {
+    nodeConfig: Object.keys(n || {}).length ? JSON.stringify(n) : ''
   })
 }, { deep: true });
 

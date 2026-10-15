@@ -12,6 +12,7 @@ CREATE TABLE flow_definition (
     listener_type nvarchar(100) NULL,
     listener_path nvarchar(400) NULL,
     ext nvarchar(500) NULL,
+    def_config nvarchar(max) NULL,
     create_time datetime2(7)  NULL,
     create_by nvarchar(64) NULL,
     update_time datetime2(7)  NULL,
@@ -121,6 +122,13 @@ EXEC sp_addextendedproperty
 'SCHEMA', N'dbo',
 'TABLE', N'flow_definition',
 'COLUMN', N'ext'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'流程定义配置（自动审批等引擎配置与自定义扩展属性json）',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_definition',
+'COLUMN', N'def_config'
 GO
 
 EXEC sp_addextendedproperty
@@ -325,7 +333,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'节点配置（服务任务等节点的引擎配置json）',
+'MS_Description', N'节点配置（服务任务等引擎配置与自定义扩展属性json）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_node',
 'COLUMN', N'node_config'
@@ -945,7 +953,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'节点配置（服务任务等节点的引擎配置json）',
+'MS_Description', N'节点配置（服务任务等引擎配置与自定义扩展属性json）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_his_task',
 'COLUMN', N'node_config'

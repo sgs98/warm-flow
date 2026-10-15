@@ -111,6 +111,11 @@ public class DefJson {
     private String ext;
 
     /**
+     * 引擎流程定义配置 JSON（自动审批等定义级引擎配置），与 {@link #ext} 分离，业务系统不应写入
+     */
+    private String defConfig;
+
+    /**
      * 扩展map，保存业务自定义扩展属性
      */
     private Map<String, Object> extMap;
@@ -187,6 +192,7 @@ public class DefJson {
             .setListenerType(definition.getListenerType())
             .setListenerPath(definition.getListenerPath())
             .setExt(definition.getExt())
+            .setDefConfig(definition.getDefConfig())
             .setCreateBy(definition.getCreateBy())
             .setUpdateBy(definition.getUpdateBy());
 
@@ -251,6 +257,7 @@ public class DefJson {
             .setListenerType(defJson.getListenerType())
             .setListenerPath(defJson.getListenerPath())
             .setExt(defJson.getExt())
+            .setDefConfig(defJson.getDefConfig())
             .setCreateBy(defJson.getCreateBy())
             .setUpdateBy(defJson.getUpdateBy());
 

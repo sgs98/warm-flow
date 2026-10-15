@@ -13,6 +13,7 @@ CREATE TABLE flow_definition
     listener_type   varchar(100) NULL,
     listener_path   varchar(400) NULL,
     ext             varchar(500) NULL,
+    def_config      text         NULL,
     create_time     timestamp    NULL,
     create_by       varchar(64)  NULL     DEFAULT '':: character varying,
     update_time     timestamp    NULL,
@@ -36,6 +37,7 @@ COMMENT ON COLUMN flow_definition.activity_status IS '流程激活状态（0挂�
 COMMENT ON COLUMN flow_definition.listener_type IS '监听器类型';
 COMMENT ON COLUMN flow_definition.listener_path IS '监听器路径';
 COMMENT ON COLUMN flow_definition.ext IS '扩展字段，预留给业务系统使用';
+COMMENT ON COLUMN flow_definition.def_config IS '流程定义配置（自动审批等引擎配置与自定义扩展属性json）';
 COMMENT ON COLUMN flow_definition.create_time IS '创建时间';
 COMMENT ON COLUMN flow_definition.create_by IS '创建人';
 COMMENT ON COLUMN flow_definition.update_time IS '更新时间';
@@ -88,7 +90,7 @@ COMMENT ON COLUMN flow_node.create_by IS '创建人';
 COMMENT ON COLUMN flow_node.update_time IS '更新时间';
 COMMENT ON COLUMN flow_node.update_by IS '更新人';
 COMMENT ON COLUMN flow_node.ext IS '节点扩展属性';
-COMMENT ON COLUMN flow_node.node_config IS '节点配置（服务任务等节点的引擎配置json）';
+COMMENT ON COLUMN flow_node.node_config IS '节点配置（服务任务等引擎配置与自定义扩展属性json）';
 COMMENT ON COLUMN flow_node.del_flag IS '删除标志';
 COMMENT ON COLUMN flow_node.tenant_id IS '租户id';
 
@@ -259,7 +261,7 @@ COMMENT ON COLUMN flow_his_task.form_path IS '审批表单路径';
 COMMENT ON COLUMN flow_his_task.message IS '审批意见';
 COMMENT ON COLUMN flow_his_task.variable IS '任务变量';
 COMMENT ON COLUMN flow_his_task.ext IS '扩展字段，预留给业务系统使用';
-COMMENT ON COLUMN flow_his_task.node_config IS '节点配置（服务任务等节点的引擎配置json）';
+COMMENT ON COLUMN flow_his_task.node_config IS '节点配置（服务任务等引擎配置与自定义扩展属性json）';
 COMMENT ON COLUMN flow_his_task.create_time IS '任务开始时间';
 COMMENT ON COLUMN flow_his_task.update_time IS '审批完成时间';
 COMMENT ON COLUMN flow_his_task.del_flag IS '删除标志';

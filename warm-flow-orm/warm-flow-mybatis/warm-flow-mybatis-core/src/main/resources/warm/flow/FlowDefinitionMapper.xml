@@ -17,6 +17,7 @@
         <result property="listenerType" column="listener_type"/>
         <result property="listenerPath" column="listener_path"/>
         <result property="ext" column="ext"/>
+        <result property="defConfig" column="def_config"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
         <result property="delFlag" column="del_flag"/>
@@ -39,6 +40,7 @@
                t.listener_type,
                t.listener_path,
                t.ext,
+               t.def_config,
                t.create_time,
                t.update_time,
                t.create_by,
@@ -78,6 +80,7 @@
                 #{entity.listenerPath}
             </if>
             <if test="entity.ext != null  and entity.ext != ''">and t.ext = #{entity.ext}</if>
+            <if test="entity.defConfig != null  and entity.defConfig != ''">and t.def_config = #{entity.defConfig}</if>
             <if test="entity.createTime != null">and t.create_time = #{entity.createTime}</if>
             <if test="entity.updateTime != null">and t.update_time = #{entity.updateTime}</if>
             <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
@@ -102,6 +105,7 @@
         listener_type,
         listener_path,
         ext,
+        def_config,
         create_time,
         update_time,
         del_flag,
@@ -125,6 +129,7 @@
             #{item.listenerType},
             #{item.listenerPath},
             #{item.ext},
+            #{item.defConfig},
             #{item.createTime},
             #{item.updateTime},
             #{item.delFlag},
@@ -150,6 +155,7 @@
         listener_type,
         listener_path,
         ext,
+        def_config,
         create_time,
         update_time,
         del_flag,
@@ -172,6 +178,7 @@
             #{item.listenerType},
             #{item.listenerPath},
             #{item.ext},
+            #{item.defConfig},
             #{item.createTime},
             #{item.updateTime},
             #{item.delFlag},
@@ -256,6 +263,7 @@
             <if test="listenerType != null and listenerType != ''">listener_type,</if>
             <if test="listenerPath != null and listenerPath != ''">listener_path,</if>
             <if test="ext != null and ext != ''">ext,</if>
+            <if test="defConfig != null and defConfig != ''">def_config,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateTime != null">update_time,</if>
             <if test="delFlag != null and delFlag != ''">del_flag,</if>
@@ -277,6 +285,7 @@
             <if test="listenerType != null and listenerType != ''">#{listenerType},</if>
             <if test="listenerPath != null and listenerPath != ''">#{listenerPath},</if>
             <if test="ext != null and ext != ''">#{ext},</if>
+            <if test="defConfig != null and defConfig != ''">#{defConfig},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateTime != null">#{updateTime},</if>
             <if test="delFlag != null and delFlag != ''">#{delFlag},</if>
@@ -301,6 +310,7 @@
             <if test="listenerType != null">listener_type = #{listenerType},</if>
             <if test="listenerPath != null">listener_path = #{listenerPath},</if>
             <if test="ext != null and ext != ''">ext = #{ext},</if>
+            <if test="defConfig != null and defConfig != ''">def_config = #{defConfig},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
@@ -383,6 +393,7 @@
             <if test="listenerType != null and listenerType != ''">and listener_type = #{listenerType}</if>
             <if test="listenerPath != null and listenerPath != ''">and listener_path = #{listenerPath}</if>
             <if test="ext != null and ext != ''">and ext = #{ext}</if>
+            <if test="defConfig != null and defConfig != ''">and def_config = #{defConfig}</if>
             <if test="createTime != null">and create_time = #{createTime}</if>
             <if test="updateTime != null">and update_time = #{updateTime}</if>
             <if test="tenantId != null and tenantId != ''">and tenant_id = #{tenantId}</if>
@@ -410,6 +421,7 @@
                 #{entity.listenerPath}
             </if>
             <if test="entity.ext != null and entity.ext != ''">and ext = #{entity.ext}</if>
+            <if test="entity.defConfig != null and entity.defConfig != ''">and def_config = #{entity.defConfig}</if>
             <if test="entity.createTime != null">and create_time = #{entity.createTime}</if>
             <if test="entity.updateTime != null">and update_time = #{entity.updateTime}</if>
             <if test="entity.tenantId != null and entity.tenantId != ''">and tenant_id = #{entity.tenantId}</if>

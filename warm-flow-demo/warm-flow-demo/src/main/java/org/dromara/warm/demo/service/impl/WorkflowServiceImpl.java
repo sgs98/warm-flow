@@ -17,6 +17,7 @@ import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.FlowCons;
 import org.dromara.warm.flow.core.entity.*;
 import org.dromara.warm.flow.core.enums.CooperateType;
+import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.UserType;
@@ -975,7 +976,11 @@ public class WorkflowServiceImpl implements WorkflowService {
             return taskStatus;
         }
         BusinessStatusEnum businessStatus = BusinessStatusEnum.getByStatus(status);
-        return businessStatus == null ? status : businessStatus.getDesc();
+        if (businessStatus != null) {
+            return businessStatus.getDesc();
+        }
+        // 回退到引擎默认状态文案（如自动审批 / 服务任务写入的 3=自动完成）
+        return StringUtils.emptyDefault(FlowStatus.getValueByKey(status), status);
     }
 
     /**

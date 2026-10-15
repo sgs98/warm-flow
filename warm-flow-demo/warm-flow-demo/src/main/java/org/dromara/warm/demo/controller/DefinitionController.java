@@ -1,7 +1,9 @@
 package org.dromara.warm.demo.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.ApiResponse;
+import org.dromara.warm.demo.dto.AutoPassRequest;
 import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.service.DefinitionService;
 import org.dromara.warm.demo.vo.DefinitionExportVo;
@@ -91,6 +93,20 @@ public class DefinitionController {
     @PostMapping("/{id}/copy")
     public ApiResponse<Long> copy(@PathVariable("id") Long id) {
         return ApiResponse.ok(definitionService.copy(id));
+    }
+
+    /**
+     * 更新流程定义的自动审批开关（定义配置 def_config 中的 autoPass 键）。
+     *
+     * @param id              流程定义主键
+     * @param autoPassRequest 自动审批开关请求
+     * @return 空响应
+     */
+    @PutMapping("/{id}/auto-pass")
+    public ApiResponse<Void> updateAutoPass(@PathVariable("id") Long id,
+                                           @Valid @RequestBody AutoPassRequest autoPassRequest) {
+        definitionService.updateAutoPass(id, autoPassRequest.getAutoPass());
+        return ApiResponse.ok();
     }
 
     /**

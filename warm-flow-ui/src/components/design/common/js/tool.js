@@ -76,6 +76,10 @@ export const json2LogicFlowJson = (definition) => {
   graphData.formPath = definition.formPath
   graphData.listenerType = definition.listenerType
   graphData.listenerPath = definition.listenerPath
+  // 流程定义扩展属性（flow_definition.ext），业务自定义 JSON，设计器只透传不写入
+  graphData.ext = definition.ext
+  // 流程定义配置（flow_definition.def_config）：自动审批等引擎配置，设计器原样透传
+  graphData.defConfig = definition.defConfig
 
   if (!definition.nodeList) {
     return graphData;
@@ -276,6 +280,10 @@ export const logicFlowJsonToWarmFlow = (data) => {
   definition.formPath = data.formPath
   definition.listenerType = data.listenerType
   definition.listenerPath = data.listenerPath
+  // 流程定义扩展属性：设计器仅透传，ext 归业务系统
+  definition.ext = data.ext
+  // 流程定义配置：自动审批等引擎配置由设计器维护
+  definition.defConfig = data.defConfig
   // 流程节点
   data.nodes.forEach(anyNode => {
     let node = {}

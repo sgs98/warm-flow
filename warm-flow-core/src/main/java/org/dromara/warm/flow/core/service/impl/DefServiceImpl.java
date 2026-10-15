@@ -160,6 +160,10 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
             if (onlyNodeSkip) {
                 definition.setFlowCode(existing.getFlowCode()).setFlowName(existing.getFlowName());
             }
+            // ext 归业务系统：入参未携带时保留库中已有值，避免保存流程结构时清空业务扩展数据
+            if (ObjectUtil.isNull(definition.getExt())) {
+                definition.setExt(existing.getExt());
+            }
         }
         // 如果是新增的流程定义
         if (ObjectUtil.isNull(id)) {

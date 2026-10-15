@@ -77,6 +77,14 @@
       </div>
 
       <div class="form-section">
+        <div class="section-title">自动审批</div>
+        <el-form-item label="同一办理人自动审批" prop="autoPass" class="autoPassItem">
+          <el-switch v-model="form.autoPass" size="small" />
+          <span class="form-tip">下一节点办理人包含当前办理人时，由引擎以该办理人身份自动通过该待办</span>
+        </el-form-item>
+      </div>
+
+      <div class="form-section">
         <div class="section-title">监听器配置</div>
         <el-form-item prop="listenerRows" class="listenerItem">
           <el-table :data="form.listenerRows" style="width: 100%" empty-text="暂无监听器，点击下方「增加行」添加">
@@ -132,6 +140,9 @@ import { ref, onMounted, onUnmounted, watch } from "vue";
 import {listenerList} from "@/api/flow/definition.js";
 
 const { proxy } = getCurrentInstance();
+
+/** 引擎保留键：同一办理人自动审批，存放在流程定义配置 def_config，由开关独占 */
+const AUTO_PASS_KEY = 'autoPass';
 
 // 响应式屏幕检测
 const isMobile = ref(false);
@@ -193,13 +204,19 @@ const form = ref({
   formPath: "",
   listenerType: "",
   listenerPath: "",
-  listenerRows: []
+  listenerRows: [],
+  // 流程定义扩展属性（flow_definition.ext）：业务自定义 JSON，设计器只透传不写入
+  ext: "",
+  // 流程定义配置（flow_definition.def_config）：autoPass 等引擎保留键，由开关独占
+  defConfig: "",
+  autoPass: false
 });
 
 watch(() => props.logicJson, newValue => {
   if (newValue && Object.keys(newValue).length > 0) {
     Object.assign(form.value, newValue);
     setListenerData();
+    setDefConfig(newValue.defConfig);
     // 移动端新增时强制默认仿钉钉（覆盖logicJson中可能为空的值）
     if (isMobile.value && !props.definitionId) {
       form.value.modelValue = 'MIMIC';
@@ -229,7 +246,7 @@ const rules = {
   ],
   listenerPath: [
     { required: true, message: '监听器不能为空', trigger: ['change', 'blur'] }
-  ]
+  ],
 };
 
 // 表单引用（用于校验）
@@ -260,6 +277,40 @@ function handleDeleteRow(index) {
   form.value.listenerRows.splice(index, 1);
 }
 
+// 定义配置回显：autoPass 只归 def_config，不读业务扩展字段 ext
+function setDefConfig(defConfig) {
+  form.value.defConfig = defConfig || '';
+  form.value.autoPass = readAutoPass(defConfig) === true;
+}
+
+/** 解析 JSON 中的 autoPass：声明为 true/'true' 返回 true，声明为 false/'false' 返回 false，未声明或非法返回 null */
+function readAutoPass(json) {
+  if (!json) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(json);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
+    const autoPass = parsed[AUTO_PASS_KEY];
+    if (autoPass === true || autoPass === 'true') {
+      return true;
+    }
+    if (autoPass === false || autoPass === 'false') {
+      return false;
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** 组装流程定义配置 JSON：无论开关与否都显式写出 autoPass，定义配置声明后即优先生效 */
+function buildDefConfig() {
+  return JSON.stringify({ [AUTO_PASS_KEY]: form.value.autoPass === true });
+}
+
 // 表单必填校验
 function validate() {
   return new Promise((resolve, reject) => {
@@ -287,6 +338,7 @@ function modelValueChange() {
 function getFormData() {
   form.value.listenerType = form.value.listenerRows.map(row => row.listenerType).join(",")
   form.value.listenerPath = form.value.listenerRows.map(row => row.listenerPath).join("@@")
+  form.value.defConfig = buildDefConfig()
   return form.value;
 }
 
@@ -743,6 +795,15 @@ getListenerList()
   line-height: 1.5;
 }
 
+/* 自动审批：标签较长，单独放宽 label 宽度并禁止折行（宽度与 form 的 label-width 一致，避免留空隙） */
+:deep(.autoPassItem) {
+  .el-form-item__label {
+    width: 150px !important;
+    min-width: 150px !important;
+    white-space: nowrap;
+  }
+}
+
 /* ========== 8. 暗黑模式增强 ========== */
 :global(html.dark) {
   .app-container {
@@ -871,6 +932,13 @@ getListenerList()
     font-weight: 600;
     text-align: right;
     justify-content: flex-end;
+  }
+
+  /* 手机端：长标签回到窄栏，允许折行，避免与内容区重叠 */
+  :deep(.autoPassItem) .el-form-item__label {
+    width: 90px !important;
+    min-width: 90px !important;
+    white-space: normal;
   }
 
   /* 手机端错误提示间距 */

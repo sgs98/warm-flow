@@ -81,6 +81,11 @@ public class DefinitionSummaryVo {
     private String ext;
 
     /**
+     * 流程定义配置 JSON（自动审批等引擎配置）。
+     */
+    private String defConfig;
+
+    /**
      * 创建时间。
      */
     private Date createTime;

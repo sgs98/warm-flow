@@ -86,4 +86,10 @@ public class FlowCons {
      */
     public static final String SUFFIX = "suffix";
 
+    /**
+     * 流程定义配置（def_config）中开启同一办理人自动审批的键名。
+     * <p>该键属于引擎保留键，2.0.2 起统一存放在 def_config，引擎只读该字段，不回退读业务扩展字段 ext。</p>
+     */
+    public static final String DEF_CONFIG_AUTO_PASS = "autoPass";
+
 }

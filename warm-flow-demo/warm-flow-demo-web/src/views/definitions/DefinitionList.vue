@@ -31,13 +31,14 @@
         <template #default="{ row }">{{ row.activityStatus === 1 ? '激活' : '挂起' }}</template>
       </el-table-column>
       <el-table-column prop="updateTime" label="更新时间" width="170" />
-      <el-table-column label="操作" width="280" fixed="right">
+      <el-table-column label="操作" width="360" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="doPublish(row)" v-if="row.isPublish !== 1">发布</el-button>
           <el-button link type="primary" @click="doCopy(row)">复制</el-button>
           <el-button link type="primary" @click="doExport(row)">导出</el-button>
           <el-button link type="primary" @click="goEdit(row)" v-if="row.isPublish === 0">设计</el-button>
           <el-button link type="primary" @click="copyAndEdit(row)" v-else>复制并设计</el-button>
+          <el-button link type="primary" @click="openAutoPass(row)">编辑</el-button>
           <el-button link type="danger" @click="doDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -52,11 +53,27 @@
       :page-sizes="[10, 20, 50]"
       @change="load"
     />
+
+    <el-dialog v-model="autoPassVisible" :title="autoPassTitle" width="460px">
+      <el-form label-width="150px">
+        <el-form-item label="同一办理人自动审批">
+          <el-switch v-model="autoPassValue" />
+          <span class="form-tip">下一节点办理人包含当前办理人时，由引擎以该办理人身份自动通过该待办</span>
+        </el-form-item>
+      </el-form>
+      <div class="form-tip auto-pass-note">
+        存放在流程定义配置 <code>def_config.autoPass</code>
+      </div>
+      <template #footer>
+        <el-button @click="autoPassVisible = false">取消</el-button>
+        <el-button type="primary" :loading="savingAutoPass" @click="saveAutoPass">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -77,6 +94,8 @@ interface DefinitionRow {
   version: string
   isPublish: number
   activityStatus: number
+  ext?: string | null
+  defConfig?: string | null
   updateTime: string
 }
 
@@ -89,6 +108,15 @@ const loading = ref(false)
 const importing = ref(false)
 const importInput = ref<HTMLInputElement | null>(null)
 const router = useRouter()
+
+/** 自动审批弹窗：当前编辑的定义、开关值与标题 */
+const autoPassVisible = ref(false)
+const autoPassValue = ref(false)
+const autoPassRow = ref<DefinitionRow | null>(null)
+const savingAutoPass = ref(false)
+const autoPassTitle = computed(() =>
+  autoPassRow.value ? `编辑流程【${autoPassRow.value.flowName} · v${autoPassRow.value.version}】` : '编辑流程',
+)
 
 async function load() {
   loading.value = true
@@ -139,6 +167,46 @@ async function doCopy(row: DefinitionRow) {
   load()
 }
 
+/** 解析 JSON 里的 autoPass：声明为 true/'true' 返回 true，声明为 false/'false' 返回 false，未声明或非法返回 null */
+function readAutoPass(json?: string | null): boolean | null {
+  if (!json) return null
+  try {
+    const parsed = JSON.parse(json)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+    const autoPass = parsed.autoPass
+    if (autoPass === true || autoPass === 'true') return true
+    if (autoPass === false || autoPass === 'false') return false
+    return null
+  } catch {
+    return null
+  }
+}
+
+/** 开关初值：只读 def_config 的 autoPass，不读业务扩展字段 ext（与引擎口径一致） */
+function parseAutoPass(row: DefinitionRow): boolean {
+  return readAutoPass(row.defConfig) === true
+}
+
+function openAutoPass(row: DefinitionRow) {
+  autoPassRow.value = row
+  autoPassValue.value = parseAutoPass(row)
+  autoPassVisible.value = true
+}
+
+async function saveAutoPass() {
+  const row = autoPassRow.value
+  if (!row) return
+  savingAutoPass.value = true
+  try {
+    await httpPut(`/definitions/${row.id}/auto-pass`, { autoPass: autoPassValue.value })
+    ElMessage.success(autoPassValue.value ? '已开启自动审批' : '已关闭自动审批')
+    autoPassVisible.value = false
+    load()
+  } finally {
+    savingAutoPass.value = false
+  }
+}
+
 async function copyAndEdit(row: DefinitionRow) {
   const newId = await httpPost<string>(`/definitions/${row.id}/copy`)
   ElMessage.success(`已复制为新流程 ${newId}，正在打开新版本`)
@@ -183,3 +251,28 @@ async function doDelete(row: DefinitionRow) {
 
 onMounted(load)
 </script>
+
+<style scoped>
+/* 开关旁的轻提示 */
+.form-tip {
+  margin-left: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--wf-text-muted, #6b7688);
+}
+
+/* 弹窗底部说明块 */
+.auto-pass-note {
+  margin-left: 0;
+  padding: 8px 10px;
+  border-radius: var(--wf-radius-md, 10px);
+  background: var(--wf-bg, #eef1f6);
+}
+
+.auto-pass-note code {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(64, 158, 255, 0.12);
+  color: var(--wf-primary-strong, #2b7de9);
+}
+</style>

@@ -136,6 +136,11 @@ public class FlowDefinition implements Definition {
      */
     private String ext;
 
+    /**
+     * 引擎流程定义配置 JSON（自动审批等定义级引擎配置）
+     */
+    private String defConfig;
+
     @TableField(exist = false)
     private List<Node> nodeList = new ArrayList<>();
 

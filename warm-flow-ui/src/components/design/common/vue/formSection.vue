@@ -93,6 +93,11 @@ defineExpose({
 .form-section.is-collapsed {
   margin-bottom: 0;
 
-  .form-section-header { margin-bottom: 18px; }
+  .form-section-header { margin-bottom: 0; }
+}
+
+/* 折叠区块只保留标题行，避免底部出现与展开区块不一致的大块空白 */
+.form-section.is-collapsed:not(:last-child) {
+  margin-bottom: 18px;
 }
 </style>

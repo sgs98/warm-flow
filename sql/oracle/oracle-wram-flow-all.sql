@@ -13,6 +13,7 @@ create table FLOW_DEFINITION
     LISTENER_TYPE   VARCHAR2(100),
     LISTENER_PATH   VARCHAR2(500),
     EXT             VARCHAR2(500),
+    DEF_CONFIG     CLOB,
     CREATE_TIME     DATE,
     CREATE_BY       VARCHAR2(64) default '',
     UPDATE_TIME     DATE,
@@ -38,6 +39,7 @@ comment on column FLOW_DEFINITION.ACTIVITY_STATUS is '流程激活状态（0挂�
 comment on column FLOW_DEFINITION.LISTENER_TYPE is '监听器类型';
 comment on column FLOW_DEFINITION.LISTENER_PATH is '监听器路径';
 comment on column FLOW_DEFINITION.EXT is '扩展字段，预留给业务系统使用';
+comment on column FLOW_DEFINITION.DEF_CONFIG is '流程定义配置（自动审批等引擎配置与自定义扩展属性json）';
 comment on column FLOW_DEFINITION.CREATE_TIME is '创建时间';
 comment on column FLOW_DEFINITION.CREATE_BY is '创建人';
 comment on column FLOW_DEFINITION.UPDATE_TIME is '更新时间';
@@ -93,7 +95,7 @@ comment on column FLOW_NODE.CREATE_BY is '创建人';
 comment on column FLOW_NODE.UPDATE_TIME is '更新时间';
 comment on column FLOW_NODE.UPDATE_BY is '更新人';
 comment on column FLOW_NODE.EXT is '节点扩展属性';
-comment on column FLOW_NODE.NODE_CONFIG is '节点配置（服务任务等节点的引擎配置json）';
+comment on column FLOW_NODE.NODE_CONFIG is '节点配置（服务任务等引擎配置与自定义扩展属性json）';
 comment on column FLOW_NODE.DEL_FLAG is '删除标志';
 comment on column FLOW_NODE.TENANT_ID is '租户id';
 comment on column FLOW_NODE.PERMISSION_FLAG is '权限标识（权限类型:权限标识，可以多个，用@@隔开)';
@@ -270,7 +272,7 @@ comment on column FLOW_HIS_TASK.FORM_PATH is '审批表单路径';
 comment on column FLOW_HIS_TASK.MESSAGE is '审批意见';
 comment on column FLOW_HIS_TASK.VARIABLE is '任务变量';
 comment on column FLOW_HIS_TASK.EXT is '扩展字段，预留给业务系统使用';
-comment on column FLOW_HIS_TASK.NODE_CONFIG is '节点配置（服务任务等节点的引擎配置json）';
+comment on column FLOW_HIS_TASK.NODE_CONFIG is '节点配置（服务任务等引擎配置与自定义扩展属性json）';
 comment on column FLOW_HIS_TASK.CREATE_TIME is '任务开始时间';
 comment on column FLOW_HIS_TASK.UPDATE_TIME is '审批完成时间';
 comment on column FLOW_HIS_TASK.DEL_FLAG is '删除标志';

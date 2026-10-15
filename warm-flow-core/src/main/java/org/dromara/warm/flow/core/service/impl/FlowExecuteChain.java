@@ -66,6 +66,10 @@ final class FlowExecuteChain {
      */
     private final AutoNodeAdvancer advancer;
     /**
+     * 定义级自动审批推进器（{@code flow_definition.def_config} 中 {@code autoPass} 为真时生效）。
+     */
+    private final AutoPassAdvancer autoPassAdvancer = new AutoPassAdvancer();
+    /**
      * 流转类型。
      */
     private final String skipType;
@@ -231,7 +235,7 @@ final class FlowExecuteChain {
     }
 
     /**
-     * 归档当前任务、保存后续任务，处理退回的一票否决和流程完成后的未完成任务。
+     * 归档当前任务、保存后续任务，处理退回的一票否决和流程完成后的未完成任务，最后执行定义级自动审批。
      *
      * @param execution 执行作用域
      * @return 空表示执行完成后由流水线返回当前实例
@@ -242,7 +246,7 @@ final class FlowExecuteChain {
             , execution.intent, skipType, nextNodes);
 
         // 推进自动节点（服务任务）：临时待办已随本批落库，可复用汇聚判断
-        advancer.advance(execution, nextNodes, addTasks);
+        List<Task> autoCreatedTasks = advancer.advance(execution, nextNodes, addTasks);
 
         // 一票否决（谨慎使用），如果退回，退回指向节点后还存在其他正在执行的待办任务，转历史任务，状态都为失效,重走流程。
         if (CollUtil.isNotEmpty(nextNodes) && SkipType.isReject(skipType)) {
@@ -255,7 +259,34 @@ final class FlowExecuteChain {
         // 执行完成和创建监听器
         ListenerUtil.endCreateListener(execution.contextListener(execution.task, execution.nowNode, nextNodes
             , addTasks));
+
+        // 定义级自动审批：本次新建待办的办理人只有当前办理人本人时，代替其自动通过并沿链继续推进。
+        // 仅通过/跳转生效——退回产生的新待办不自动审批，否则会把刚退回的节点立即自动通过。
+        // 自动审批复用标准办理链，返回最后一步的实例，保证调用方拿到最新的流程位置
+        if (SkipType.isPass(skipType)) {
+            Instance latest = autoPassAdvancer.advance(execution, autoPassCandidates(autoCreatedTasks));
+            if (ObjectUtil.isNotNull(latest)) {
+                execution.instance = latest;
+            }
+        }
         return Optional.empty();
+    }
+
+    /**
+     * 汇总本次操作新建的待办，供自动审批判定：办理链新建的后续待办 + 自动节点推进新建的待办。
+     *
+     * @param autoCreatedTasks 自动节点推进过程中新建的待办
+     * @return 本次操作新建的待办集合
+     */
+    private List<Task> autoPassCandidates(List<Task> autoCreatedTasks) {
+        List<Task> candidates = new ArrayList<>();
+        if (CollUtil.isNotEmpty(addTasks)) {
+            candidates.addAll(addTasks);
+        }
+        if (CollUtil.isNotEmpty(autoCreatedTasks)) {
+            candidates.addAll(autoCreatedTasks);
+        }
+        return candidates;
     }
 
     /**

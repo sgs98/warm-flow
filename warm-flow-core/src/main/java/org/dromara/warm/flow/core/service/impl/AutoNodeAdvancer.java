@@ -18,6 +18,7 @@ import org.dromara.warm.flow.core.utils.StreamUtils;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -56,11 +57,13 @@ final class AutoNodeAdvancer {
      * @param execution 执行作用域
      * @param nextNodes 当前批次目标节点
      * @param newTasks  当前批次新建任务（自动节点为已落库的临时待办）
+     * @return 推进过程中新建的后继任务（含人工正式待办与服务临时待办，结束节点任务已移除）
      */
-    void advance(FlowExecution execution, List<Node> nextNodes, List<Task> newTasks) {
+    List<Task> advance(FlowExecution execution, List<Node> nextNodes, List<Task> newTasks) {
         Deque<Task> queue = autoTasksOf(newTasks);
+        List<Task> createdTasks = new ArrayList<>();
         if (queue.isEmpty()) {
-            return;
+            return createdTasks;
         }
         // 写回可变变量表，保证处理器写入对网关、办理人表达式与历史快照可见
         Map<String, Object> variables = execution.intent.getVariables();
@@ -122,7 +125,10 @@ final class AutoNodeAdvancer {
                     queue.add(afterTask);
                 }
             }
+            // 后继任务回传给办理链，供自动审批判定本次推进新建的人工待办
+            createdTasks.addAll(afterTasks);
         }
+        return createdTasks;
     }
 
     /**
