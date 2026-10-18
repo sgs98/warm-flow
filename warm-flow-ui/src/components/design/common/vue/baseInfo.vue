@@ -4,7 +4,8 @@
       <!-- 分区结构与节点属性面板（propertySetting/between）保持一致：可折叠 form-section + 收起摘要 -->
       <form-section ref="secBase" title="基础信息" :summary="baseInfoSummary">
         <el-form-item label="流程编码" prop="flowCode">
-          <el-input ref="flowCodeInputRef" v-model="form.flowCode" placeholder="请输入流程编码" maxlength="40" />
+          <el-input ref="flowCodeInputRef" v-model="form.flowCode" placeholder="请输入流程编码" maxlength="40" :disabled="codeLocked" />
+          <span class="form-tip form-tip--block" v-if="codeLocked">流程编码是流程的唯一标识，保存后不可修改</span>
         </el-form-item>
 
         <el-form-item label="流程名称" prop="flowName">
@@ -159,6 +160,12 @@ watch(() => props.logicJson, newValue => {
 
 /** 流程编码输入框引用：新建流程时自动聚焦 */
 const flowCodeInputRef = ref();
+
+/**
+ * 流程编码是否锁定：流程已有定义 id（已落库）即唯一标识已成事实，不允许再改，
+ * 否则会破坏引擎按 flowCode 关联的实例 / 历史数据。新增流程（无 id）可自由填写。
+ */
+const codeLocked = computed(() => !!(props.definitionId || form.value.id));
 
 /** 表单快照（脏检测基准）：载入完成 / 保存后刷新 */
 const initialFormSnapshot = ref('');

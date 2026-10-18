@@ -56,6 +56,20 @@
             <el-tooltip content="下载流程图" placement="bottom"><el-button size="small" icon="Picture" @click="downLoad"></el-button></el-tooltip>
             <el-tooltip content="下载JSON" placement="bottom"><el-button size="small" icon="Download" @click="downJson"></el-button></el-tooltip>
           </span>
+          <!-- 画布辅助：框选多选 / 小地图导航 / 一键整理（经典模式） -->
+          <span class="toolbar-group">
+            <el-tooltip :content="selectionMode ? '退出框选' : '框选：拖拽拉框多选'" placement="bottom">
+              <el-button size="small" icon="Crop" :class="{ 'is-active': selectionMode }" :disabled="disabled"
+                         @click="toggleSelectionMode"></el-button>
+            </el-tooltip>
+            <el-tooltip :content="minimapVisible ? '关闭小地图' : '小地图：整体导航'" placement="bottom">
+              <el-button size="small" icon="MapLocation" :class="{ 'is-active': minimapVisible }"
+                         @click="toggleMiniMap"></el-button>
+            </el-tooltip>
+            <el-tooltip v-if="isClassicsModel && !disabled" content="一键整理：按分层重新排版" placement="bottom">
+              <el-button size="small" icon="MagicStick" @click="autoLayoutCanvas"></el-button>
+            </el-tooltip>
+          </span>
           <!-- 设计器模型切换已统一收进「流程配置」面板的单选（已有流程切换前会确认），工具栏不再保留入口 -->
           <!-- 流程配置：点画布空白同样会切到它；嵌入模式的定义元数据由宿主管理，不提供入口 -->
           <span class="toolbar-group" v-if="!onlyDesignShow && !disabled">
@@ -86,6 +100,13 @@
                   <li><span>节点 / 边属性</span><kbd>单击节点或连线</kbd></li>
                   <li><span>重命名、复制、删除、设为退回线…</span><kbd>右键节点或连线</kbd></li>
                   <li><span>流程配置（编码 / 名称 / 模型）</span><kbd>单击画布空白</kbd></li>
+                  <li><span>平移画布 / 缩放</span><kbd>空白拖拽 · 滚轮 · ⌘ / Ctrl + 滚轮</kbd></li>
+                </ul>
+                <div class="design-help-title">画布辅助</div>
+                <ul class="design-help-list">
+                  <li><span>框选多个节点</span><kbd>工具栏框选按钮 → 空白拖拽拉框</kbd></li>
+                  <li><span>整体导航、拖动取景框</span><kbd>工具栏小地图按钮</kbd></li>
+                  <li><span>一键整理（按分层自动排版）</span><kbd>工具栏整理按钮，⌘ / Ctrl + Z 可撤销</kbd></li>
                 </ul>
               </div>
             </el-popover>
@@ -209,7 +230,7 @@
 <script setup name="Design">
 import LogicFlow from "@logicflow/core";
 import "@logicflow/core/lib/style/index.css";
-import {InsertNodeInPolyline, Menu, Snapshot} from '@logicflow/extension';
+import {InsertNodeInPolyline, Menu, MiniMap, SelectionSelect, Snapshot} from '@logicflow/extension';
 import '@logicflow/extension/lib/style/index.css'
 import { ElLoading } from 'element-plus'
 import PropertySetting from '@/components/design/common/vue/propertySetting.vue'
@@ -229,6 +250,7 @@ import {
   resetEdgeTextPositions,
   resetHistory
 } from "@/components/design/common/js/relayout";
+import { applyLayeredLayout, computeLayeredLayout, computeEdgeRoutes } from "@/components/design/common/js/autoLayout";
 import { updateEdges } from "@/components/design/mimic/js/mimic";
 import { ElMessageBox } from 'element-plus';
 import StartC from "@/components/design/classics/js/start";
@@ -310,6 +332,112 @@ function fitViewAll() {
 }
 
 const onlyDesignShow = ref(false);
+
+/* ========== 画布辅助：框选 / 小地图 / 一键整理 ========== */
+
+/** 框选模式：开启后画布空白处拖拽 = 拉框多选（期间画布平移让位给拉框） */
+const selectionMode = ref(false);
+/** 小地图开关：引擎插件懒创建，打开才渲染第二个 LogicFlow 实例 */
+const minimapVisible = ref(false);
+
+/**
+ * 切换框选模式。
+ *
+ * 引擎的框选插件在开启期间会把 stopMoveGraph 置为 true、关闭时自动还原，所以它是一个
+ * 显式模式而不是常驻交互：常驻的话画布空白拖拽就没法平移了（平移仍可用滚轮 / 触控板）。
+ */
+function toggleSelectionMode() {
+  const selection = lf.value?.extension?.selectionSelect;
+  if (!selection) return;
+  if (selectionMode.value) {
+    selection.closeSelectionSelect();
+    selectionMode.value = false;
+    return;
+  }
+  // 灵敏度：元素完全落在框内才算选中（引擎默认值，与 bpmn.js 的拉框一致）
+  selection.setSelectionSense(true, true);
+  selection.openSelectionSelect();
+  selectionMode.value = true;
+}
+
+/** 切换小地图：位置与尺寸由 pluginsOptions.miniMap 决定，贴画布右下角 */
+function toggleMiniMap() {
+  const miniMap = lf.value?.extension?.miniMap;
+  if (!miniMap) return;
+  if (minimapVisible.value) {
+    miniMap.hide();
+    minimapVisible.value = false;
+    return;
+  }
+  miniMap.show();
+  minimapVisible.value = true;
+}
+
+/**
+ * 按经典模式的分层布局重排画布（左 → 右），不弹提示、不做权限判断。
+ *
+ * 只改节点坐标，不动节点属性与连线定义。整批移动落在历史记录 100ms 的合并窗口内，
+ * 因此这是一步可撤销的操作（⌘ / Ctrl + Z 退回整理前）。
+ *
+ * @returns {boolean} 是否真的移动了节点
+ */
+function applyAutoLayout() {
+  if (!lf.value) return false;
+  const { nodes: nodeModels, edges: edgeModels } = lf.value.graphModel;
+  // 只取布局需要的字段，避免在 LogicFlow 的 mobx 模型上挂临时属性
+  const nodes = nodeModels.map(node => ({
+    id: node.id,
+    type: node.type,
+    x: node.x,
+    y: node.y,
+    width: node.width,
+    height: node.height
+  }));
+  const edges = edgeModels.map(edge => ({
+    id: edge.id,
+    sourceNodeId: edge.sourceNodeId,
+    targetNodeId: edge.targetNodeId
+  }));
+  const positions = computeLayeredLayout(nodes, edges);
+  if (!applyLayeredLayout(lf.value, positions)) return false;
+
+  // 为每条前进边指定清爽的正交折线，并把条件标签挪到起点右侧（避免默认路由绕远、标签飘到中段）
+  const sizeById = new Map(nodes.map(node => [node.id, {
+    width: Number.isFinite(node.width) && node.width > 0 ? node.width : 100,
+    height: Number.isFinite(node.height) && node.height > 0 ? node.height : 80,
+  }]));
+  const routeMap = computeEdgeRoutes(positions, sizeById, edges);
+  const graphData = lf.value.getGraphData();
+  graphData.edges.forEach(edge => {
+    const route = routeMap.get(edge.id);
+    if (route) {
+      edge.pointsList = route.points;
+      if (edge.text) {
+        edge.text.x = route.label.x;
+        edge.text.y = route.label.y;
+      }
+    } else {
+      // 非前进边：清掉旧折点，交给 LogicFlow 按新坐标重新路由
+      delete edge.pointsList;
+    }
+  });
+  lf.value.render(graphData);
+
+  // 整屏重排后自动适配视图，让整理结果完整可见
+  fitViewAll();
+  return true;
+}
+
+/**
+ * 一键整理：把自由摆放的经典模式流程重排为左 → 右分层的树状布局。
+ *
+ * 经典模式的节点方向由模型决定，与画布上现有的坐标无关——「仿钉钉 → 经典」切换后
+ * 节点还是竖排坐标，若跟着旧坐标走就会整理成竖排，与经典模式不符。
+ */
+function autoLayoutCanvas() {
+  if (!lf.value || disabled.value || !isClassics(logicJson.value.modelValue)) return;
+  if (!applyAutoLayout()) proxy.$modal.msgWarning('画布上没有可整理的节点');
+}
 
 const headerStyle = computed(() => {
   return {
@@ -697,6 +825,18 @@ function initLogicFlow() {
           backgroundColor: themeColors.value.bgPage,
         },
       },
+      // 小地图：贴画布右下角（相对画布容器定位，侧栏开合后自动跟随画布宽度），显示连线便于看整体走向
+      pluginsOptions: {
+        miniMap: {
+          width: 200,
+          height: 150,
+          showEdge: true,
+          isShowHeader: false,
+          isShowCloseIcon: false,
+          rightPosition: 16,
+          bottomPosition: 16,
+        },
+      },
       keyboard: isClassics(logicJson.value.modelValue) && !disabled.value ? {
         enabled: true,
         shortcuts: [
@@ -762,6 +902,12 @@ function initLogicFlow() {
       // 渲染后刷新画布节点计数（空态引导依赖）
       updateCanvasNodeCount();
     }
+    // 重新初始化画布（切换设计器模型 / 重载）后复位画布辅助状态：插件实例是新建的，
+    // 框选模式必须复位（否则空白拖拽会一直让给拉框），小地图按开关恢复
+    selectionMode.value = false;
+    if (minimapVisible.value && lf.value?.extension?.miniMap) {
+      lf.value.extension.miniMap.show();
+    }
     // 初始化完成后，如果当前是暗黑模式，显式应用一次主题（解决 URL 参数初始化时序问题）
     if (isDark.value && lf.value) {
       applyDarkTheme(lf.value, true);
@@ -812,6 +958,10 @@ watch(isDark, (v) => {
 
 /** 组件卸载时清理 message 监听 */
 onUnmounted(() => {
+  // 画布辅助插件的资源要显式释放：框选在 document 上挂了 pointermove/pointerup，
+  // 小地图持有第二个 LogicFlow 实例
+  lf.value?.extension?.selectionSelect?.closeSelectionSelect();
+  lf.value?.extension?.miniMap?.hide();
   cleanupMessageListener();
   clearTimeout(_panelResizeTimer);
   window.removeEventListener('resize', handleMobileResize);
@@ -932,6 +1082,13 @@ function handleModelValueUpdate() {
         updateEdges(lf.value);
         // 连线已按新模型重建，标签坐标按新几何全部重算
         resetEdgeTextPositions(lf.value, true);
+        // 切回经典：节点还带着仿钉钉的竖排坐标，按经典左 → 右重排一次（等价于点一次「一键整理」），
+        // 否则会出现「经典模式却是上下结构」，之后的一键整理也会顺着竖排走。
+        // 必须放在 updateEdges / resetEdgeTextPositions 之后：它们会重建全部连线折点并把标签
+        // 重置回连线中段，若先整理会被覆盖，导致「节点已横排、连线标签却还是乱的」。
+        if (isClassics(logicJson.value.modelValue)) {
+          applyAutoLayout();
+        }
         // 转换是整体重建，把转换后的状态设为新的撤销基准
         resetHistory(lf.value);
         // 整体重建后刷新节点计数（空态引导依赖）
@@ -1318,6 +1475,9 @@ function use() {
   }
   LogicFlow.use(Menu);
   LogicFlow.use(Snapshot);
+  // 画布辅助扩展：只注册不激活——框选要显式 openSelectionSelect()，小地图要显式 show()
+  LogicFlow.use(SelectionSelect);
+  LogicFlow.use(MiniMap);
 }
 function initEvent() {
   const { eventCenter } = lf.value.graphModel
@@ -2223,6 +2383,68 @@ html.dark .logo-text {
 
 .toolbar-save-btn:hover {
   background: var(--wf-primary-dark, #2b7de9) !important;
+}
+
+/* ========== 工具栏开关态（框选 / 小地图）：常驻蓝，表达"当前已打开" ========== */
+.toolbar-group .el-button.is-active {
+  color: var(--wf-primary, #409eff);
+  background: var(--wf-primary-light, #ecf5ff);
+}
+
+html.dark .toolbar-group .el-button.is-active {
+  background: rgba(64, 158, 255, 0.18);
+}
+
+/* ========== 画布辅助：框选选区 ========== */
+/* 引擎默认是橙色虚线（#ffab03），换成主色柔光矩形，与节点选中框同一套视觉 */
+.container .lf-selection-select {
+  border: 1.5px solid var(--wf-primary, #409eff);
+  background: rgba(64, 158, 255, 0.08);
+  border-radius: var(--wf-radius-sm, 4px);
+}
+
+html.dark .container .lf-selection-select {
+  background: rgba(64, 158, 255, 0.16);
+}
+
+/* ========== 画布辅助：小地图 ========== */
+.container .lf-mini-map {
+  padding: 6px;
+  background: var(--wf-bg-white, #fff);
+  border: 1px solid var(--wf-border-lighter, #ebeef5);
+  border-radius: var(--wf-radius, 8px);
+  box-shadow: 0 4px 16px rgba(29, 33, 41, 0.08);
+  /* 画布内浮层：高于节点 / 连线与空态引导，低于常驻侧栏（12） */
+  z-index: 8;
+}
+
+.container .lf-mini-map-graph {
+  background: var(--wf-bg-page, #eef1f6);
+  border-radius: var(--wf-radius-sm, 4px);
+}
+
+/* 缩略图内层是插件另起的 LogicFlow 实例，不跟随我们的主题，底色要单独盖住 */
+.container .lf-mini-map .lf-graph {
+  background: var(--wf-bg-page, #eef1f6);
+}
+
+/* 取景框：主色柔光，和设计器选中框同一套语义 */
+.container .lf-minimap-viewport {
+  background-color: rgba(64, 158, 255, 0.14);
+  border: 1px solid rgba(64, 158, 255, 0.45);
+  border-radius: var(--wf-radius-sm, 4px);
+}
+
+html.dark .container .lf-mini-map {
+  background: var(--wf-bg-color, #141414);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* 暗黑下 bgColor / bgPage 是同一个值，缩略图会和容器糊成一片，用浮层底色 token 抬一档 */
+html.dark .container .lf-mini-map-graph,
+html.dark .container .lf-mini-map .lf-graph {
+  background: var(--wf-tooltip-bg, #1f1f1f);
 }
 
 /* ========== 响应式适配：平板端 (<= 1024px) ========== */
