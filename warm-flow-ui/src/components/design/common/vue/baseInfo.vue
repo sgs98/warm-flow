@@ -65,9 +65,6 @@
           <span class="form-tip form-tip--block">下一节点办理人包含当前办理人时，由引擎以该办理人身份自动通过该待办</span>
         </el-form-item>
       </form-section>
-
-      <!-- 定义级监听器不在抽屉中配置：统一由全局监听器（GlobalListener）处理；
-           引擎能力保留，已配置的 listenerType/listenerPath 原样透传不丢失 -->
     </el-form>
   </div>
 </template>
@@ -142,9 +139,6 @@ const form = ref({
   category: "",
   formCustom: "N",
   formPath: "",
-  // 定义级监听器（引擎能力保留）：抽屉不提供编辑入口，加载时透传、保存时原样带回
-  listenerType: "",
-  listenerPath: "",
   // 流程定义扩展属性（flow_definition.ext）：业务自定义 JSON，设计器只透传不写入
   ext: "",
   // 流程定义配置（flow_definition.def_config）：autoPass 等引擎保留键，由开关独占
@@ -315,7 +309,6 @@ async function handleModelRadioChange() {
 }
 
 function getFormData() {
-  // listenerType/listenerPath 抽屉不编辑，保持加载时透传的原值原样带回
   form.value.defConfig = buildDefConfig()
   return form.value;
 }
