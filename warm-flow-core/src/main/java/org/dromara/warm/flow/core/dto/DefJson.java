@@ -214,6 +214,10 @@ public class DefJson {
                 .setFormPath(node.getFormPath())
                 .setExt(node.getExt())
                 .setNodeConfig(node.getNodeConfig())
+                .setEventType(node.getEventType())
+                .setEventName(node.getEventName())
+                .setAttachedToNodeCode(node.getAttachedToNodeCode())
+                .setInterrupting(node.getInterrupting())
                 .setCreateBy(node.getCreateBy())
                 .setUpdateBy(node.getUpdateBy());
             nodeList.add(nodeJson);
@@ -279,6 +283,10 @@ public class DefJson {
                 .setFormPath(nodeJson.getFormPath())
                 .setExt(nodeJson.getExt())
                 .setNodeConfig(nodeJson.getNodeConfig())
+                .setEventType(nodeJson.getEventType())
+                .setEventName(nodeJson.getEventName())
+                .setAttachedToNodeCode(nodeJson.getAttachedToNodeCode())
+                .setInterrupting(nodeJson.getInterrupting())
                 .setCreateBy(nodeJson.getCreateBy())
                 .setUpdateBy(nodeJson.getUpdateBy());
             nodeList.add(node);

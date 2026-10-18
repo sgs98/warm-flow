@@ -56,6 +56,15 @@ public class PathWayData {
     private String skipType;
 
     /**
+     * 流程图元数据合并基底：调用方内存中的最新实例快照。
+     * <p>
+     * 事件分派发生在实例持久化之前时，库中 defJson 尚未包含本次已写入的节点状态，
+     * 直接按实例 ID 回库会拿到旧快照，把已办理节点覆盖回「未完成」；
+     * 传入该字段可保证在最新状态上增量合并，为空时退化为按实例 ID 加载。
+     */
+    private String defJson;
+
+    /**
      * 路径解析后实际到达的目标节点集合。
      */
     private List<Node> targetNodes = new ArrayList<>();

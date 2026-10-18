@@ -23,6 +23,7 @@ import org.dromara.warm.flow.core.enums.FrameworkType;
 import org.dromara.warm.flow.core.json.JsonConvert;
 import org.dromara.warm.flow.core.service.impl.ServiceTaskExecutor;
 import org.dromara.warm.flow.core.utils.ServiceLoaderUtil;
+import org.dromara.warm.flow.core.timer.TimerEngine;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -90,6 +91,11 @@ public class WarmFlow implements Serializable {
     private String globalListenerPath;
 
     /**
+     * 状态映射器类路径：实例 / 任务 / 协作三维语义 → 宿主编码，未配置时使用内置编码
+     */
+    private String statusMapperPath;
+
+    /**
      * 数据源类型, mybatis模块对orm进一步的封装, 由于各数据库分页语句存在差异,
      * 当配置此参数时, 以此参数结果为基准, 未配置时, 取DataSource中数据源类型,
      * 兜底为mysql数据库
@@ -126,6 +132,53 @@ public class WarmFlow implements Serializable {
      */
     private boolean topTextShow = true;
 
+    /**
+     * 内置定时器开关：事件能力总开关，默认关闭。
+     * 只有显式开启并执行 flow_event_wait 建表脚本后才启动扫描线程，
+     * 避免只升级 jar 未建表的宿主周期报错（表缺失时 fail-soft 自动停用）。
+     */
+    private boolean timerEnabled = false;
+
+    /**
+     * 定时 / 消息触发时的系统操作人（实例 / 历史的 createBy 兜底身份）
+     */
+    private String systemHandler = "system";
+
+    /**
+     * 定时器执行线程池大小（不超过 2 个线程）
+     */
+    private Integer timerPoolSize = 2;
+
+    /**
+     * 定时器扫描间隔（毫秒），默认 5 秒
+     */
+    private Long timerScanInterval = 5000L;
+
+    /**
+     * 单轮扫描目标条数
+     */
+    private Integer timerBatchSize = 100;
+
+    /**
+     * 单轮每个状态最多扫描页数，防止大量长期挂起记录占满扫描批次
+     */
+    private Integer timerMaxScanPages = 10;
+
+    /**
+     * 抢占租约时长（秒）
+     */
+    private Long timerLeaseSeconds = 60L;
+
+    /**
+     * 默认最大重试次数，超过后等待记录转为 DEAD
+     */
+    private Integer timerMaxRetryCount = 3;
+
+    /**
+     * 执行器租约续期间隔（毫秒）
+     */
+    private Long timerLeaseRenewInterval = 20000L;
+
     public void init() {
         // 设置租户模式
         FlowEngine.initTenantHandler(this.getTenantHandlerPath());
@@ -139,6 +192,9 @@ public class WarmFlow implements Serializable {
         // 设置全局监听器
         FlowEngine.initGlobalListener(this.getGlobalListenerPath());
 
+        // 设置状态映射器
+        FlowEngine.initStatusMapper(this.getStatusMapperPath());
+
         // 打印banner图
         printBanner();
 
@@ -151,6 +207,21 @@ public class WarmFlow implements Serializable {
         // 通过SPI机制
         spiLoad();
 
+        // 内置定时器：显式开启后才启动扫描线程（默认关闭）
+        // 显式传入 this：此时 FlowEngine 尚未注册本配置（starter 在 init() 之后才 setFlowConfig）
+        if (isTimerEnabled()) {
+            TimerEngine.getInstance().start(this);
+        }
+
+    }
+
+    /**
+     * 关闭引擎持有的后台资源（内置定时器等），幂等。
+     * <p>
+     * 应用重载或优雅停机时调用，避免守护线程池泄漏。
+     */
+    public void shutdown() {
+        TimerEngine.getInstance().shutdown();
     }
 
     public void spiLoad() {

@@ -38,5 +38,9 @@ public class TestNode implements Node {
     private String formPath;
     private String ext;
     private String nodeConfig;
+    private String eventType;
+    private String eventName;
+    private String attachedToNodeCode;
+    private Boolean interrupting;
     private List<Skip> skipList = new ArrayList<>();
 }

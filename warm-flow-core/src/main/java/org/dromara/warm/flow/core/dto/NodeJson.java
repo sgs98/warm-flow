@@ -104,6 +104,26 @@ public class NodeJson {
     private String nodeConfig;
 
     /**
+     * 事件类型（如 TIMER_START、MESSAGE_CATCH）；无事件的节点为空。
+     */
+    private String eventType;
+
+    /**
+     * 事件名称（消息事件使用）。
+     */
+    private String eventName;
+
+    /**
+     * 边界事件附着的任务节点编码。
+     */
+    private String attachedToNodeCode;
+
+    /**
+     * 边界事件是否中断型；第一阶段边界事件固定为 true。
+     */
+    private Boolean interrupting;
+
+    /**
      * 办理状态: 0未办理 1待办理 2已办理
      */
     private Integer status;

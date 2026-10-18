@@ -416,4 +416,149 @@ public class ExceptionCons {
      */
     public static final String NULL_SERVICE_TASK_EXECUTOR = "未找到服务任务自动节点执行器";
 
+    /**
+     * 事件 JSON 配置的 timerType 不是 AFTER / FIXED / POINT_IN_TIME。
+     */
+    public static final String ILLEGAL_EVENT_TIMER_TYPE = "事件定时配置 timerType 只能是 AFTER / FIXED / POINT_IN_TIME";
+
+    /**
+     * 事件定时配置缺少 timerValue。
+     */
+    public static final String NULL_EVENT_TIMER_VALUE = "事件定时配置缺少 timerValue";
+
+    /**
+     * 事件定时配置的 timerValue 不是合法的 ISO-8601 时长（AFTER / FIXED）。
+     */
+    public static final String ILLEGAL_EVENT_TIMER_DURATION = "定时时间值格式非法，应为 ISO-8601 时长（如 PT30M、P3D）";
+
+    /**
+     * 事件定时配置的 timerValue 不是合法的每日时间点集合（POINT_IN_TIME，如 ["09:00","18:00"]）。
+     */
+    public static final String ILLEGAL_EVENT_TIME_POINT = "指定时间点格式非法，应为每日时间点集合（如 [\"09:00\",\"18:00\"]）";
+
+    /**
+     * 事件定时配置的 maxCount 不是正整数。
+     */
+    public static final String ILLEGAL_EVENT_MAX_COUNT = "事件定时配置 maxCount 只能是正整数";
+
+    /**
+     * 未知或非法的事件类型，无法映射到 {@code EventType}。
+     */
+    public static final String ILLEGAL_EVENT_TYPE = "未知的事件类型";
+
+    /**
+     * 事件节点必须使用中间节点（BETWEEN）承载，固定开始 / 结束、网关与服务任务节点不允许事件属性。
+     */
+    public static final String EVENT_NODE_TYPE_INVALID = "事件节点必须使用中间节点类型";
+
+    /**
+     * 固定开始 / 结束节点不允许配置事件属性。
+     */
+    public static final String FIXED_NODE_NO_EVENT = "固定开始 / 结束节点不允许配置事件属性";
+
+    /**
+     * 固定开始节点不能有入线，固定结束节点不能有出线。
+     */
+    public static final String FIXED_NODE_LINE_ERROR = "固定开始节点不能有入线，固定结束节点不能有出线";
+
+    /**
+     * 启动事件必须紧邻固定开始节点：只有来自开始节点的一条入线和一条普通出口。
+     */
+    public static final String START_EVENT_TOPOLOGY = "启动事件必须紧邻固定开始节点，且只有一条来自开始节点的入线和一条普通出口";
+
+    /**
+     * 结束事件必须有入线，且唯一出口直接指向固定结束节点。
+     */
+    public static final String END_EVENT_TOPOLOGY = "结束事件必须有入线，且唯一出口直接指向固定结束节点";
+
+    /**
+     * 捕获事件必须有出线。
+     */
+    public static final String CATCH_EVENT_NO_OUTGOING = "捕获事件必须有出线";
+
+    /**
+     * 抛出事件必须有入线。
+     */
+    public static final String THROW_EVENT_NO_INCOMING = "抛出事件必须有入线";
+
+    /**
+     * 边界事件必须配置附着节点编码。
+     */
+    public static final String BOUNDARY_EVENT_NO_ATTACHED = "边界事件必须配置附着节点编码";
+
+    /**
+     * 边界事件附着的任务节点在当前定义中不存在。
+     */
+    public static final String BOUNDARY_EVENT_ATTACHED_NOT_EXIST = "边界事件附着的任务节点不存在";
+
+    /**
+     * 边界事件只能附着到未配置事件的中间任务节点。
+     */
+    public static final String BOUNDARY_EVENT_ATTACHED_INVALID = "边界事件只能附着到未配置事件的中间任务节点";
+
+    /**
+     * 第一阶段边界事件必须为中断型。
+     */
+    public static final String BOUNDARY_EVENT_NOT_INTERRUPTING = "第一阶段边界事件必须为中断型";
+
+    /**
+     * 消息事件必须配置消息名称。
+     */
+    public static final String MESSAGE_EVENT_NO_NAME = "消息事件必须配置消息名称";
+
+    /**
+     * 定时事件必须配置合法的 node_config.event 段。
+     */
+    public static final String TIMER_EVENT_NO_CONFIG = "定时事件必须配置合法的定时参数";
+
+    /**
+     * 同一定义不能同时存在消息启动与定时启动事件。
+     */
+    public static final String EVENT_MIX_START_TYPE = "同一定义不能混用消息启动与定时启动事件";
+
+    /**
+     * 事件类型尚未开放运行时能力，只能保存为未发布草稿。
+     */
+    public static final String EVENT_NOT_PUBLISHABLE = "当前版本尚未开放该事件类型的运行时，只能保存为未发布草稿";
+
+    /**
+     * 启动事件拓扑与等待记录不匹配，等待记录将被取消。
+     */
+    public static final String EVENT_START_TOPOLOGY_MISMATCH = "启动事件拓扑与等待记录不匹配";
+
+    /**
+     * 手动启动不能绕过定时 / 消息启动事件。
+     */
+    public static final String MANUAL_START_EVENT_FORBIDDEN = "该流程由启动事件触发，不支持手动启动";
+
+    /**
+     * 未找到消息名称匹配的消息事件节点。
+     */
+    public static final String NOT_FOUND_MESSAGE_EVENT = "未找到消息名称匹配的消息事件节点";
+
+    /**
+     * 未找到匹配的消息等待记录。
+     */
+    public static final String NOT_FOUND_MESSAGE_WAIT = "未找到匹配的消息等待记录";
+
+    /**
+     * 消息等待记录已被抢占或不可触发。
+     */
+    public static final String MESSAGE_WAIT_ALREADY_CLAIMED = "消息等待记录已被抢占或不可触发";
+
+    /**
+     * 流程错误未被捕获：实例内没有匹配的错误捕获或错误边界等待。
+     */
+    public static final String EVENT_ERROR_UNCAUGHT = "流程错误未被捕获";
+
+    /**
+     * 错误等待记录已被处理或不可触发。
+     */
+    public static final String EVENT_ERROR_ALREADY_PROCESSED = "错误等待记录已被处理或不可触发";
+
+    /**
+     * 未找到结束节点。
+     */
+    public static final String NOT_FOUND_END_NODE = "未找到流程结束节点";
+
 }

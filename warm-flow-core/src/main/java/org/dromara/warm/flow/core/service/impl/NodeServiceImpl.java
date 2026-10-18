@@ -431,6 +431,8 @@ public class NodeServiceImpl extends WarmServiceImpl<FlowNodeDao<Node>, Node> im
 
     private List<Node> getNextByCheckGateway(Map<String, Object> variable, Node nextNode, PathWayData pathWayData
         , GraphIndex graphIndex, Set<String> gatewayPath) {
+        // 到达该节点即补充它配置的默认流程变量（缺键才写），使紧随其后的条件出线有值可算
+        NodeDefaults.apply(variable, nextNode);
         // 网关节点处理
         if (NodeType.isGateWay(nextNode.getNodeType())) {
             String gatewayCode = nextNode.getNodeCode();

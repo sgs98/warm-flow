@@ -24,6 +24,11 @@ public class WorkflowContext {
     private String handler;
 
     /**
+     * 调用方显式指定的租户标识（消息触发等场景优先于 TenantHandler 与系统兜底）。
+     */
+    private String tenantId;
+
+    /**
      * 当前操作者可用于权限匹配的标识集合。
      */
     private List<String> permissions;

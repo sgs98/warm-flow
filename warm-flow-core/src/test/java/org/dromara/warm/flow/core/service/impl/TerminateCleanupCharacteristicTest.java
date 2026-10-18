@@ -5,6 +5,7 @@ import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.FlowStatus;
+import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
@@ -19,9 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 终止收尾（多待办场景）特征测试：锁定 terminateByInstanceId 按
- * 首个待办终止、其余待办经 handUndoneTask 静默清理（不转历史）的现状，
- * 以及无待办时的前置校验。
+ * 终止收尾（多待办场景）特征测试：锁定 terminateByInstanceId 按首个待办终止、
+ * 其余待办经 handUndoneTask 按「失效」归档后清理的行为，以及无待办时的前置校验。
  *
  * @author warm
  */
@@ -40,7 +40,7 @@ class TerminateCleanupCharacteristicTest {
     }
 
     @Test
-    void multiTaskTerminate_archivesActing_silentlyDropsRest() {
+    void multiTaskTerminate_archivesActing_andArchivesRestAsInvalid() {
         Instance instance = TestFlows.startParallelFlow("tc1", "biz-t1");
         Task acting = TestFlows.pendingTasks(instance.getId()).get(0);
         Task rest = TestFlows.pendingTasks(instance.getId()).stream()
@@ -55,11 +55,12 @@ class TerminateCleanupCharacteristicTest {
         assertEquals(FlowStatus.TERMINATE.getKey(), persisted.getFlowStatus());
         assertEquals("end", persisted.getNodeCode());
 
-        // 历史：发起 + 终止单条 = 2；其余待办静默删除、不转历史
-        assertEquals(2, harness.hisTaskDao.size());
+        // 历史：发起 + 终止单条 + 未办待办按失效归档 = 3
+        assertEquals(3, harness.hisTaskDao.size());
         assertTrue(harness.hisTaskDao.all().stream()
-                        .noneMatch(h -> Objects.equals(h.getTaskId(), rest.getId())),
-                "handUndoneTask 清理的待办不应产生历史: " + harness.hisTaskDao.all());
+                        .anyMatch(h -> Objects.equals(h.getTaskId(), rest.getId())
+                            && TaskStatus.INVALID.getKey().equals(h.getFlowStatus())),
+                "handUndoneTask 清理的待办应按失效归档: " + harness.hisTaskDao.all());
     }
 
     @Test

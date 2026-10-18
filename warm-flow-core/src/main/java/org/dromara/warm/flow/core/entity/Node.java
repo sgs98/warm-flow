@@ -282,6 +282,69 @@ public interface Node extends RootEntity {
     Node setNodeConfig(String nodeConfig);
 
     /**
+     * 获取事件类型。
+     * <p>独立于 {@link org.dromara.warm.flow.core.enums.NodeType}：事件节点统一使用
+     * {@code BETWEEN} 承载，具体事件语义由本字段表达；无事件的节点返回 {@code null}。
+     *
+     * @return 事件类型
+     * @see org.dromara.warm.flow.core.enums.EventType
+     */
+    String getEventType();
+
+    /**
+     * 设置事件类型。
+     *
+     * @param eventType 事件类型
+     * @return 当前节点
+     */
+    Node setEventType(String eventType);
+
+    /**
+     * 获取事件名称（消息事件使用，如 {@code order.paid}）。
+     *
+     * @return 事件名称
+     */
+    String getEventName();
+
+    /**
+     * 设置事件名称。
+     *
+     * @param eventName 事件名称
+     * @return 当前节点
+     */
+    Node setEventName(String eventName);
+
+    /**
+     * 获取边界事件附着的任务节点编码。
+     *
+     * @return 附着的任务节点编码
+     */
+    String getAttachedToNodeCode();
+
+    /**
+     * 设置边界事件附着的任务节点编码。
+     *
+     * @param attachedToNodeCode 附着的任务节点编码
+     * @return 当前节点
+     */
+    Node setAttachedToNodeCode(String attachedToNodeCode);
+
+    /**
+     * 获取边界事件是否中断型；第一阶段边界事件固定为 {@code true}。
+     *
+     * @return 是否中断型
+     */
+    Boolean getInterrupting();
+
+    /**
+     * 设置边界事件是否中断型。
+     *
+     * @param interrupting 是否中断型
+     * @return 当前节点
+     */
+    Node setInterrupting(Boolean interrupting);
+
+    /**
      * 获取当前节点的出口连线列表。
      *
      * @return 出口连线列表
@@ -320,6 +383,10 @@ public interface Node extends RootEntity {
             .setFormCustom(this.getFormCustom())
             .setFormPath(this.getFormPath())
             .setExt(this.getExt())
-            .setNodeConfig(this.getNodeConfig());
+            .setNodeConfig(this.getNodeConfig())
+            .setEventType(this.getEventType())
+            .setEventName(this.getEventName())
+            .setAttachedToNodeCode(this.getAttachedToNodeCode())
+            .setInterrupting(this.getInterrupting());
     }
 }

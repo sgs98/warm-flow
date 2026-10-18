@@ -21,8 +21,10 @@ import org.dromara.warm.flow.core.dto.FlowCombine;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Skip;
+import org.dromara.warm.flow.core.enums.EventType;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.service.event.EventConfig;
 import org.dromara.warm.flow.core.service.task.ServiceTaskConfig;
 
 import java.util.*;
@@ -65,7 +67,8 @@ public class FlowConfigUtil {
 
     /**
      * 校验定义图的结构合法性：补齐节点与连线配置、保证唯一开始节点和节点编码唯一，
-     * 并从目标节点派生连线目标节点类型后，校验中间节点多出口限制与目标节点存在性。
+     * 并从目标节点派生连线目标节点类型后，校验中间节点多出口限制与目标节点存在性，
+     * 以及服务任务与事件节点的结构与字段。
      * 设计器保存与定义导入共用此校验核，保证两条路径规则一致。
      *
      * @param combine 含定义、节点和连线的流程组合数据，节点与连线须已齐备
@@ -91,10 +94,138 @@ public class FlowConfigUtil {
         checkSkipNode(allSkips);
         // 校验所有目标节点是否都存在
         validaIsExistDestNode(allSkips, nodeCodeSet);
-        // 校验服务任务节点配置与出口
+        // 校验服务任务节点配置与出口，以及事件节点结构与字段
         Map<String, List<Skip>> skipGroup = StreamUtils.groupByKey(allSkips, Skip::getNowNodeCode);
+        Map<String, List<Skip>> incomingGroup = StreamUtils.groupByKey(allSkips, Skip::getNextNodeCode);
+        // 节点编码已在上方校验唯一，可直接建立索引供边界事件附着校验使用
+        Map<String, Node> nodeMap = new HashMap<>();
+        for (Node item : allNodes) {
+            nodeMap.put(item.getNodeCode(), item);
+        }
         for (Node node : allNodes) {
             checkServiceNode(node, skipGroup.get(node.getNodeCode()));
+            checkEventNode(node, nodeMap, skipGroup.get(node.getNodeCode()), incomingGroup.get(node.getNodeCode()));
+        }
+        // 同一定义不能混用消息启动与定时启动
+        checkStartEventTypeConsistency(allNodes);
+    }
+
+    /**
+     * 校验事件节点结构与事件字段。
+     *
+     * <p>固定 {@code START} / {@code END} 不承载事件属性，且开始节点不能有入线、结束节点不能有出线；
+     * 事件节点必须使用中间节点（{@code BETWEEN}）承载，并按事件类型校验拓扑与必填字段；无事件的普通
+     * 节点直接跳过。边界事件的附着节点必须存在且为未配置事件的中间任务节点，防止导入路径绕过前端
+     * 下拉限制。草稿与导入同样执行本校验，未开放运行时的事件类型由发布门禁
+     * {@link #validateEventCapability(FlowCombine)} 另行拦截。</p>
+     *
+     * @param node     节点
+     * @param nodeMap  当前定义的节点索引（编码唯一，键为节点编码）
+     * @param outgoing 该节点的出口连线
+     * @param incoming 该节点的入口连线
+     */
+    private static void checkEventNode(Node node, Map<String, Node> nodeMap, List<Skip> outgoing
+        , List<Skip> incoming) {
+        String eventType = node.getEventType();
+        boolean hasEvent = StringUtils.isNotEmpty(eventType);
+        // 固定开始 / 结束节点不允许承载事件属性，且开始节点不能有入线、结束节点不能有出线
+        if (NodeType.isStart(node.getNodeType()) || NodeType.isEnd(node.getNodeType())) {
+            AssertUtil.isTrue(hasEvent, "[" + node.getNodeCode() + "]" + ExceptionCons.FIXED_NODE_NO_EVENT);
+            boolean startHasIncoming = NodeType.isStart(node.getNodeType()) && CollUtil.isNotEmpty(incoming);
+            boolean endHasOutgoing = NodeType.isEnd(node.getNodeType()) && CollUtil.isNotEmpty(outgoing);
+            AssertUtil.isTrue(startHasIncoming || endHasOutgoing,
+                "[" + node.getNodeCode() + "]" + ExceptionCons.FIXED_NODE_LINE_ERROR);
+            return;
+        }
+        if (!hasEvent) {
+            return;
+        }
+        // 事件节点统一使用中间节点承载，网关 / 服务任务节点不允许事件属性
+        AssertUtil.isTrue(!NodeType.isBetween(node.getNodeType()),
+            "[" + node.getNodeCode() + "]" + ExceptionCons.EVENT_NODE_TYPE_INVALID);
+        EventType type = EventType.getByValue(eventType);
+        AssertUtil.isNull(type, "[" + node.getNodeCode() + "]" + ExceptionCons.ILLEGAL_EVENT_TYPE);
+
+        // 启动事件：紧邻固定开始节点，只有来自开始节点的一条入线和一条普通出口
+        if (EventType.isStart(eventType)) {
+            boolean singleFromStart = CollUtil.isNotEmpty(incoming) && incoming.size() == 1
+                && NodeType.isStart(incoming.get(0).getNowNodeType());
+            boolean singlePass = CollUtil.isNotEmpty(outgoing) && outgoing.size() == 1
+                && SkipType.isPass(outgoing.get(0).getSkipType());
+            AssertUtil.isTrue(!(singleFromStart && singlePass),
+                "[" + node.getNodeCode() + "]" + ExceptionCons.START_EVENT_TOPOLOGY);
+        }
+        // 结束事件：必须有入线，且唯一出口直接指向固定结束节点
+        if (EventType.isEnd(eventType)) {
+            boolean singleToEnd = CollUtil.isNotEmpty(outgoing) && outgoing.size() == 1
+                && NodeType.isEnd(outgoing.get(0).getNextNodeType());
+            AssertUtil.isTrue(CollUtil.isEmpty(incoming) || !singleToEnd,
+                "[" + node.getNodeCode() + "]" + ExceptionCons.END_EVENT_TOPOLOGY);
+        }
+        // 捕获事件需出线，抛出事件需入线
+        if (EventType.isCatch(eventType)) {
+            AssertUtil.isEmpty(outgoing, "[" + node.getNodeCode() + "]" + ExceptionCons.CATCH_EVENT_NO_OUTGOING);
+        }
+        if (EventType.isThrow(eventType)) {
+            AssertUtil.isEmpty(incoming, "[" + node.getNodeCode() + "]" + ExceptionCons.THROW_EVENT_NO_INCOMING);
+        }
+        // 边界事件：必须配置附着节点，附着节点必须存在且为未配置事件的中间任务节点，第一阶段固定为中断型
+        if (EventType.isBoundary(eventType)) {
+            AssertUtil.isEmpty(node.getAttachedToNodeCode(),
+                "[" + node.getNodeCode() + "]" + ExceptionCons.BOUNDARY_EVENT_NO_ATTACHED);
+            Node attached = nodeMap.get(node.getAttachedToNodeCode());
+            AssertUtil.isNull(attached,
+                "[" + node.getNodeCode() + "]" + ExceptionCons.BOUNDARY_EVENT_ATTACHED_NOT_EXIST);
+            AssertUtil.isTrue(!NodeType.isBetween(attached.getNodeType())
+                    || StringUtils.isNotEmpty(attached.getEventType()),
+                "[" + node.getNodeCode() + "]" + ExceptionCons.BOUNDARY_EVENT_ATTACHED_INVALID);
+            AssertUtil.isTrue(!Boolean.TRUE.equals(node.getInterrupting()),
+                "[" + node.getNodeCode() + "]" + ExceptionCons.BOUNDARY_EVENT_NOT_INTERRUPTING);
+        }
+        // 消息事件必须有消息名称，定时事件必须有合法定时配置
+        if (EventType.isMessage(eventType)) {
+            AssertUtil.isEmpty(node.getEventName(), "[" + node.getNodeCode() + "]" + ExceptionCons.MESSAGE_EVENT_NO_NAME);
+        }
+        if (EventType.isTimer(eventType)) {
+            AssertUtil.isTrue(!EventConfig.parse(node.getNodeConfig()).hasTimer(),
+                "[" + node.getNodeCode() + "]" + ExceptionCons.TIMER_EVENT_NO_CONFIG);
+        }
+    }
+
+    /**
+     * 同一定义不能同时存在消息启动与定时启动事件。
+     *
+     * @param allNodes 定义内全部节点
+     */
+    private static void checkStartEventTypeConsistency(List<Node> allNodes) {
+        boolean hasMessageStart = false;
+        boolean hasTimerStart = false;
+        for (Node node : allNodes) {
+            String eventType = node.getEventType();
+            if (StringUtils.isEmpty(eventType)) {
+                continue;
+            }
+            hasMessageStart = hasMessageStart || EventType.MESSAGE_START.getValue().equals(eventType);
+            hasTimerStart = hasTimerStart || EventType.TIMER_START.getValue().equals(eventType);
+        }
+        AssertUtil.isTrue(hasMessageStart && hasTimerStart, ExceptionCons.EVENT_MIX_START_TYPE);
+    }
+
+    /**
+     * 发布能力门禁：只允许发布运行时能力已开放的事件类型。
+     *
+     * <p>草稿可以保留未开放的事件字段，本校验只在发布入口调用，不参与保存与导入。</p>
+     *
+     * @param combine 含定义、节点和连线的流程组合数据
+     */
+    public static void validateEventCapability(FlowCombine combine) {
+        for (Node node : combine.getAllNodes()) {
+            EventType type = EventType.getByValue(node.getEventType());
+            if (type == null) {
+                continue;
+            }
+            AssertUtil.isTrue(!type.isRuntimeEnabled(),
+                "[" + node.getNodeCode() + "]" + ExceptionCons.EVENT_NOT_PUBLISHABLE);
         }
     }
 

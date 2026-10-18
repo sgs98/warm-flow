@@ -20,7 +20,12 @@ import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.constant.FlowCons;
 import org.dromara.warm.flow.core.dto.FlowDto;
 import org.dromara.warm.flow.core.entity.*;
+import org.dromara.warm.flow.core.enums.CooperateType;
+import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
+import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.enums.TaskStatus;
+import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.listener.Listener;
 import org.dromara.warm.flow.core.listener.ListenerVariable;
 import org.dromara.warm.flow.core.orm.dao.FlowTaskDao;
@@ -28,9 +33,12 @@ import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.TaskService;
 import org.dromara.warm.flow.core.utils.*;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 /**
  * 待办任务服务实现。
@@ -41,6 +49,13 @@ import java.util.concurrent.atomic.AtomicReference;
  * @since 2023-03-29
  */
 public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> implements TaskService {
+
+    private static final Logger log = LoggerFactory.getLogger(TaskServiceImpl.class);
+
+    /**
+     * 流程结束时未办待办的归档说明。
+     */
+    private static final String UNDONE_MESSAGE = "流程结束时待办未办理，自动失效";
 
     /**
      * 委派、会签和票签处理。
@@ -109,9 +124,41 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         AssertUtil.isNull(instanceId, ExceptionCons.NULL_INSTANCE_ID);
         // 获取待办任务
         List<Task> taskList = FlowEngine.taskService().getByInsId(instanceId);
-        AssertUtil.isEmpty(taskList, ExceptionCons.NOT_FOUNT_TASK);
+        if (CollUtil.isEmpty(taskList)) {
+            // 实例无普通待办但正在等待事件：走实例级终止分支；
+            // 既无待办也无等待事件时保留原有 NOT_FOUNT_TASK 契约
+            AssertUtil.isEmpty(FlowEngine.eventWaitService().getWaitingByInstanceId(instanceId)
+                , ExceptionCons.NOT_FOUNT_TASK);
+            return terminateWaitingInstance(instanceId, context);
+        }
         Task task = taskList.get(0);
         return terminate(task, context);
+    }
+
+    /**
+     * 无普通待办实例的终止分支：实例置为终态并取消所有等待事件，不做任务归档。
+     *
+     * @param instanceId 流程实例主键
+     * @param context    流程执行上下文
+     * @return 终止后的流程实例
+     */
+    private Instance terminateWaitingInstance(Long instanceId, WorkflowContext context) {
+        Instance instance = FlowEngine.insService().getById(instanceId);
+        AssertUtil.isNull(instance, ExceptionCons.NOT_FOUNT_INSTANCE);
+        Node endNode = FlowEngine.nodeService().getEndNode(instance.getDefinitionId());
+        AssertUtil.isNull(endNode, ExceptionCons.NOT_FOUND_END_NODE);
+        if (StringUtils.isNotEmpty(context.getFlowStatus())) {
+            instance.setFlowStatus(context.getFlowStatus());
+        } else {
+            instance.setFlowStatus(FlowStatusMachine.mapper().instanceStatus(FlowStatus.TERMINATE));
+        }
+        instance.setNodeType(endNode.getNodeType())
+            .setNodeCode(endNode.getNodeCode())
+            .setNodeName(endNode.getNodeName())
+            .setUpdateTime(new Date());
+        FlowEngine.eventWaitService().cancelByInstanceIds(Collections.singletonList(instanceId));
+        FlowEngine.insService().updateById(instance);
+        return instance;
     }
 
     /**
@@ -124,6 +171,39 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
     @Override
     public Instance terminateByTaskId(Long taskId, WorkflowContext context) {
         return terminate(getById(taskId), context);
+    }
+
+    /**
+     * 任务级抛出流程错误，触发匹配的错误边界事件。
+     * <p>
+     * 按 {@code taskId + 错误码} 匹配附着在该任务节点上的 {@code ERROR_BOUNDARY} 等待
+     * （精确错误码优先于通配），匹配成功后中断当前任务（归档 {@code INVALID}）并沿错误出口推进。
+     * 无边界或码不匹配时抛出「流程错误未被捕获」异常，实例、任务与等待记录状态不变，
+     * 由调用方事务回滚；任务失败需要路由到实例级错误捕获时，宿主显式改调
+     * {@code InsService.throwError}。
+     *
+     * @param taskId       当前待办任务主键
+     * @param errorCode    错误码
+     * @param errorMessage 错误描述，仅用于日志与异常信息
+     * @return 抛出成功返回 {@code true}
+     */
+    @Override
+    public boolean throwError(Long taskId, String errorCode, String errorMessage) {
+        Task task = getById(taskId);
+        AssertUtil.isNull(task, ExceptionCons.NOT_FOUNT_TASK);
+        AssertUtil.isNull(task.getInstanceId(), ExceptionCons.NOT_FOUNT_INSTANCE);
+
+        // 任务级抛出只路由到附着在该任务节点上的错误边界等待
+        EventWait target = FlowEngine.eventWaitService().matchErrorWait(task.getInstanceId()
+            , task.getId(), errorCode);
+        if (target == null) {
+            log.warn("流程错误未被捕获，流程不变 taskId={} errorCode={} message={}"
+                , taskId, errorCode, errorMessage);
+            throw new FlowException("[" + (errorCode == null ? "" : errorCode) + "]"
+                + ExceptionCons.EVENT_ERROR_UNCAUGHT
+                + (StringUtils.isEmpty(errorMessage) ? "" : "：" + errorMessage));
+        }
+        return FlowEngine.eventWaitService().triggerErrorWait(target, errorCode, errorMessage);
     }
 
     /**
@@ -203,7 +283,8 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
             .setFlowStatus(StringUtils.emptyDefault(context.getFlowStatus(),
                 FlowStatusMachine.taskStatus(node.getNodeType(), skipType)))
             .setCreateTime(now)
-            .setPermissionList(StringUtils.str2List(node.getPermissionFlag(), FlowCons.SPLIT_AT));
+            .setPermissionList(resolvePermissions(StringUtils.str2List(node.getPermissionFlag()
+                , FlowCons.SPLIT_AT), instance));
 
         if (StringUtils.isNotEmpty(node.getFormCustom()) && StringUtils.isNotEmpty(node.getFormPath())) {
             // 节点有自定义表单则使用
@@ -213,6 +294,26 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         }
 
         return addTask;
+    }
+
+    /**
+     * 解析节点办理人权限，将发起人标识替换为实际发起人。
+     * <p>设计器中可将申请类首个节点办理人配置为 {@link FlowCons#WARMFLOWINITIATOR}，
+     * 创建任务时统一替换为流程实例发起人（createBy），实现“谁发起、谁提交”；
+     * 实例缺少发起人信息（如系统自动发起）时保留原标识不替换。</p>
+     *
+     * @param permissions 节点配置的办理人权限集合
+     * @param instance    所属流程实例
+     * @return 解析后的办理人权限集合
+     */
+    private List<String> resolvePermissions(List<String> permissions, Instance instance) {
+        if (CollUtil.isEmpty(permissions) || StringUtils.isEmpty(instance.getCreateBy())) {
+            return permissions;
+        }
+        return permissions.stream()
+            .map(permission -> FlowCons.WARMFLOWINITIATOR.equals(permission)
+                ? instance.getCreateBy() : permission)
+            .collect(Collectors.toList());
     }
 
     /**
@@ -265,7 +366,12 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
             instance.setNodeType(finallyTask.get().getNodeType())
                 .setNodeCode(finallyTask.get().getNodeCode())
                 .setNodeName(finallyTask.get().getNodeName())
-                .setFlowStatus(finallyTask.get().getFlowStatus());
+                .setFlowStatus(instanceStatusOf(finallyTask.get()));
+        }
+        if (NodeType.isEnd(instance.getNodeType())) {
+            // 实例收口即清理本实例的事件等待：普通结束同样需要，否则完成后仍会残留等待记录，
+            // 外部消息或定时到点后会去推进一个已完成的实例
+            FlowEngine.eventWaitService().cancelByInstanceIds(Collections.singletonList(instance.getId()));
         }
     }
 
@@ -283,6 +389,35 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
             deserialize.putAll(variable);
             instance.setVariable(FlowEngine.jsonConvert.objToStr(deserialize));
         }
+    }
+
+    /**
+     * 由落点待办推导实例状态。
+     * <p>
+     * 实例状态与任务状态是两个维度、两套编码：落到结束节点即「已完成」，落点待办为退回则为「已退回」，
+     * 其余情况实例仍处于「审批中」。不能直接复制待办的状态码，否则宿主自定义映射后两套编码会串列。
+     * <p>
+     * 唯一例外是「终止」：终止结束事件经由执行意图把实例终止编码带到固定 END 的临时待办上，
+     * 这里再还原成实例语义，使严重异常终止的单子状态为「终止」而不是「已完成」。
+     *
+     * @param task 本次落点待办
+     * @return 实例状态编码
+     */
+    private String instanceStatusOf(Task task) {
+        if (NodeType.isEnd(task.getNodeType())) {
+            String finishedTaskCode = FlowStatusMachine.mapper().taskStatus(TaskStatus.FINISHED);
+            if (finishedTaskCode.equals(task.getFlowStatus())) {
+                return FlowStatusMachine.mapper().instanceStatus(FlowStatus.FINISHED);
+            }
+            // 只认「终止」这一个语义，宿主任意指定的任务状态仍按正常结束收口，不污染实例状态
+            String terminateCode = FlowStatusMachine.mapper().instanceStatus(FlowStatus.TERMINATE);
+            return terminateCode.equals(task.getFlowStatus())
+                ? terminateCode
+                : FlowStatusMachine.mapper().instanceStatus(FlowStatus.FINISHED);
+        }
+        String rejectCode = FlowStatusMachine.mapper().taskStatus(TaskStatus.REJECT);
+        return FlowStatusMachine.mapper().instanceStatus(
+            rejectCode.equals(task.getFlowStatus()) ? FlowStatus.REJECT : FlowStatus.APPROVAL);
     }
 
     /**
@@ -359,7 +494,10 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
 
 
     /**
-     * 处理未完成的任务，当流程完成，还存在待办任务未完成，转历史任务，状态完成。
+     * 处理未完成的任务：流程结束时仍存在的待办，按「失效」归档进历史后删除。
+     * <p>
+     * 归档而非直接删除，保证审计上能看到「这一单结束时还有哪些待办没办、原本该谁办」；
+     * 归档状态走 {@code StatusMapper#taskStatus(TaskStatus.INVALID)}，宿主自定义编码同样生效。
      *
      * @param instance 流程实例
      */
@@ -367,9 +505,63 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         if (NodeType.isEnd(instance.getNodeType())) {
             List<Task> taskList = list(FlowEngine.newTask().setInstanceId(instance.getId()));
             if (CollUtil.isNotEmpty(taskList)) {
+                // 已归档的待办（本次办理 / 终止的那条）不再重复归档
+                List<Long> archivedTaskIds = StreamUtils.toList(FlowEngine.hisTaskService()
+                    .list(FlowEngine.newHisTask().setInstanceId(instance.getId())), HisTask::getTaskId);
+                List<Task> undone = StreamUtils.filter(taskList
+                    , task -> !archivedTaskIds.contains(task.getId()));
+                if (CollUtil.isNotEmpty(undone)) {
+                    archiveUndone(undone);
+                }
                 removeAndUser(taskList);
             }
         }
+    }
+
+    /**
+     * 把未办待办按「失效」写入历史任务。
+     *
+     * @param taskList 未办待办
+     */
+    private void archiveUndone(List<Task> taskList) {
+        Date now = new Date();
+        String invalid = FlowStatusMachine.mapper().taskStatus(TaskStatus.INVALID);
+        List<HisTask> hisTasks = new ArrayList<>();
+        for (Task task : taskList) {
+            HisTask hisTask = FlowEngine.newHisTask()
+                .setTaskId(task.getId())
+                .setInstanceId(task.getInstanceId())
+                .setDefinitionId(task.getDefinitionId())
+                .setNodeCode(task.getNodeCode())
+                .setNodeName(task.getNodeName())
+                .setNodeType(task.getNodeType())
+                .setTargetNodeCode(task.getNodeCode())
+                .setTargetNodeName(task.getNodeName())
+                .setApprover(undoneApprover(task))
+                .setCooperateType(CooperateType.APPROVAL.getKey())
+                .setSkipType(SkipType.NONE.getKey())
+                .setFlowStatus(invalid)
+                .setMessage(UNDONE_MESSAGE)
+                .setCreateTime(task.getCreateTime())
+                .setUpdateTime(now);
+            FlowEngine.dataFillHandler().idFill(hisTask);
+            hisTasks.add(hisTask);
+        }
+        FlowEngine.hisTaskService().saveBatch(hisTasks);
+    }
+
+    /**
+     * 取未办待办的办理人标识，多人以逗号拼接，便于历史审计。
+     *
+     * @param task 未办待办
+     * @return 办理人标识；无办理人时返回 {@code null}
+     */
+    private String undoneApprover(Task task) {
+        List<User> users = FlowEngine.userService().list(FlowEngine.newUser().setAssociated(task.getId()));
+        if (CollUtil.isEmpty(users)) {
+            return null;
+        }
+        return StreamUtils.join(users, User::getProcessedBy);
     }
 
     /**

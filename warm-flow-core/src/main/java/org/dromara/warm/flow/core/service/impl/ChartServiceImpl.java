@@ -68,6 +68,14 @@ public class ChartServiceImpl implements ChartService {
 
         pathWayData.getPathWayNodes().forEach(node -> nodeMap.get(node.getNodeCode()).setStatus(ChartStatus.DONE.getKey()));
         pathWayData.getPathWaySkips().forEach(skip -> skipMap.get(getSkipKey(skip)).setStatus(ChartStatus.DONE.getKey()));
+        // 固定 START 节点语义上必然已经过：定时/消息启动的路径从启动事件节点开始，
+        // 不含 START 节点，这里统一标记为已完成，避免流程图上开始节点永远显示「未完成」
+        nodeList.stream().filter(node -> NodeType.isStart(node.getNodeType()))
+            .forEach(node -> nodeMap.get(node.getNodeCode()).setStatus(ChartStatus.DONE.getKey()));
+        // START 节点的出口连线在实例创建时同样必然已经过，一并标记
+        nodeList.stream().filter(node -> NodeType.isStart(node.getNodeType()))
+            .map(NodeJson::getSkipList).flatMap(List::stream)
+            .forEach(skip -> skipMap.get(getSkipKey(skip)).setStatus(ChartStatus.DONE.getKey()));
         pathWayData.getTargetNodes().forEach(node -> nodeMap.get(node.getNodeCode()).setStatus(
             NodeType.isEnd(node.getNodeType()) ? ChartStatus.DONE.getKey() : ChartStatus.TO_DO.getKey()
         ));
@@ -86,7 +94,11 @@ public class ChartServiceImpl implements ChartService {
     @Override
     public String skipMetadata(PathWayData pathWayData) {
         Instance instance = FlowEngine.insService().getById(pathWayData.getInsId());
-        DefJson defJson = FlowEngine.jsonConvert.strToBean(instance.getDefJson(), DefJson.class);
+        // 优先使用调用方内存中的最新快照：事件分派发生在实例持久化之前，
+        // 回库加载会拿到未含本次更新的旧 defJson，把已办理节点覆盖回「未完成」
+        String baseDefJson = StringUtils.isNotEmpty(pathWayData.getDefJson())
+            ? pathWayData.getDefJson() : instance.getDefJson();
+        DefJson defJson = FlowEngine.jsonConvert.strToBean(baseDefJson, DefJson.class);
 
         List<NodeJson> nodeList = defJson.getNodeList();
         List<SkipJson> skipList = StreamUtils.toListAll(defJson.getNodeList(), NodeJson::getSkipList);

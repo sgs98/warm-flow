@@ -17,19 +17,28 @@ package org.dromara.warm.flow.core.service.impl;
 
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.constant.EventCons;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.dto.DefJson;
 import org.dromara.warm.flow.core.dto.FlowCombine;
+import org.dromara.warm.flow.core.dto.PathWayData;
 import org.dromara.warm.flow.core.entity.Definition;
+import org.dromara.warm.flow.core.entity.EventWait;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Skip;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
+import org.dromara.warm.flow.core.enums.EventType;
+import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.PublishStatus;
+import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.orm.dao.FlowDefinitionDao;
 import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.DefService;
+import org.dromara.warm.flow.core.service.event.EventConfig;
+import org.dromara.warm.flow.core.timer.TimerContext;
+import org.dromara.warm.flow.core.timer.TimerScheduleStrategies;
 import org.dromara.warm.flow.core.utils.*;
 
 import java.io.BufferedReader;
@@ -292,7 +301,7 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
     }
 
     /**
-     * 删除流程定义及其节点、连线。
+     * 删除流程定义及其节点、连线、等待记录。
      *
      * <p>任一待删除定义已经产生流程实例时拒绝删除，以保护运行和审计数据。</p>
      *
@@ -304,6 +313,9 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
         ids.forEach(id -> {
             List<Instance> instances = FlowEngine.insService().getByDefId(id);
             AssertUtil.isNotEmpty(instances, ExceptionCons.EXIST_START_TASK);
+            // 定义删除时同步删除其等待记录：已保证无流程实例，故此处均为定义级定时 / 消息启动等待，
+            // 随定义一并清理（逻辑 / 物理跟随引擎删除模式），不留指向已删定义的孤儿等待
+            FlowEngine.eventWaitService().remove(FlowEngine.newEventWait().setDefinitionId(id));
         });
         FlowEngine.nodeService().deleteNodeByDefIds(ids);
         FlowEngine.skipService().deleteSkipByDefIds(ids);
@@ -326,6 +338,8 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
         FlowCombine combine = getFlowCombine(definition);
         AssertUtil.isEmpty(combine.getAllNodes(), ExceptionCons.NOT_DRAW_FLOW_ERROR);
         checkFlowLegal(combine);
+        // 发布能力门禁：未开放运行时的事件类型只能保存为未发布草稿
+        FlowConfigUtil.validateEventCapability(combine);
         List<Definition> definitions = getByFlowCode(definition.getFlowCode());
         // 已发布流程定义，改为已失效或者未发布状态
         List<Long> otherDefIds = definitions.stream()
@@ -354,7 +368,80 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
         Definition flowDefinition = FlowEngine.newDef();
         flowDefinition.setId(id);
         flowDefinition.setIsPublish(PublishStatus.PUBLISHED.getKey());
-        return updateById(flowDefinition);
+        boolean updated = updateById(flowDefinition);
+        if (updated) {
+            // 发布钩子：取消旧版本定义级等待，为本版本重建 TIMER_START 等待
+            if (CollUtil.isNotEmpty(otherDefIds)) {
+                for (Long otherDefId : otherDefIds) {
+                    FlowEngine.eventWaitService().cancelByDefinitionId(otherDefId);
+                }
+            }
+            syncTimerStartWait(getById(id), combine);
+        }
+        return updated;
+    }
+
+    /**
+     * 同步定义级 TIMER_START 等待记录：定义发布且激活、固定 START 的直接后继为
+     * TIMER_START 事件节点时创建（同一定义只保留一条，幂等）；否则取消已有记录。
+     *
+     * @param definition 流程定义（须为最新持久化状态）
+     * @param combine    定义图
+     */
+    private void syncTimerStartWait(Definition definition, FlowCombine combine) {
+        // 先取消本定义已有的定义级等待，保证发布 / 重新发布幂等
+        FlowEngine.eventWaitService().cancelByDefinitionId(definition.getId());
+        if (!PublishStatus.PUBLISHED.getKey().equals(definition.getIsPublish())
+            || ActivityStatus.isSuspended(definition.getActivityStatus())) {
+            return;
+        }
+        Node startNode = StreamUtils.filterOne(combine.getAllNodes()
+            , node -> NodeType.isStart(node.getNodeType()));
+        if (startNode == null) {
+            return;
+        }
+        List<Node> successors = FlowEngine.nodeService().getNextNodeList(startNode, null
+            , SkipType.PASS.getKey(), null, new PathWayData(), combine);
+        if (CollUtil.isEmpty(successors) || !EventType.TIMER_START.getValue()
+            .equals(successors.get(0).getEventType())) {
+            return;
+        }
+        Node eventNode = successors.get(0);
+        EventConfig config = EventConfig.parse(eventNode.getNodeConfig());
+        AssertUtil.isTrue(!config.hasTimer(), ExceptionCons.TIMER_EVENT_NO_CONFIG);
+        Date now = new Date();
+        EventWait wait = FlowEngine.newEventWait();
+        FlowEngine.dataFillHandler().idFill(wait);
+        Date nextTriggerAt = TimerScheduleStrategies.nextTriggerAt(config.getTimerType()
+            , new TimerContext()
+                .setPreviousTriggerAt(null)
+                .setCurrentTime(now)
+                .setTriggerInterval(config.getTimerValue())
+                .setTimezone(config.getTimezone())
+                .setRepeatCount(0));
+        wait.setDefinitionId(definition.getId())
+            .setNodeCode(eventNode.getNodeCode())
+            .setEventType(EventType.TIMER_START.getValue())
+            .setStatus(EventCons.STATUS_WAITING)
+            .setRetryCount(0)
+            .setRepeatCount(0)
+            .setTriggerType(config.getTimerType())
+            .setTriggerInterval(config.getTimerValue())
+            .setTimezone(config.getTimezone())
+            .setMaxRepeatCount(config.getMaxCount())
+            .setNextTriggerAt(nextTriggerAt)
+            .setVersion(0)
+            .setCreateTime(now)
+            .setUpdateTime(now)
+            .setTenantId(definition.getTenantId());
+        // 节点默认变量随等待记录落库：触发时合并为实例初始变量，重试 / 租约恢复后仍可读取
+        Map<String, Object> nodeVariables = NodeDefaults.of(eventNode);
+        if (MapUtil.isNotEmpty(nodeVariables)) {
+            wait.setPayload(FlowEngine.jsonConvert.objToStr(nodeVariables));
+        }
+        FlowEngine.eventWaitService().save(wait);
+        log.info("流程定义 {} 发布，已创建定时启动等待 node={} nextTriggerAt={}"
+            , definition.getId(), eventNode.getNodeCode(), nextTriggerAt);
     }
 
     /**
@@ -370,7 +457,12 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
         AssertUtil.isNotEmpty(instances, ExceptionCons.EXIST_START_TASK);
         Definition definition = FlowEngine.newDef().setId(id);
         definition.setIsPublish(PublishStatus.UNPUBLISHED.getKey());
-        return updateById(definition);
+        boolean updated = updateById(definition);
+        if (updated) {
+            // 取消发布后定义级定时启动等待不再触发
+            FlowEngine.eventWaitService().cancelByDefinitionId(id);
+        }
+        return updated;
     }
 
     /**
@@ -421,7 +513,14 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
         AssertUtil.isNull(definition, ExceptionCons.NOT_FOUNT_DEF);
         AssertUtil.isTrue(ActivityStatus.isActivity(definition.getActivityStatus()), ExceptionCons.DEFINITION_ALREADY_ACTIVITY);
         definition.setActivityStatus(ActivityStatus.ACTIVITY.getKey());
-        return updateById(definition);
+        boolean updated = updateById(definition);
+        if (updated) {
+            // 挂起定义重新激活：若仍已发布，重建定时启动等待并从激活时间计算后续计划
+            if (PublishStatus.PUBLISHED.getKey().equals(definition.getIsPublish())) {
+                syncTimerStartWait(definition, getFlowCombine(definition));
+            }
+        }
+        return updated;
     }
 
     /**
@@ -436,7 +535,12 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
         AssertUtil.isNull(definition, ExceptionCons.NOT_FOUNT_DEF);
         AssertUtil.isTrue(ActivityStatus.isSuspended(definition.getActivityStatus()), ExceptionCons.DEFINITION_ALREADY_SUSPENDED);
         definition.setActivityStatus(ActivityStatus.SUSPENDED.getKey());
-        return updateById(definition);
+        boolean updated = updateById(definition);
+        if (updated) {
+            // 定义挂起取消 Timer Start 等待；实例级等待由实例挂起语义单独管理
+            FlowEngine.eventWaitService().cancelByDefinitionId(id);
+        }
+        return updated;
     }
 
     /**

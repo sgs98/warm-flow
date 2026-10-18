@@ -16,20 +16,32 @@
 package org.dromara.warm.flow.core.service.impl;
 
 import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.config.WarmFlow;
+import org.dromara.warm.flow.core.constant.EventCons;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
+import org.dromara.warm.flow.core.entity.EventWait;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
+import org.dromara.warm.flow.core.enums.EventType;
 import org.dromara.warm.flow.core.orm.dao.FlowInstanceDao;
 import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.InsService;
+import org.dromara.warm.flow.core.timer.TimerWorkerId;
 import org.dromara.warm.flow.core.utils.AssertUtil;
+import org.dromara.warm.flow.core.utils.StringUtils;
+import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.utils.CollUtil;
+import org.dromara.warm.flow.core.utils.MapUtil;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 /**
  * 流程实例服务实现。
@@ -40,6 +52,8 @@ import java.util.Map;
  * @since 2023-03-29
  */
 public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, Instance> implements InsService {
+
+    private static final Logger log = LoggerFactory.getLogger(InsServiceImpl.class);
 
     /**
      * 注入流程实例 DAO。
@@ -70,6 +84,118 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
     }
 
     /**
+     * 按流程编码 + 消息名称启动流程实例。
+     *
+     * @param businessId 业务主键
+     * @param flowCode   流程编码
+     * @param eventName  消息名称
+     * @param payload    消息载荷
+     * @param context    触发上下文
+     * @return 已持久化的流程实例
+     */
+    @Override
+    public Instance startByMessage(String businessId, String flowCode, String eventName
+        , Map<String, Object> payload, WorkflowContext context) {
+        AssertUtil.isNull(flowCode, ExceptionCons.NULL_FLOW_CODE);
+        AssertUtil.isEmpty(businessId, ExceptionCons.NULL_BUSINESS_ID);
+        AssertUtil.isEmpty(eventName, ExceptionCons.NOT_FOUND_MESSAGE_EVENT);
+        if (MapUtil.isNotEmpty(payload)) {
+            Map<String, Object> variables = context.getVariables();
+            Map<String, Object> merged = variables == null ? new HashMap<>() : variables;
+            merged.putAll(payload);
+            context.setVariables(merged);
+        }
+        FlowExecution execution = FlowExecution.loadMessageStart(flowCode, eventName, context);
+        return new FlowStartChain(this, businessId).pipeline().run(execution);
+    }
+
+    /**
+     * 按实例主键 + 消息名称触发等待中的消息事件。
+     *
+     * @param instanceId 流程实例主键
+     * @param eventName  消息名称
+     * @param payload    消息载荷
+     * @param context    触发上下文
+     * @return 触发后的流程实例
+     */
+    @Override
+    public Instance triggerMessage(Long instanceId, String eventName
+        , Map<String, Object> payload, WorkflowContext context) {
+        AssertUtil.isNull(instanceId, ExceptionCons.NULL_INSTANCE_ID);
+        AssertUtil.isEmpty(eventName, ExceptionCons.NOT_FOUND_MESSAGE_EVENT);
+        Instance instance = FlowEngine.insService().getById(instanceId);
+        AssertUtil.isNull(instance, ExceptionCons.NOT_FOUNT_INSTANCE);
+
+        // 定位匹配的等待记录：实例内 MESSAGE_CATCH / MESSAGE_BOUNDARY 且消息名称相等
+        EventWait target = null;
+        for (EventWait wait : FlowEngine.eventWaitService().list(FlowEngine.newEventWait()
+            .setInstanceId(instanceId))) {
+            boolean typeMatched = EventType.MESSAGE_CATCH.getValue().equals(wait.getEventType())
+                || EventType.MESSAGE_BOUNDARY.getValue().equals(wait.getEventType());
+            boolean statusMatched = EventCons.STATUS_WAITING.equals(wait.getStatus())
+                || EventCons.STATUS_RETRY.equals(wait.getStatus());
+            if (typeMatched && statusMatched && eventName.equals(wait.getEventName())) {
+                target = wait;
+                break;
+            }
+        }
+        AssertUtil.isNull(target, ExceptionCons.NOT_FOUND_MESSAGE_WAIT);
+
+        // 消息载荷落库到等待记录：执行链从 wait.payload 读取并合并为流程变量，
+        // 失败重试与租约恢复后仍可读取；同时写入内存态供本次同步处理直接读取。
+        if (MapUtil.isNotEmpty(payload)) {
+            String payloadJson = FlowEngine.jsonConvert.objToStr(payload);
+            target.setPayload(payloadJson);
+            FlowEngine.eventWaitService().bindPayload(target.getId(), target.getVersion(), payloadJson);
+        }
+
+        // 条件更新抢占：记录已是 RUNNING / CANCELLED / DEAD 时不得强行覆盖
+        WarmFlow config = FlowEngine.getFlowConfig();
+        long leaseMillis = config != null && config.getTimerLeaseSeconds() != null
+            ? config.getTimerLeaseSeconds() * 1000L : 60_000L;
+        Date now = new Date();
+        boolean claimed = FlowEngine.eventWaitService().claimMessage(target.getId()
+            , target.getVersion(), TimerWorkerId.get(), now, new Date(now.getTime() + leaseMillis));
+        if (!claimed) {
+            log.warn("消息等待记录已被抢占或不可触发，流程不变 instanceId={} eventName={}"
+                , instanceId, eventName);
+            return instance;
+        }
+        // 同步处理已抢占记录（完成 / 失败重试语义与定时路径一致），透传调用方上下文
+        FlowEngine.eventWaitService().processClaimedMessage(target, context);
+        return FlowEngine.insService().getById(instanceId);
+    }
+
+    /**
+     * 实例级抛出流程错误，触发匹配的错误捕获事件。
+     * <p>
+     * 按 {@code instanceId + 错误码} 匹配 {@code ERROR_CATCH} 等待记录，精确错误码优先于通配；
+     * 匹配成功后按条件更新抢占并沿错误捕获出口推进流程。实例内无任何匹配时抛出
+     * 「流程错误未被捕获」异常，实例、任务与等待记录状态不变，由调用方事务回滚。
+     *
+     * @param instanceId   流程实例主键
+     * @param errorCode    错误码
+     * @param errorMessage 错误描述，仅用于日志与异常信息
+     * @return 抛出成功返回 {@code true}
+     */
+    @Override
+    public boolean throwError(Long instanceId, String errorCode, String errorMessage) {
+        AssertUtil.isNull(instanceId, ExceptionCons.NULL_INSTANCE_ID);
+        Instance instance = FlowEngine.insService().getById(instanceId);
+        AssertUtil.isNull(instance, ExceptionCons.NOT_FOUNT_INSTANCE);
+
+        EventWait target = FlowEngine.eventWaitService().matchErrorWait(instanceId, null, errorCode);
+        if (target == null) {
+            log.warn("流程错误未被捕获，流程不变 instanceId={} errorCode={} message={}"
+                , instanceId, errorCode, errorMessage);
+            throw new FlowException("[" + (errorCode == null ? "" : errorCode) + "]"
+                + ExceptionCons.EVENT_ERROR_UNCAUGHT
+                + (StringUtils.isEmpty(errorMessage) ? "" : "：" + errorMessage));
+        }
+        return FlowEngine.eventWaitService().triggerErrorWait(target, errorCode, errorMessage);
+    }
+
+    /**
      * 按流程定义主键集合查询实例。
      *
      * @param defIds 流程定义主键集合
@@ -81,7 +207,8 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
     }
 
     /**
-     * 删除流程实例及其待办、历史任务和办理人数据。
+     * 删除流程实例及其等待事件、待办、历史任务和办理人数据。
+     * <p>等待事件随实例一并删除，不留指向已删除实例的等待记录。
      *
      * @param instanceIds 流程实例主键集合
      * @return 是否删除成功
@@ -103,13 +230,18 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
     }
 
     /**
-     * 按办理人、待办、历史任务、实例的依赖顺序级联清理运行数据。
+     * 按等待事件、办理人、待办、历史任务、实例的依赖顺序级联清理运行数据。
      *
      * @param instanceIds 流程实例主键集合
      * @return 是否删除成功
      */
     private boolean toRemoveTask(List<Long> instanceIds) {
         AssertUtil.isEmpty(instanceIds, ExceptionCons.NULL_INSTANCE_ID);
+
+        // 级联删除实例关联的等待事件记录：
+        // 与实例同批清理（逻辑 / 物理跟随引擎删除模式），避免实例删除后残留孤儿等待记录
+        instanceIds.forEach(instanceId ->
+            FlowEngine.eventWaitService().remove(FlowEngine.newEventWait().setInstanceId(instanceId)));
 
         List<Long> taskIds = new ArrayList<>();
         instanceIds.forEach(instanceId -> taskIds.addAll(

@@ -1,12 +1,16 @@
 package org.dromara.warm.flow.core.service.impl;
 
+import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
+import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.enums.TaskStatus;
+import org.dromara.warm.flow.core.handler.StatusMapper;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 
@@ -15,18 +19,13 @@ import java.util.*;
 /**
  * 流程执行内部状态机。
  *
- * <p>集中流程状态默认值、终态判断与操作状态前置（guard 表）；业务方自定义状态继续按原有方式透传。</p>
+ * <p>集中流程状态默认值、终态判断与操作状态前置（guard 表）。默认状态与终态口径统一走
+ * {@code FlowStatusMapper}：宿主未注册时与内置编码一致，注册后直接落宿主编码；
+ * 调用方手动传入的状态仍然优先。</p>
  *
  * @author may
  */
 final class FlowStatusMachine {
-
-    /**
-     * 不允许继续执行流程操作的标准终态。
-     */
-    private static final Set<String> TERMINAL_STATUS = Set.of(
-        FlowStatus.FINISHED.getKey(), FlowStatus.TERMINATE.getKey(), FlowStatus.NULLIFY.getKey(),
-        FlowStatus.CANCEL.getKey(), FlowStatus.INVALID.getKey());
 
     /**
      * 状态谓词 guard。声明顺序即断言顺序（EnumSet 按自然序迭代），不得重排。
@@ -79,13 +78,36 @@ final class FlowStatusMachine {
     }
 
     /**
-     * 判断流程状态是否为标准终态。
+     * 判断流程状态是否为终态（内置终态或映射器声明的额外终态）。
      *
      * @param status 流程状态
      * @return 是否为终态
      */
     static boolean isTerminal(String status) {
-        return TERMINAL_STATUS.contains(status);
+        return mapper().isTerminal(status);
+    }
+
+    /**
+     * 获取状态映射器，引擎各默认状态取值统一经由该扩展点。
+     *
+     * @return 状态映射器
+     */
+    static StatusMapper mapper() {
+        return FlowEngine.statusMapper();
+    }
+
+    /**
+     * 协作动作对应的任务状态默认值。
+     * <p>
+     * 协作类型为空时按「无协作」处理，宿主可通过
+     * {@code CooperateStatusMapper} 把转办 / 委派 / 加签 / 减签映射为自定义任务状态。
+     *
+     * @param cooperateType 协作类型 key
+     * @return 任务状态编码
+     */
+    static String cooperateStatus(Integer cooperateType) {
+        CooperateType type = CooperateType.getByKey(cooperateType);
+        return mapper().cooperateStatus(type == null ? CooperateType.APPROVAL : type);
     }
 
     /**
@@ -139,14 +161,30 @@ final class FlowStatusMachine {
      * @return 待办任务默认状态
      */
     static String taskStatus(Integer nodeType, String skipType) {
-        if (NodeType.isStart(nodeType)) {
-            return FlowStatus.TOBESUBMIT.getKey();
-        } else if (NodeType.isEnd(nodeType)) {
-            return FlowStatus.FINISHED.getKey();
+        StatusMapper mapper = mapper();
+        if (NodeType.isEnd(nodeType)) {
+            return mapper.taskStatus(TaskStatus.FINISHED);
         } else if (SkipType.isReject(skipType)) {
-            return FlowStatus.REJECT.getKey();
+            return mapper.taskStatus(TaskStatus.REJECT);
         }
-        return FlowStatus.APPROVAL.getKey();
+        return mapper.taskStatus(TaskStatus.WAITING);
+    }
+
+    /**
+     * 根据目标节点和跳转类型计算实例的默认状态。
+     *
+     * @param nodeType 目标节点类型
+     * @param skipType 跳转类型
+     * @return 实例状态
+     */
+    static String instanceStatus(Integer nodeType, String skipType) {
+        StatusMapper mapper = mapper();
+        if (NodeType.isStart(nodeType)) {
+            return mapper.instanceStatus(FlowStatus.TOBESUBMIT);
+        } else if (NodeType.isEnd(nodeType)) {
+            return mapper.instanceStatus(FlowStatus.FINISHED);
+        }
+        return mapper.instanceStatus(FlowStatus.APPROVAL);
     }
 
     /**
@@ -160,7 +198,7 @@ final class FlowStatusMachine {
         if (StringUtils.isNotEmpty(customStatus)) {
             return customStatus;
         }
-        return SkipType.isReject(skipType) ? FlowStatus.REJECT.getKey() : FlowStatus.PASS.getKey();
+        return mapper().taskStatus(SkipType.isReject(skipType) ? TaskStatus.REJECT : TaskStatus.PASS);
     }
 
     /**

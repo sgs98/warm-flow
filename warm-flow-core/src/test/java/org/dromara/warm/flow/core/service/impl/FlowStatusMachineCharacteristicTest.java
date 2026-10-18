@@ -22,6 +22,7 @@ import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
+import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.junit.jupiter.api.AfterEach;
@@ -45,7 +46,7 @@ class FlowStatusMachineCharacteristicTest {
         FlowOp.EXECUTE, FlowOp.TERMINATE, FlowOp.UPDATE_HANDLERS, FlowOp.LOAD, FlowOp.REVOKE};
 
     private static final FlowStatus[] TERMINAL_STATUSES = {
-        FlowStatus.FINISHED, FlowStatus.TERMINATE, FlowStatus.NULLIFY, FlowStatus.CANCEL, FlowStatus.INVALID};
+        FlowStatus.FINISHED, FlowStatus.TERMINATE, FlowStatus.NULLIFY, FlowStatus.CANCEL};
 
     private FlowTestHarness harness;
 

@@ -32,6 +32,10 @@ import org.dromara.warm.flow.core.utils.StringUtils;
  * VOTE-票签：和部分人一起审批，达到一定通过率，才算通过
  * ADD_SIGNATURE-加签：办理中途，希望其他人一起参与办理
  * REDUCTION_SIGNATURE-减签：办理中途，希望某些人不参与办理
+ * <p>
+ * 本枚举是<b>行为维度</b>（引擎据此决定怎么处理协作，key 落 {@code flow_his_task.cooperate_type}），
+ * 与任务结果维度 {@link TaskStatus}（落 {@code flow_status}）正交：一次协作动作完成后
+ * 写什么任务状态，由 {@code StatusMapper#cooperateStatus(CooperateType)} 决定。
  *
  * @author xiarg
  * @since 2024/5/10 16:04

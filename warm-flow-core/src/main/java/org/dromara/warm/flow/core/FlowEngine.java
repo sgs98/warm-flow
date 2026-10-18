@@ -18,12 +18,15 @@ package org.dromara.warm.flow.core;
 import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.entity.*;
 import org.dromara.warm.flow.core.handler.DataFillHandler;
+import org.dromara.warm.flow.core.handler.DefaultStatusMapper;
+import org.dromara.warm.flow.core.handler.StatusMapper;
 import org.dromara.warm.flow.core.handler.PermissionHandler;
 import org.dromara.warm.flow.core.handler.TenantHandler;
 import org.dromara.warm.flow.core.invoker.FrameInvoker;
 import org.dromara.warm.flow.core.json.JsonConvert;
 import org.dromara.warm.flow.core.listener.GlobalListener;
 import org.dromara.warm.flow.core.service.*;
+import org.dromara.warm.flow.core.service.event.EventPublisher;
 import org.dromara.warm.flow.core.service.task.AutoNodeExecutor;
 import org.dromara.warm.flow.core.utils.ClassUtil;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
@@ -51,6 +54,8 @@ public class FlowEngine {
     private static Supplier<User> userSupplier;
     private static Supplier<Form> formSupplier;
 
+    private static Supplier<EventWait> eventWaitSupplier;
+
     private static WarmFlow flowConfig;
 
     private static DataFillHandler dataFillHandler;
@@ -60,6 +65,11 @@ public class FlowEngine {
     private static PermissionHandler permissionHandler;
 
     private static GlobalListener globalListener;
+
+    /**
+     * 状态映射器：实例 / 任务 / 协作三维语义 → 宿主编码，默认与内置编码一致。
+     */
+    private static StatusMapper statusMapper = new DefaultStatusMapper();
 
     /**
      * JSON 转换器 SPI 实例，由 {@link WarmFlow#spiLoad()} 装配。
@@ -168,6 +178,24 @@ public class FlowEngine {
      */
     public static ChartService chartService() {
         return FrameInvoker.getBean(ChartService.class);
+    }
+
+    /**
+     * 获取事件等待记录服务。
+     *
+     * @return 事件等待记录服务
+     */
+    public static EventWaitService eventWaitService() {
+        return FrameInvoker.getBean(EventWaitService.class);
+    }
+
+    /**
+     * 获取宿主注册的消息发布器，未注册时返回 {@code null}。
+     *
+     * @return 消息发布器
+     */
+    public static EventPublisher eventPublisher() {
+        return FrameInvoker.getBean(EventPublisher.class);
     }
 
     /**
@@ -324,6 +352,24 @@ public class FlowEngine {
     }
 
     /**
+     * 注册事件等待记录实体工厂。
+     *
+     * @param supplier 事件等待记录实体供应器
+     */
+    public static void setNewEventWait(Supplier<EventWait> supplier) {
+        FlowEngine.eventWaitSupplier = supplier;
+    }
+
+    /**
+     * 创建事件等待记录实体。
+     *
+     * @return 事件等待记录实体
+     */
+    public static EventWait newEventWait() {
+        return eventWaitSupplier.get();
+    }
+
+    /**
      * 获取引擎配置。
      *
      * @return 引擎配置
@@ -376,6 +422,33 @@ public class FlowEngine {
      */
     public static void initGlobalListener(String handlerPath) {
         globalListener = initBean(GlobalListener.class, handlerPath, null);
+    }
+
+    /**
+     * 初始化状态映射器。
+     *
+     * @param handlerPath 映射器类路径，为空时使用容器中的 Bean 或默认实现
+     */
+    public static void initStatusMapper(String handlerPath) {
+        statusMapper = initBean(StatusMapper.class, handlerPath, DefaultStatusMapper::new);
+    }
+
+    /**
+     * 设置状态映射器，传空时回退默认实现。
+     *
+     * @param mapper 状态映射器
+     */
+    public static void setStatusMapper(StatusMapper mapper) {
+        statusMapper = mapper == null ? new DefaultStatusMapper() : mapper;
+    }
+
+    /**
+     * 获取状态映射器。
+     *
+     * @return 状态映射器
+     */
+    public static StatusMapper statusMapper() {
+        return statusMapper;
     }
 
     /**

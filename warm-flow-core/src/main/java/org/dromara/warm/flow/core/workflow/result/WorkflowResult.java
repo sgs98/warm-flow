@@ -48,4 +48,9 @@ public class WorkflowResult {
      * 操作完成后仍处于待办状态的任务。
      */
     private List<WorkflowTaskView> currentTasks;
+
+    /**
+     * 操作完成后实例正在等待的事件（无当前任务但等待事件时非空，固定返回）。
+     */
+    private List<EventView> currentEvents;
 }

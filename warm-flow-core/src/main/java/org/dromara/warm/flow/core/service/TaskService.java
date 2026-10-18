@@ -75,6 +75,22 @@ public interface TaskService extends IWarmService<Task> {
     Instance terminateByTaskId(Long taskId, WorkflowContext context);
 
     /**
+     * 任务级抛出流程错误，触发匹配的错误边界事件。
+     * <p>
+     * 按 {@code taskId + 错误码} 匹配附着在该任务节点上的 {@code ERROR_BOUNDARY} 等待
+     * （精确错误码优先于通配），匹配成功后中断当前任务（归档 {@code INVALID}）并沿错误出口推进。
+     * 无边界或码不匹配时抛出「流程错误未被捕获」异常，实例、任务与等待记录状态不变，
+     * 由调用方事务回滚；任务失败需要路由到实例级错误捕获时，宿主显式改调
+     * {@code InsService.throwError}。
+     *
+     * @param taskId       当前待办任务主键
+     * @param errorCode    错误码
+     * @param errorMessage 错误描述，仅用于日志与异常信息
+     * @return 抛出成功返回 {@code true}
+     */
+    boolean throwError(Long taskId, String errorCode, String errorMessage);
+
+    /**
      * 调整当前待办的办理人并记录协作历史。
      *
      * @param taskId         当前待办任务主键

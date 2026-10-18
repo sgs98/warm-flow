@@ -3,6 +3,7 @@ package org.dromara.warm.flow.core.test;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.entity.Definition;
+import org.dromara.warm.flow.core.entity.EventWait;
 import org.dromara.warm.flow.core.entity.Form;
 import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.entity.Instance;
@@ -24,6 +25,7 @@ import org.dromara.warm.flow.core.service.UserService;
 import org.dromara.warm.flow.core.service.impl.ChartServiceImpl;
 import org.dromara.warm.flow.core.service.impl.DefServiceImpl;
 import org.dromara.warm.flow.core.service.impl.FormServiceImpl;
+import org.dromara.warm.flow.core.service.impl.EventWaitServiceImpl;
 import org.dromara.warm.flow.core.service.impl.HisTaskServiceImpl;
 import org.dromara.warm.flow.core.service.impl.InsServiceImpl;
 import org.dromara.warm.flow.core.service.impl.NodeServiceImpl;
@@ -32,6 +34,8 @@ import org.dromara.warm.flow.core.service.impl.ServiceTaskExecutor;
 import org.dromara.warm.flow.core.service.impl.TaskServiceImpl;
 import org.dromara.warm.flow.core.service.impl.UserServiceImpl;
 import org.dromara.warm.flow.core.test.dao.DefinitionMemDao;
+import org.dromara.warm.flow.core.test.dao.EventWaitMemDao;
+import org.dromara.warm.flow.core.test.entity.TestEventWait;
 import org.dromara.warm.flow.core.test.dao.FormMemDao;
 import org.dromara.warm.flow.core.test.dao.HisTaskMemDao;
 import org.dromara.warm.flow.core.test.dao.InstanceMemDao;
@@ -102,6 +106,10 @@ public class FlowTestHarness implements AutoCloseable {
      * 内存流程表单 DAO。
      */
     public final FormMemDao<Form> formDao = new FormMemDao<>(FlowEngine::newForm, daoLog);
+    /**
+     * 内存事件等待记录 DAO。
+     */
+    public final EventWaitMemDao eventWaitDao = new EventWaitMemDao(FlowEngine::newEventWait, daoLog);
 
     private final Map<Class<?>, Object> registry = new HashMap<>();
 
@@ -136,6 +144,9 @@ public class FlowTestHarness implements AutoCloseable {
         userService.setDao(userDao);
         FormServiceImpl formService = new FormServiceImpl();
         formService.setDao(formDao);
+        FlowEngine.setNewEventWait(TestEventWait::new);
+        EventWaitServiceImpl eventWaitService = new EventWaitServiceImpl();
+        eventWaitService.setDao(eventWaitDao);
 
         registry.put(DefService.class, defService);
         registry.put(NodeService.class, nodeService);
@@ -145,6 +156,7 @@ public class FlowTestHarness implements AutoCloseable {
         registry.put(HisTaskService.class, hisTaskService);
         registry.put(UserService.class, userService);
         registry.put(FormService.class, formService);
+        registry.put(org.dromara.warm.flow.core.service.EventWaitService.class, eventWaitService);
         registry.put(ChartService.class, new ChartServiceImpl());
         registry.put(org.dromara.warm.flow.core.workflow.WorkflowService.class
                 , new org.dromara.warm.flow.core.workflow.WorkflowServiceImpl());
@@ -156,6 +168,7 @@ public class FlowTestHarness implements AutoCloseable {
         FlowEngine.initGlobalListener(null);
         FlowEngine.initTenantHandler(null);
         FlowEngine.initPermissionHandler(null);
+        FlowEngine.setStatusMapper(null);
         FlowEngine.setFlowConfig(new WarmFlow());
 
         RecordingListener.EVENTS.clear();

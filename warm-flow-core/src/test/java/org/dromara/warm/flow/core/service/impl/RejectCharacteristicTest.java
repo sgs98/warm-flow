@@ -6,6 +6,7 @@ import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
@@ -81,10 +82,10 @@ class RejectCharacteristicTest {
                 FlowEngine.newTask().setInstanceId(instance.getId()));
         assertEquals(1, pending.size(), "驳回后应仅有驳回目标待办: " + pending);
         assertEquals("apply", pending.get(0).getNodeCode());
-        assertEquals(FlowStatus.REJECT.getKey(), pending.get(0).getFlowStatus());
+        assertEquals(TaskStatus.REJECT.getKey(), pending.get(0).getFlowStatus());
         Instance persisted = harness.insDao.raw(instance.getId());
         assertEquals("apply", persisted.getNodeCode());
-        assertEquals(FlowStatus.REJECT.getKey(), persisted.getFlowStatus());
+        assertEquals(TaskStatus.REJECT.getKey(), persisted.getFlowStatus());
 
         // 一票否决现状：后置兄弟待办直接删除，不转历史（注释称转历史，实现是纯删除）
         assertNull(harness.taskDao.raw(sibling.getId()), "后置兄弟待办应被一票否决删除");

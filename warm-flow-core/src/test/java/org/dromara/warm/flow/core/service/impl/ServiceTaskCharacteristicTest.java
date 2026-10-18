@@ -12,6 +12,7 @@ import org.dromara.warm.flow.core.enums.ChartStatus;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.listener.GlobalListener;
 import org.dromara.warm.flow.core.listener.ListenerVariable;
@@ -70,7 +71,7 @@ class ServiceTaskCharacteristicTest {
 
         HisTask serviceHis = FlowEngine.hisTaskService().getByInsId(instance.getId()).stream()
             .filter(h -> "s1".equals(h.getNodeCode())).findFirst().orElseThrow();
-        assertEquals(FlowStatus.AUTO_PASS.getKey(), serviceHis.getFlowStatus());
+        assertEquals(TaskStatus.PASS.getKey(), serviceHis.getFlowStatus());
         assertEquals(SkipType.NONE.getKey(), serviceHis.getSkipType());
         assertEquals(6, serviceHis.getNodeType());
         assertNotNull(serviceHis.getNodeConfig());

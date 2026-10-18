@@ -117,7 +117,7 @@ public interface HisTaskService extends IWarmService<HisTask> {
     HisTask setSignHisTask(Task task, WorkflowContext context, String nodeRatio, boolean isPass);
 
     /**
-     * 构造服务任务成功历史（AUTO_PASS / NONE / node_config 快照）。
+     * 构造服务任务成功历史（审批通过 / NONE / node_config 快照）。
      *
      * @param serviceNode 服务任务节点，用于取 node_config 快照
      * @param task        服务任务临时待办

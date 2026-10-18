@@ -129,6 +129,8 @@ final class FlowExecuteChain {
      */
     private Optional<Instance> prepare(FlowExecution execution) {
         execution.mergeVariables();
+        // 当前节点的默认流程变量在路由前补充：紧随其后的一级网关条件才有值可算
+        execution.applyNodeDefaults(execution.nowNode);
         // 非第一个记得跳转类型必传
         if (!NodeType.isStart(execution.task.getNodeType())) {
             AssertUtil.isFalse(StringUtils.isNotEmpty(skipType), ExceptionCons.NULL_CONDITION_VALUE);
@@ -220,9 +222,9 @@ final class FlowExecuteChain {
      * @return 空表示继续执行后续步骤
      */
     private Optional<Instance> buildTasks(FlowExecution execution) {
-        // 构建增待办任务和设置结束任务历史记录
-        addTasks = StreamUtils.toList(nextNodes,
-            node -> taskService.addTask(node, execution.instance, execution.definition, execution.intent, skipType));
+        // 构建增待办任务和设置结束任务历史记录：后续节点统一分派，
+        // 人工 / 服务节点建待办，捕获事件节点起等待记录不建 Task
+        addTasks = EventArrivalDispatcher.dispatch(execution, nextNodes, skipType);
 
         // 办理人变量替换
         ExpressionUtil.evalVariable(addTasks, execution.intent.getVariables(), execution.intent.getNextHandlers()
@@ -244,6 +246,9 @@ final class FlowExecuteChain {
         // 更新流程信息
         historyHandler.updateFlowInfo(taskService, execution.task, execution.instance, addTasks
             , execution.intent, skipType, nextNodes);
+
+        // 当前任务已归档：取消附着在该任务上的边界事件等待
+        FlowEngine.eventWaitService().cancelByAttachedTaskId(execution.task.getId());
 
         // 推进自动节点（服务任务）：临时待办已随本批落库，可复用汇聚判断
         List<Task> autoCreatedTasks = advancer.advance(execution, nextNodes, addTasks);

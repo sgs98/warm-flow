@@ -1,6 +1,8 @@
 package org.dromara.warm.flow.core.workflow;
 
 import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.dto.EventWaitQuery;
+import org.dromara.warm.flow.core.entity.EventWait;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.entity.User;
@@ -9,9 +11,12 @@ import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.CollUtil;
+import org.dromara.warm.flow.core.utils.ObjectUtil;
 import org.dromara.warm.flow.core.utils.StreamUtils;
+import org.dromara.warm.flow.core.utils.page.Page;
 import org.dromara.warm.flow.core.workflow.command.*;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
+import org.dromara.warm.flow.core.workflow.result.EventView;
 import org.dromara.warm.flow.core.workflow.result.WorkflowResult;
 import org.dromara.warm.flow.core.workflow.result.WorkflowTaskView;
 
@@ -210,10 +215,83 @@ public class WorkflowServiceImpl implements WorkflowService {
             result.setBusinessId(instance.getBusinessId());
             result.setFlowStatus(instance.getFlowStatus());
             result.setCurrentTasks(currentTasks(instance.getId()));
+            result.setCurrentEvents(waitingEvents(instance.getId()));
         } else {
             result.setCurrentTasks(List.of());
+            result.setCurrentEvents(List.of());
         }
         return result;
+    }
+
+    /**
+     * 查询流程实例当前等待的事件并转换为稳定的返回视图。
+     *
+     * @param instanceId 流程实例主键
+     * @return 当前等待事件视图集合
+     */
+    @Override
+    public List<EventView> waitingEvents(Long instanceId) {
+        if (instanceId == null) {
+            return List.of();
+        }
+        List<EventWait> waits = FlowEngine.eventWaitService().getWaitingByInstanceId(instanceId);
+        if (CollUtil.isEmpty(waits)) {
+            return List.of();
+        }
+        return StreamUtils.toList(waits, wait -> {
+            EventView view = new EventView();
+            view.setEventType(wait.getEventType());
+            view.setEventName(wait.getEventName());
+            view.setNodeCode(wait.getNodeCode());
+            view.setAttachedTaskId(wait.getAttachedTaskId());
+            view.setNextTriggerAt(wait.getNextTriggerAt());
+            view.setStatus(wait.getStatus());
+            return view;
+        });
+    }
+
+    /**
+     * 按条件分页查询事件等待记录（定时任务）。
+     *
+     * @param query 查询条件，可为 {@code null}
+     * @return 回填总数和当前页数据的查询结果
+     */
+    @Override
+    public Page<EventWait> pageEventWaits(EventWaitQuery query) {
+        return FlowEngine.eventWaitService().pageEventWaits(query);
+    }
+
+    /**
+     * 按条件查询事件等待记录列表。
+     *
+     * @param query 查询条件，可为 {@code null}
+     * @return 匹配的等待记录列表
+     */
+    @Override
+    public List<EventWait> listEventWaits(EventWaitQuery query) {
+        return FlowEngine.eventWaitService().listEventWaits(query);
+    }
+
+    /**
+     * 按条件统计事件等待记录数量。
+     *
+     * @param query 查询条件，可为 {@code null}
+     * @return 匹配记录数
+     */
+    @Override
+    public long countEventWaits(EventWaitQuery query) {
+        return FlowEngine.eventWaitService().countEventWaits(query);
+    }
+
+    /**
+     * 按主键查询单条事件等待记录。
+     *
+     * @param id 等待记录主键
+     * @return 等待记录；不存在或主键为空时返回 {@code null}
+     */
+    @Override
+    public EventWait getEventWait(Long id) {
+        return ObjectUtil.isNull(id) ? null : FlowEngine.eventWaitService().getById(id);
     }
 
     /**

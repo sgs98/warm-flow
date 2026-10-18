@@ -4,6 +4,7 @@ import org.dromara.warm.flow.core.constant.FlowCons;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.FlowStatus;
+import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.strategy.VoteSignStrategy;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
@@ -78,7 +79,7 @@ class VoteRuleCharacteristicTest {
         List<Task> pending = TestFlows.pendingTasks(instance.getId());
         assertEquals(1, pending.size());
         assertEquals("draft", pending.get(0).getNodeCode());
-        assertEquals(FlowStatus.REJECT.getKey()
+        assertEquals(TaskStatus.REJECT.getKey()
                 , harness.insDao.raw(instance.getId()).getFlowStatus());
     }
 

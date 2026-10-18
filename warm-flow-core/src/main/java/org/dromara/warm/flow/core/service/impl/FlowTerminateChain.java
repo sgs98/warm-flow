@@ -123,7 +123,7 @@ final class FlowTerminateChain {
             .setNodeCode(endNode.getNodeCode())
             .setNodeName(endNode.getNodeName())
             .setFlowStatus(StringUtils.emptyDefault(execution.intent.getFlowStatus()
-                , FlowStatus.TERMINATE.getKey()));
+                , FlowStatusMachine.mapper().instanceStatus(FlowStatus.TERMINATE)));
         return Optional.empty();
     }
 
@@ -155,6 +155,9 @@ final class FlowTerminateChain {
     private Optional<Instance> finalizeAndFinish(FlowExecution execution) {
         // 处理未完成的任务，当流程完成，还存在待办任务未完成，转历史任务，状态完成。
         taskService.handUndoneTask(execution.instance);
+        // 清理实例下所有等待事件（终止后旧等待记录不再推进流程）
+        FlowEngine.eventWaitService().cancelByInstanceIds(
+            java.util.Collections.singletonList(execution.instance.getId()));
         // 最后判断是否存在节点监听器，存在执行节点监听器
         ListenerUtil.executeFinish(execution.contextListener(execution.task, execution.nowNode));
         return Optional.empty();

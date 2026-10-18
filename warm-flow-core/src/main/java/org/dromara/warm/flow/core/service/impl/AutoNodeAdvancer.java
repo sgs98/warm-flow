@@ -29,7 +29,7 @@ import java.util.Map;
  *
  * <p>执行链负责通用编排，节点本身的执行由 {@link AutoNodeExecutor} 负责。每个自动节点的处理顺序
  * （行为契约）：start 监听器 → 执行处理器写变量 → 在临时待办仍活动时解析后继（复用汇聚判断）→
- * 合并流程图元数据（与办理链 route() 一致）→ 写服务历史 → 删除临时待办 → 后继建正式/临时待办并落库 →
+ * 合并流程图元数据（与办理链 route() 一致）→ 写服务历史 → 取消临时待办附着的边界等待并删除临时待办 → 后继建正式/临时待办并落库 →
  * finish 监听器与后继 create 监听器 → 自动节点入队，直到队列为空或超过安全上限。服务任务无办理人，
  * 自身不触发 assignment 监听器；后继人工节点在办理人落库前触发 assignment，与人工节点办理链语义一致。</p>
  *
@@ -96,16 +96,16 @@ final class AutoNodeAdvancer {
             //    否则流程图会停留在进入服务任务之前的状态；随步骤 7 的实例更新一并落库
             execution.instance.setDefJson(FlowEngine.chartService().skipMetadata(pathWayData));
 
-            // 5) 写服务任务历史（AUTO_PASS / NONE / node_config 快照）
+            // 5) 写服务任务历史（审批通过 / NONE / node_config 快照）
             FlowEngine.hisTaskService().save(FlowEngine.hisTaskService()
                 .setServiceTaskHis(serviceNode, temp, afterNodes, execution.intent, variables));
 
             // 6) 删除临时待办及其办理人
             removeTempTask(temp);
 
-            // 7) 后继建任务（人工正式待办 / 服务临时待办）并落库
-            List<Task> afterTasks = StreamUtils.toList(afterNodes, node -> FlowEngine.taskService()
-                .addTask(node, execution.instance, execution.definition, execution.intent, SkipType.PASS.getKey()));
+            // 7) 后继统一分派（人工正式待办 / 服务临时待办 / 捕获事件等待）并落库
+            List<Task> afterTasks = EventArrivalDispatcher.dispatch(execution, afterNodes
+                , SkipType.PASS.getKey());
             ExpressionUtil.evalVariable(afterTasks, variables, null, false);
             assignSuccessors(execution, temp, serviceNode, afterNodes, afterTasks);
             List<User> users = FlowEngine.userService().taskAddUsers(afterTasks);
@@ -215,11 +215,13 @@ final class AutoNodeAdvancer {
 
     /**
      * 删除单条临时待办及其办理人。
+     * <p>临时待办创建时已按节点注册边界事件等待，删除前先取消，避免残留活动等待被定时器误触发。</p>
      *
      * @param temp 临时待办
      */
     private void removeTempTask(Task temp) {
         List<Long> taskIds = StreamUtils.toList(List.of(temp), Task::getId);
+        FlowEngine.eventWaitService().cancelByAttachedTaskId(temp.getId());
         boolean removed = FlowEngine.taskService().removeByIds(taskIds);
         AssertUtil.isFalse(removed, ExceptionCons.NOT_FOUNT_TASK);
         FlowEngine.userService().deleteByTaskIds(taskIds);

@@ -126,6 +126,8 @@ final class FlowStartChain {
      * @return 空表示继续执行后续步骤
      */
     private Optional<Instance> route(FlowExecution execution) {
+        // 开始节点的默认流程变量在解析首批节点前补充（手动发起未传变量时同样生效）
+        execution.applyNodeDefaults(execution.nowNode);
         // 获取下一个节点，如果是网关节点，则重新获取后续节点
         pathWayData = new PathWayData().setDefId(execution.nowNode.getDefinitionId())
             .setSkipType(SkipType.PASS.getKey());
@@ -157,9 +159,8 @@ final class FlowStartChain {
      * @return 空表示继续执行后续步骤
      */
     private Optional<Instance> buildTasks(FlowExecution execution) {
-        // 设置首待办任务（原手工逐字段拷贝的 taskContext 已删，直传调用方上下文等值）
-        addTasks = StreamUtils.toList(nextNodes, node -> FlowEngine.taskService()
-            .addTask(node, instance, execution.definition, execution.intent, SkipType.PASS.getKey()));
+        // 首批节点统一分派：人工 / 服务节点建待办，捕获事件节点起等待记录不建 Task
+        addTasks = EventArrivalDispatcher.dispatch(execution, nextNodes, SkipType.PASS.getKey());
 
         // 办理人变量替换
         if (CollUtil.isNotEmpty(addTasks)) {
@@ -221,7 +222,7 @@ final class FlowStartChain {
             .setNodeCode(firstBetweenNode.getNodeCode())
             .setNodeName(firstBetweenNode.getNodeName())
             .setFlowStatus(StringUtils.emptyDefault(context.getFlowStatus()
-                , FlowStatus.TOBESUBMIT.getKey()))
+                , FlowStatusMachine.mapper().instanceStatus(FlowStatus.TOBESUBMIT)))
             .setActivityStatus(ActivityStatus.ACTIVITY.getKey())
             .setVariable(FlowEngine.jsonConvert.objToStr(context.getVariables()))
             .setCreateTime(now)

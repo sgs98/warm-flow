@@ -8,6 +8,7 @@ import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
@@ -33,8 +34,8 @@ import java.util.Map;
  * 会签、票签只代投该办理人一票，任务保留给其余办理人继续办理；或签与该办理人手工通过等效；
  * 平行分支中其它分支的已有待办不受影响。</p>
  *
- * <p><b>历史与链式推进</b>：自动通过复用标准办理链，历史任务写 {@code flow_status=3}（自动完成）与
- * 自动审批意见，办理人仍为当前办理人；自动审批产生的后续待办若仍只有该办理人，则继续自动通过，
+ * <p><b>历史与链式推进</b>：自动通过复用标准办理链，历史任务写「审批通过」与自动审批意见，
+ * 办理人仍为当前办理人；自动审批产生的后续待办若仍只有该办理人，则继续自动通过，
  * 直到出现他人办理的待办、结束节点或达到跳数上限。自动审批不携带调用方变量、抄送等办理参数，
  * 业务监听器可通过 {@code context.taskStatus} 识别本次流转为自动审批。</p>
  *
@@ -154,7 +155,7 @@ final class AutoPassAdvancer {
     }
 
     /**
-     * 构造自动审批的办理上下文：办理人为当前办理人，权限集合即该办理人本身，历史状态写自动完成。
+     * 构造自动审批的办理上下文：办理人为当前办理人，权限集合即该办理人本身，历史状态写「审批通过」。
      *
      * @param handler 当前办理人
      * @return 自动审批办理上下文
@@ -164,7 +165,7 @@ final class AutoPassAdvancer {
         context.setHandler(handler);
         context.setPermissions(List.of(handler));
         context.setMessage(AUTO_PASS_MESSAGE);
-        context.setTaskStatus(FlowStatus.AUTO_PASS.getKey());
+        context.setTaskStatus(FlowStatusMachine.mapper().taskStatus(TaskStatus.PASS));
         return context;
     }
 

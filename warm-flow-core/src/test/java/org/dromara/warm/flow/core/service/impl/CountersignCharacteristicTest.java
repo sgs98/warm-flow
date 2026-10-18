@@ -5,6 +5,7 @@ import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
 import org.dromara.warm.flow.core.test.listener.RecordingListener;
@@ -110,11 +111,11 @@ class CountersignCharacteristicTest {
         List<Task> pending = TestFlows.pendingTasks(instance.getId());
         assertEquals(1, pending.size());
         assertEquals("draft", pending.get(0).getNodeCode());
-        assertEquals(FlowStatus.REJECT.getKey(), pending.get(0).getFlowStatus());
+        assertEquals(TaskStatus.REJECT.getKey(), pending.get(0).getFlowStatus());
         assertEquals(1, harness.userDao.size(), "仅新 draft 待办的办理人保留，原任务办理人随删");
         assertEquals(TestFlows.HANDLER, harness.userDao.all().get(0).getProcessedBy());
         assertEquals("draft", harness.insDao.raw(instance.getId()).getNodeCode());
-        assertEquals(FlowStatus.REJECT.getKey(), harness.insDao.raw(instance.getId()).getFlowStatus());
+        assertEquals(TaskStatus.REJECT.getKey(), harness.insDao.raw(instance.getId()).getFlowStatus());
 
         // 驳回动作只产生流转历史，不产生签票历史
         assertEquals(hisBefore + 1, harness.hisTaskDao.size());

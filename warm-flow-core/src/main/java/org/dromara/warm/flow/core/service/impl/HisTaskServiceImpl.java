@@ -23,6 +23,7 @@ import org.dromara.warm.flow.core.entity.User;
 import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.orm.dao.FlowHisTaskDao;
 import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.HisTaskService;
@@ -185,7 +186,8 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
             .setTargetNodeName(task.getNodeName())
             .setApprover(context.getHandler())
             .setSkipType(SkipType.NONE.getKey())
-            .setFlowStatus(FlowStatusMachine.defaultStatus(flowStatus, FlowStatus.APPROVAL.getKey()))
+            .setFlowStatus(FlowStatusMachine.defaultStatus(flowStatus
+                , FlowStatusMachine.cooperateStatus(cooperateType)))
             .setFormCustom(task.getFormCustom())
             .setFormPath(task.getFormPath())
             .setMessage(context.getMessage())
@@ -259,7 +261,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
             .setMessage(context.getMessage())
             .setSkipType(isPass ? SkipType.PASS.getKey() : SkipType.REJECT.getKey())
             .setFlowStatus(FlowStatusMachine.defaultStatus(flowStatus
-                , isPass ? FlowStatus.PASS.getKey() : FlowStatus.REJECT.getKey()))
+                , FlowStatusMachine.mapper().taskStatus(isPass ? TaskStatus.PASS : TaskStatus.REJECT)))
             .setFormCustom(task.getFormCustom())
             .setFormPath(task.getFormPath())
             .setMessage(context.getMessage())
@@ -272,7 +274,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
     }
 
     /**
-     * 构造服务任务成功历史：状态 AUTO_PASS、跳转 NONE，并快照执行时的 node_config。
+     * 构造服务任务成功历史：状态「审批通过」、跳转 NONE，并快照执行时的 node_config。
      *
      * @param serviceNode 服务任务节点，用于取 node_config 快照
      * @param task        服务任务临时待办
@@ -295,7 +297,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
             .setTargetNodeCode(StreamUtils.join(nextNodes, Node::getNodeCode))
             .setTargetNodeName(StreamUtils.join(nextNodes, Node::getNodeName))
             .setSkipType(SkipType.NONE.getKey())
-            .setFlowStatus(FlowStatus.AUTO_PASS.getKey())
+            .setFlowStatus(FlowStatusMachine.mapper().taskStatus(TaskStatus.PASS))
             .setFormCustom(serviceNode.getFormCustom())
             .setFormPath(serviceNode.getFormPath())
             .setMessage(context.getMessage())

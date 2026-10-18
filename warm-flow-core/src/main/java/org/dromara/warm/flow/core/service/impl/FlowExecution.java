@@ -18,18 +18,23 @@ package org.dromara.warm.flow.core.service.impl;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.dto.FlowCombine;
+import org.dromara.warm.flow.core.dto.PathWayData;
 import org.dromara.warm.flow.core.entity.*;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
+import org.dromara.warm.flow.core.enums.EventType;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
+import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.listener.ListenerVariable;
 import org.dromara.warm.flow.core.utils.AssertUtil;
+import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.MapUtil;
 import org.dromara.warm.flow.core.utils.StreamUtils;
 import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -114,7 +119,7 @@ final class FlowExecution {
      */
     static FlowExecution loadInstance(Long instanceId, WorkflowContext intent) {
         if (StringUtils.isEmpty(intent.getFlowStatus())) {
-            intent.setFlowStatus(FlowStatus.CANCEL.getKey());
+            intent.setFlowStatus(FlowStatusMachine.mapper().instanceStatus(FlowStatus.CANCEL));
         }
         Instance instance = FlowEngine.insService().getById(instanceId);
         AssertUtil.isNull(instance, ExceptionCons.NOT_FOUNT_INSTANCE);
@@ -146,8 +151,104 @@ final class FlowExecution {
         // 判断流程定义是否激活状态
         AssertUtil.isTrue(definition.getActivityStatus().equals(ActivityStatus.SUSPENDED.getKey())
             , ExceptionCons.NOT_DEFINITION_ACTIVITY);
+        // 手动启动不能绕过启动事件：固定 START 的直接后继是启动事件节点时拒绝
+        List<Node> startSuccessors = FlowEngine.nodeService().getNextNodeList(startNode, null
+            , SkipType.PASS.getKey(), null, new PathWayData(), combine);
+        AssertUtil.isTrue(CollUtil.isNotEmpty(startSuccessors)
+            && EventType.isStart(startSuccessors.get(0).getEventType())
+            , ExceptionCons.MANUAL_START_EVENT_FORBIDDEN);
         FlowExecution execution = new FlowExecution(null, null, definition, startNode, intent);
         // 已查询的定义图注入缓存：发起链经 loadCombine() 复用同一引用，不再重查
+        execution.combine = combine;
+        return execution;
+    }
+
+    /**
+     * 加载定时启动事件触发所需的已发布定义、定义图与启动事件节点并校验：
+     * 定义必须处于发布且激活状态；固定 START 的直接后继必须是指定编码的
+     * {@code TIMER_START} 事件节点。
+     *
+     * @param definitionId 流程定义主键
+     * @param nodeCode     启动事件节点编码
+     * @param intent       调用方上下文（无人值守时操作人由调用方按系统兜底传入）
+     * @return 执行作用域，当前节点为启动事件节点
+     */
+    static FlowExecution loadTimerStart(Long definitionId, String nodeCode, WorkflowContext intent) {
+        Definition definition = FlowEngine.defService().getById(definitionId);
+        AssertUtil.isNull(definition, ExceptionCons.NOT_FOUNT_DEF);
+        FlowCombine combine = FlowEngine.defService().getFlowCombine(definition);
+        Node startNode = StreamUtils.filterOne(combine.getAllNodes(), node -> NodeType.isStart(node.getNodeType()));
+        AssertUtil.isNull(startNode, ExceptionCons.LOST_START_NODE);
+        Node eventNode = eventStartSuccessor(startNode, combine, nodeCode, EventType.TIMER_START.getValue());
+        AssertUtil.isTrue(definition.getActivityStatus().equals(ActivityStatus.SUSPENDED.getKey())
+            , ExceptionCons.NOT_DEFINITION_ACTIVITY);
+        FlowExecution execution = new FlowExecution(null, null, definition, eventNode, intent);
+        execution.combine = combine;
+        return execution;
+    }
+
+    /**
+     * 加载消息启动事件触发所需的已发布定义、定义图与启动事件节点并校验：
+     * 固定 START 的直接后继必须是消息名称匹配的 {@code MESSAGE_START} 事件节点。
+     *
+     * @param flowCode  流程编码
+     * @param eventName 消息名称
+     * @param intent    调用方上下文
+     * @return 执行作用域，当前节点为启动事件节点
+     */
+    static FlowExecution loadMessageStart(String flowCode, String eventName, WorkflowContext intent) {
+        Definition definition = FlowEngine.defService().getPublishByFlowCode(flowCode);
+        AssertUtil.isNull(definition, ExceptionCons.NOT_FOUNT_DEF);
+        FlowCombine combine = FlowEngine.defService().getFlowCombine(definition);
+        Node startNode = StreamUtils.filterOne(combine.getAllNodes(), node -> NodeType.isStart(node.getNodeType()));
+        AssertUtil.isNull(startNode, ExceptionCons.LOST_START_NODE);
+        Node eventNode = eventStartSuccessor(startNode, combine, null, EventType.MESSAGE_START.getValue());
+        AssertUtil.isTrue(!eventName.equals(eventNode.getEventName()), ExceptionCons.NOT_FOUND_MESSAGE_EVENT);
+        AssertUtil.isTrue(definition.getActivityStatus().equals(ActivityStatus.SUSPENDED.getKey())
+            , ExceptionCons.NOT_DEFINITION_ACTIVITY);
+        FlowExecution execution = new FlowExecution(null, null, definition, eventNode, intent);
+        execution.combine = combine;
+        return execution;
+    }
+
+    /**
+     * 校验固定 START 的直接后继是预期的启动事件节点（手动启动拒绝启动事件后继，
+     * 定时 / 消息启动校验后继匹配）。
+     *
+     * @param startNode    固定开始节点
+     * @param combine      定义图
+     * @param nodeCode     期望的事件节点编码（消息启动按名称匹配时为 {@code null}）
+     * @param expectedType 期望的事件类型（TIMER_START / MESSAGE_START）
+     * @return 匹配的启动事件节点
+     */
+    private static Node eventStartSuccessor(Node startNode, FlowCombine combine, String nodeCode
+        , String expectedType) {
+        List<Node> successors = FlowEngine.nodeService().getNextNodeList(startNode, null
+            , SkipType.PASS.getKey(), null, new PathWayData(), combine);
+        AssertUtil.isEmpty(successors, ExceptionCons.LOST_CUR_NODE);
+        Node eventNode = successors.get(0);
+        boolean matched = expectedType.equals(eventNode.getEventType())
+            && (nodeCode == null || nodeCode.equals(eventNode.getNodeCode()));
+        AssertUtil.isTrue(!matched, ExceptionCons.EVENT_START_TOPOLOGY_MISMATCH);
+        return eventNode;
+    }
+
+    /**
+     * 加载事件触发（定时到期 / 消息到达）执行作用域：实例、定义、定义图与事件节点。
+     *
+     * @param instance 流程实例
+     * @param nodeCode 事件节点编码
+     * @param intent   触发上下文
+     * @return 执行作用域，当前节点为事件节点
+     */
+    static FlowExecution loadForEvent(Instance instance, String nodeCode, WorkflowContext intent) {
+        Definition definition = FlowEngine.defService().getById(instance.getDefinitionId());
+        AssertUtil.isNull(definition, ExceptionCons.NOT_FOUNT_DEF);
+        FlowCombine combine = FlowEngine.defService().getFlowCombineNoDef(definition.getId());
+        Node eventNode = StreamUtils.filterOne(combine.getAllNodes()
+            , node -> node.getNodeCode().equals(nodeCode));
+        AssertUtil.isNull(eventNode, ExceptionCons.LOST_CUR_NODE);
+        FlowExecution execution = new FlowExecution(null, instance, definition, eventNode, intent);
         execution.combine = combine;
         return execution;
     }
@@ -228,6 +329,27 @@ final class FlowExecution {
         Map<String, Object> merged = MapUtil.mergeAll(instance.getVariableMap(), intent.getVariables());
         intent.setVariables(merged);
         return merged;
+    }
+
+    /**
+     * 补充节点的默认流程变量到意图变量：变量尚未创建时按需惰性创建，避免默认值得不到落库。
+     *
+     * @param node 当前 / 刚到达的节点
+     */
+    void applyNodeDefaults(Node node) {
+        if (intent == null || node == null) {
+            return;
+        }
+        Map<String, Object> defaults = NodeDefaults.of(node);
+        if (defaults.isEmpty()) {
+            return;
+        }
+        Map<String, Object> variables = intent.getVariables();
+        if (variables == null) {
+            variables = new LinkedHashMap<>();
+            intent.setVariables(variables);
+        }
+        NodeDefaults.apply(variables, defaults);
     }
 
     /**

@@ -19,10 +19,13 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
 
+import java.util.Set;
+
 /**
- * 流程实例和任务的流程状态。
+ * 流程实例状态。
  * <p>
- * key 持久化到实例、待办和历史任务中，value 用于展示。
+ * 只描述「这一单处于什么状态」；待办与历史任务的办理结果见 {@link TaskStatus}。
+ * key 持久化到实例，value 用于展示。
  *
  * @author warm
  * @since 2023/3/31 12:16
@@ -34,10 +37,6 @@ public enum FlowStatus {
     TOBESUBMIT("0", "待提交"),
 
     APPROVAL("1", "审批中"),
-
-    PASS("2", "审批通过"),
-
-    AUTO_PASS("3", "自动完成"),
 
     TERMINATE("4", "终止"),
 
@@ -51,16 +50,40 @@ public enum FlowStatus {
 
     REJECT("9", "已退回"),
 
-    INVALID("10", "失效"),
-
-    TASK_BACK("11", "拿回"),
-
     RE_START("12", "重启"),
 
     PENDING("13", "暂存");
 
     private final String key;
     private final String value;
+
+    /**
+     * 内置终态编码：实例到此状态后不再允许办理、流转或撤回。
+     */
+    private static final Set<String> TERMINAL_KEYS = Set.of(
+        FINISHED.key, TERMINATE.key, NULLIFY.key, CANCEL.key);
+
+    /**
+     * 判断编码是否属于内置终态。
+     * <p>
+     * 宿主自定义编码的终态判定走 {@code StatusMapper#isTerminal(String)}，
+     * 本方法只认内置编码，供默认映射器复用。
+     *
+     * @param key 状态编码
+     * @return 内置终态返回 {@code true}
+     */
+    public static boolean isTerminalKey(String key) {
+        return ObjectUtil.isNotNull(key) && TERMINAL_KEYS.contains(key);
+    }
+
+    /**
+     * 获取内置终态编码集合。
+     *
+     * @return 内置终态编码集合，只读
+     */
+    public static Set<String> terminalKeys() {
+        return TERMINAL_KEYS;
+    }
 
     /**
      * 根据展示文案获取状态 key。

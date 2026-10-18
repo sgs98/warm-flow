@@ -1,7 +1,13 @@
 package org.dromara.warm.flow.core.workflow;
 
+import org.dromara.warm.flow.core.dto.EventWaitQuery;
+import org.dromara.warm.flow.core.entity.EventWait;
+import org.dromara.warm.flow.core.utils.page.Page;
 import org.dromara.warm.flow.core.workflow.command.*;
+import org.dromara.warm.flow.core.workflow.result.EventView;
 import org.dromara.warm.flow.core.workflow.result.WorkflowResult;
+
+import java.util.List;
 
 /**
  * 流程操作统一门面。
@@ -89,4 +95,49 @@ public interface WorkflowService {
      * @return 流程操作结果
      */
     WorkflowResult removeSigner(RemoveSignerCommand command);
+
+    /**
+     * 查询流程实例当前正在等待的事件，用于区分「无当前任务但等待事件」与「流程已完成」。
+     *
+     * @param instanceId 流程实例主键
+     * @return 当前等待事件视图集合
+     */
+    List<EventView> waitingEvents(Long instanceId);
+
+    /**
+     * 按条件分页查询事件等待记录（定时任务），第三方自由组合条件使用。
+     * <p>
+     * 条件为 {@code null} 或全空时按默认条件查询（只查定时类事件、按下次触发时间升序、第 1 页 10 条）。
+     * {@code businessId} / {@code flowCode} 先解析为该业务下的实例 / 该编码下的定义主键再下推，
+     * 解析不到时返回空结果而不是放弃该条件；与 {@code instanceId} / {@code definitionId} 同时指定会直接报错。
+     *
+     * @param query 查询条件，可为 {@code null}
+     * @return 回填总数和当前页数据的查询结果
+     */
+    Page<EventWait> pageEventWaits(EventWaitQuery query);
+
+    /**
+     * 按条件查询事件等待记录列表，条件语义与 {@link #pageEventWaits(EventWaitQuery)} 一致，
+     * 不分页，条数由调用方通过条件自行收窄。
+     *
+     * @param query 查询条件，可为 {@code null}
+     * @return 匹配的等待记录列表
+     */
+    List<EventWait> listEventWaits(EventWaitQuery query);
+
+    /**
+     * 按条件统计事件等待记录数量，条件语义与 {@link #pageEventWaits(EventWaitQuery)} 一致。
+     *
+     * @param query 查询条件，可为 {@code null}
+     * @return 匹配记录数
+     */
+    long countEventWaits(EventWaitQuery query);
+
+    /**
+     * 按主键查询单条事件等待记录。
+     *
+     * @param id 等待记录主键
+     * @return 等待记录；不存在或主键为空时返回 {@code null}
+     */
+    EventWait getEventWait(Long id);
 }

@@ -4,6 +4,7 @@ import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.enums.FlowStatus;
+import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.handler.PermissionHandler;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
@@ -104,7 +105,7 @@ class WorkflowFacadeCharacteristicTest {
         command.setVariables(new HashMap<>(Map.of("source", "command")));
         command.setExt("command-ext");
         command.setFlowStatus(FlowStatus.PENDING.getKey());
-        command.setTaskStatus(FlowStatus.PASS.getKey());
+        command.setTaskStatus(TaskStatus.PASS.getKey());
         command.setNextHandlers(List.of("lisi"));
 
         WorkflowResult result = facade().start(command);
@@ -113,7 +114,7 @@ class WorkflowFacadeCharacteristicTest {
         assertEquals(FlowStatus.PENDING.getKey(), instance.getFlowStatus());
         assertEquals("command", instance.getVariableMap().get("source"));
         List<HisTask> history = FlowEngine.hisTaskService().getByInsId(instance.getId());
-        assertEquals(FlowStatus.PASS.getKey(), history.get(0).getFlowStatus());
+        assertEquals(TaskStatus.PASS.getKey(), history.get(0).getFlowStatus());
         assertEquals("command-ext", history.get(0).getExt());
         assertEquals(List.of("lisi"), result.getCurrentTasks().get(0).getHandlers());
     }
@@ -147,7 +148,7 @@ class WorkflowFacadeCharacteristicTest {
         WorkflowResult result = facade().reject(cmd);
 
         assertEquals("reject", result.getOperation());
-        assertEquals(FlowStatus.REJECT.getKey(), result.getFlowStatus());
+        assertEquals(TaskStatus.REJECT.getKey(), result.getFlowStatus());
         assertEquals("apply", result.getCurrentTasks().get(0).getNodeCode());
     }
 

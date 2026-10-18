@@ -24,6 +24,8 @@ import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.utils.*;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,6 +57,10 @@ final class FlowRevokeChain {
      * 待办快照（监听器执行前查询，撤回清理对象）。
      */
     private List<Task> taskList;
+    /**
+     * 快照时实例是否存在活动等待事件（等待事件实例无普通待办也可撤回）。
+     */
+    private boolean waitingEventInstance;
     /**
      * 节点编码索引。
      */
@@ -106,6 +112,11 @@ final class FlowRevokeChain {
      */
     private Optional<Instance> snapshotAndStart(FlowExecution execution) {
         taskList = taskService.getByInsId(instanceId);
+        // 撤回前先取消实例所有活动等待记录，避免旧等待在撤回后继续推进流程；
+        // 取消前记录「是否存在等待事件」：等待事件实例没有普通待办也允许撤回
+        waitingEventInstance = CollUtil.isNotEmpty(
+            FlowEngine.eventWaitService().getWaitingByInstanceId(instanceId));
+        FlowEngine.eventWaitService().cancelByInstanceIds(Collections.singletonList(instanceId));
         FlowCombine flowCombine = execution.loadCombine();
         nodeMap = StreamUtils.toMap(flowCombine.getAllNodes(), Node::getNodeCode, node -> node);
         // 执行开始监听器
@@ -141,8 +152,11 @@ final class FlowRevokeChain {
             , node -> NodeType.isStart(node.getNodeType()));
         // 获取下一个节点，如果是网关节点，则重新获取后续节点
         pathWayData = new PathWayData().setInsId(instanceId).setSkipType(SkipType.REJECT.getKey());
+        // 从开始节点起重新解析：补开始节点与首跳节点的默认流程变量，撤回后重走才不会缺变量
+        execution.applyNodeDefaults(startNode);
         Node nextNode = FlowEngine.nodeService().getNextNode(startNode, null, SkipType.PASS.getKey()
             , null, execution.loadCombine());
+        execution.applyNodeDefaults(nextNode);
         nextNodes = FlowEngine.nodeService().getNextByCheckGateway(execution.intent.getVariables(), nextNode
             , pathWayData, execution.loadCombine());
         pathWayData.getTargetNodes().addAll(nextNodes);
@@ -158,13 +172,15 @@ final class FlowRevokeChain {
      * @return 空表示继续执行后续步骤
      */
     private Optional<Instance> buildTasks(FlowExecution execution) {
-        // R3：复用监听器执行前的待办快照作为撤回清理对象，不再于监听器后二次查询
-        AssertUtil.isEmpty(taskList, ExceptionCons.NOT_FOUND_FLOW_TASK);
+        // R3：复用监听器执行前的待办快照作为撤回清理对象，不再于监听器后二次查询；
+        // 等待事件实例没有普通待办，仅当既无待办也无等待事件时才拒绝撤回
+        if (CollUtil.isEmpty(taskList) && !waitingEventInstance) {
+            AssertUtil.isEmpty(taskList, ExceptionCons.NOT_FOUND_FLOW_TASK);
+        }
 
-        // 给回退到的那个节点赋权限-给当前处理人权限
-        addTasks = StreamUtils.toList(nextNodes,
-            node -> taskService.addTask(node, execution.instance, execution.definition, execution.intent
-                , SkipType.REJECT.getKey()));
+        // 给回退到的那个节点赋权限-给当前处理人权限：统一分派（撤回重新命中
+        // 实例内捕获事件时重建等待记录，不重新触发启动事件）
+        addTasks = EventArrivalDispatcher.dispatch(execution, nextNodes, SkipType.REJECT.getKey());
 
         // 办理人变量替换
         ExpressionUtil.evalVariable(addTasks, execution.intent.getVariables(), execution.intent.getNextHandlers()
@@ -183,14 +199,17 @@ final class FlowRevokeChain {
      * @return 空表示继续执行后续步骤
      */
     private Optional<Instance> persist(FlowExecution execution) {
-        // 设置流程历史任务信息
-        List<HisTask> insHisList = FlowEngine.hisTaskService().setSkipHisList(taskList, nextNodes
-            , execution.intent, SkipType.REJECT.getKey());
-        FlowEngine.hisTaskService().saveBatch(insHisList);
-        // 待办任务和处理人（禁复用 TaskHistoryHandler.updateFlowInfo：撤回为整表快照归档 + 全量删除，
-        // 且 updateById 不带 NOT_FOUNT_INSTANCE 断言——与办理链持久化形似实异）
-        taskService.removeAndUser(taskList);
-        List<User> users = FlowEngine.userService().taskAddUsers(addTasks);
+        // 设置流程历史任务信息（等待事件实例无普通待办可归档，跳过）
+        if (CollUtil.isNotEmpty(taskList)) {
+            List<HisTask> insHisList = FlowEngine.hisTaskService().setSkipHisList(taskList, nextNodes
+                , execution.intent, SkipType.REJECT.getKey());
+            FlowEngine.hisTaskService().saveBatch(insHisList);
+            // 待办任务和处理人（禁复用 TaskHistoryHandler.updateFlowInfo：撤回为整表快照归档 + 全量删除，
+            // 且 updateById 不带 NOT_FOUNT_INSTANCE 断言——与办理链持久化形似实异）
+            taskService.removeAndUser(taskList);
+        }
+        List<User> users = CollUtil.isEmpty(addTasks) ? new ArrayList<>()
+            : FlowEngine.userService().taskAddUsers(addTasks);
 
         // 设置任务完成后的实例相关信息
         taskService.setInsFinishInfo(execution.instance, addTasks, execution.intent.getVariables());
