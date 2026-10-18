@@ -79,7 +79,7 @@ yarn preview                                      # 预览构建产物
 
 - 用 `modern-tabs` mixin：**扁平下划线**风格——底部一条分隔线；tab 项 = `图标 + 文字`，默认灰字，激活态主色字 + 底部 2px 主色下划线指示条（带滑入动画）。**禁止**蓝色实心胶囊 / 外层白盒 / 上浮阴影。
 - tab 图标：16px 单路径 SVG，`fill="currentColor"`（跟随 tab 文字色），放在 tab 上而非内容区；图标语义示例：基础设置=齿轮、办理人=人群、扩展=拼图。
-- **避免「两个标题」**：抽屉本身已有标题（如「设置边属性」），面板内容区不要再放与之重复的分区标题——有 tab 的面板 tab 名即标题；单分区无 tab 的面板（边 / 网关 / 结束）也直接平铺表单、**去掉 `.base-settings-header` 二级标题**（如「跳转条件配置 / 网关配置 / 基础配置」），保持单一标题。
+- **避免「两个标题」**：侧栏本身已有标题（如「设置边属性」），面板内容区不要再放与之重复的分区标题——有 tab 的面板 tab 名即标题；单分区无 tab 的面板（边 / 网关 / 结束）也直接平铺表单、**去掉 `.base-settings-header` 二级标题**（如「跳转条件配置 / 网关配置 / 基础配置」），保持单一标题。
 - tab 可带**计数徽标** `.tab-count`（样式在 `_common.scss` 的 `modern-tabs` 内）：只给有条目语义的页签（办理人行数、扩展属性页签），基础设置这类表单字段组**不加计数**；数值语义是「已填写的字段数 / 已添加的行数」，不是字段定义数；**0 也显示**（`is-empty` 灰态），用来确认"这块看过、确实没配"。扩展页签的徽标跟随绿色态。低频的监听器已不再是页签，它的条数走分组收起摘要（「已配置 N 项」）。
 
 ### 4.1 属性面板内的分组（可折叠）
@@ -111,12 +111,14 @@ yarn preview                                      # 预览构建产物
 - 「增加行 / 添加行」：虚线主色边框 + 透明底 + 居中，hover 实线边框 + 浅蓝底 `--wf-primary-light` + 主色阴影。
 - 主操作（保存等）：主色实心，圆角 ~10px，图标与文字间距用包裹 `span` 的 `inline-flex + gap`（EP 会把图标+文字包进一层 span，`gap` 要落在该 span 上）。
 
-### 8. 属性面板抽屉（append-to-body）
+### 8. 常驻属性侧栏（原抽屉已移除）
 
-- `el-drawer` teleport 到 body，scoped 样式命不中，**面板内样式必须写全局 `<style>` 并挂在 `.property-drawer-modern` 下**（见 `propertySetting.vue`）。
-- 抽屉内同样套：系统字体栈、白底描边输入（第 2 节）、扁平分区、下划线 tab、统一表格；并提供 `html.dark` 覆盖。
+- 属性面板不再是 `el-drawer`：它是 `flow-design/index.vue` 里 `.design-sidebar` 的常驻内容（绝对定位在 `el-header` 右侧，画布用 `margin-right: var(--wf-canvas-inset)` 让位），**切换元素只换内容、不再开关容器**。样式仍写在 `propertySetting.vue` 的全局 `<style>` 里，挂在 `.property-panel` 下。
+- 侧栏宽度取 `--wf-panel-w: 420px`（实测 3 个页签需 361px，400px 会切掉最后一个页签）；≤1024px 时侧栏改为覆盖画布（`--wf-canvas-inset: 0`，宽 `min(420px, 88vw)`）。
+- 开合入口是贴在侧栏左边缘的竖向把手 `.sidebar-handle`（宽屏 / 窄屏都常驻）；收起状态记在 `localStorage`，画布与工具栏靠 `--wf-canvas-inset` 过渡让位。新增依赖画布宽度的浮层时，位置公式必须带上 `var(--wf-canvas-inset)`，否则收起后会对不齐。
+- 侧栏内同样套：系统字体栈、白底描边输入（第 2 节）、扁平分区、下划线 tab、统一表格；并提供 `html.dark` 覆盖。
 - **append-to-body 弹窗（如人员选择 `el-dialog`，见 `between.vue`）**：弹窗根与 `.el-dialog__body` 必须有**实底背景** `var(--el-dialog-bg-color, #fff)`（遮罩 `rgba(0,0,0,.5)`），避免透明导致背后画布透出看不清；写全局样式时**用扁平完整 `:global(选择器)`**，不要在 `:global()` 内再嵌套子选择器——否则会被注入 scoped 属性而失效，甚至把头部样式漏到弹窗根节点。
-- **抽屉头部**：收紧与正文间距（去掉 EP 默认 `el-drawer__header { margin-bottom:32px }`，改 `0` + `padding-bottom:14px` + 底部分隔线，`el-drawer__body` `padding-top:12px`）；标题文字（`.el-drawer__header > span`）用 `--wf-text-primary` + `font-weight:600` + `16px`，**勿用 EP 默认浅灰**。亮色与暗黑都要设。
+- **侧栏头部**：标题文字用 `--wf-text-primary` + `font-weight:600` + `16px`，副标题一行说明当前在编辑什么（流程配置 / 节点编码 / 连线），`min-height: 64px` + 底部分隔线；正文独立滚动（`.panel-body` / `.property-panel-body`），头部固定不滚。亮色与暗黑都要设。
 
 ### 9. 流程画布 / LogicFlow 节点
 

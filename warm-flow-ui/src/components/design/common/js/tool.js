@@ -358,6 +358,32 @@ export const logicFlowJsonToWarmFlow = (data) => {
   return JSON.stringify(definition)
 }
 
+// 保存前校验命中的错误标记：由设计器写入 properties.__checkError（消息文案），
+// 这里只负责把它渲染成红色描边，不参与运行态 / 设计态语义色的优先级判断——错误永远压在最上层。
+const CHECK_ERROR_RGB = '245,108,108'
+
+/**
+ * 校验错误态样式：命中 properties.__checkError 时把节点 / 边染成危险色。
+ * 经典模式的语义色在 applyClassicDesignColor 里会覆盖 stroke，所以本方法必须在最后调用。
+ *
+ * @param {Object} style 样式对象
+ * @param {Object} properties 节点 / 边属性
+ * @returns {Object} 处理后的样式对象
+ */
+export const applyCheckError = (style, properties) => {
+  if (!properties || !properties.__checkError) {
+    return style;
+  }
+  style.stroke = `rgb(${CHECK_ERROR_RGB})`;
+  style.strokeWidth = 2;
+  style.strokeDasharray = '';
+  style.shadow = `drop-shadow(0 0 6px rgba(${CHECK_ERROR_RGB}, 0.35))`;
+  style._statusColorRGB = CHECK_ERROR_RGB;
+  style._statusHex = `rgb(${CHECK_ERROR_RGB})`;
+  style._statusRgba = (alpha) => `rgba(${CHECK_ERROR_RGB}, ${alpha})`;
+  return style;
+}
+
 export const setCommonStyle = (style, properties, nodeType, type) => {
   // 从 chartStatusColor 数组中提取颜色值（后台传三原色则用后台的，否则用默认值）
   const [doneColor, todoColor, notDoneColor] = (properties.chartStatusColor &&
@@ -405,7 +431,7 @@ export const setCommonStyle = (style, properties, nodeType, type) => {
   style._statusHex = `rgb(${currentColor})`;
   style._statusRgba = (alpha) => `rgba(${currentColor}, ${alpha})`;
 
-  return style;
+  return applyCheckError(style, properties);
 }
 
 /**
@@ -429,7 +455,7 @@ export const applyClassicDesignColor = (style, properties, rgb) => {
   const inDesigner = typeof window !== 'undefined' && window.__WF_FLOW_DESIGN_MODE__;
   // 仅设计器页面用新版语义色；非设计器保持 setCommonStyle 的状态语义色不变
   if (!inDesigner) {
-    return style;
+    return applyCheckError(style, properties);
   }
   style.stroke = `rgb(${rgb})`;
   style._statusColorRGB = rgb;
@@ -437,8 +463,37 @@ export const applyClassicDesignColor = (style, properties, rgb) => {
   style._statusRgba = (alpha) => `rgba(${rgb}, ${alpha})`;
   // 同色系柔和阴影，替代原先发灰的投影
   style.shadow = `drop-shadow(0 2px 6px rgba(${rgb}, 0.14)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.04))`;
-  return style;
+  return applyCheckError(style, properties);
 };
+
+/**
+ * 跳转条件的展示文案：把存储格式 `类型@@条件名|值` 转成可读摘要，用于只读列表。
+ * 存储格式见 skip.vue 的序列化与 propertySetting 的反解析，两处需保持一致。
+ *
+ * @param {string} skipCondition 存储格式的跳转条件
+ * @returns {string} 展示文案；未配置返回空串
+ */
+export const formatSkipCondition = (skipCondition) => {
+  if (!skipCondition) {
+    return ''
+  }
+  const [type, rest = ''] = String(skipCondition).split('@@')
+  const OPERATOR_TEXT = {
+    gt: '大于', ge: '大于等于', eq: '等于', ne: '不等于',
+    lt: '小于', le: '小于等于', like: '包含', notLike: '不包含'
+  }
+  if (type === 'default') {
+    return `默认分支：${rest}`
+  }
+  if (type === 'spel') {
+    return `spel：${rest}`
+  }
+  if (!OPERATOR_TEXT[type]) {
+    return String(skipCondition)
+  }
+  const [name, value = ''] = rest.split('|')
+  return `${name || '变量'} ${OPERATOR_TEXT[type]} ${value}`
+}
 
 export function getPreviousNodes(nodes, skips, nowNodeCode) {
   let previousCode = getPreviousCode(skips, nowNodeCode, new Set());

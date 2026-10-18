@@ -7,8 +7,8 @@ class SkipModel extends CurvedEdgeModel {
     // 圆角折线：拐角处做弧形过渡（CurvedEdgeModel 继承自 PolylineEdgeModel，
     // pointsList / offset / 文本定位与旧 Polyline 数据完全兼容）
     this.radius = 10;
-    // 小号箭头：轻量指向，替代默认的大黑箭头
-    this.arrowConfig = { offset: 7, verticalLength: 4 };
+    // 注意：不要整体覆盖 this.arrowConfig —— LogicFlow 预置的 markerEnd/markerStart
+    // 引用就在里面，覆盖后边路径丢失 marker-end，箭头将不再渲染
   }
 
   getEdgeStyle() {
@@ -19,6 +19,21 @@ class SkipModel extends CurvedEdgeModel {
     if (inDesigner && !isRuntime) {
       style.stroke = 'rgba(64, 158, 255, 0.55)';
       style.strokeWidth = 2;
+    }
+    return style;
+  }
+
+  getArrowStyle() {
+    const style = super.getArrowStyle();
+    const inDesigner = typeof window !== 'undefined' && window.__WF_FLOW_DESIGN_MODE__;
+    const isRuntime = this.properties.chartStatusColor && this.properties.chartStatusColor.length > 0;
+    // 实心大箭头（对齐钉钉风格）：默认 10×5 太小，放大到 16×8，颜色跟随连线
+    style.offset = 16;
+    style.verticalLength = 8;
+    if (inDesigner && !isRuntime) {
+      // 设计态箭头用实色品牌蓝：跟随连线的半透明样式会让小箭头几乎不可见
+      style.stroke = '#409eff';
+      style.fill = '#409eff';
     }
     return style;
   }

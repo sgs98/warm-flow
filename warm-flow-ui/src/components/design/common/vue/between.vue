@@ -205,6 +205,7 @@
             />
           </el-select>
           <div v-if="form.collaborativeWay === '2'" class="field-hint">票签必须指定驳回节点</div>
+          <div v-else class="field-hint">驳回目标以这里为准：配了就退到该节点，否则沿当前节点的「退回线」退回</div>
         </el-form-item>
         </form-section>
 
@@ -263,7 +264,7 @@
           <div class="section-card section-blue">
             <div class="section-card-body">
               <el-table :data="kvRows" style="width: 100%" empty-text="暂无扩展属性">
-                <el-table-column prop="code" :width="isMobile ? 80 : 160" label="属性名">
+                <el-table-column prop="code" :width="isMobile ? 80 : 128" label="属性名">
                   <template #default="scope">
                     <el-input v-model="scope.row.code" :disabled="disabled" placeholder="请输入属性名" maxlength="50" @input="syncNodeConfig" />
                   </template>
@@ -1247,47 +1248,44 @@ getNodeExt();
 initKvRows();
 
 // 表单必填校验
-function validate() {
-  return new Promise(async (resolve, reject) => {
-    tabsValue.value = "1";
-    await proxy.$nextTick();
-    proxy.$refs.formRef.validate((valid, fields) => {
-      if (!valid) {
-        // 分组收起时校验红字是不可见的，命中监听器字段的错误就先把分组展开
-        if (fields && Object.keys(fields).some((key) => String(key).startsWith('listenerRows.'))) {
-          proxy.$refs.listenerSection?.open();
-        }
-        // 同理：事件分组收起时命中事件字段/定时配置的错误也要先展开
-        if (fields && Object.keys(fields).some((key) => String(key) === 'eventType' || String(key) === 'eventName'
-            || String(key).startsWith('nodeConfig.event') || String(key) === 'attachedToNodeCode'
-            || String(key) === 'interrupting')) {
-          proxy.$refs.eventSection?.open();
-        }
-        reject(false);
-      }
-    });
-    if (proxy.$refs.nodeBase && proxy.$refs.nodeBase.length > 0) {
-      if (await proxy.$refs.nodeBase[0].validate()) {
-        tabsValidate(resolve, reject);
-      } else {
-        // 同理：节点扩展属性收起时也要展开，否则保存"没反应"
-        baseExtCollapsed.value = false;
-        reject(false);
-      }
-    } else tabsValidate(resolve, reject);
-  });
+// 注意：必须 await 表单校验结果。ElForm 的 validate(callback) 回调是异步的，
+// 旧写法在回调 reject 之前就被 tabsValidate 的 resolve(true) 抢先 resolve，导致校验永远通过。
+async function validate() {
+  tabsValue.value = "1";
+  await proxy.$nextTick();
+  try {
+    await proxy.$refs.formRef.validate();
+  } catch (fields) {
+    // 分组收起时校验红字是不可见的，命中监听器字段的错误就先把分组展开
+    if (fields && Object.keys(fields).some((key) => String(key).startsWith('listenerRows.'))) {
+      proxy.$refs.listenerSection?.open();
+    }
+    // 同理：事件分组收起时命中事件字段/定时配置的错误也要先展开
+    if (fields && Object.keys(fields).some((key) => String(key) === 'eventType' || String(key) === 'eventName'
+        || String(key).startsWith('nodeConfig.event') || String(key) === 'attachedToNodeCode'
+        || String(key) === 'interrupting')) {
+      proxy.$refs.eventSection?.open();
+    }
+    throw false;
+  }
+  if (proxy.$refs.nodeBase && proxy.$refs.nodeBase.length > 0) {
+    if (!await proxy.$refs.nodeBase[0].validate()) {
+      // 同理：节点扩展属性收起时也要展开，否则保存"没反应"
+      baseExtCollapsed.value = false;
+      throw false;
+    }
+  }
+  return tabsValidate();
 }
 
-async function tabsValidate(resolve, reject) {
+async function tabsValidate() {
   let addTabsList = tabsList.value.slice(tabsList.value.length);
-  if (addTabsList.length === 0) resolve(true);
-  // 切换页签做校验
   for (const e of addTabsList) {
     tabsValue.value = e.name;
     await proxy.$nextTick();
-    if (!await proxy.$refs[`nodeExtList_${e.name}`][0].validate()) break;
-    else if (e.name === addTabsList[addTabsList.length - 1].name) resolve(true);
+    if (!await proxy.$refs[`nodeExtList_${e.name}`][0].validate()) return false;
   }
+  return true;
 }
 
 defineExpose({

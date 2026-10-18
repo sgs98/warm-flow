@@ -2,10 +2,27 @@ import {setCommonStyle} from "../../common/js/tool";
 import {CurvedEdge, CurvedEdgeModel, getCurvedEdgePath} from "@logicflow/extension";
 import {h} from "@logicflow/core";
 
-class SkipModel extends CurvedEdgeModel  {
+class SkipModel extends CurvedEdgeModel {
 
   setAttributes() {
     this.isHitable = false // 细粒度控制边是否对用户操作进行反应
+    // 注意：不要整体覆盖 this.arrowConfig —— LogicFlow 预置的 markerEnd/markerStart
+    // 引用就在里面，覆盖后边路径丢失 marker-end，箭头将不再渲染
+  }
+
+  getArrowStyle() {
+    const style = super.getArrowStyle();
+    const inDesigner = typeof window !== 'undefined' && (window as any).__WF_FLOW_DESIGN_MODE__;
+    const isRuntime = this.properties.chartStatusColor && this.properties.chartStatusColor.length > 0;
+    // 实心大箭头（对齐钉钉风格）：默认 10×5 太小，放大到 16×8，颜色跟随连线
+    style.offset = 16;
+    style.verticalLength = 8;
+    if (inDesigner && !isRuntime) {
+      // 设计态箭头用实色品牌蓝：跟随连线的半透明样式会让小箭头几乎不可见
+      style.stroke = '#409eff';
+      style.fill = '#409eff';
+    }
+    return style;
   }
 
   getEdgeStyle() {

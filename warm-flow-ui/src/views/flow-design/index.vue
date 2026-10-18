@@ -1,12 +1,12 @@
 <template>
-  <div class="design-root" :style="headerDiv">
+  <div class="design-root" :class="{ 'is-panel-collapsed': panelCollapsed }" :style="headerDiv">
     <!-- 顶部导航栏 -->
     <div class="design-header" v-if="!onlyDesignShow">
-      <!-- 左侧：流程名称（点击打开流程配置抽屉） -->
+      <!-- 左侧：流程名称（点击把右侧常驻面板切到流程配置） -->
       <div class="header-left">
         <div class="flow-name-wrapper">
           <el-tooltip content="点击编辑流程编码、名称、类别等配置" placement="bottom" :show-after="500">
-            <button type="button" class="flow-name flow-name--editable" @click="openBaseInfo" v-if="!onlyDesignShow">
+            <button type="button" class="flow-name flow-name--editable" @click="openBaseInfo()" v-if="!onlyDesignShow">
                 <svg-icon icon-class="flowName"/>
                 <span class="flow-name-text">{{ logicJson.flowName || '未命名流程' }}</span>
                 <svg class="flow-name-edit-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -23,15 +23,18 @@
         </div>
       </div>
 
-      <!-- 中间：占位（原步骤切换已移除，流程配置收进画布空白点击弹出的抽屉） -->
+      <!-- 中间：占位（原步骤切换已移除，流程配置收进右侧常驻面板） -->
       <div class="header-center"></div>
 
-      <!-- 右侧：保存按钮 -->
+      <!-- 右侧：保存按钮（有未保存改动时显示小圆点） -->
       <div class="header-right">
-        <el-button class="save-btn" size="default" @click="saveJsonModel" v-if="!disabled">
-          <svg-icon icon-class="save" class="save-icon"/>
-          <span>保存</span>
-        </el-button>
+        <el-tooltip :content="dirty ? '有未保存的改动' : '保存流程'" placement="bottom">
+          <el-button class="save-btn" size="default" @click="saveJsonModel" v-if="!disabled">
+            <svg-icon icon-class="save" class="save-icon"/>
+            <span>保存</span>
+            <i v-if="dirty" class="save-dot" aria-hidden="true"></i>
+          </el-button>
+        </el-tooltip>
       </div>
     </div>
 
@@ -45,19 +48,19 @@
             <el-tooltip content="放大" placement="bottom"><el-button size="small" icon="ZoomIn" @click="zoomViewport(true)"></el-button></el-tooltip>
           </span>
           <span class="toolbar-group">
-            <el-tooltip content="上一步" placement="bottom"><el-button size="small" icon="DArrowLeft" @click="undoOrRedo(true)"></el-button></el-tooltip>
-            <el-tooltip content="下一步" placement="bottom"><el-button size="small" icon="DArrowRight" @click="undoOrRedo(false)"></el-button></el-tooltip>
-            <el-tooltip content="清空" placement="bottom"><el-button size="small" icon="Delete" @click="clear()"></el-button></el-tooltip>
+            <el-tooltip content="上一步（⌘ / Ctrl + Z）" placement="bottom"><el-button size="small" icon="DArrowLeft" :disabled="!canUndo" @click="undoOrRedo(true)"></el-button></el-tooltip>
+            <el-tooltip content="下一步（⌘ / Ctrl + Shift + Z）" placement="bottom"><el-button size="small" icon="DArrowRight" :disabled="!canRedo" @click="undoOrRedo(false)"></el-button></el-tooltip>
+            <el-tooltip content="清空画布" placement="bottom"><el-button size="small" icon="Delete" @click="clear()"></el-button></el-tooltip>
           </span>
           <span class="toolbar-group">
             <el-tooltip content="下载流程图" placement="bottom"><el-button size="small" icon="Picture" @click="downLoad"></el-button></el-tooltip>
             <el-tooltip content="下载JSON" placement="bottom"><el-button size="small" icon="Download" @click="downJson"></el-button></el-tooltip>
           </span>
-          <!-- 设计器模型切换已统一收进「流程配置」抽屉的单选（已有流程切换前会确认），工具栏不再保留入口 -->
-          <!-- 流程配置：点画布空白同样可打开；嵌入模式的定义元数据由宿主管理，不提供入口 -->
+          <!-- 设计器模型切换已统一收进「流程配置」面板的单选（已有流程切换前会确认），工具栏不再保留入口 -->
+          <!-- 流程配置：点画布空白同样会切到它；嵌入模式的定义元数据由宿主管理，不提供入口 -->
           <span class="toolbar-group" v-if="!onlyDesignShow && !disabled">
             <el-tooltip content="流程配置" placement="bottom">
-              <el-button size="small" icon="Setting" @click="openBaseInfo"></el-button>
+              <el-button size="small" icon="Setting" @click="openBaseInfo()"></el-button>
             </el-tooltip>
           </span>
           <span class="toolbar-group" v-if="onlyDesignShow && !disabled">
@@ -65,40 +68,30 @@
               <svg-icon icon-class="save" style="width: 14px; height: 14px;"/>
             </el-button></el-tooltip>
           </span>
+          <!-- 操作帮助：右键菜单与快捷键在界面上没有其它入口，这里统一兜底说明 -->
+          <span class="toolbar-group">
+            <el-popover placement="bottom-start" :width="320" trigger="click" popper-class="design-help-popover">
+              <template #reference>
+                <el-button size="small" icon="QuestionFilled"></el-button>
+              </template>
+              <div class="design-help">
+                <div class="design-help-title">快捷键</div>
+                <ul class="design-help-list">
+                  <li><span>保存流程</span><kbd>{{ modKey }} + S</kbd></li>
+                  <li><span>撤销 / 重做</span><kbd>{{ modKey }} + Z / ⇧ + {{ modKey }} + Z</kbd></li>
+                  <li><span>删除选中元素</span><kbd>Delete / Backspace</kbd></li>
+                </ul>
+                <div class="design-help-title">鼠标操作</div>
+                <ul class="design-help-list">
+                  <li><span>节点 / 边属性</span><kbd>单击节点或连线</kbd></li>
+                  <li><span>重命名、复制、删除、设为退回线…</span><kbd>右键节点或连线</kbd></li>
+                  <li><span>流程配置（编码 / 名称 / 模型）</span><kbd>单击画布空白</kbd></li>
+                </ul>
+              </div>
+            </el-popover>
+          </span>
         </div>
       </div>
-
-      <!-- 流程配置抽屉：由点画布空白 / 顶部流程名称 / 工具栏按钮打开；嵌入模式的定义元数据由宿主管理，不渲染 -->
-      <el-drawer
-        v-if="!onlyDesignShow"
-        v-model="baseInfoDrawer"
-        direction="rtl"
-        :size="baseInfoDrawerSize"
-        :destroy-on-close="false"
-        :close-on-click-modal="true"
-        :before-close="attemptCloseBaseInfo"
-        class="base-info-drawer"
-      >
-        <template #header>
-          <div class="base-info-drawer-header">
-            <div class="base-info-drawer-title">流程配置</div>
-            <div class="base-info-drawer-subtitle">编码、名称、模型等定义信息，随画布一起保存</div>
-          </div>
-        </template>
-        <BaseInfo ref="baseInfoRef" class="base-info-in-drawer"
-                  :logic-json="logicJson" :category-list="categoryList" :form-path-list="formPathList"
-                  :definition-id="definitionId" :disabled="disabled"
-                  @update:flow-name="handleFlowNameUpdate" @update:model-value="handleModelValueUpdate"/>
-        <template #footer>
-          <div class="base-info-drawer-footer">
-            <span class="base-info-drawer-footer-hint">配置随下次保存一起提交</span>
-            <span class="base-info-drawer-footer-actions">
-              <el-button @click="attemptCloseBaseInfo()">取 消</el-button>
-              <el-button type="primary" @click="confirmBaseInfo">确 定</el-button>
-            </span>
-          </div>
-        </template>
-      </el-drawer>
 
       <!-- 自定义拖拽侧边栏：延迟显示避免与 LogicFlow DOM 冲突 -->
       <DiagramSidebar
@@ -106,14 +99,6 @@
         class="diagram-sidebar"
         @dragInNode="handleDragInNode"
       />
-
-      <!-- 节点属性面板：抽屉 teleport 到 body，原地只留占位符。
-           必须放在 .container 外面！LogicFlow 初始化会接管 .container 的内部 DOM，
-           放在里面会被清掉锚点，之后 Vue 每次 patch Design 子树都会 insertBefore null 崩溃 -->
-      <PropertySetting ref="propertySettingRef" :node="nodeClick" :lf="lf" :disabled="disabled"
-                       :skipConditionShow="skipConditionShow" :nodes="nodes" :skips="skips"
-                       :form-path-list="formPathList">
-      </PropertySetting>
 
       <div class="container" ref="containerRef"></div>
       <!-- 画布空态引导：必须是 .container 的「兄弟节点」覆盖层！
@@ -128,9 +113,60 @@
           <path d="M24 10v9M24 29v9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 3"/>
         </svg>
         <p class="canvas-empty-guide-title">画布是空的</p>
-        <p class="canvas-empty-guide-desc">从左侧拖入节点开始设计 · 点击空白处可打开流程配置</p>
+        <p class="canvas-empty-guide-desc">从左侧拖入节点开始设计 · 选中节点或连线可编辑属性</p>
       </div>
       <div class="logo-text">Warm-Flow</div>
+
+      <!-- 侧栏开合把手：贴在侧栏左边缘的竖条，宽屏常驻时也保留。
+           这是唯一开合入口（宽屏收起后画布吃满整屏；窄屏收起覆盖层） -->
+      <el-tooltip :content="panelCollapsed ? '展开属性面板' : '收起属性面板'" placement="left">
+        <button type="button" class="sidebar-handle" :class="{ 'is-collapsed': panelCollapsed }"
+                :aria-expanded="!panelCollapsed" aria-controls="wf-design-sidebar"
+                :aria-label="panelCollapsed ? '展开属性面板' : '收起属性面板'"
+                @click="togglePanel">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M9.8 3.6 5.6 8l4.2 4.4" fill="none" stroke="currentColor" stroke-width="1.6"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </el-tooltip>
+
+      <!-- 常驻右侧栏：选中节点 / 连线时是属性面板，未选中时是流程配置。
+           只是把原来的「点空白弹抽屉 / 点节点弹抽屉」换成常驻容器，内容切换规则不变。
+           必须放在 .container 外面！LogicFlow 初始化会接管 .container 的内部 DOM，
+           放在里面会被清掉锚点，之后 Vue 每次 patch Design 子树都会 insertBefore null 崩溃 -->
+      <aside id="wf-design-sidebar" class="design-sidebar">
+        <!-- 节点 / 边属性：未选中即卸载，下次选中重建（与原先抽屉的 destroy-on-close 等价） -->
+        <PropertySetting v-if="nodeClick" ref="propertySettingRef" :node="nodeClick" :lf="lf" :disabled="disabled"
+                         :skipConditionShow="skipConditionShow" :nodes="nodes" :skips="skips"
+                         :form-path-list="formPathList" @edit-skip="handleEditSkip"></PropertySetting>
+
+        <!-- 流程配置：未选中任何元素时的面板内容。必须常驻（v-show 而非 v-if）——
+             用户填的内容只在 BaseInfo 内部，切到节点再切回来不能丢。
+             嵌入模式的定义元数据由宿主管理，这里不渲染 -->
+        <div class="panel-shell" v-if="!onlyDesignShow" v-show="!nodeClick">
+          <div class="panel-header">
+            <div class="panel-title">流程配置</div>
+            <div class="panel-subtitle">编码、名称、模型等定义信息，随画布一起保存</div>
+          </div>
+          <div class="panel-body">
+            <BaseInfo ref="baseInfoRef" :logic-json="logicJson" :category-list="categoryList"
+                      :form-path-list="formPathList" :definition-id="definitionId" :disabled="disabled"
+                      @update:flow-name="handleFlowNameUpdate" @update:model-value="handleModelValueUpdate"
+                      @update:dirty="handleBaseInfoDirty"/>
+          </div>
+        </div>
+
+        <!-- 嵌入模式：定义元数据由宿主管理，没有流程配置可填，未选中时给一句占位说明 -->
+        <div class="panel-shell" v-if="onlyDesignShow && !nodeClick">
+          <div class="panel-header">
+            <div class="panel-title">节点属性</div>
+          </div>
+          <div class="panel-body">
+            <p class="panel-empty-tip">选中画布上的节点或连线，在这里编辑属性</p>
+          </div>
+        </div>
+      </aside>
     </el-header>
 
     <!-- 弹框组件 -->
@@ -141,6 +177,32 @@
         @option-click="handleOptionClick"
         @close-tooltip="tooltipVisible = false"
     />
+
+    <!-- 保存前检查未通过：列出问题，可点击定位到画布上的问题节点 -->
+    <el-dialog
+      v-model="checkDialogVisible"
+      title="保存前检查未通过"
+      width="440px"
+      :append-to-body="true"
+      class="flow-check-dialog"
+    >
+      <p class="flow-check-desc">以下问题会导致流程发布失败或运行中断，请先修改：</p>
+      <ul class="flow-check-list">
+        <li
+          v-for="(item, index) in checkErrorList"
+          :key="index"
+          :class="{ 'is-locatable': item.id }"
+          @click="locateCheckError(item)"
+        >
+          <span class="flow-check-name">{{ item.name }}</span>
+          <span class="flow-check-message">{{ item.message }}</span>
+          <span class="flow-check-action" v-if="item.id">定位</span>
+        </li>
+      </ul>
+      <template #footer>
+        <el-button @click="checkDialogVisible = false">知道了</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -158,6 +220,7 @@ import {
     json2LogicFlowJson,
     logicFlowJsonToWarmFlow
 } from "@/components/design/common/js/tool";
+import { checkFlowNodes } from "@/components/design/common/js/flowCheck";
 import { getMagnetPosition, SNAP_EPSILON } from "@/components/design/common/js/snapMagnet";
 import {
   relayoutToMimic,
@@ -283,15 +346,56 @@ const tooltipVisible = ref(false);
 const tooltipPosition = ref({ x: 0, y: 0 });
 const tooltipEdge = ref({});
 
-// 流程配置抽屉：画布是唯一视图，定义元数据（编码 / 名称 / 类别 / 表单 / 监听器等）收进抽屉。
-// 打开入口：点画布空白、点顶部流程名称、工具栏「流程配置」按钮；新建流程时自动打开一次。
-const baseInfoDrawer = ref(false);
+// 常驻侧栏：宽屏固定宽度常驻显示；窄屏（≤1024px）默认收起，展开时覆盖画布（见 .design-sidebar 样式）
+const isNarrowViewport = () => window.innerWidth <= 1024;
+// 手动开合过的状态记在本地：用户把画布让大了，下次进来不必再收一次
+const PANEL_COLLAPSED_KEY = 'warm-flow:design-panel-collapsed';
+function readPanelCollapsed() {
+  try {
+    const saved = localStorage.getItem(PANEL_COLLAPSED_KEY);
+    if (saved === '1') return true;
+    if (saved === '0') return false;
+  } catch (e) {
+    // 隐私模式 / 禁用存储：退回按视口判断
+  }
+  return isNarrowViewport();
+}
+const panelCollapsed = ref(readPanelCollapsed());
 
-// 抽屉宽度响应式：与节点属性面板（propertySetting）保持一致——手机（≤768px）100%，桌面 37%
-const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1280);
-const onViewportResize = () => { viewportWidth.value = window.innerWidth; };
+// 侧栏开合 / 宽度变化后画布容器尺寸变了：过渡结束再让 LogicFlow 重算一次，
+// 否则 SVG 的鼠标坐标映射还停在旧尺寸上（只 resize，不 fitView，避免缩放跳变）
+let _panelResizeTimer = null;
+function resizeCanvasAfterPanel() {
+  clearTimeout(_panelResizeTimer);
+  _panelResizeTimer = setTimeout(() => lf.value?.resize?.(), 260);
+}
+
+/** 开合侧栏：把手是唯一的手动入口 */
+function togglePanel() {
+  panelCollapsed.value = !panelCollapsed.value;
+}
+
+// 任何开合（手动 / 选中节点自动展开 / 窄屏点空白自动收起）都同步两件事：
+// 记住状态 + 过渡结束后让画布重算尺寸
+watch(panelCollapsed, (collapsed) => {
+  try {
+    localStorage.setItem(PANEL_COLLAPSED_KEY, collapsed ? '1' : '0');
+  } catch (e) {
+    // 存不下就算了，不影响开合
+  }
+  resizeCanvasAfterPanel();
+});
+
+// 只在「窄 → 宽」跨断点时强制展开：窄屏收起只是覆盖层让位。
+// 宽屏下用户手动收起后，普通窗口缩放不应该又把面板弹开
+let _wasNarrow = isNarrowViewport();
+const onViewportResize = () => {
+  const narrow = isNarrowViewport();
+  if (_wasNarrow && !narrow) panelCollapsed.value = false;
+  _wasNarrow = narrow;
+};
 window.addEventListener('resize', onViewportResize);
-const baseInfoDrawerSize = computed(() => viewportWidth.value <= 768 ? '100%' : '37%');
+
 
 // 画布空态引导：节点数为 0（如清空后）时中央显示引导文案
 const canvasNodeCount = ref(0);
@@ -303,21 +407,123 @@ function updateCanvasNodeCount() {
   }
 }
 
+// ========== 未保存标记 / 撤销重做可用性 ==========
+// 画布上的一切编辑都会进 LogicFlow 历史栈，用 history:change 统一驱动，无需逐处埋点
+const dirty = ref(false);
+const canUndo = ref(false);
+const canRedo = ref(false);
+
+// 写入 / 清除「校验错误标记」本身也会进历史栈（它不是用户的编辑内容），
+// 用一个短窗口屏蔽，避免保存成功后「未保存」小圆点又亮起来
+let _suppressDirtyUntil = 0;
+function markDirty() {
+  if (Date.now() < _suppressDirtyUntil) return;
+  dirty.value = true;
+}
+function suppressDirty(duration = 400) {
+  _suppressDirtyUntil = Date.now() + duration;
+}
+
+// ========== 保存前检查 ==========
+const checkErrorList = ref([]);
+const checkDialogVisible = ref(false);
+
+// 快捷键提示里的修饰键：Mac 显示 ⌘，其它平台显示 Ctrl
+const modKey = computed(() => (/mac/i.test(navigator.userAgent || '') ? '⌘' : 'Ctrl'));
+
+/** 焦点是否落在可输入元素上：快捷键不应劫持正常输入 */
+function isEditableTarget(target) {
+  return !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+}
+
+/** 清除画布上的校验错误标记 */
+function clearCheckErrors() {
+  if (!lf.value?.getGraphData) return;
+  lf.value.getGraphData().nodes.forEach(node => {
+    if (node.properties?.__checkError) {
+      lf.value.setProperties(node.id, { __checkError: '' });
+    }
+  });
+}
+
+/**
+ * 跑一次保存前检查：把问题节点在画布上标红，并弹出清单。
+ * @returns {Array} 问题列表（空数组表示通过）
+ */
+function runFlowCheck() {
+  if (!lf.value?.getGraphData) return [];
+  suppressDirty();
+  clearCheckErrors();
+  const errors = checkFlowNodes(lf.value.getGraphData());
+  errors.forEach(item => {
+    if (item.id) {
+      lf.value.setProperties(item.id, { __checkError: item.message });
+    }
+  });
+  checkErrorList.value = errors;
+  if (errors.length === 0) {
+    checkDialogVisible.value = false;
+    return errors;
+  }
+  checkDialogVisible.value = true;
+  // 自动定位到第一个能在画布上找到的问题节点，省得用户自己在大图里找
+  const first = errors.find(item => item.id);
+  if (first) proxy.$nextTick(() => locateCheckError(first, false));
+  return errors;
+}
+
+/**
+ * 打开某条边的属性：网关面板的「分支条件」列表点编辑时调用。
+ * 就地切换右侧面板内容（不卸载重开），避免来回切换打断操作。
+ * @param {string} edgeId 边 id
+ */
+function handleEditSkip(edgeId) {
+  const edgeModel = lf.value?.getEdgeModelById(edgeId);
+  if (!edgeModel) return;
+  skipConditionShow.value = true;
+  showProperty(edgeModel);
+}
+
+/**
+ * 定位到问题节点：选中 + 视口居中 + 右侧属性面板切到该节点
+ * @param {Object} item 检查结果项
+ * @param {boolean} closeDialog 是否关闭检查清单弹窗
+ */
+function locateCheckError(item, closeDialog = true) {
+  if (!item?.id || !lf.value) return;
+  if (closeDialog) checkDialogVisible.value = false;
+  const model = lf.value.getNodeModelById(item.id);
+  if (!model) return;
+  lf.value.clearSelectElements();
+  lf.value.selectNodeById(item.id);
+  if (typeof lf.value.focusOn === 'function') {
+    lf.value.focusOn({ x: model.x, y: model.y });
+  }
+  showProperty(model);
+}
+
 /**
  * 全局键盘快捷键：
  * - Cmd/Ctrl + S：保存流程（替代伸手找按钮）
- * - Delete：删除选中元素（经典模式由 LogicFlow 内置键盘处理，这里补齐仿钉钉模式）
+ * - Cmd/Ctrl + Z（按住 Shift 为重做）：撤销 / 重做
+ * - Delete / Backspace：删除选中元素（经典模式由 LogicFlow 内置键盘处理，这里补齐仿钉钉模式）
+ *
+ * 焦点落在输入控件里时一律不劫持：输入框内的删除 / 撤销是正常编辑行为。
  */
 function onGlobalKeydown(e) {
-  if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) {
+  const isMod = e.metaKey || e.ctrlKey;
+  if (isMod && (e.key === 's' || e.key === 'S')) {
     e.preventDefault();
     if (!disabled.value) saveJsonModel();
     return;
   }
-  if (e.key === 'Delete' && !disabled.value && lf.value && !isClassics(logicJson.value.modelValue)) {
-    const target = e.target;
-    // 焦点在输入控件里时不劫持（输入框内删除字符是正常行为）
-    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+  if (isEditableTarget(e.target)) return;
+  if (isMod && (e.key === 'z' || e.key === 'Z')) {
+    e.preventDefault();
+    if (e.shiftKey ? canRedo.value : canUndo.value) undoOrRedo(!e.shiftKey);
+    return;
+  }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && !disabled.value && lf.value && !isClassics(logicJson.value.modelValue)) {
     const elements = lf.value.getSelectElements(true);
     if (elements && (elements.nodes.length || elements.edges.length)) {
       e.preventDefault();
@@ -328,66 +534,56 @@ function onGlobalKeydown(e) {
   }
 }
 
-function openBaseInfo() {
-  baseInfoDrawer.value = true;
+/**
+ * 关闭 / 刷新页面拦截：画布上有未保存改动时让浏览器弹确认，
+ * 避免「改完直接关标签页」把配置丢掉（嵌入模式由宿主页面负责，这里不额外处理）。
+ */
+function onBeforeUnload(e) {
+  if (!dirty.value) return;
+  e.preventDefault();
+  e.returnValue = '';
 }
 
 /**
- * 关闭流程配置抽屉（统一出口）：关闭按钮 / 遮罩 / Esc / 取消按钮都走这里。
- * 有未保存改动时先弹确认，防止误关丢配置；无改动直接收起。
- * @param done el-drawer before-close 回调，footer 取消按钮调用时不传（直接改 v-model）
+ * 切到「流程配置」面板（点画布空白 / 点顶部流程名称 / 工具栏入口 / 新建流程时自动打开）。
+ * 常驻侧栏没有开关，只有内容切换：切走前先对节点属性面板做一次离开校验，
+ * 不通过就留在原面板，避免未填完的必填项被随手丢弃。
+ * @param {boolean} keepOpen 窄屏下是否保持侧栏展开（显式入口为 true，点画布空白为 false）
+ * @returns {Promise<boolean>} 是否完成了切换
  */
-function attemptCloseBaseInfo(done) {
-  const comp = proxy.$refs.baseInfoRef;
-  const closeIt = () => {
-    comp?.markClean?.();
-    if (typeof done === 'function') {
-      done();
-    } else {
-      baseInfoDrawer.value = false;
-    }
-  };
-  if (!disabled.value && comp?.isDirty?.()) {
-    ElMessageBox.confirm('流程配置尚未保存，配置会随画布保存一起提交，确定放弃本次修改？', '放弃修改', {
-      confirmButtonText: '放弃修改',
-      cancelButtonText: '继续编辑',
-      type: 'warning'
-    }).then(closeIt).catch(() => {});
-    return;
+async function openBaseInfo(keepOpen = true) {
+  if (nodeClick.value != null) {
+    const ok = await propertySettingRef.value?.confirmLeave?.();
+    if (ok === false) return false;
+    nodeClick.value = null;
   }
-  closeIt();
+  // 窄屏下侧栏是覆盖层：显式入口保持展开，点画布空白则顺手收起把画布让出来
+  panelCollapsed.value = !keepOpen && isNarrowViewport();
+  return true;
 }
 
-/** 抽屉「确定」：校验通过才收起，失败留在抽屉内就近提示 */
-async function confirmBaseInfo() {
-  const comp = proxy.$refs.baseInfoRef;
-  const valid = await comp?.validate();
-  if (valid === false) return;
-  // 校验通过即视为确认当前配置：刷新脏检测基准后直接收起，不再触发「放弃修改」确认
-  comp?.markClean?.();
-  baseInfoDrawer.value = false;
+/** 流程配置有改动时点亮「未保存」（原抽屉「确定」按钮承担的动作，现在改动直接随保存提交） */
+function handleBaseInfoDirty(isDirty) {
+  if (isDirty) markDirty();
 }
 
-// 抽屉打开时：清除上次留下的校验红框（首屏不报错）、刷新脏检测基准、新建流程聚焦第一个必填字段。
-// 例外：保存失败自动打开抽屉时保留红框（用户要就近改错），由 keepValidationOnNextOpen 控制。
-const keepValidationOnNextOpen = ref(false);
-watch(baseInfoDrawer, (open) => {
-  if (!open) return;
-  const keepValidate = keepValidationOnNextOpen.value;
-  keepValidationOnNextOpen.value = false;
-  // 抽屉首次打开时 BaseInfo 才懒渲染，nextTick 可能拿不到 ref，做短重试兜底
-  const tryInit = (tries = 0) => {
-    const comp = proxy.$refs.baseInfoRef;
-    if (!comp && tries < 10) {
-      setTimeout(() => tryInit(tries + 1), 50);
-      return;
-    }
-    if (!keepValidate) comp?.clearValidation?.();
-    comp?.markClean?.();
-    if (!definitionId.value) comp?.focusFirstField?.();
-  };
-  proxy.$nextTick(() => tryInit());
-});
+/**
+ * 把右侧属性面板切到某个节点 / 连线（节点单击、边单击、检查清单定位、网关分支条件「编辑」都走这里）。
+ * 切走前先对当前面板做一次离开校验，不通过则放弃切换。
+ * @param {Object} model 节点 / 边 model
+ */
+async function showProperty(model) {
+  if (!model || nodeClick.value === model) return;
+  if (nodeClick.value && !(await propertySettingRef.value?.confirmLeave?.())) return;
+  nodeClick.value = model;
+  // 选中元素就是要配属性：窄屏下自动展开侧栏
+  panelCollapsed.value = false;
+  const graphData = lf.value?.getGraphData?.();
+  if (graphData) {
+    nodes.value = graphData.nodes;
+    skips.value = graphData.edges;
+  }
+}
 
 const handleOptionClick = (item) => {
   if (item.kind === "event") {
@@ -409,8 +605,10 @@ onMounted(() => {
     document.body.style.overflow = 'hidden';
     // 构建版本标记：控制台核对「加载的是哪次构建」，产物链排查用
     console.info('[warm-flow-designer] build:', typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev');
-    // 全局键盘快捷键（保存 / 删除选中）
+    // 全局键盘快捷键（保存 / 撤销重做 / 删除选中）
     window.addEventListener('keydown', onGlobalKeydown);
+    // 有未保存改动时拦截关闭 / 刷新（避免改完直接关标签页丢配置）
+    window.addEventListener('beforeunload', onBeforeUnload);
     // 标记当前处于设计器页面：供经典节点设计态语义色判断（业务侧实例进度图不受影响）
     window.__WF_FLOW_DESIGN_MODE__ = true;
     if (!appParams.value) appStore.fetchTokenName();
@@ -451,12 +649,19 @@ onMounted(() => {
         };
       }
     }
-    // 画布是唯一视图：初始加载即初始化（原由「切到流程设计」步骤触发，Tab 移除后在此补上）
-    handleModelValueUpdate();
-    // 新建流程：没有定义 id，直接弹出流程配置抽屉让用户先填编码 / 名称 / 模型
-    if (!definitionId.value && !onlyDesignShow.value) {
-      baseInfoDrawer.value = true;
-    }
+    // 画布是唯一视图：初始加载即初始化（原由「切到流程设计」步骤触发，Tab 移除后在此补上）。
+    // 放到 nextTick：流程配置表单常驻，要先让它吸收这次载入的定义信息，
+    // 否则 handleModelValueUpdate 里的 getBaseInfo 会把空表单覆盖回 logicJson。
+    nextTick(() => {
+      handleModelValueUpdate();
+      // 常驻面板：定义信息载入后刷新脏检测基准，否则一进页面就显示「未保存」
+      nextTick(() => proxy.$refs.baseInfoRef?.markClean?.());
+      // 新建流程：没有定义 id，侧栏停在流程配置并聚焦第一个必填字段
+      if (!definitionId.value && !onlyDesignShow.value) {
+        openBaseInfo();
+        nextTick(() => proxy.$refs.baseInfoRef?.focusFirstField?.());
+      }
+    });
   });
 })
 
@@ -496,7 +701,8 @@ function initLogicFlow() {
         enabled: true,
         shortcuts: [
           {
-            keys: ["delete"],
+            // Mac 主键盘的删除键是 Backspace，只绑 delete 会导致 Mac 上按删除键没反应
+            keys: ["delete", "backspace"],
             callback: () => {
               const elements = lf.value.getSelectElements(true);
               lf.value.clearSelectElements();
@@ -568,6 +774,11 @@ function initLogicFlow() {
     if (isClassics(logicJson.value.modelValue)) {
       sidebarVisible.value = true;
     }
+
+    // 初始化期间的内部整理（标签位置回正、按新模型重算折点、适配视图）也会进历史栈，
+    // 但它们不是用户的编辑内容：屏蔽掉并复位，避免刚打开就显示「未保存」
+    suppressDirty();
+    dirty.value = false;
   }
 }
 
@@ -602,49 +813,32 @@ watch(isDark, (v) => {
 /** 组件卸载时清理 message 监听 */
 onUnmounted(() => {
   cleanupMessageListener();
+  clearTimeout(_panelResizeTimer);
   window.removeEventListener('resize', handleMobileResize);
   window.removeEventListener('resize', onViewportResize);
   window.removeEventListener('keydown', onGlobalKeydown);
+  window.removeEventListener('beforeunload', onBeforeUnload);
   // 离开设计器页面，复位设计态标记
   window.__WF_FLOW_DESIGN_MODE__ = false;
 });
 
-// 监听窗口变化，真机旋转屏幕时重绘（带防抖 + 标志位屏蔽抽屉操作干扰）
+// 监听窗口变化，真机旋转屏幕时重绘（带防抖 + 尺寸变化过滤）
 let _resizeTimer = null;
-let _drawerActive = false; // 抽屉操作期间禁止 resize 重绘画布 + 阻止触摸事件桥接
 let _lastCanvasSize = { w: 0, h: 0 };
 function handleMobileResize() {
-  if (_drawerActive) return; // 抽屉操作期间跳过
   clearTimeout(_resizeTimer);
   _resizeTimer = setTimeout(() => {
     const container = proxy.$refs.containerRef;
     if (!container || !lf.value?.resize) return;
     const w = container.clientWidth;
     const h = container.clientHeight;
-    // 容器尺寸无显著变化（<5px 容差）则跳过，过滤掉抽屉/overlay 导致的微调
+    // 容器尺寸无显著变化（<5px 容差）则跳过，过滤掉 overlay 等导致的微调
     if (Math.abs(w - _lastCanvasSize.w) < 5 && Math.abs(h - _lastCanvasSize.h) < 5 && _lastCanvasSize.w > 0) return;
     _lastCanvasSize = { w, h };
     lf.value.resize();
   }, 300); // 提高到 300ms 确保布局稳定后再判断
 }
 window.addEventListener('resize', handleMobileResize);
-
-// 抽屉打开时标记
-window._markDrawerOpen = () => { _drawerActive = true; };
-// 抽屉关闭动画完成后解除标记，并触发一次移动端画布适配
-// 延迟 350ms：Element Plus drawer 关闭 transition 默认 300ms，加 50ms 缓冲
-window._markDrawerClosed = () => {
-  setTimeout(() => {
-    _drawerActive = false;
-    // 抽屉关闭后一次性适配画布（仅移动端/平板），替代 propertySetting 中分散的 fitView 调用
-    if (isMobileDevice() && lf.value?.resize) {
-      lf.value.resize();
-      requestAnimationFrame(() => {
-        if (lf.value?.fitView) lf.value.fitView(40, 20);
-      });
-    }
-  }, 350);
-};
 
 /**
  * 自定义拖拽面板：监听子组件 dragInNode 事件，调用 lf.dnd.startDrag
@@ -663,7 +857,7 @@ function getBaseInfo() {
   if (onlyDesignShow.value) {
     return
   }
-  // 抽屉懒渲染：从未打开过配置抽屉时表单尚未挂载，此时用 logicJson 的初始值即可
+  // 非嵌入模式下流程配置表单常驻，直接取当前值即可
   const baseInfoComp = proxy.$refs.baseInfoRef;
   if (!baseInfoComp) {
     return
@@ -677,6 +871,7 @@ function getBaseInfo() {
 
 function handleFlowNameUpdate(newName) {
   logicJson.value.flowName = newName; // 更新父组件中的流程名称
+  markDirty();
 }
 
 function handleModelValueUpdate() {
@@ -710,7 +905,7 @@ function handleModelValueUpdate() {
   // 模型没变（普通联动），无需重建
   if (modeOrg === modeNew) return;
 
-  // 模型切换重建（原工具栏 switchModel 链路，现由抽屉单选触发）：
+  // 模型切换重建（原工具栏 switchModel 链路，现由流程配置面板的单选触发）：
   // 先取画布最新节点/连线（否则本次新增会被丢弃、拖过的坐标回退），
   // 丢弃旧模型折点，切仿钉钉时按上下结构重排，再按新模式注册元素重建画布
   try {
@@ -741,6 +936,8 @@ function handleModelValueUpdate() {
         resetHistory(lf.value);
         // 整体重建后刷新节点计数（空态引导依赖）
         updateCanvasNodeCount();
+        // 模型切换是画布内容的整体变更，标记为未保存（重建不走历史栈，不会自动点亮）
+        markDirty();
       }
     } catch (e) {
       console.error('[model-switch] 重建失败:', e);
@@ -769,20 +966,26 @@ function modelValuePayload(json) {
 
 async function saveJsonModel() {
   const loadingInstance = ElLoading.service(({fullscreen: true, text: "保存中，请稍等"}))
+  // 常驻侧栏：面板里改过的节点编码要先落到画布（原先靠关闭抽屉时提交）
+  propertySettingRef.value?.commitIdChange?.()
   if (!onlyDesignShow.value) {
-    // 抽屉懒渲染：从未打开过配置抽屉时表单尚未挂载，此时不需要校验（初始值即当前值）
+    // 常驻面板：BaseInfo 已挂载即当前值，校验失败直接切回流程配置就近改错
     const baseInfoComp = proxy.$refs.baseInfoRef;
     if (baseInfoComp) {
       let validate = await baseInfoComp.validate();
       if (!validate) {
         loadingInstance.close();
-        // 就近改错：打开配置抽屉并定位到第一个错误项（保留红框，不让「打开即清校验」擦掉）
-        keepValidationOnNextOpen.value = true;
-        baseInfoDrawer.value = true;
+        nodeClick.value = null;
+        panelCollapsed.value = false;
         proxy.$modal.msgWarning("请先完善流程配置中标红项");
         return;
       }
     }
+  }
+  // 画布结构检查：把必然导致发布失败 / 流程跑不下去的问题先挑出来（标红 + 清单 + 定位）
+  if (runFlowCheck().length > 0) {
+    loadingInstance.close();
+    return;
   }
   getBaseInfo();
 
@@ -802,6 +1005,12 @@ async function saveJsonModel() {
   saveJson(jsonString, onlyDesignShow.value && !writeModelValue).then(response => {
     if (response.code === 200) {
       proxy.$modal.msgSuccess("保存成功");
+      // 保存成功即视为已落库：清掉画布上的校验标记并复位「未保存」状态
+      // （清标记本身会进历史栈，用短窗口屏蔽，避免小圆点又被点亮）
+      suppressDirty();
+      clearCheckErrors();
+      checkDialogVisible.value = false;
+      dirty.value = false;
       // 延迟500ms后关闭页面
         setTimeout(() => {
             close()
@@ -885,26 +1094,6 @@ function setupPointerEventCapture(el) {
   let lastMoveX = 0, lastMoveY = 0;
 
   /**
-   * 检查抽屉是否处于打开状态（打开期间禁止向 LogicFlow 转发触摸事件）
-   *
-   * 三级判断：
-   * 1. _drawerActive 标志位 — 代码显式标记的打开/关闭窗口期
-   * 2. .el-drawer__open — Element Plus drawer 打开时的 DOM class
-   * 3. 排除 .el-drawer__close — 抽屉正在执行关闭动画（此时不应拦截用户对画布的操作）
-   */
-  function isDrawerOpen() {
-    if (_drawerActive) return true;
-    const drawerEl = document.querySelector('.el-drawer');
-    if (!drawerEl) return false;
-    // 有 __open 且无 __close → 确实是打开状态
-    if (drawerEl.classList.contains('el-drawer__open') &&
-        !drawerEl.classList.contains('el-drawer__close')) {
-      return true;
-    }
-    return false;
-  }
-
-  /**
    * 统一获取坐标参数（用于构造 MouseEvent）
    */
   function getEventOpts(pointerEvent) {
@@ -922,12 +1111,6 @@ function setupPointerEventCapture(el) {
   el.addEventListener('pointerdown', (e) => {
     // 只处理主指针（手指/鼠标左键/触控笔）
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-
-    // 【修复】抽屉打开期间：阻止触摸事件转发给 LogicFlow，防止画布被意外拖拽
-    if (isDrawerOpen() && e.pointerType === 'touch') {
-      e.preventDefault();
-      return;
-    }
 
     startX = e.clientX;
     startY = e.clientY;
@@ -954,12 +1137,6 @@ function setupPointerEventCapture(el) {
 
   // ========== pointermove ==========
   el.addEventListener('pointermove', (e) => {
-    // 【修复】抽屉打开期间：完全拦截触摸移动事件
-    if (isDrawerOpen() && e.pointerType === 'touch') {
-      e.preventDefault();
-      return;
-    }
-
     const dx = Math.abs(e.clientX - startX);
     const dy = Math.abs(e.clientY - startY);
 
@@ -986,13 +1163,6 @@ function setupPointerEventCapture(el) {
 
   // ========== pointerup / pointercancel ==========
   function handlePointerEnd(e) {
-    // 【修复】抽屉打开期间：拦截触摸释放事件
-    if (isDrawerOpen() && e.pointerType === 'touch') {
-      resetTapState();
-      isDragging = false;
-      return;
-    }
-
     // 清理长按计时器
     if (longPressTimer) {
       clearTimeout(longPressTimer);
@@ -1076,14 +1246,41 @@ function setupPointerEventCapture(el) {
  * 初始化菜单
  */
 function initMenu() {
-  // 只有仿钉钉模式才初始化菜单
-  if (!isClassics(logicJson.value.modelValue)) {
+  // 跳转类型（PASS 通过 / REJECT 退回）随画线方向自动推导（见 edge:add），用户极少手改，
+  // 不值得为它单独开一个边属性面板，统一收进边的右键菜单；
+  // 经典模式内置「删除 / 编辑文本」，用 addMenuConfig 追加；仿钉钉模式菜单为空，直接设置。
+  const edgeTypeMenu = [
+    { text: '设为退回线', callback: (edge) => setEdgeSkipType(edge, 'REJECT') },
+    { text: '设为通过线', callback: (edge) => setEdgeSkipType(edge, 'PASS') },
+  ];
+  if (isClassics(logicJson.value.modelValue)) {
+    lf.value.addMenuConfig({ edgeMenu: edgeTypeMenu });
+  } else {
     // 为菜单追加选项（必须在 lf.render() 之前设置）
     lf.value.extension.menu.setMenuConfig({
       nodeMenu: [],
-      edgeMenu: [],
+      edgeMenu: edgeTypeMenu,
     });
   }
+}
+
+/**
+ * 设置边的跳转类型（PASS 通过 / REJECT 退回）
+ *
+ * <p>跳转类型决定引擎驳回时走哪条线，默认按画线方向自动推导，右键菜单只用于自动推导
+ * 不符合预期时的手动纠正（如跨分支退回）。设计态连线不区分这两种类型，改完给一次提示，
+ * 避免用户看不出是否生效。</p>
+ *
+ * @param {Object} edge     右键菜单回传的边数据
+ * @param {string} skipType PASS / REJECT
+ */
+function setEdgeSkipType(edge, skipType) {
+  const edgeModel = lf.value.getEdgeModelById(edge.id);
+  if (!edgeModel || edgeModel.properties.skipType === skipType) {
+    return;
+  }
+  lf.value.setProperties(edge.id, { skipType });
+  proxy.$modal.msgSuccess(skipType === 'REJECT' ? '已设为退回线' : '已设为通过线');
 }
 
 /**
@@ -1125,6 +1322,14 @@ function use() {
 function initEvent() {
   const { eventCenter } = lf.value.graphModel
 
+  // 历史栈变化：统一驱动「未保存」标记与撤销 / 重做按钮可用性。
+  // 画布上的一切编辑（增删节点、连线、改属性）都会进历史栈，不必在各处逐一埋 dirty。
+  eventCenter.on('history:change', (args) => {
+    canUndo.value = !!args?.data?.undoAble
+    canRedo.value = !!args?.data?.redoAble
+    markDirty()
+  })
+
   if (!isClassics(logicJson.value.modelValue)) {
     // 更新节点名称
     eventCenter.on('update:nodeName', (data) => {
@@ -1134,37 +1339,30 @@ function initEvent() {
       })
     })
 
-    // 网关节点单击事件
+    // 网关节点单击事件：仿钉钉模式点网关 = 打开「加节点」菜单，属性面板不跟着切（沿用原行为）
     eventCenter.on('node:click', (args) => {
-      nodeClick.value = args.data
-      if (isGateWay(nodeClick.value.type)) {
-        gatewayAddNode(lf.value, nodeClick.value);
+      if (isGateWay(args.data.type)) {
+        gatewayAddNode(lf.value, args.data);
       }
     })
 
     eventCenter.on('edit:node', (args) => {
       if (args.click) {
-        nodeClick.value = lf.value.getNodeModelById(args.id)
-        let graphData = lf.value.getGraphData()
-        nodes.value = graphData['nodes']
-        skips.value = graphData['edges']
-        proxy.$nextTick(() => {
-          propertySettingRef.value.show()
-        })
+        showProperty(lf.value.getNodeModelById(args.id))
       }
     })
 
     // 单击边
     eventCenter.on('show:EdgeSetting', (args) => {
-      nodeClick.value = lf.value.getEdgeModelById(args.id)
-      const nodeModel = lf.value.getNodeModelById(nodeClick.value.sourceNodeId);
-      skipConditionShow.value = ['serial', 'inclusive'].includes(nodeModel['type'])
-      let graphData = lf.value.getGraphData()
-      nodes.value = graphData['nodes']
-      skips.value = graphData['edges']
-      proxy.$nextTick(() => {
-        propertySettingRef.value.show(['serial', 'inclusive'].includes(nodeModel['type']))
-      })
+      const edgeModel = lf.value.getEdgeModelById(args.id)
+      const nodeModel = lf.value.getNodeModelById(edgeModel.sourceNodeId);
+      // 属性面板只留给网关出线：只有那里有「跳转名称 + 跳转条件」这类真配置量。
+      // 非网关出线只剩「跳转类型」，且已按画线方向自动推导，改类型走边的右键菜单。
+      if (!['serial', 'inclusive'].includes(nodeModel['type'])) {
+        return;
+      }
+      skipConditionShow.value = true
+      showProperty(edgeModel)
     });
 
     // 鼠标进入边
@@ -1183,7 +1381,7 @@ function initEvent() {
       removeNode(lf.value, nodeModel)
     })
   } else {
-    // 拖动结束后 LogicFlow 还会补发一次 node:click，直接就把属性抽屉弹出来了。
+    // 拖动结束后 LogicFlow 还会补发一次 node:click，会顺手把右侧属性面板切过去。
     // 用时间窗口而不是布尔标记：拖到画布外没补发 click 时，不会把下一次正常单击也吞掉。
     let lastDragEndAt = 0
 
@@ -1202,26 +1400,18 @@ function initEvent() {
       if (Date.now() - lastDragEndAt < 250) {
         return
       }
-      nodeClick.value = args.data
-      let graphData = lf.value.getGraphData()
-      nodes.value = graphData['nodes']
-      skips.value = graphData['edges']
-      proxy.$nextTick(() => {
-        propertySettingRef.value.show()
-      })
+      showProperty(args.data)
     })
 
-    // 边双击事件
-    eventCenter.on('edge:click  ', (args) => {
-      nodeClick.value = args.data
-      const nodeModel = lf.value.getNodeModelById(nodeClick.value.sourceNodeId);
-      skipConditionShow.value = ['serial', 'inclusive'].includes(nodeModel['type'])
-      let graphData = lf.value.getGraphData()
-      nodes.value = graphData['nodes']
-      skips.value = graphData['edges']
-      proxy.$nextTick(() => {
-        propertySettingRef.value.show(['serial', 'inclusive'].includes(nodeModel['type']))
-      })
+    // 边单击（事件名里的空格会被 EventCenter 自动 trim）
+    eventCenter.on('edge:click', (args) => {
+      const nodeModel = lf.value.getNodeModelById(args.data.sourceNodeId);
+      // 同仿钉钉模式：属性面板只给网关出线，非网关出线的跳转类型走右键菜单
+      if (!['serial', 'inclusive'].includes(nodeModel['type'])) {
+        return;
+      }
+      skipConditionShow.value = true
+      showProperty(args.data)
     })
   }
 
@@ -1241,18 +1431,9 @@ function initEvent() {
   })
 
   eventCenter.on('blank:click', () => {
-    // 手势区分意图：选中态下点空白 = 收起属性面板（只做取消选中）；
-    // 空态下点空白 = 打开流程配置。两个意图不叠加，避免「取消选中」永远伴随抽屉弹出。
-    if (nodeClick.value != null) {
-      nodeClick.value = null
-      proxy.$nextTick(() => {
-        propertySettingRef.value.handleClose()
-      })
-      return
-    }
-    if (!onlyDesignShow.value) {
-      baseInfoDrawer.value = true
-    }
+    // 常驻侧栏：点画布空白 = 回到「流程配置」（原先是弹流程配置抽屉）。
+    // 若当前有节点属性在编，先做一次离开校验；窄屏下顺手收起侧栏把画布让出来。
+    openBaseInfo(false)
   })
 }
 
@@ -1302,8 +1483,18 @@ const undoOrRedo = async (undo) => {
   // 撤销/重做可能删掉节点，刷新空态引导
   nextTick(() => updateCanvasNodeCount());
 };
-//清空
+//清空画布：破坏性操作，先确认再执行
 const clear = async () => {
+    if (disabled.value) return;
+    try {
+        await ElMessageBox.confirm('清空会删除画布上的全部节点与连线（不影响已保存的数据），确定继续？', '清空画布', {
+            confirmButtonText: '清空',
+            cancelButtonText: '取消',
+            type: 'warning'
+        });
+    } catch (e) {
+        return;
+    }
     if (isClassics(logicJson.value.modelValue)) {
         lf.value.clearData()
     } else {
@@ -1313,6 +1504,7 @@ const clear = async () => {
         };
         lf.value.render(logicJson.value);
     }
+    markDirty();
     // 清空 / 重置后刷新节点计数（空态引导依赖）
     nextTick(() => updateCanvasNodeCount());
 }
@@ -1360,6 +1552,22 @@ async function downJson() {
 <style>
 
 
+/* 常驻右侧栏：--wf-panel-w 是侧栏宽度；--wf-canvas-inset 是画布需要让开的宽度
+   （宽屏两者相等；窄屏侧栏改为覆盖层，画布不再让位，inset 归零）
+   宽度取 420px：实测 3 个页签（图标 + 13px 文字）需要 361px，叠加 32px 内边距 + 滚动条后
+   400px 仍会把最后一个页签切掉；420px 是最窄的「3 页签完整可见」宽度 */
+.design-root {
+  --wf-panel-w: 420px;
+  --wf-canvas-inset: var(--wf-panel-w);
+  /* 开合过渡：画布让位、侧栏滑出、工具栏跟位共用一条缓动，避免各走各的节奏 */
+  --wf-panel-ease: 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 收起后画布吃满整屏（窄屏本来就是覆盖层，inset 已为 0） */
+.design-root.is-panel-collapsed {
+  --wf-canvas-inset: 0px;
+}
+
 /* el-header 包着画布：不要自带白底，否则浅灰画布会被一圈白边框住 */
 .el-header {
   --el-header-padding: 0;
@@ -1369,7 +1577,11 @@ async function downJson() {
 }
 .container {
   flex: 1;
-  width: 100%;
+  /* 常驻侧栏占住右侧：画布只铺满左侧剩余宽度（flex 交叉轴拉伸，不能用 width:100%） */
+  width: auto;
+  margin-right: var(--wf-canvas-inset, 0px);
+  /* 开合侧栏时画布跟着呼吸，不要瞬移 */
+  transition: margin-right var(--wf-panel-ease, 0.24s ease);
   /* 高度由 flex 自动撑满顶部栏以下的剩余空间（不再用视口减魔法数），
      iframe 嵌入 / onlyDesignShow 隐藏顶栏 / 移动端 dvh 全部自适应 */
   min-height: 400px;
@@ -1381,6 +1593,183 @@ async function downJson() {
   /* 确保容器有明确的定位上下文和尺寸 */
   position: relative;
 }
+
+/* ========== 常驻右侧栏：属性面板 / 流程配置共用同一个容器 ========== */
+/* 注意：全局样式里有 `aside { padding: 8px 24px; line-height: 32px; ... }`（ruoyi 遗留的
+   演示样式），这里逐项复位，否则面板会被撑出 48px 内边距、行高也会被拉成 32px */
+.design-sidebar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--wf-panel-w, 0px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.5;
+  background: var(--wf-bg-white, #fff);
+  border-left: 1px solid var(--wf-border-lighter, #ebeef5);
+  box-shadow: -10px 0 28px rgba(29, 33, 41, 0.05);
+  z-index: 12;
+  /* 开合走 transform（不占布局、不触发重排），收起后 visibility 一起隐藏，
+     避免隐藏面板里的输入框还能被 Tab 聚焦 */
+  transition: transform var(--wf-panel-ease, 0.24s ease), visibility var(--wf-panel-ease, 0.24s ease);
+}
+
+.design-root.is-panel-collapsed .design-sidebar {
+  transform: translateX(100%);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+
+html.dark .design-sidebar {
+  background: var(--wf-bg-color, #141414);
+  border-left-color: var(--wf-border-color, #333333);
+}
+
+/* 面板外壳：标题区固定、正文区滚动（流程配置用；属性面板自带同款样式） */
+.panel-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.panel-header {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 64px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--wf-border-lighter, #ebeef5);
+}
+
+html.dark .panel-header {
+  border-bottom-color: var(--wf-border-color, #333333);
+}
+
+.panel-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--wf-text-primary, #303133);
+}
+
+.panel-subtitle {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--wf-text-secondary, #909399);
+}
+
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* 侧栏只有 420px：窄表格 / 长下拉允许横向滚动，不撑破面板 */
+  overflow-x: auto;
+  padding: 4px 16px 16px;
+}
+
+.panel-empty-tip {
+  margin: 24px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--wf-text-placeholder, #c0c4cc);
+}
+
+/* 流程配置表单：BaseInfo 原按 960px 大对话框设计，收进侧栏后按面板密度排。
+   选择器带上 .panel-body 提高优先级，压过 baseInfo.vue 自己的 scoped 规则 */
+.design-sidebar .panel-body .dialogForm {
+  max-width: 100%;
+  margin: 8px auto 0;
+}
+
+.design-sidebar .panel-body .el-form-item {
+  margin-bottom: 16px;
+}
+
+.design-sidebar .panel-body .el-input__wrapper,
+.design-sidebar .panel-body .el-select .el-input__wrapper,
+.design-sidebar .panel-body .el-textarea__inner {
+  border-radius: 8px;
+}
+
+.design-sidebar .panel-body .radio-card-warning {
+  margin-top: 6px;
+  padding: 5px 9px;
+  font-size: 11px;
+}
+
+/* 开合把手：一条贴在侧栏左边缘的竖条，宽屏 / 窄屏都常驻。
+   展开时压在侧栏边框上（右移 -14px），收起时贴到视口右边缘 */
+.sidebar-handle {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 56px;
+  margin: 0;
+  padding: 0;
+  transform: translateY(-50%);
+  color: var(--wf-text-secondary, #909399);
+  background: var(--wf-bg-white, #fff);
+  border: 1px solid var(--wf-border-lighter, #ebeef5);
+  border-right: none;
+  border-radius: 10px 0 0 10px;
+  box-shadow: -4px 0 14px rgba(29, 33, 41, 0.08);
+  cursor: pointer;
+  z-index: 13;
+  transition: right var(--wf-panel-ease, 0.24s ease), color 0.18s ease,
+    background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.sidebar-handle:not(.is-collapsed) {
+  right: calc(var(--wf-canvas-inset, 0px) - 14px);
+}
+
+.sidebar-handle svg {
+  width: 14px;
+  height: 14px;
+  /* 展开时箭头朝右（点一下收到右边）；收起时朝左（点一下拉出来） */
+  transition: transform var(--wf-panel-ease, 0.24s ease);
+}
+
+.sidebar-handle:not(.is-collapsed) svg {
+  transform: rotate(180deg);
+}
+
+.sidebar-handle:hover,
+.sidebar-handle:focus-visible {
+  color: var(--wf-primary, #409eff);
+  background: var(--wf-primary-light, #ecf5ff);
+  border-color: var(--wf-primary, #409eff);
+  outline: none;
+}
+
+html.dark .sidebar-handle {
+  color: var(--wf-text-secondary, #a3a6ad);
+  background: var(--wf-bg-white, #1f2937);
+  border-color: var(--wf-border-color, #333333);
+}
+
+html.dark .sidebar-handle:hover,
+html.dark .sidebar-handle:focus-visible {
+  color: var(--wf-primary, #409eff);
+  background: rgba(64, 158, 255, 0.16);
+  border-color: var(--wf-primary, #409eff);
+}
+
 
 /* 不支持 dvh 的老浏览器：根容器回退到 100vh（行内 100dvh 会被忽略） */
 @supports not (height: 100dvh) {
@@ -1418,7 +1807,8 @@ html.dark .container :deep(.lf-container-bg) {
 /* ========== 画布空态引导（.container 的兄弟覆盖层，见模板内注释） ========== */
 .canvas-empty-guide {
   position: absolute;
-  inset: 0;
+  /* 只覆盖画布区：右侧留给常驻侧栏 */
+  inset: 0 var(--wf-canvas-inset, 0px) 0 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1429,6 +1819,7 @@ html.dark .container :deep(.lf-container-bg) {
   user-select: none;
   z-index: 1;
   color: var(--wf-text-placeholder, #c0c4cc);
+  transition: right var(--wf-panel-ease, 0.24s ease);
 }
 
 .canvas-empty-guide-icon {
@@ -1457,7 +1848,8 @@ html.dark .container :deep(.lf-container-bg) {
 .logo-text {
   position: absolute;
   font-weight: bold;
-  right: 50px;
+  /* 右侧让开常驻侧栏 */
+  right: calc(var(--wf-canvas-inset, 0px) + 50px);
   bottom: 10px;
   font-size: 14px;
   color: var(--wf-text-placeholder, #c0c4cc);
@@ -1465,6 +1857,7 @@ html.dark .container :deep(.lf-container-bg) {
   z-index: 1;
   letter-spacing: 1px;
   user-select: none;
+  transition: right var(--wf-panel-ease, 0.24s ease);
 }
 
 /* ========== 顶部导航栏 ========== */
@@ -1538,7 +1931,7 @@ html.dark .flow-name {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-/* 可点击的流程名称 = 流程配置抽屉入口：button 语义 + 编辑铅笔暗示，键盘可达 */
+/* 可点击的流程名称 = 流程配置面板入口：button 语义 + 编辑铅笔暗示，键盘可达 */
 .flow-name--editable {
   cursor: pointer;
 }
@@ -1561,136 +1954,6 @@ html.dark .flow-name {
 .flow-name--editable:hover .flow-name-edit-icon,
 .flow-name--editable:focus-visible .flow-name-edit-icon {
   color: var(--wf-primary, #409eff);
-}
-
-/* ========== 流程配置抽屉 ========== */
-.base-info-drawer-header {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.base-info-drawer-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--wf-text-primary, #303133);
-  line-height: 1.4;
-}
-
-.base-info-drawer-subtitle {
-  font-size: 12px;
-  color: var(--wf-text-secondary, #909399);
-  line-height: 1.5;
-}
-
-/* BaseInfo 根节点 .app-container 自带 padding:0，抽屉内由外层统一给呼吸感。
-   el-drawer teleport 到 body、class 与 el-drawer 同元素，本文件 style 无 scoped，
-   直接用 .el-drawer.base-info-drawer 全局选择器（:deep 与后代形式都无效） */
-.base-info-in-drawer {
-  padding: 4px 2px 16px;
-}
-
-/* 抽屉内表单密度收紧：BaseInfo 原按 960px 大对话框设计，放进 680px 抽屉按面板密度排，
-   行距 / 标题 / 卡片整体收一档，避免「糊脸」的放大感 */
-.el-drawer.base-info-drawer .dialogForm {
-  max-width: 100%;
-  margin: 8px auto 16px;
-}
-
-.el-drawer.base-info-drawer .form-section {
-  margin-bottom: 22px;
-}
-
-.el-drawer.base-info-drawer .section-title {
-  font-size: 14px;
-  padding-bottom: 10px;
-  margin-bottom: 16px;
-}
-
-.el-drawer.base-info-drawer .el-form-item {
-  margin-bottom: 16px;
-}
-
-.el-drawer.base-info-drawer .el-input__wrapper,
-.el-drawer.base-info-drawer .el-select .el-input__wrapper,
-.el-drawer.base-info-drawer .el-textarea__inner {
-  border-radius: 8px;
-}
-
-/* 设计器模型已是普通单选按钮，无需卡片覆盖；仅保留警告条收一档 */
-.el-drawer.base-info-drawer .radio-card-warning {
-  margin-top: 6px;
-  padding: 5px 9px;
-  font-size: 11px;
-}
-
-/* 流程配置抽屉：动画规格与节点属性面板（property-drawer-modern）一致，走 el-drawer 默认滑出 */
-
-/* 亮色主题：头部/主体/页脚分界线 */
-.el-drawer.base-info-drawer .el-drawer__header {
-  margin-bottom: 0;
-  padding: 18px 20px 14px;
-  border-bottom: 1px solid var(--wf-border-lighter, #ebeef5);
-}
-
-.el-drawer.base-info-drawer .el-drawer__body {
-  padding: 16px 20px;
-  overflow-y: auto;
-}
-
-.el-drawer.base-info-drawer .el-drawer__footer {
-  padding: 12px 20px;
-  border-top: 1px solid var(--wf-border-lighter, #ebeef5);
-}
-
-.base-info-drawer-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.base-info-drawer-footer-hint {
-  font-size: 12px;
-  color: var(--wf-text-secondary, #909399);
-}
-
-.base-info-drawer-footer-actions {
-  display: inline-flex;
-  gap: 10px;
-}
-
-/* 小屏抽屉（100% 宽）空间紧：footer 提示让位，只留按钮 */
-@media (max-width: 768px) {
-  .base-info-drawer-footer-hint {
-    display: none;
-  }
-
-  .base-info-drawer-footer {
-    justify-content: flex-end;
-  }
-}
-
-/* ========== 流程配置抽屉（暗黑模式） ========== */
-html.dark .el-drawer.base-info-drawer {
-  background: var(--wf-bg-white, #1f2937);
-}
-
-html.dark .base-info-drawer-title {
-  color: var(--wf-text-primary);
-}
-
-html.dark .base-info-drawer-subtitle,
-html.dark .base-info-drawer-footer-hint {
-  color: var(--wf-text-secondary);
-}
-
-html.dark .el-drawer.base-info-drawer .el-drawer__header {
-  border-bottom-color: var(--wf-border-color, #374151);
-}
-
-html.dark .el-drawer.base-info-drawer .el-drawer__footer {
-  border-top-color: var(--wf-border-color, #374151);
 }
 
 /* ========== 保存按钮 ========== */
@@ -1725,6 +1988,125 @@ html.dark .el-drawer.base-info-drawer .el-drawer__footer {
 .save-btn .save-icon {
   width: 16px;
   height: 16px;
+}
+
+/* 未保存小圆点：白点 + 主色描边，在实心主色按钮上依然可辨 */
+.save-btn .save-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.28);
+}
+
+/* ========== 工具栏操作帮助（popover 挂到 body，必须写全局样式） ========== */
+.design-help {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.design-help-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wf-text-secondary, #909399);
+  margin: 2px 0 8px;
+}
+
+.design-help-title:not(:first-child) {
+  margin-top: 14px;
+}
+
+.design-help-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.design-help-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--wf-text-primary, #303133);
+}
+
+.design-help-list kbd {
+  flex: none;
+  padding: 2px 6px;
+  border-radius: var(--wf-radius-sm, 4px);
+  border: 1px solid var(--wf-border-light, #dcdfe6);
+  background: var(--wf-bg-page, #f5f7fa);
+  color: var(--wf-text-regular, #606266);
+  font-family: inherit;
+  font-size: 12px;
+}
+
+html.dark .design-help-list kbd {
+  border-color: var(--wf-border-color, #333333);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e5e5e5;
+}
+
+/* ========== 保存前检查清单 ========== */
+.flow-check-dialog .flow-check-desc {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--wf-text-regular, #606266);
+}
+
+.flow-check-dialog .flow-check-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.flow-check-dialog .flow-check-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--wf-radius-sm, 4px);
+  font-size: 13px;
+  line-height: 1.5;
+  border-left: 3px solid var(--wf-danger, #f56c6c);
+  background: rgba(245, 108, 108, 0.06);
+  margin-bottom: 8px;
+}
+
+/* 可定位项：点击选中并居中到画布节点 */
+.flow-check-dialog .flow-check-list li.is-locatable {
+  cursor: pointer;
+}
+
+.flow-check-dialog .flow-check-list li.is-locatable:hover {
+  background: rgba(245, 108, 108, 0.12);
+}
+
+.flow-check-name {
+  flex: none;
+  font-weight: 600;
+  color: var(--wf-text-primary, #303133);
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-check-message {
+  flex: 1;
+  min-width: 0;
+  color: var(--wf-text-regular, #606266);
+}
+
+.flow-check-action {
+  flex: none;
+  font-size: 12px;
+  color: var(--wf-primary, #409eff);
 }
 
 /* ========== 暗黑模式适配（CSS 变量驱动） ========== */
@@ -1783,7 +2165,8 @@ html.dark .logo-text {
 .design-toolbar {
   position: absolute;
   top: 12px;
-  right: 16px;
+  /* 右侧让开常驻侧栏 */
+  right: calc(var(--wf-canvas-inset, 0px) + 16px);
   z-index: 10;
   display: inline-flex;
   align-items: center;
@@ -1792,6 +2175,7 @@ html.dark .logo-text {
   border: 1px solid var(--wf-border-lighter, #ebeef5);
   border-radius: 10px;
   box-shadow: 0 4px 16px rgba(29, 33, 41, 0.08);
+  transition: right var(--wf-panel-ease, 0.24s ease);
 }
 
 .toolbar-group {
@@ -1843,6 +2227,21 @@ html.dark .logo-text {
 
 /* ========== 响应式适配：平板端 (<= 1024px) ========== */
 @media (max-width: 1024px) {
+  /* 侧栏改为覆盖画布：画布不再让位，面板宽度按视口收窄 */
+  .design-root {
+    --wf-panel-w: min(420px, 88vw);
+    --wf-canvas-inset: 0px;
+  }
+
+  .design-sidebar {
+    box-shadow: -12px 0 32px rgba(29, 33, 41, 0.16);
+  }
+
+  /* 覆盖层展开时把手跟着面板左边缘走（画布 inset 恒为 0，不能再用它算位置） */
+  .sidebar-handle:not(.is-collapsed) {
+    right: calc(var(--wf-panel-w, 0px) - 14px);
+  }
+
   .design-header {
     padding: 10px 12px;
     min-height: 50px;
@@ -1878,7 +2277,7 @@ html.dark .logo-text {
   /* 平板端工具栏仍浮在右上 */
   .design-toolbar {
     top: 8px;
-    right: 8px;
+    right: calc(var(--wf-canvas-inset, 0px) + 8px);
     padding: 3px;
   }
 

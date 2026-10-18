@@ -157,26 +157,39 @@ watch(() => props.logicJson, newValue => {
   }
 }, { immediate: true });
 
-/** 流程编码输入框引用：新建流程打开抽屉时自动聚焦 */
+/** 流程编码输入框引用：新建流程时自动聚焦 */
 const flowCodeInputRef = ref();
 
-/** 表单快照（脏检测基准）：抽屉打开 / 确定保存时刷新 */
+/** 表单快照（脏检测基准）：载入完成 / 保存后刷新 */
 const initialFormSnapshot = ref('');
+// 初始载入（props 回填）阶段不上报「未保存」，markClean() 之后才开启
+let dirtyTracking = false;
 
 function snapshotForm() {
   initialFormSnapshot.value = JSON.stringify(form.value);
 }
 
-/** 抽屉是否有未保存改动：当前表单与最近一次快照比对 */
+/** 表单是否有未保存改动：当前表单与最近一次快照比对 */
 function isDirty() {
   if (!initialFormSnapshot.value) return false;
   return JSON.stringify(form.value) !== initialFormSnapshot.value;
 }
 
-/** 标记表单为干净状态（打开抽屉 / 确定保存后调用） */
+/** 标记表单为干净状态（定义信息载入完成 / 保存完成后调用），并开启改动上报 */
 function markClean() {
   snapshotForm();
+  dirtyTracking = true;
 }
+
+/**
+ * 定义字段改动：向设计器同步「有未保存改动」（原抽屉「确定」按钮承担的动作）。
+ * 只盯用户能改的字段，不 deep watch 整个 form —— 里面还挂着画布的 nodes / edges。
+ */
+watch(() => [form.value.flowCode, form.value.flowName, form.value.modelValue, form.value.category,
+  form.value.formCustom, form.value.formPath, form.value.autoPass], () => {
+  if (!dirtyTracking) return;
+  proxy.$emit('update:dirty', true);
+});
 
 /** 自动聚焦第一个必填字段（新建流程时引导键盘录入） */
 function focusFirstField() {
@@ -185,7 +198,7 @@ function focusFirstField() {
   });
 }
 
-/** 清除校验痕迹：抽屉每次打开都从干净状态开始，未操作前不显示红框 */
+/** 清除校验痕迹（需要从干净状态重新校验时调用，如保存成功后） */
 function clearValidation() {
   formRef.value?.clearValidate();
 }

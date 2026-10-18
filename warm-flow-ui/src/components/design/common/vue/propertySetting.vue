@@ -1,22 +1,17 @@
 <template>
-  <div>
-    <el-drawer
-      ref="drawerRef"
-      :title="title"
-      destroy-on-close
-      v-model="drawer"
-      direction="rtl"
-      :size="drawerSize"
-      :append-to-body="true"
-      :before-close="handleClose"
-      class="property-drawer-modern">
+  <div class="property-panel" ref="panelRef">
+    <div class="property-panel-header">
+      <div class="property-panel-title">{{ title }}</div>
+      <div class="property-panel-subtitle">{{ subtitle }}</div>
+    </div>
+    <div class="property-panel-body">
       <component :ref="componentType.name" :is="componentType" v-model="form" :disabled="disabled" :skipConditionShow="skipConditionShow"
-                 :nodes="nodes" :skips="skips" :form-path-list="formPathList">
+                 :nodes="nodes" :skips="skips" :form-path-list="formPathList" @edit-skip="emit('edit-skip', $event)">
         <template v-slot:[key]="data" v-for="(item, key) in $slots">
           <slot :name="key" v-bind="data || {}"></slot>
         </template>
       </component>
-    </el-drawer>
+    </div>
   </div>
 </template>
 
@@ -33,19 +28,8 @@ import BaseInfo from "@/components/design/common/vue/baseInfo.vue";
 
 const { proxy } = getCurrentInstance();
 
-// 响应式窗口宽度：监听 resize 变化
-const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024);
-if (typeof window !== 'undefined') {
-  window.addEventListener('resize', () => { windowWidth.value = window.innerWidth; });
-}
-
-// 抽屉宽度：手机端全屏，桌面端 37%
-const drawerSize = computed(() => {
-  return windowWidth.value <= 768 ? '100%' : '37%';
-});
-
-// 节点点击打开抽屉时的防抖标记：防止 blank:click 立即关闭
-let lastOpenTime = 0;
+// 网关面板里点某条出线的「编辑」时向上冒泡：由设计器把属性面板切到该边的属性
+const emit = defineEmits(['edit-skip']);
 
 const COMPONENT_LIST = {
   start,
@@ -105,10 +89,11 @@ const props = defineProps({
   },
 });
 
-const drawer = ref(false);
 const form = ref({});
 const objId = ref(undefined);
 const nodeCode = ref(null);
+// 面板根节点：校验失败时用来滚动到第一个红框项
+const panelRef = ref(null);
 const title = computed(() => {
   let base;
   if (props.node && props.node.type === 'skip') {
@@ -133,6 +118,15 @@ const title = computed(() => {
   // 标题带上当前节点名：改名字不用展开「基础信息」也能确认在改哪个节点；随输入实时更新
   const nodeName = form.value?.nodeName;
   return nodeName ? `${base} · ${nodeName}` : base;
+});
+
+// 副标题：常驻侧栏需要一行「正在编辑什么」的定位信息（节点编码 / 连线）
+const subtitle = computed(() => {
+  if (props.node?.type === 'skip') {
+    return '连线属性';
+  }
+  const code = form.value?.nodeCode;
+  return code ? `节点编码：${code}` : '节点属性';
 });
 
 // 解析服务任务节点配置（nodeConfig 为 JSON 字符串，结构见后端 ServiceTaskConfig）
@@ -171,6 +165,19 @@ const componentType = computed(() => {
 })
 
 
+// 各面板子组件在 setup 里是 `const form = ref(props.modelValue)`，拿到的是「当前对象」的引用，
+// 所以切换节点 / 连线时不能整对象替换 form（否则子组件还指着上一个元素的 form，
+// 出现「标题变了、表单没变」的错位）。这里原地改写同一个对象：删掉旧键、覆盖新键。
+function replaceForm(next) {
+  const target = form.value;
+  Object.keys(target).forEach((key) => {
+    if (!(key in next)) delete target[key];
+  });
+  Object.assign(target, next);
+}
+
+// 面板按需挂载（选中元素才创建），所以必须 immediate：
+// 首次创建时 props.node 已经是当前元素，不会再有「从 null 变成节点」的变化可监听
 watch(() => props.node, n => {
   if (n) {
     objId.value = n.id
@@ -190,7 +197,7 @@ watch(() => props.node, n => {
         }
       }
 
-      form.value = {
+      replaceForm({
         nodeType: n.type,
         skipType: n.properties.skipType,
         skipName: n.text instanceof Object ? n.text.value : n.text,
@@ -198,17 +205,18 @@ watch(() => props.node, n => {
         condition: condition,
         conditionType: conditionType,
         conditionValue: conditionValue
-      }
+      })
     } else if (n.type === 'service') {
       // 服务任务节点：仅暴露服务配置与监听器，不参与协作方式 / 节点比率 / 自定义表单推导
       const serviceTask = parseServiceTaskConfig(n.properties.nodeConfig);
       let listenerTypes = n.properties.listenerType ? n.properties.listenerType.split(",") : [];
       let listenerPaths = n.properties.listenerPath ? n.properties.listenerPath.split("@@") : [];
+      // 无监听器时给空数组（不留占位空行：空行会被行内必填规则判为错误，离开校验永远过不去）
       n.properties.listenerRows = listenerTypes && listenerTypes.length > 0 ? listenerTypes.map((type, index) => ({
         listenerType: type,
         listenerPath: listenerPaths[index]
-      })) : [{}];
-      form.value = {
+      })) : [];
+      replaceForm({
         nodeType: n.type,
         nodeCode: n.id,
         ...n.properties,
@@ -219,7 +227,7 @@ watch(() => props.node, n => {
         resultVariable: serviceTask.resultVariable || '',
         // 节点配置的其余段（含默认变量）由 nodeVariables 等面板直接读写，服务配置 watch 会合并写回
         nodeConfig: parseNodeConfig(n.properties.nodeConfig)
-      }
+      })
     } else {
       let nodeRatio = n.properties.nodeRatio || "0";
       if (!n.properties.collaborativeWay) {
@@ -248,11 +256,12 @@ watch(() => props.node, n => {
           n.properties.formCustom : props.formPathList && props.formPathList.length > 0 ? "Y" :"N");
       let listenerTypes = n.properties.listenerType ? n.properties.listenerType.split(",") : [];
       let listenerPaths = n.properties.listenerPath ? n.properties.listenerPath.split("@@") : [];
+      // 无监听器时给空数组（不留占位空行：空行会被行内必填规则判为错误，离开校验永远过不去）
       n.properties.listenerRows = listenerTypes && listenerTypes.length > 0 ? listenerTypes.map((type, index) => ({
         listenerType: type,
         listenerPath: listenerPaths[index]
-      })) : [{}];
-      form.value = {
+      })) : [];
+      replaceForm({
         nodeType: n.type,
         nodeCode: n.id,
         ext: n.properties.ext ? n.properties.ext : {},
@@ -261,10 +270,10 @@ watch(() => props.node, n => {
         nodeRatioType: nodeRatioType,
         nodeRatioValue: nodeRatioValue,
         nodeConfig: parseNodeConfig(n.properties.nodeConfig)
-      }
+      })
     }
   }
-});
+}, { immediate: true });
 
 watch(() => form.value.nodeCode, (n) => {
   nodeCode.value = n;
@@ -344,7 +353,7 @@ watch(() => form.value.formPath, (n) => {
 });
 
 // 服务任务配置：执行方式 / 处理类 / 表达式 / 结果变量变化时序列化回 nodeConfig。
-// 未填写必填项时不下发，避免把无效配置写进节点（关闭抽屉时的 validate 会拦截）。
+// 未填写必填项时不下发，避免把无效配置写进节点（切换目标前的 validate 会拦截）。
 watch(() => [form.value.serviceType, form.value.serviceHandler, form.value.serviceExpression, form.value.resultVariable], () => {
   syncServiceNodeConfig()
 })
@@ -434,98 +443,141 @@ watch(() => [form.value.eventType, form.value.eventName, form.value.attachedToNo
   })
 })
 
-function show () {
-  lastOpenTime = Date.now();
-  if (window._markDrawerOpen) window._markDrawerOpen();
-  drawer.value = true
+/**
+ * 提交节点 / 连线编码变更：面板里改过编码时，把画布上的元素 id 换掉。
+ * 常驻面板没有「关闭」这个时机，改在切换目标前与保存前调用。
+ */
+function commitIdChange () {
+  if (!nodeCode.value || !objId.value || nodeCode.value === objId.value) return;
+  if (props.node?.type === 'skip') {
+    if (!props.lf.getEdgeModelById(nodeCode.value)) {
+      props.lf.changeEdgeId(objId.value, nodeCode.value);
+      objId.value = nodeCode.value;
+    }
+  } else if (!props.lf.getNodeModelById(nodeCode.value)) {
+    props.lf.changeNodeId(objId.value, nodeCode.value);
+    objId.value = nodeCode.value;
+  }
 }
 
-async function handleClose () {
-  // 防抖：节点打开后 200ms 内的 blank:click 不执行关闭
-  if (Date.now() - lastOpenTime < 200) return;
-  // 如果抽屉未打开，直接返回
-  if (!drawer.value) return;
-  if (!props.disabled && typeof proxy.$refs[componentType.value?.name]?.validate === "function") {
-    // 校验表单必填项
-    await proxy.$refs[componentType.value.name].validate().then(() => {
-      handleDrawer();
-    }).catch(err => {
-      return;
-    });
-  } else handleDrawer();
-}
-
-function handleDrawer () {
-  if (nodeCode.value && objId.value) {
-    if (['skip'].includes(props.node?.type)) {
-      if (!props.lf.getEdgeModelById(nodeCode.value)) {
-        props.lf.changeEdgeId(objId.value, nodeCode.value)
-      }
-    } else {
-      if (!props.lf.getNodeModelById(nodeCode.value)) {
-        props.lf.changeNodeId(objId.value, nodeCode.value)
-      }
+/**
+ * 切换目标前的离开校验：校验通过才提交编码变更并返回 true；
+ * 不通过就留在当前面板（给一句明确反馈并滚到第一个红框项，避免「点了没反应」）。
+ */
+async function confirmLeave () {
+  if (props.disabled) {
+    commitIdChange();
+    return true;
+  }
+  const vm = proxy.$refs[componentType.value?.name];
+  if (typeof vm?.validate === 'function') {
+    let ok = true;
+    try {
+      // 各面板 validate 约定不一致：有的 resolve(false) 表示失败，有的直接 reject
+      ok = (await vm.validate()) !== false;
+    } catch (e) {
+      ok = false;
+    }
+    if (!ok) {
+      proxy.$modal.msgWarning('有必填项未填写或格式不正确，请先完善标红项');
+      proxy.$nextTick(() => scrollToFirstError());
+      return false;
     }
   }
-  drawer.value = false
-  // 延迟解除标志位（由 index.vue 的 _markDrawerClosed + scheduleMobileResize
-  // 统一管理抽屉关闭后的画布适配，避免多处 fitView 时序冲突导致节点跳动）
-  if (window._markDrawerClosed) window._markDrawerClosed();
+  commitIdChange();
+  return true;
 }
 
+/** 滚动到面板内第一个校验失败的字段（错误项可能落在可视区之外） */
+function scrollToFirstError () {
+  const el = panelRef.value?.querySelector?.('.el-form-item.is-error');
+  if (el && typeof el.scrollIntoView === 'function') {
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+}
 
 defineExpose({
-  show,
-  handleClose,
+  confirmLeave,
+  commitIdChange,
 })
 </script>
 
 <style scoped lang="scss">
-/* 抽屉容器隐藏滚动条（组件内部生效） */
-.el-drawer__container ::-webkit-scrollbar {
-  display: none;
+/* 常驻面板：标题区固定、正文区滚动（原先由 el-drawer 的 header/body 承担） */
+.property-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.property-panel-body::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.property-panel-body::-webkit-scrollbar-thumb {
+  background: rgba(144, 147, 153, 0.3);
+  border-radius: 3px;
+}
+
+.property-panel-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(144, 147, 153, 0.5);
 }
 </style>
 
-<!-- 全局样式：抽屉 append-to-body 后需要全局穿透（scoped 无法命中 teleport 到 body 的元素） -->
+<!-- 全局样式：面板内控件 / 表格 / 下拉弹层（弹层 teleport 到 body，scoped 命不中） -->
 <style lang="scss">
-/* ========== 现代化属性面板抽屉 ========== */
-.property-drawer-modern {
-  max-width: 560px;
-  @media (min-width: 769px) {
-    min-width: 440px;
-  }
+/* ========== 常驻属性面板 ========== */
+.property-panel {
   /* 与基础信息页统一：系统字体栈 + 字形平滑 */
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
+  /* 面板头部：标题 + 定位信息（节点编码 / 连线），下面一条分隔线 */
+  .property-panel-header {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-height: 64px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--wf-border-lighter, #ebeef5);
+  }
+
+  .property-panel-title {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--wf-text-primary, #303133);
+  }
+
+  .property-panel-subtitle {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--wf-text-secondary, #909399);
+  }
+
+  /* 正文上内边距收紧，让 tab 紧跟头部 */
+  .property-panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    /* 侧栏只有 360px：表格 / 长下拉允许横向滚动，不撑破面板 */
+    overflow-x: auto;
+    padding: 12px 16px 16px;
+  }
+  /* 含 Tab 的面板（开始/中间节点）：tab 栏紧贴面板标题，去掉上方间距，对齐更自然 */
+  .property-panel-body:has(.modern-tabs-wrapper) {
+    padding-top: 0;
+  }
+
   /* 表单标签：与基础信息页统一（加粗；右对齐由 EP 默认 label-position 提供） */
   .el-form-item__label {
     font-weight: 600;
     color: var(--wf-text-primary, #303133);
-  }
-
-  /* 抽屉头部：收紧与正文间距（EP 默认 margin 32px 太空）+ 标题加深加粗（默认偏浅灰、不清晰） */
-  .el-drawer__header {
-    background: transparent !important;
-    margin-bottom: 0 !important;
-    padding-bottom: 14px !important;
-    border-bottom: 1px solid var(--wf-border-lighter, #ebeef5);
-    > span {
-      color: var(--wf-text-primary, #303133);
-      font-weight: 600;
-      font-size: 16px;
-    }
-  }
-
-  /* 正文上内边距收紧，让 tab 紧跟头部 */
-  .el-drawer__body {
-    padding: 12px 16px 16px !important;
-  }
-  /* 含 Tab 的面板（开始/中间节点）：tab 栏紧贴抽屉标题，去掉上方间距，对齐更自然 */
-  .el-drawer__body:has(.modern-tabs-wrapper) {
-    padding-top: 0 !important;
   }
 
   .modern-tabs-wrapper {
@@ -546,12 +598,6 @@ defineExpose({
     gap: 6px !important;
     font-size: 13px !important;
     white-space: nowrap;
-  }
-
-  .el-drawer__close-btn {
-    color: #909399 !important;
-    transition: all .25s ease !important;
-    &:hover { color: #409eff !important; transform: rotate(90deg); }
   }
 
   /* 白底描边输入框：与基础信息表单统一（白底 + 浅边框 + 柔和 focus 光环） */
@@ -648,45 +694,19 @@ defineExpose({
   }
 }
 
-/* ========== 暗黑模式：el-drawer 抽屉完整适配（全局生效） ========== */
+/* ========== 暗黑模式：常驻属性面板完整适配（全局生效） ========== */
 html.dark {
-  .property-drawer-modern {
-    /* 整体抽屉：覆盖 Element Plus 默认白色变量 + 直接设色双重保险 */
-    .el-drawer {
-      --el-drawer-bg-color: var(--wf-bg-color, #141414) !important;
-      --el-bg-color: var(--wf-bg-color, #141414) !important;
-      background-color: var(--wf-bg-color, #141414) !important;
-
-      /* 消除 header 和 body 之间的白色缝隙 */
-      &__header {
-        margin-bottom: 0 !important;
-        padding-bottom: 12px !important;
-        background: var(--wf-bg-color, #141414) !important;
-        border-bottom: 1px solid var(--wf-border-color, #2a2a2a) !important;
-
-        > span {
-          color: var(--wf-text-primary, #e0e0e0) !important;
-          font-weight: 600;
-        }
-      }
-
-      &__body {
-        background-color: var(--wf-bg-color, #141414) !important;
-        margin-top: 0 !important;
-      }
-
-      &__close-btn {
-        color: var(--wf-text-secondary, #888888) !important;
-        &:hover { color: #409eff !important; }
-      }
+  .property-panel {
+    .property-panel-header {
+      border-bottom-color: var(--wf-border-color, #2a2a2a) !important;
     }
 
-    /* 抽屉容器本身也要深色（防止 append-to-body 后外层残留白色） */
-    &.el-drawer,
-    &.el-drawer__wrapper,
-    .v-modal + .el-overlay .el-drawer {
-      --el-drawer-bg-color: var(--wf-bg-color, #141414) !important;
-      background-color: var(--wf-bg-color, #141414) !important;
+    .property-panel-title {
+      color: var(--wf-text-primary, #e0e0e0) !important;
+    }
+
+    .property-panel-subtitle {
+      color: var(--wf-text-secondary, #888888) !important;
     }
 
     /* iOS 填充式输入框：暗黑覆盖 */

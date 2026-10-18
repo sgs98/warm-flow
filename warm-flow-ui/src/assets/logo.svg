@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Warm-Flow">
+  <path d="M32 14 L42 24 L32 34 L22 24 Z" stroke="#126bae" stroke-width="3.6" stroke-linejoin="round"/>
+  <path d="M42 24 H49 A5 5 0 0 1 54 29 V33" stroke="#126bae" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M32 34 V44" stroke="#126bae" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M22 24 H15 A5 5 0 0 0 10 29 V40" stroke="#126bae" stroke-width="3.2" stroke-linecap="round" opacity=".45"/>
+  <circle cx="54" cy="40" r="5" fill="#126bae"/>
+  <circle cx="32" cy="52" r="5" fill="#126bae"/>
+  <circle cx="10" cy="48" r="4" stroke="#126bae" stroke-width="3.2" opacity=".45"/>
+</svg>

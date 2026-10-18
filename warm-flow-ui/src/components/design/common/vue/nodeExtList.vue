@@ -17,7 +17,7 @@
                       :placeholder="item.desc"/>
             <el-select v-else-if="item.type === 3" v-model="form[item.code]" clearable
                        :multiple="item.multiple || false"
-                       :placeholder="item.desc" style="width: 400px">
+                       :placeholder="item.desc" style="width: 100%">
                 <el-option v-for="dItem in item.dict" :key="dItem.value" :label="dItem.label"
                            :value="dItem.value"></el-option>
             </el-select>
@@ -57,7 +57,7 @@
                 :precision="item.precision ? item.precision : 0"
                 :step="item.step ? Number(item.step) : 1"
                 :min="item.min ? Number(item.min) : 0"
-                style="width: 400px; margin-right: 10px; margin-bottom: 5px;"/>
+                style="width: 100%; margin-bottom: 5px;"/>
             <div v-else-if="item.type === 7">
                 <el-time-picker
                     v-if="['timepicker', 'timepickerrange'].includes(item.dateType)"
