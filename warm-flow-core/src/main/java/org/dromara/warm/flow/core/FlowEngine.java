@@ -18,7 +18,7 @@ package org.dromara.warm.flow.core;
 import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.entity.*;
 import org.dromara.warm.flow.core.spi.DataFillHandler;
-import org.dromara.warm.flow.core.spi.DefaultStatusMapper;
+import org.dromara.warm.flow.core.spi.impl.DefaultStatusMapper;
 import org.dromara.warm.flow.core.spi.StatusMapper;
 import org.dromara.warm.flow.core.spi.PermissionHandler;
 import org.dromara.warm.flow.core.spi.TenantHandler;

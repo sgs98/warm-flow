@@ -13,7 +13,7 @@ import org.dromara.warm.flow.core.enums.TaskStatus;
  *   <li>{@link #taskStatus(TaskStatus)} → {@code flow_task} / {@code flow_his_task} 的 {@code flow_status}</li>
  *   <li>{@link #cooperateStatus(CooperateType)} → 协作动作写入历史时的任务状态</li>
  * </ul>
- * 默认实现与引擎内置编码完全一致（{@link DefaultStatusMapper}）。宿主用自己的状态枚举时实现本接口，
+ * 默认实现与引擎内置编码完全一致（{@link org.dromara.warm.flow.core.spi.impl.DefaultStatusMapper}）。宿主用自己的状态枚举时实现本接口，
  * 并在启动时注册 {@code FlowEngine.setStatusMapper(...)}，引擎各操作点即可直接写入宿主编码，
  * 无需每次调用手动传 {@code flowStatus} / {@code taskStatus}。
  * <p>

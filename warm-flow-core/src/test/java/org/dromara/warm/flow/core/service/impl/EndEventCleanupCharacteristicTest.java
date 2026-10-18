@@ -15,7 +15,7 @@ import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.PublishStatus;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.TaskStatus;
-import org.dromara.warm.flow.core.spi.DefaultStatusMapper;
+import org.dromara.warm.flow.core.spi.impl.DefaultStatusMapper;
 import org.dromara.warm.flow.core.spi.StatusMapper;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
