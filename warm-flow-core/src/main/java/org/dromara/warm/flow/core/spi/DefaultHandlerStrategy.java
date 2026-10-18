@@ -13,9 +13,9 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-package org.dromara.warm.flow.core.handler;
+package org.dromara.warm.flow.core.spi;
 
-import org.dromara.warm.flow.core.strategy.HandlerStrategy;
+import org.dromara.warm.flow.core.spi.HandlerStrategy;
 
 import java.util.Map;
 

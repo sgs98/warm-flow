@@ -6,7 +6,7 @@ import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.exception.FlowException;
-import org.dromara.warm.flow.core.handler.PermissionHandler;
+import org.dromara.warm.flow.core.spi.PermissionHandler;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
 import org.dromara.warm.flow.core.workflow.WorkflowService;

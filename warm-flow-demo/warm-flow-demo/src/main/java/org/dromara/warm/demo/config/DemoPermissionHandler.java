@@ -3,7 +3,7 @@ package org.dromara.warm.demo.config;
 import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.service.UserService;
 import org.dromara.warm.demo.vo.DemoUserVo;
-import org.dromara.warm.flow.core.handler.PermissionHandler;
+import org.dromara.warm.flow.core.spi.PermissionHandler;
 import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 import org.springframework.stereotype.Component;

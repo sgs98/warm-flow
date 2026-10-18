@@ -7,7 +7,7 @@ import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.TaskStatus;
-import org.dromara.warm.flow.core.handler.StatusMapper;
+import org.dromara.warm.flow.core.spi.StatusMapper;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;

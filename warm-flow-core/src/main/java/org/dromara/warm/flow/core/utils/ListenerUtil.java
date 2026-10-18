@@ -21,10 +21,10 @@ import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.invoker.FrameInvoker;
-import org.dromara.warm.flow.core.listener.GlobalListener;
-import org.dromara.warm.flow.core.listener.Listener;
-import org.dromara.warm.flow.core.listener.ListenerVariable;
-import org.dromara.warm.flow.core.listener.ValueHolder;
+import org.dromara.warm.flow.core.spi.GlobalListener;
+import org.dromara.warm.flow.core.spi.Listener;
+import org.dromara.warm.flow.core.spi.ListenerVariable;
+import org.dromara.warm.flow.core.spi.ValueHolder;
 
 import java.util.HashMap;
 import java.util.List;

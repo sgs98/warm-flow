@@ -18,7 +18,7 @@ package org.dromara.warm.flow.orm.utils;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.entity.RootEntity;
-import org.dromara.warm.flow.core.handler.TenantHandler;
+import org.dromara.warm.flow.core.spi.TenantHandler;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
 
 /**

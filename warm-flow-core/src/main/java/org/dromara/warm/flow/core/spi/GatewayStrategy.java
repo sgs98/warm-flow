@@ -1,4 +1,4 @@
-package org.dromara.warm.flow.core.strategy;
+package org.dromara.warm.flow.core.spi;
 
 import org.dromara.warm.flow.core.entity.Skip;
 

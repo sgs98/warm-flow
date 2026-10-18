@@ -10,7 +10,7 @@ import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.TaskStatus;
-import org.dromara.warm.flow.core.handler.StatusMapper;
+import org.dromara.warm.flow.core.spi.StatusMapper;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 

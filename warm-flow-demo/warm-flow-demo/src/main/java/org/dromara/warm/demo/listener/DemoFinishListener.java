@@ -2,8 +2,8 @@ package org.dromara.warm.demo.listener;
 
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
-import org.dromara.warm.flow.core.listener.Listener;
-import org.dromara.warm.flow.core.listener.ListenerVariable;
+import org.dromara.warm.flow.core.spi.Listener;
+import org.dromara.warm.flow.core.spi.ListenerVariable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;

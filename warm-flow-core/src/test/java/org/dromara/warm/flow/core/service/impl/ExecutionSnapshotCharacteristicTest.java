@@ -22,7 +22,7 @@ import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.UserType;
-import org.dromara.warm.flow.core.listener.GlobalListener;
+import org.dromara.warm.flow.core.spi.GlobalListener;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
 import org.dromara.warm.flow.core.test.listener.MutatingGlobalListener;

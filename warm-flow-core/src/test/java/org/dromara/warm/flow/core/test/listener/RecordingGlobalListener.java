@@ -1,7 +1,7 @@
 package org.dromara.warm.flow.core.test.listener;
 
-import org.dromara.warm.flow.core.listener.GlobalListener;
-import org.dromara.warm.flow.core.listener.ListenerVariable;
+import org.dromara.warm.flow.core.spi.GlobalListener;
+import org.dromara.warm.flow.core.spi.ListenerVariable;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;

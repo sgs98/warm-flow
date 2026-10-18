@@ -11,7 +11,7 @@ import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.exception.FlowException;
-import org.dromara.warm.flow.core.handler.StatusMapper;
+import org.dromara.warm.flow.core.spi.StatusMapper;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;

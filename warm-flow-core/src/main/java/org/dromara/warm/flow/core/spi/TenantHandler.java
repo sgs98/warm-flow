@@ -13,33 +13,22 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-package org.dromara.warm.flow.core.listener;
-
-import lombok.Data;
+package org.dromara.warm.flow.core.spi;
 
 /**
- * 监听器路径解析结果。
+ * 全局租户处理器接口。
  * <p>
- * 保存监听器类路径、已解析的监听器实例以及路径中携带的参数。
+ * ORM 适配层可通过该扩展点获取当前租户 ID，并把租户条件写入查询、保存或逻辑删除操作。
  *
  * @author warm
  */
-@Data
-public class ValueHolder {
+public interface TenantHandler {
 
     /**
-     * 监听器类路径。
+     * 获取当前租户 ID。
+     *
+     * @return 租户 ID
      */
-    private String path;
-
-    /**
-     * 已解析的监听器实例。
-     */
-    private Listener listener;
-
-    /**
-     * 监听器路径中携带的参数。
-     */
-    private String params;
+    String getTenantId();
 
 }

@@ -1,7 +1,7 @@
 package org.dromara.warm.flow.core.workflow;
 
 import org.dromara.warm.flow.core.FlowEngine;
-import org.dromara.warm.flow.core.handler.PermissionHandler;
+import org.dromara.warm.flow.core.spi.PermissionHandler;
 import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.core.workflow.command.*;
 import org.dromara.warm.flow.core.workflow.context.OperatorContext;

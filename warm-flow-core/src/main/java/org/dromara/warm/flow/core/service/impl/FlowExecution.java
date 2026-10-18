@@ -25,7 +25,7 @@ import org.dromara.warm.flow.core.enums.EventType;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
-import org.dromara.warm.flow.core.listener.ListenerVariable;
+import org.dromara.warm.flow.core.spi.ListenerVariable;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.MapUtil;

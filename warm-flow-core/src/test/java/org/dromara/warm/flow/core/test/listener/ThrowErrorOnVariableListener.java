@@ -3,8 +3,8 @@ package org.dromara.warm.flow.core.test.listener;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
-import org.dromara.warm.flow.core.listener.Listener;
-import org.dromara.warm.flow.core.listener.ListenerVariable;
+import org.dromara.warm.flow.core.spi.Listener;
+import org.dromara.warm.flow.core.spi.ListenerVariable;
 
 import java.math.BigDecimal;
 import java.util.Map;

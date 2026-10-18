@@ -1,4 +1,4 @@
-package org.dromara.warm.flow.core.handler;
+package org.dromara.warm.flow.core.spi;
 
 /**
  * 默认状态映射：语义 key 直接作为持久化编码，与引入扩展点之前的行为完全一致。

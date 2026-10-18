@@ -12,7 +12,7 @@ import org.dromara.warm.flow.core.entity.Skip;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.entity.User;
 import org.dromara.warm.flow.core.invoker.FrameInvoker;
-import org.dromara.warm.flow.core.listener.GlobalListener;
+import org.dromara.warm.flow.core.spi.GlobalListener;
 import org.dromara.warm.flow.core.service.ChartService;
 import org.dromara.warm.flow.core.service.DefService;
 import org.dromara.warm.flow.core.service.FormService;
