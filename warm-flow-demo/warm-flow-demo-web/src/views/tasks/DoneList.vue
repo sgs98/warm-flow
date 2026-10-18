@@ -1,6 +1,12 @@
 <template>
   <div class="page-card">
+    <StateError v-if="error" message="已办任务加载失败" :loading="loading" @retry="load" />
+
+    <template v-else>
     <el-table :data="rows" v-loading="loading" border>
+      <template #empty>
+        <el-empty description="暂无已办任务，办理一条待办后这里会出现记录" :image-size="72" />
+      </template>
       <el-table-column prop="id" label="历史任务ID" width="160" />
       <el-table-column label="流程名称" min-width="140">
         <template #default="{ row }">{{ row.flowName || '-' }}</template>
@@ -24,53 +30,29 @@
       </el-table-column>
     </el-table>
     <el-pagination
-      style="margin-top: 12px; justify-content: flex-end"
       layout="total, prev, pager, next"
       :total="total"
       v-model:current-page="pageNum"
       @current-change="load"
     />
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { httpGet, type PageVo } from '../../api/http'
+import StateError from '../../components/common/StateError.vue'
+import { pageDoneTasks } from '../../api/tasks'
+import { usePagedList } from '../../composables/usePagedList'
 import { statusTagType } from '../../utils/status'
+import type { TaskRow } from '../../types/workflow'
 
-interface DoneRow {
-  id: string
-  flowName: string
-  nodeName: string
-  businessId: string
-  flowStatusName: string
-  businessStatus: string
-  businessStatusName: string
-  createTime: string
-  instanceId?: string
-}
-
-const rows = ref<DoneRow[]>([])
-const total = ref(0)
-const pageNum = ref(1)
-const loading = ref(false)
 const router = useRouter()
+const { rows, total, pageNum, loading, error, load } = usePagedList<TaskRow>(
+  (pageNum, pageSize) => pageDoneTasks({ pageNum, pageSize }),
+)
 
-function viewInstance(row: DoneRow) {
+function viewInstance(row: TaskRow) {
   if (row.instanceId) router.push(`/instances/${row.instanceId}`)
 }
-
-async function load() {
-  loading.value = true
-  try {
-    const res = await httpGet<PageVo<DoneRow>>('/tasks/done', { pageNum: pageNum.value, pageSize: 10 })
-    rows.value = res.list
-    total.value = res.total
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(load)
 </script>

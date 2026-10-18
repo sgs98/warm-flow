@@ -7,11 +7,16 @@
       </el-select>
       <el-button type="primary" @click="search">查询</el-button>
       <el-button @click="reset">重置</el-button>
-      <div style="flex: 1" />
+      <div class="toolbar-spacer" />
+      <el-button type="danger" :disabled="selectedRows.length === 0" @click="removeBatch">批量删除</el-button>
       <el-button type="primary" @click="openStartDialog">+ 发起实例</el-button>
     </div>
 
-    <el-table :data="rows" v-loading="loading" border>
+    <el-table :data="rows" v-loading="loading" border @selection-change="handleSelectionChange">
+      <template #empty>
+        <el-empty description="暂无流程实例，点击右上角「发起实例」开始体验" :image-size="72" />
+      </template>
+      <el-table-column type="selection" width="45" />
       <el-table-column prop="id" label="实例ID" width="160" />
       <el-table-column label="流程名称" min-width="140">
         <template #default="{ row }">{{ row.flowName || '-' }}</template>
@@ -30,14 +35,14 @@
       <el-table-column label="操作" width="180">
         <template #default="{ row }">
           <el-button v-if="canContinue(row)" link type="primary" @click="continueDraft(row)">
-            {{ row.businessStatus === 'draft' ? '继续办理' : '重新提交' }}
+            {{ row.taskStatusKey === '9' ? '重新提交' : '继续办理' }}
           </el-button>
           <el-button link type="primary" @click="goDetail(row)">详情</el-button>
           <el-button link type="danger" @click="remove(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
-    <el-pagination style="margin-top: 12px; justify-content: flex-end" layout="total, prev, pager, next"
+    <el-pagination layout="total, prev, pager, next"
       :total="total" v-model:current-page="pageNum" @current-change="load" />
 
     <el-dialog v-model="dialogVisible" title="发起实例" width="560px" :close-on-click-modal="false">
@@ -86,56 +91,21 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TaskActionDialog from '../../components/tasks/TaskActionDialog.vue'
-import { httpDelete, httpGet, httpPost, type PageVo } from '../../api/http'
+import { listDefinitions } from '../../api/definitions'
+import { pageInstances, removeInstance, removeInstances, startInstance } from '../../api/instances'
+import { usePagedList } from '../../composables/usePagedList'
+import type { DefinitionOption, InstanceRow } from '../../types/workflow'
 import { statusTagType } from '../../utils/status'
 
-interface InstanceRow {
-  /** 流程实例主键。 */
-  id: string
-  /** 流程名称。 */
-  flowName: string
-  /** 业务主键。 */
-  businessId: string
-  /** 流程实例变量。 */
-  variables?: Record<string, unknown>
-  /** 当前待办任务主键。 */
-  taskId?: string
-  /** 当前节点名称。 */
-  nodeName: string
-  /** 流程状态名称。 */
-  flowStatusName: string
-  /** 业务状态编码。 */
-  businessStatus: string
-  /** 业务状态名称。 */
-  businessStatusName: string
-  /** 发起人。 */
-  createBy: string
-  /** 发起时间。 */
-  createTime: string
-}
-
-interface DefinitionOption {
-  /** 流程定义主键。 */
-  id: string
-  /** 流程编码。 */
-  flowCode: string
-  /** 流程名称。 */
-  flowName: string
-}
-
-interface StartInstanceResult {
-  /** 流程实例主键。 */
-  instanceId: string
-  /** 发起后的首个待办任务主键。 */
-  taskId?: string
-  /** 发起后的首个待办节点名称。 */
-  nodeName?: string
-}
-
-const rows = ref<InstanceRow[]>([])
-const total = ref(0)
-const pageNum = ref(1)
-const loading = ref(false)
+const { rows, total, pageNum, loading, load, reload } = usePagedList<InstanceRow>((p, size) =>
+  pageInstances({
+    pageNum: p,
+    pageSize: size,
+    definitionId: definitionId.value || undefined,
+    businessId: businessId.value || undefined,
+  }),
+)
+const selectedRows = ref<InstanceRow[]>([])
 const defs = ref<DefinitionOption[]>([])
 const definitionId = ref<string | undefined>()
 const businessId = ref('')
@@ -153,30 +123,9 @@ const startTask = ref<{
 } | null>(null)
 const router = useRouter()
 
-/** 按当前筛选条件加载流程实例分页数据。 */
-async function load() {
-  loading.value = true
-  try {
-    const res = await httpGet<PageVo<InstanceRow>>('/instances', {
-      pageNum: pageNum.value,
-      pageSize: 10,
-      definitionId: definitionId.value || undefined,
-      businessId: businessId.value || undefined,
-    })
-    rows.value = res.list
-    total.value = res.total
-  } finally {
-    loading.value = false
-  }
-}
-
 /** 加载可发起的已发布流程。 */
 async function loadDefs() {
-  const res = await httpGet<PageVo<DefinitionOption>>('/definitions', {
-    pageNum: 1,
-    pageSize: 100,
-    isPublish: 1,
-  })
+  const res = await listDefinitions({ pageNum: 1, pageSize: 100, isPublish: 1 })
   defs.value = res.list
 }
 
@@ -228,9 +177,16 @@ function continueDraft(row: InstanceRow) {
   taskDialogVisible.value = true
 }
 
-/** 退回或撤回到申请节点后允许发起人继续提交。 */
+/**
+ * 是否可继续办理：有待办且任务停在申请节点（0 待提交，如新建/暂存草稿）
+ * 或被退回申请节点（9 已退回），兼容旧字符串业务码。
+ */
 function canContinue(row: InstanceRow) {
-  return Boolean(row.taskId && ['draft', 'back', 'cancel'].includes(row.businessStatus))
+  if (!row.taskId) return false
+  if (row.taskStatusKey) {
+    return ['0', '9'].includes(row.taskStatusKey)
+  }
+  return ['draft', 'back', 'cancel'].includes(row.businessStatus)
 }
 
 /** 将变量编辑行转换为引擎需要的 Map。 */
@@ -259,8 +215,30 @@ async function remove(row: InstanceRow) {
     '危险操作',
     { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
   )
-  await httpDelete(`/instances/${row.id}`)
+  await removeInstance(row.id)
   ElMessage.success('删除成功')
+  await load()
+}
+
+/** 记录表格当前勾选的流程实例。 */
+function handleSelectionChange(selection: InstanceRow[]) {
+  selectedRows.value = selection
+}
+
+/** 确认并批量物理删除勾选的流程实例及其全部相关流程数据。 */
+async function removeBatch() {
+  const ids = selectedRows.value.map((row) => row.id)
+  if (!ids.length) {
+    ElMessage.warning('请选择要删除的流程实例')
+    return
+  }
+  await ElMessageBox.confirm(
+    `确认物理删除选中的 ${ids.length} 个流程实例？该操作会同时删除待办、历史任务和办理人数据，且不可恢复。`,
+    '危险操作',
+    { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+  )
+  await removeInstances(ids)
+  ElMessage.success(`已删除 ${ids.length} 个流程实例`)
   await load()
 }
 
@@ -275,7 +253,7 @@ async function doStart() {
   if (variableRows.value.some(item => item.key.trim() || item.value.trim()) && !variables) return
   starting.value = true
   try {
-    const res = await httpPost<StartInstanceResult>('/instances', {
+    const res = await startInstance({
       flowCode: def.flowCode,
       businessId: startBusinessId.value.trim() || `BIZ-${Date.now()}`,
       variables,
@@ -284,8 +262,7 @@ async function doStart() {
     startDefId.value = undefined
     startBusinessId.value = ''
     variableRows.value = []
-    pageNum.value = 1
-    load()
+    reload()
     if (res.taskId) {
       startTask.value = {
         id: res.taskId,
@@ -309,14 +286,10 @@ async function doStart() {
 /** 首节点提交完成后清理临时任务并刷新实例列表。 */
 function handleTaskSaved() {
   startTask.value = null
-  pageNum.value = 1
-  load()
+  reload()
 }
 
-onMounted(() => {
-  loadDefs()
-  load()
-})
+onMounted(loadDefs)
 </script>
 
 <style scoped>

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { httpGet, type PageVo } from '../api/http'
+import { pageTodoTasks } from '../api/tasks'
 
 const KEY = 'wf_user'
 
@@ -25,7 +25,7 @@ export const useSessionStore = defineStore('session', () => {
       return
     }
     try {
-      const result = await httpGet<PageVo<unknown>>('/tasks/todo', { pageNum: 1, pageSize: 1 })
+      const result = await pageTodoTasks({ pageNum: 1, pageSize: 1 })
       todoCount.value = result.total || 0
     } catch {
       todoCount.value = 0

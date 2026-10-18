@@ -95,7 +95,21 @@
 import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSessionStore } from '../../stores/session'
-import { httpGet, httpPost, type DemoUser } from '../../api/http'
+import {
+  addSignature,
+  deputeTask,
+  getAddSignatureHandlers,
+  getBackNodes,
+  getButtonPermissions,
+  getNextNodes,
+  getReductionSignatureHandlers,
+  passTask,
+  reductionSignature,
+  rejectTask,
+  transferTask,
+} from '../../api/tasks'
+import { listUsers, type DemoUser } from '../../api/users'
+import type { DemoUserOption, TaskActionPayload, TaskNextNode } from '../../types/workflow'
 
 export interface TodoTask {
   /** 待办任务主键。 */
@@ -110,20 +124,6 @@ export interface TodoTask {
   assignees?: string[]
 }
 
-interface ButtonPermission {
-  code: string
-  label: string
-  show: boolean
-}
-
-interface TaskNode {
-  nodeCode: string
-  nodeName: string
-  nodeType: number
-  permissionFlags: string[]
-  selectableUsers: DemoUser[]
-}
-
 const props = defineProps<{ task: TodoTask | null; submitOnly?: boolean; compact?: boolean }>()
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>()
 const session = useSessionStore()
@@ -134,12 +134,12 @@ const selected = ref<string | string[]>([])
 const selectedNextHandlerMap = ref<Record<string, string[]>>({})
 const selectedBackNode = ref('')
 const selectedCopyUsers = ref<string[]>([])
-const buttonPermissions = ref<ButtonPermission[]>([])
+const buttonPermissions = ref<{ code: string; show: boolean }[]>([])
 const approvers = ref<DemoUser[]>([])
-const nextNodes = ref<TaskNode[]>([])
-const backNodes = ref<TaskNode[]>([])
-const addHandlerOptions = ref<DemoUser[]>([])
-const reductionHandlerOptions = ref<DemoUser[]>([])
+const nextNodes = ref<TaskNextNode[]>([])
+const backNodes = ref<TaskNextNode[]>([])
+const addHandlerOptions = ref<DemoUserOption[]>([])
+const reductionHandlerOptions = ref<DemoUserOption[]>([])
 const signatureHandlersLoading = ref(false)
 const submitting = ref(false)
 const variableRows = ref<{ id: number; key: string; value: string }[]>([])
@@ -191,17 +191,15 @@ async function init() {
   reductionHandlerOptions.value = []
   signatureHandlersLoading.value = false
   const [permissions, users] = await Promise.all([
-    httpGet<ButtonPermission[]>(`/tasks/${task.id}/button-permissions`),
-    httpGet<DemoUser[]>('/users').catch(() => []),
+    getButtonPermissions(task.id),
+    listUsers().catch(() => []),
   ])
   buttonPermissions.value = permissions
   approvers.value = users
-  const next = await httpGet<TaskNode[]>(`/tasks/${task.id}/next-nodes`)
-  nextNodes.value = next
+  nextNodes.value = await getNextNodes(task.id)
   if (!props.submitOnly) {
-    const back = await httpGet<TaskNode[]>(`/tasks/${task.id}/back-nodes`)
-    backNodes.value = back
-    selectedBackNode.value = back[0]?.nodeCode || ''
+    backNodes.value = await getBackNodes(task.id)
+    selectedBackNode.value = backNodes.value[0]?.nodeCode || ''
   }
   action.value = 'pass'
 }
@@ -221,13 +219,16 @@ watch(action, () => {
   }
 })
 
+/** 按当前动作加载加签/减签可选办理人。 */
 async function loadSignatureHandlers() {
   const task = props.task
   if (!task?.instanceId) return
   const actionWhenRequested = action.value
   signatureHandlersLoading.value = true
-  const path = actionWhenRequested === 'add' ? 'add-signature-handlers' : 'reduction-signature-handlers'
-  const handlers = await httpGet<DemoUser[]>(`/tasks/instances/${task.instanceId}/${path}`).catch(() => [])
+  const fetcher = actionWhenRequested === 'add'
+    ? getAddSignatureHandlers(task.instanceId)
+    : getReductionSignatureHandlers(task.instanceId)
+  const handlers = await fetcher.catch(() => [])
   if (action.value === actionWhenRequested) {
     if (actionWhenRequested === 'add') {
       addHandlerOptions.value = handlers
@@ -267,6 +268,11 @@ function collectVariables(): Record<string, string> | undefined {
   return Object.keys(variables).length ? variables : undefined
 }
 
+/** 组装公共办理请求体。 */
+function basePayload(taskId: string): TaskActionPayload {
+  return { user: session.currentUser, taskId }
+}
+
 async function submit() {
   const task = props.task
   if (!task) return
@@ -301,29 +307,30 @@ async function submit() {
   submitting.value = true
   try {
     const a = action.value
-    const id = task.id
-    const baseBody = { taskId: id, user: session.currentUser }
+    const payload = basePayload(task.id)
     if (a === 'pass') {
-      await httpPost('/tasks/pass', {
-        ...baseBody,
+      await passTask({
+        ...payload,
         message: message.value,
         variables,
         nextHandlerMap: needNextHandler.value ? selectedNextHandlerMap.value : undefined,
         copyUsers: needCopyUsers.value ? selectedCopyUsers.value : undefined,
       })
     } else if (a === 'reject') {
-      await httpPost('/tasks/reject', {
-        ...baseBody,
+      await rejectTask({
+        ...payload,
         message: message.value,
         nodeCode: selectedBackNode.value,
         copyUsers: needCopyUsers.value ? selectedCopyUsers.value : undefined,
       })
-    } else if (a === 'transfer' || a === 'depute') {
-      await httpPost(`/tasks/${a}`, { ...baseBody, nextHandlers: selectedHandlers.value })
+    } else if (a === 'transfer') {
+      await transferTask({ ...payload, nextHandlers: selectedHandlers.value })
+    } else if (a === 'depute') {
+      await deputeTask({ ...payload, nextHandlers: selectedHandlers.value })
     } else if (a === 'add') {
-      await httpPost('/tasks/add-signature', { ...baseBody, addHandlers: selectedHandlers.value })
+      await addSignature({ ...payload, addHandlers: selectedHandlers.value })
     } else {
-      await httpPost('/tasks/reduction-signature', { ...baseBody, reductionHandlers: selectedHandlers.value })
+      await reductionSignature({ ...payload, reductionHandlers: selectedHandlers.value })
     }
     ElMessage.success('操作成功')
     emit('saved')

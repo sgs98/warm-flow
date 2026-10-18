@@ -1,6 +1,8 @@
 <template>
   <div class="page-card todo-page">
-    <div v-if="!loading && !rows.length" class="todo-workspace-empty">
+    <StateError v-if="error" message="待办列表加载失败" :loading="loading" @retry="load" />
+
+    <div v-else-if="!loading && !rows.length" class="todo-workspace-empty">
       <el-empty description="当前没有待办。可发起一条流程，或在顶栏切换身份查看其他人的待办。" />
     </div>
     <div v-else class="todo-workspace" v-loading="loading">
@@ -51,6 +53,9 @@
 
     <div class="todo-table-fallback">
       <el-table :data="rows" v-loading="loading" border>
+        <template #empty>
+          <el-empty description="暂无待办任务" :image-size="60" />
+        </template>
         <el-table-column prop="id" label="任务ID" width="160" />
         <el-table-column label="流程名称" min-width="140">
           <template #default="{ row }">{{ row.flowName || '-' }}</template>
@@ -86,32 +91,24 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { httpGet, type PageVo } from '../../api/http'
+import { pageTodoTasks } from '../../api/tasks'
 import TaskActionDialog from '../../components/tasks/TaskActionDialog.vue'
 import ProcessContextPanel from '../../components/instances/ProcessContextPanel.vue'
+import StateError from '../../components/common/StateError.vue'
 import { useSessionStore } from '../../stores/session'
-import type { WorkflowTask } from '../../types/workflow'
+import { usePagedList } from '../../composables/usePagedList'
+import type { TaskRow, WorkflowTask } from '../../types/workflow'
 
-interface TaskRow {
-  id: string
-  instanceId: string
-  flowName: string
-  nodeName: string
-  businessId: string
-  assignees: string[]
-  createTime: string
-}
-
-const rows = ref<TaskRow[]>([])
 const router = useRouter()
 const session = useSessionStore()
-const total = ref(0)
-const pageNum = ref(1)
-const pageSize = 20
 const keyword = ref('')
-const loading = ref(false)
 const dialogVisible = ref(false)
 const currentTask = ref<WorkflowTask | null>(null)
+
+const { rows, total, pageNum, pageSize, loading, error, load } = usePagedList<TaskRow>(
+  (pageNum, pageSize) => pageTodoTasks({ pageNum, pageSize }),
+  { pageSize: 20 },
+)
 
 const filteredRows = computed(() => {
   const q = keyword.value.trim().toLowerCase()
@@ -121,21 +118,18 @@ const filteredRows = computed(() => {
   )
 })
 
-async function load() {
-  loading.value = true
-  try {
-    const res = await httpGet<PageVo<TaskRow>>('/tasks/todo', { pageNum: pageNum.value, pageSize })
-    rows.value = res.list
-    total.value = res.total
-    if (rows.value.length && !rows.value.some(row => row.id === currentTask.value?.id)) {
-      selectTask(rows.value[0])
-    }
-    if (!rows.value.length) currentTask.value = null
-    session.todoCount = total.value
-  } finally {
-    loading.value = false
+function afterLoad() {
+  if (rows.value.length && !rows.value.some(row => row.id === currentTask.value?.id)) {
+    selectTask(rows.value[0])
   }
+  if (!rows.value.length) currentTask.value = null
+  session.todoCount = total.value
 }
+
+onMounted(async () => {
+  await load()
+  afterLoad()
+})
 
 function openDialog(row: TaskRow) {
   currentTask.value = { ...row }
@@ -152,9 +146,8 @@ function viewHistory(row: TaskRow) {
   }
 }
 
-function onSaved() {
-  load()
+async function onSaved() {
+  await load()
+  afterLoad()
 }
-
-onMounted(load)
 </script>

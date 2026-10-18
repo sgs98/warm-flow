@@ -13,7 +13,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { httpGet } from '../../api/http'
+import { getInstanceHistory } from '../../api/instances'
 import type { WorkflowHistoryItem } from '../../types/workflow'
 import FlowHistoryChart from './FlowHistoryChart.vue'
 import HistoryTimeline from './HistoryTimeline.vue'
@@ -23,7 +23,7 @@ const activeTab = ref<'chart' | 'history'>('chart')
 const history = ref<WorkflowHistoryItem[]>([])
 
 async function loadHistory() {
-  history.value = await httpGet<WorkflowHistoryItem[]>(`/instances/${props.instanceId}/history`)
+  history.value = await getInstanceHistory(props.instanceId)
 }
 
 watch(() => props.instanceId, loadHistory)

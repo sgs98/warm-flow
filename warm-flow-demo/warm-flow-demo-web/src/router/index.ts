@@ -2,7 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
   { path: '/login', name: 'login', component: () => import('../views/login/LoginView.vue') },
-  { path: '/', redirect: '/definitions' },
+  { path: '/', redirect: '/dashboard' },
+  { path: '/dashboard', name: 'dashboard', component: () => import('../views/dashboard/DashboardView.vue') },
   { path: '/definitions', name: 'definitions', component: () => import('../views/definitions/DefinitionList.vue') },
   { path: '/definitions/design/:id?', name: 'definitionDesign', component: () => import('../views/definitions/DefinitionEdit.vue') },
   { path: '/instances', name: 'instances', component: () => import('../views/instances/InstanceList.vue') },
@@ -10,6 +11,8 @@ const routes = [
   { path: '/todo', name: 'todo', component: () => import('../views/tasks/TodoList.vue') },
   { path: '/done', name: 'done', component: () => import('../views/tasks/DoneList.vue') },
   { path: '/copy', name: 'copy', component: () => import('../views/tasks/CopyList.vue') },
+  { path: '/events', name: 'events', component: () => import('../views/events/EventTest.vue') },
+  { path: '/timers', name: 'timers', component: () => import('../views/timers/TimerList.vue') },
   { path: '/users', name: 'users', component: () => import('../views/users/UserTest.vue') },
 ]
 

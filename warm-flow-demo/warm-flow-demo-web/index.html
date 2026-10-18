@@ -1,9 +1,25 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>warm-flow-demo</title>
+    <meta name="description" content="Warm-Flow 工作流引擎全栈集成演示" />
+    <meta name="theme-color" content="#3b82f6" />
+    <title>Warm-Flow Demo</title>
+    <script>
+      // 首屏前置应用主题，避免刷新时的明暗闪烁
+      ;(function () {
+        try {
+          var mode = localStorage.getItem('wf_theme') || 'auto'
+          var dark =
+            mode === 'dark' ||
+            (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light')
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>

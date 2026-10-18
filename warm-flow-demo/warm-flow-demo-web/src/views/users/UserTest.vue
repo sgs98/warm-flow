@@ -24,14 +24,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { httpGet, type DemoUser } from '../../api/http'
+import { listUsers, type DemoUser } from '../../api/users'
 import { useSessionStore } from '../../stores/session'
 
 const session = useSessionStore()
 const users = ref<DemoUser[]>([])
 
 onMounted(async () => {
-  users.value = await httpGet<DemoUser[]>('/users')
+  users.value = await listUsers()
 })
 
 function rowClassName({ row }: { row: DemoUser }) {

@@ -68,8 +68,8 @@ export function httpPost<T>(url: string, data?: any): Promise<T> {
 export function httpPut<T>(url: string, data?: any): Promise<T> {
   return http.put(url, data) as any
 }
-export function httpDelete<T>(url: string): Promise<T> {
-  return http.delete(url) as any
+export function httpDelete<T>(url: string, params?: Record<string, any>): Promise<T> {
+  return http.delete(url, { params }) as any
 }
 
 /** 上传文件，用于流程定义导入。 */

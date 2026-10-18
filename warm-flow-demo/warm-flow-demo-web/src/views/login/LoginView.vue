@@ -1,8 +1,22 @@
 <template>
   <div class="login-page">
+    <button
+      class="icon-button login-theme"
+      :aria-label="`外观：${theme.modeLabel}，点击切换`"
+      @click="theme.toggle()"
+    >
+      <svg v-if="theme.isDark" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />
+      </svg>
+      <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8" />
+        <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4" />
+      </svg>
+    </button>
+
     <el-card class="login-card" shadow="never">
       <div class="login-brand">
-        <span class="logo-mark">W</span>
+        <span class="logo-mark" aria-hidden="true">W</span>
         <div>
           <h1>Warm-Flow Demo</h1>
           <p>选择演示用户登录</p>
@@ -15,7 +29,7 @@
             v-model="selectedUser"
             filterable
             placeholder="请选择用户"
-            :loading="loading"
+            :loading="userLoading"
             style="width: 100%"
           >
             <el-option
@@ -31,7 +45,7 @@
           type="primary"
           class="login-button"
           :disabled="!selectedUser"
-          :loading="loading"
+          :loading="submitting"
           native-type="submit"
         >
           登录
@@ -50,25 +64,30 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { httpGet, type DemoUser } from '../../api/http'
+import { listUsers, type DemoUser } from '../../api/users'
 import { useSessionStore } from '../../stores/session'
+import { useThemeStore } from '../../stores/theme'
 
 const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
+const theme = useThemeStore()
 const users = ref<DemoUser[]>([])
 const selectedUser = ref('')
-const loading = ref(false)
+const userLoading = ref(false)
+const submitting = ref(false)
 
 onMounted(async () => {
-  loading.value = true
+  userLoading.value = true
   try {
-    users.value = await httpGet<DemoUser[]>('/users')
+    users.value = await listUsers()
     if (users.value.length === 1) {
       selectedUser.value = users.value[0].userName
     }
+  } catch {
+    users.value = []
   } finally {
-    loading.value = false
+    userLoading.value = false
   }
 })
 
@@ -79,29 +98,39 @@ function redirectPath(): string {
 
 function login() {
   if (!selectedUser.value) return
+  submitting.value = true
   session.setCurrentUser(selectedUser.value)
-  router.push(redirectPath())
+  router.push(redirectPath()).finally(() => {
+    submitting.value = false
+  })
 }
 </script>
 
 <style scoped lang="scss">
 .login-page {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100%;
   padding: 24px;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(64, 158, 255, 0.16), transparent 34%),
-    radial-gradient(circle at 82% 72%, rgba(64, 158, 255, 0.12), transparent 38%),
-    var(--wf-bg);
+}
+
+.login-theme {
+  position: absolute;
+  top: 20px;
+  right: 20px;
 }
 
 .login-card {
   width: 400px;
-  border: 1px solid var(--wf-border);
-  border-radius: var(--wf-radius-lg);
-  box-shadow: var(--wf-shadow-card);
+  max-width: 100%;
+  background: var(--wf-surface);
+  backdrop-filter: blur(var(--wf-glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--wf-glass-blur)) saturate(160%);
+  border: 1px solid var(--wf-glass-border) !important;
+  border-radius: var(--wf-radius-xl) !important;
+  box-shadow: var(--wf-shadow-raised);
 }
 
 .login-brand {
@@ -126,5 +155,12 @@ function login() {
 .login-button {
   width: 100%;
   margin-bottom: 16px;
+  height: 40px;
+}
+
+@media (max-width: 480px) {
+  .login-card {
+    width: 100%;
+  }
 }
 </style>

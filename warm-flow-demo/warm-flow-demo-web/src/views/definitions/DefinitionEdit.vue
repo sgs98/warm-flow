@@ -2,8 +2,8 @@
   <div class="designer-wrap">
     <div class="designer-bar">
       <el-button text @click="back">← 返回列表</el-button>
-      <span class="title">{{ isNew ? '新建流程' : '编辑流程 #' + id }}</span>
-      <div style="flex: 1" />
+      <span class="title">{{ pageTitle }}</span>
+      <div class="toolbar-spacer" />
       <el-button type="primary" plain size="small" @click="readonly = !readonly">
         {{ readonly ? '退出只读预览' : '只读预览' }}
       </el-button>
@@ -29,7 +29,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { httpGet } from '../../api/http'
+import { getDefinition } from '../../api/definitions'
 
 const route = useRoute()
 const router = useRouter()
@@ -38,7 +38,12 @@ const id = computed<string | null>(() => (route.params.id ? String(route.params.
 const isNew = computed(() => id.value == null)
 
 const loading = ref(false)
-const readonly = ref(false)
+// 从列表「预览」进入时按只读模式打开设计器；仍可通过顶部按钮切回编辑（未发布版本）
+const readonly = ref(route.query.readonly === 'true')
+const pageTitle = computed(() => {
+  if (isNew.value) return '新建流程'
+  return `${readonly.value ? '预览流程' : '编辑流程'} #${id.value}`
+})
 const modelJson = ref<Record<string, any> | null>(null)
 const designKey = ref(0)
 const designerFrame = ref<HTMLIFrameElement | null>(null)
@@ -54,7 +59,7 @@ async function init() {
   loading.value = true
   try {
     if (id.value != null) {
-      modelJson.value = await httpGet<Record<string, any>>(`/definitions/${id.value}`)
+      modelJson.value = await getDefinition(id.value)
     } else {
       modelJson.value = { flowCode: '', flowName: '', modelValue: 'CLASSICS', formCustom: 'N', nodeList: [] }
     }
@@ -91,8 +96,10 @@ onUnmounted(() => window.removeEventListener('message', onFrameMessage))
   flex-direction: column;
   height: calc(100vh - 108px);
   min-height: 540px;
-  background: #fff;
-  border: 1px solid var(--wf-border);
+  background: var(--wf-surface);
+  backdrop-filter: blur(var(--wf-glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--wf-glass-blur)) saturate(150%);
+  border: 1px solid var(--wf-glass-border);
   border-radius: var(--wf-radius-lg);
   overflow: hidden;
   box-shadow: var(--wf-shadow-card);
@@ -102,8 +109,8 @@ onUnmounted(() => window.removeEventListener('message', onFrameMessage))
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  background: #fff;
-  border-bottom: 1px solid var(--el-border-color-light);
+  background: var(--wf-surface-sunken);
+  border-bottom: 1px solid var(--wf-border);
 }
 .designer-bar .title { font-weight: 600; color: var(--wf-text); }
 .state { padding: 40px; text-align: center; color: var(--wf-text-muted); }

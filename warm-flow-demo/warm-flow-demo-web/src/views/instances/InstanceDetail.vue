@@ -42,20 +42,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { httpGet } from '../../api/http'
+import { getInstance } from '../../api/instances'
 import ProcessContextPanel from '../../components/instances/ProcessContextPanel.vue'
+import type { InstanceRow } from '../../types/workflow'
 import { statusTagType } from '../../utils/status'
-
-interface InstanceRow {
-  id: string
-  flowName: string
-  businessId: string
-  nodeName: string
-  flowStatusName: string
-  businessStatus: string
-  businessStatusName: string
-  createBy: string
-}
 
 const route = useRoute()
 const router = useRouter()
@@ -66,7 +56,7 @@ onMounted(async () => {
   const id = route.params.id as string
   loading.value = true
   try {
-    instance.value = await httpGet<InstanceRow>(`/instances/${id}`)
+    instance.value = await getInstance(id)
   } finally {
     loading.value = false
   }

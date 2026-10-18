@@ -1,6 +1,12 @@
 <template>
   <div class="page-card">
+    <StateError v-if="error" message="抄送记录加载失败" :loading="loading" @retry="load" />
+
+    <template v-else>
     <el-table :data="rows" v-loading="loading" border>
+      <template #empty>
+        <el-empty description="暂无抄送记录，他人在办理时选择抄送你后会出现在这里" :image-size="72" />
+      </template>
       <el-table-column prop="id" label="历史任务ID" width="160" />
       <el-table-column label="流程名称" min-width="140">
         <template #default="{ row }">{{ row.flowName || '-' }}</template>
@@ -24,60 +30,29 @@
       </el-table-column>
     </el-table>
     <el-pagination
-      style="margin-top: 12px; justify-content: flex-end"
       layout="total, prev, pager, next"
       :total="total"
       v-model:current-page="pageNum"
       @current-change="load"
     />
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { httpGet, type PageVo } from '../../api/http'
+import StateError from '../../components/common/StateError.vue'
+import { pageCopyTasks } from '../../api/tasks'
+import { usePagedList } from '../../composables/usePagedList'
 import { statusTagType } from '../../utils/status'
+import type { TaskRow } from '../../types/workflow'
 
-interface CopyRow {
-  /** 历史任务主键。 */
-  id: string
-  /** 流程名称。 */
-  flowName: string
-  /** 抄送发生时所在节点名称。 */
-  nodeName: string
-  /** 业务主键。 */
-  businessId: string
-  /** 流程状态名称。 */
-  flowStatusName: string
-  /** 业务状态名称。 */
-  businessStatusName: string
-  /** 抄送时间。 */
-  createTime: string
-  instanceId?: string
-}
-
-const rows = ref<CopyRow[]>([])
-const total = ref(0)
-const pageNum = ref(1)
-const loading = ref(false)
 const router = useRouter()
+const { rows, total, pageNum, loading, error, load } = usePagedList<TaskRow>(
+  (pageNum, pageSize) => pageCopyTasks({ pageNum, pageSize }),
+)
 
-function viewInstance(row: CopyRow) {
+function viewInstance(row: TaskRow) {
   if (row.instanceId) router.push(`/instances/${row.instanceId}`)
 }
-
-/** 加载当前用户收到的抄送分页数据。 */
-async function load() {
-  loading.value = true
-  try {
-    const res = await httpGet<PageVo<CopyRow>>('/tasks/copy', { pageNum: pageNum.value, pageSize: 10 })
-    rows.value = res.list
-    total.value = res.total
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(load)
 </script>

@@ -4,7 +4,7 @@
       <el-input v-model="keyword" placeholder="流程编码/名称" clearable style="width: 220px" @keyup.enter="search" />
       <el-button type="primary" @click="search">查询</el-button>
       <el-button @click="reset">重置</el-button>
-      <div style="flex: 1" />
+      <div class="toolbar-spacer" />
       <el-button :loading="importing" @click="triggerImport">导入流程</el-button>
       <el-button type="primary" plain @click="goCreate">+ 新建流程</el-button>
       <input
@@ -17,6 +17,9 @@
     </div>
 
     <el-table :data="rows" v-loading="loading" border>
+      <template #empty>
+        <el-empty description="暂无流程定义，点击右上角「新建流程」或「导入流程」开始" :image-size="72" />
+      </template>
       <el-table-column prop="id" label="ID" width="150" />
       <el-table-column prop="flowCode" label="流程编码" min-width="140" />
       <el-table-column prop="flowName" label="流程名称" min-width="140" />
@@ -31,73 +34,45 @@
         <template #default="{ row }">{{ row.activityStatus === 1 ? '激活' : '挂起' }}</template>
       </el-table-column>
       <el-table-column prop="updateTime" label="更新时间" width="170" />
-      <el-table-column label="操作" width="360" fixed="right">
+      <el-table-column label="操作" width="380" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="doPublish(row)" v-if="row.isPublish !== 1">发布</el-button>
           <el-button link type="primary" @click="doCopy(row)">复制</el-button>
           <el-button link type="primary" @click="doExport(row)">导出</el-button>
+          <el-button link type="primary" @click="doPreview(row)">预览</el-button>
           <el-button link type="primary" @click="goEdit(row)" v-if="row.isPublish === 0">设计</el-button>
           <el-button link type="primary" @click="copyAndEdit(row)" v-else>复制并设计</el-button>
-          <el-button link type="primary" @click="openAutoPass(row)">编辑</el-button>
           <el-button link type="danger" @click="doDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
+    <!-- EP 2.4.3 的 pagination 没有 change 事件，需分别监听 current-change / size-change -->
     <el-pagination
-      style="margin-top: 12px; justify-content: flex-end"
       layout="total, prev, pager, next, sizes"
       :total="total"
       v-model:current-page="pageNum"
       v-model:page-size="pageSize"
       :page-sizes="[10, 20, 50]"
-      @change="load"
+      @current-change="load"
+      @size-change="load"
     />
-
-    <el-dialog v-model="autoPassVisible" :title="autoPassTitle" width="460px">
-      <el-form label-width="150px">
-        <el-form-item label="同一办理人自动审批">
-          <el-switch v-model="autoPassValue" />
-          <span class="form-tip">下一节点办理人包含当前办理人时，由引擎以该办理人身份自动通过该待办</span>
-        </el-form-item>
-      </el-form>
-      <div class="form-tip auto-pass-note">
-        存放在流程定义配置 <code>def_config.autoPass</code>
-      </div>
-      <template #footer>
-        <el-button @click="autoPassVisible = false">取消</el-button>
-        <el-button type="primary" :loading="savingAutoPass" @click="saveAutoPass">保存</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  httpDelete,
-  httpDownload,
-  httpGet,
-  httpPost,
-  httpPut,
-  httpUpload,
-  type PageVo,
-} from '../../api/http'
-
-interface DefinitionRow {
-  id: string
-  flowCode: string
-  flowName: string
-  modelValue: string
-  version: string
-  isPublish: number
-  activityStatus: number
-  ext?: string | null
-  defConfig?: string | null
-  updateTime: string
-}
+  copyDefinition,
+  exportDefinition,
+  importDefinition,
+  listDefinitions,
+  publishDefinition,
+  removeDefinition,
+} from '../../api/definitions'
+import type { DefinitionRow } from '../../types/workflow'
 
 const rows = ref<DefinitionRow[]>([])
 const total = ref(0)
@@ -109,24 +84,16 @@ const importing = ref(false)
 const importInput = ref<HTMLInputElement | null>(null)
 const router = useRouter()
 
-/** 自动审批弹窗：当前编辑的定义、开关值与标题 */
-const autoPassVisible = ref(false)
-const autoPassValue = ref(false)
-const autoPassRow = ref<DefinitionRow | null>(null)
-const savingAutoPass = ref(false)
-const autoPassTitle = computed(() =>
-  autoPassRow.value ? `编辑流程【${autoPassRow.value.flowName} · v${autoPassRow.value.version}】` : '编辑流程',
-)
-
+/** 按当前筛选条件加载流程定义分页数据。 */
 async function load() {
   loading.value = true
   try {
-    const res = await httpGet<PageVo<DefinitionRow>>('/definitions', {
+    const res = await listDefinitions({
       pageNum: pageNum.value,
       pageSize: pageSize.value,
       keyword: keyword.value || undefined,
     })
-    rows.value = res.list
+    rows.value = (res.list || []) as DefinitionRow[]
     total.value = res.total
   } finally {
     loading.value = false
@@ -138,6 +105,11 @@ function goCreate() {
 }
 function goEdit(row: DefinitionRow) {
   router.push(`/definitions/design/${row.id}`)
+}
+
+/** 以只读模式打开设计器预览流程结构。 */
+function doPreview(row: DefinitionRow) {
+  router.push({ path: `/definitions/design/${row.id}`, query: { readonly: 'true' } })
 }
 
 function search() {
@@ -156,65 +128,25 @@ async function doPublish(row: DefinitionRow) {
     confirmButtonText: '发布',
     cancelButtonText: '取消',
   })
-  await httpPut(`/definitions/${row.id}/publish`)
+  await publishDefinition(row.id)
   ElMessage.success('发布成功')
   load()
 }
 
 async function doCopy(row: DefinitionRow) {
-  const newId = await httpPost<string>(`/definitions/${row.id}/copy`)
+  const newId = await copyDefinition(row.id)
   ElMessage.success(`已复制为新流程 ${newId}`)
   load()
 }
 
-/** 解析 JSON 里的 autoPass：声明为 true/'true' 返回 true，声明为 false/'false' 返回 false，未声明或非法返回 null */
-function readAutoPass(json?: string | null): boolean | null {
-  if (!json) return null
-  try {
-    const parsed = JSON.parse(json)
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
-    const autoPass = parsed.autoPass
-    if (autoPass === true || autoPass === 'true') return true
-    if (autoPass === false || autoPass === 'false') return false
-    return null
-  } catch {
-    return null
-  }
-}
-
-/** 开关初值：只读 def_config 的 autoPass，不读业务扩展字段 ext（与引擎口径一致） */
-function parseAutoPass(row: DefinitionRow): boolean {
-  return readAutoPass(row.defConfig) === true
-}
-
-function openAutoPass(row: DefinitionRow) {
-  autoPassRow.value = row
-  autoPassValue.value = parseAutoPass(row)
-  autoPassVisible.value = true
-}
-
-async function saveAutoPass() {
-  const row = autoPassRow.value
-  if (!row) return
-  savingAutoPass.value = true
-  try {
-    await httpPut(`/definitions/${row.id}/auto-pass`, { autoPass: autoPassValue.value })
-    ElMessage.success(autoPassValue.value ? '已开启自动审批' : '已关闭自动审批')
-    autoPassVisible.value = false
-    load()
-  } finally {
-    savingAutoPass.value = false
-  }
-}
-
 async function copyAndEdit(row: DefinitionRow) {
-  const newId = await httpPost<string>(`/definitions/${row.id}/copy`)
+  const newId = await copyDefinition(row.id)
   ElMessage.success(`已复制为新流程 ${newId}，正在打开新版本`)
   router.push(`/definitions/design/${newId}`)
 }
 
 async function doExport(row: DefinitionRow) {
-  const fileName = await httpDownload(`/definitions/${row.id}/export`, `${row.flowCode}_${row.version}.json`)
+  const fileName = await exportDefinition(row.id, `${row.flowCode}_${row.version}.json`)
   ElMessage.success(`已导出 ${fileName}`)
 }
 
@@ -229,11 +161,9 @@ async function onImportFile(event: Event) {
   // 清空选择，保证连续选同一个文件也能再次触发 change
   input.value = ''
   if (!file) return
-  const form = new FormData()
-  form.append('file', file)
   importing.value = true
   try {
-    const newId = await httpUpload<string>('/definitions/import', form)
+    const newId = await importDefinition(file)
     ElMessage.success(`导入 ${file.name} 成功，新流程定义 ${newId}，发布后可发起`)
     pageNum.value = 1
     load()
@@ -244,7 +174,7 @@ async function onImportFile(event: Event) {
 
 async function doDelete(row: DefinitionRow) {
   await ElMessageBox.confirm(`确认删除流程【${row.flowName}】？`, '提示', { type: 'warning' })
-  await httpDelete(`/definitions/${row.id}`)
+  await removeDefinition(row.id)
   ElMessage.success('删除成功')
   load()
 }
@@ -253,26 +183,4 @@ onMounted(load)
 </script>
 
 <style scoped>
-/* 开关旁的轻提示 */
-.form-tip {
-  margin-left: 12px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--wf-text-muted, #6b7688);
-}
-
-/* 弹窗底部说明块 */
-.auto-pass-note {
-  margin-left: 0;
-  padding: 8px 10px;
-  border-radius: var(--wf-radius-md, 10px);
-  background: var(--wf-bg, #eef1f6);
-}
-
-.auto-pass-note code {
-  padding: 0 4px;
-  border-radius: 4px;
-  background: rgba(64, 158, 255, 0.12);
-  color: var(--wf-primary-strong, #2b7de9);
-}
 </style>
