@@ -46,7 +46,7 @@ class FlowStatusMachineCharacteristicTest {
         FlowOp.EXECUTE, FlowOp.TERMINATE, FlowOp.UPDATE_HANDLERS, FlowOp.LOAD, FlowOp.REVOKE};
 
     private static final FlowStatus[] TERMINAL_STATUSES = {
-        FlowStatus.FINISHED, FlowStatus.TERMINATE, FlowStatus.NULLIFY, FlowStatus.CANCEL};
+        FlowStatus.FINISHED, FlowStatus.TERMINATE, FlowStatus.INVALID, FlowStatus.CANCEL};
 
     private FlowTestHarness harness;
 
@@ -129,7 +129,7 @@ class FlowStatusMachineCharacteristicTest {
     private static Instance runningIns() {
         return FlowEngine.newIns()
                 .setActivityStatus(ActivityStatus.ACTIVITY.getKey())
-                .setFlowStatus(FlowStatus.APPROVAL.getKey())
+                .setFlowStatus(FlowStatus.WAITING.getKey())
                 .setNodeType(NodeType.BETWEEN.getKey());
     }
 }

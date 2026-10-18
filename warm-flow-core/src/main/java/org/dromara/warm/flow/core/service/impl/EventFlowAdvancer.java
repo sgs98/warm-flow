@@ -11,6 +11,7 @@ import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.ExpressionUtil;
 import org.dromara.warm.flow.core.utils.ListenerUtil;
 import org.dromara.warm.flow.core.utils.StreamUtils;
+import org.dromara.warm.flow.core.utils.StringUtils;
 
 import java.util.List;
 
@@ -81,6 +82,12 @@ final class EventFlowAdvancer {
 
         // 更新实例位置 / 状态 / 变量；后继含固定 END 时随 setInsFinishInfo 收口实例
         FlowEngine.taskService().setInsFinishInfo(instance, addTasks, execution.intent.getVariables());
+        // 终止结束事件：intent 里带的是「实例终止码」，而 setInsFinishInfo 只能按落点推导出「已完成」。
+        // 这里按意图回写，避免靠「任务码 == 实例码」的数值比较来识别终止——两个维度独立编号后允许同号
+        // （任务「通过」与实例「终止」都可能是 "2"），码值比较会把普通结束误判成终止。
+        if (StringUtils.isNotEmpty(execution.intent.getFlowStatus())) {
+            instance.setFlowStatus(execution.intent.getFlowStatus());
+        }
         if (CollUtil.isNotEmpty(addTasks)) {
             FlowEngine.taskService().saveBatch(addTasks);
             List<org.dromara.warm.flow.core.entity.User> users =

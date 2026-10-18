@@ -104,14 +104,15 @@ class WorkflowFacadeCharacteristicTest {
         command.setOperator(operator(TestFlows.HANDLER));
         command.setVariables(new HashMap<>(Map.of("source", "command")));
         command.setExt("command-ext");
-        command.setFlowStatus(FlowStatus.PENDING.getKey());
+        // 用一个引擎不会自动写入的状态，证明命令传入的 flowStatus 覆盖了默认值
+        command.setFlowStatus(FlowStatus.RESTART.getKey());
         command.setTaskStatus(TaskStatus.PASS.getKey());
         command.setNextHandlers(List.of("lisi"));
 
         WorkflowResult result = facade().start(command);
 
         Instance instance = FlowEngine.insService().getById(result.getInstanceId());
-        assertEquals(FlowStatus.PENDING.getKey(), instance.getFlowStatus());
+        assertEquals(FlowStatus.RESTART.getKey(), instance.getFlowStatus());
         assertEquals("command", instance.getVariableMap().get("source"));
         List<HisTask> history = FlowEngine.hisTaskService().getByInsId(instance.getId());
         assertEquals(TaskStatus.PASS.getKey(), history.get(0).getFlowStatus());
@@ -148,7 +149,7 @@ class WorkflowFacadeCharacteristicTest {
         WorkflowResult result = facade().reject(cmd);
 
         assertEquals("reject", result.getOperation());
-        assertEquals(TaskStatus.REJECT.getKey(), result.getFlowStatus());
+        assertEquals(FlowStatus.BACK.getKey(), result.getFlowStatus());
         assertEquals("apply", result.getCurrentTasks().get(0).getNodeCode());
     }
 

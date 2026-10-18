@@ -71,7 +71,8 @@ class TerminateCharacteristicTest {
         assertEquals(0, harness.userDao.size(), "终止后办理人应清理");
         Instance persisted = harness.insDao.raw(instance.getId());
         assertEquals(FlowStatus.TERMINATE.getKey(), persisted.getFlowStatus());
-        // start 阶段 PASS 历史 + 终止历史 = 2，其中终止历史状态为 TERMINATE
+        // start 阶段 PASS 历史 + 终止历史 = 2。终止历史由 FlowTerminateChain.persist 写入，
+        // 其 flowStatus 取的是「实例终止码」，与任务维度编码互不重叠，可直接按状态码定位
         assertEquals(2, harness.hisTaskDao.size());
         assertEquals(1, harness.hisTaskDao.all().stream()
                 .filter(h -> FlowStatus.TERMINATE.getKey().equals(h.getFlowStatus())).count(),

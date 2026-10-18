@@ -17,8 +17,12 @@
 - 事件等待记录新增只读查询 API（`WorkflowService.pageEventWaits` / `listEventWaits` / `countEventWaits` / `getEventWait`，数据侧 `FlowEventWaitDao` 同步提供）：条件对象 `EventWaitQuery` 可按 `definitionId(s)` / `instanceId(s)` / `nodeCode` / `eventName` / `attachedTaskId` / `eventTypes` / `triggerTypes` / `statuses` / 下次触发时间与创建时间区间自由组合，`businessId` / `flowCode` 由引擎解析为实例 / 定义主键后下推（可与主键条件互斥校验）；排序字段走白名单、非法值直接报错，默认只查定时类事件、按下次触发时间升序，解析均基于查询条件副本，不改写调用方入参。
 
 - 状态与协作三维拆分：实例状态（`FlowStatus`）、任务状态（新增 `TaskStatus`）、协作动作（`CooperateType`）分开建模，分别落 `flow_instance.flow_status`、`flow_task` / `flow_his_task.flow_status`、`flow_his_task.cooperate_type`；实例状态不再复制待办状态码，改由落点语义推导（结束→已完成、退回→已退回、其余→审批中），避免宿主自定义映射后两套编码串列。
-- 新增状态映射扩展点 `StatusMapper`（`instanceStatus` / `taskStatus` / `cooperateStatus` / `isTerminal` / `label`）：宿主用自己的状态枚举接管三个维度的落库编码与终态判定，各操作点不再需要手动传 `flowStatus` / `taskStatus`；默认实现沿用内置编码，升级不需要迁移数据。注册方式 `FlowEngine.setStatusMapper(...)` 或配置 `warm-flow.status-mapper-path`。
-- `FlowStatus` 精简为实例状态（移除 `PASS` / `INVALID` / `TASK_BACK`，任务维度改用新增的 `TaskStatus`）；自动审批与服务任务历史统一记「通过」，不再写入 `AUTO_PASS`。
+- **状态编码改为小写英文**：两个维度是不同表、独立编码空间，落库编码直接用英文（如 `finish` / `pass`），不再用数字，落库即可自解释（2.1.0 未发布，无存量数据需迁移，仅同步列注释）。
+  - 实例 `FlowStatus`：`draft` 待提交、`waiting` 审批中、`termination` 终止、`invalid` 作废、`cancel` 撤销、`finish` 已完成、`back` 已退回、`restart` 重启；移除「暂存」「取回」（取回属任务维度，由 `take_back` 表达）。
+  - 任务 `TaskStatus`：`pending` 待审批、`pass` 通过、`auto_pass` 自动审批、`back` 退回、`invalid` 失效、`take_back` 拿回、`copy` 抄送；移除「结束」（结束事件留痕统一按「通过」归档）。
+- 修复两个维度编码重叠导致的误判：`TaskServiceImpl.instanceStatusOf` 原先用「落点任务码 == 实例终止码」识别终止，同号时会把普通结束误判成终止；改为按执行意图（`WorkflowContext.flowStatus`）判定。`StatusMapper.label(String)` 明确只按实例维度解析，新增 `taskLabel(String)` 与 `label(String, boolean)` 支持任务维度。
+- 新增状态映射扩展点 `StatusMapper`（`instanceStatus` / `taskStatus` / `cooperateStatus` / `isTerminal` / `label`）：宿主用自己的状态枚举接管三个维度的落库编码与终态判定，各操作点不再需要手动传 `flowStatus` / `taskStatus`；默认实现沿用内置编码，升级不需要迁移数据。注册方式 `FlowEngine.setStatusMapper(...)` 或配置 `warm-flow.status-mapper-path`。demo 的编码已与引擎对齐，因此移除了 `DemoStatusMapper`，直接使用默认实现（协作动作回落 `pending`「待审批」）。
+- `FlowStatus` 精简为实例状态（移除 `PASS` / `INVALID` / `TASK_BACK`，任务维度改用新增的 `TaskStatus`）；自动审批历史记 `auto_pass`（自动审批），服务任务历史记「通过」。
 - 结束收口语义补全：流程结束时仍存在的待办不再静默删除，改按「失效」（`TaskStatus.INVALID`）归档进 `flow_his_task`（保留节点、办理人、创建时间，便于审计）；已归档的待办（本次办理 / 终止的那条）自动去重，不重复归档。
 - 普通完成链路补齐事件等待清理：实例到达结束节点即取消本实例的 `flow_event_wait` 记录，避免流程已完成后仍有僵尸等待被外部消息或定时器唤醒；终止结束、显式终止路径行为不变（原本就会清理）。
 - 结束事件留痕：`TERMINATE_END` / `MESSAGE_END` 到达时在 `flow_his_task` 写一条结束事件记录（`task_id` 以 `0` 为哨兵、`flow_status` 为「结束」），备注区分「流程由该终止结束事件终止」与「流程由该结束事件节点结束」，按 `node_code` 即可筛出「因严重异常终止」的单子。

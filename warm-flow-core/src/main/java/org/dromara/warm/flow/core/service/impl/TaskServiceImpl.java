@@ -394,30 +394,25 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
     /**
      * 由落点待办推导实例状态。
      * <p>
-     * 实例状态与任务状态是两个维度、两套编码：落到结束节点即「已完成」，落点待办为退回则为「已退回」，
-     * 其余情况实例仍处于「审批中」。不能直接复制待办的状态码，否则宿主自定义映射后两套编码会串列。
+     * 实例状态与任务状态是两个维度、两套独立编码空间（各自连续编号，允许数值相同）。
+     * 落到结束节点即「已完成」，落点待办为退回则为「已退回」，其余情况实例仍处于「审批中」。
+     * 不能直接复制待办的状态码，否则宿主自定义映射后两套编码会串列。
      * <p>
-     * 唯一例外是「终止」：终止结束事件经由执行意图把实例终止编码带到固定 END 的临时待办上，
-     * 这里再还原成实例语义，使严重异常终止的单子状态为「终止」而不是「已完成」。
+     * 「终止结束事件」是唯一例外：它把<b>实例终止编码</b>经 intent 带到固定 END 的临时待办上。
+     * 这里不能靠「任务码 == 实例终止码」来识别——两个维度允许同号（如任务「通过」与实例「终止」
+     * 都可能是 {@code "2"}），靠码值相等判断会把普通结束误判成终止。因此按<b>意图</b>判定：
+     * 只有 intent 明确携带终止语义时，才把实例收口为「终止」。
      *
      * @param task 本次落点待办
      * @return 实例状态编码
      */
     private String instanceStatusOf(Task task) {
         if (NodeType.isEnd(task.getNodeType())) {
-            String finishedTaskCode = FlowStatusMachine.mapper().taskStatus(TaskStatus.FINISHED);
-            if (finishedTaskCode.equals(task.getFlowStatus())) {
-                return FlowStatusMachine.mapper().instanceStatus(FlowStatus.FINISHED);
-            }
-            // 只认「终止」这一个语义，宿主任意指定的任务状态仍按正常结束收口，不污染实例状态
-            String terminateCode = FlowStatusMachine.mapper().instanceStatus(FlowStatus.TERMINATE);
-            return terminateCode.equals(task.getFlowStatus())
-                ? terminateCode
-                : FlowStatusMachine.mapper().instanceStatus(FlowStatus.FINISHED);
+            return FlowStatusMachine.mapper().instanceStatus(FlowStatus.FINISHED);
         }
-        String rejectCode = FlowStatusMachine.mapper().taskStatus(TaskStatus.REJECT);
+        String rejectCode = FlowStatusMachine.mapper().taskStatus(TaskStatus.BACK);
         return FlowStatusMachine.mapper().instanceStatus(
-            rejectCode.equals(task.getFlowStatus()) ? FlowStatus.REJECT : FlowStatus.APPROVAL);
+            rejectCode.equals(task.getFlowStatus()) ? FlowStatus.BACK : FlowStatus.WAITING);
     }
 
     /**

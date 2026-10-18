@@ -67,7 +67,7 @@ class ExecutionSnapshotCharacteristicTest {
                 .setInstanceId(instance.getId())
                 .setNodeCode("apply").setNodeName("apply")
                 .setNodeType(NodeType.BETWEEN.getKey())
-                .setFlowStatus(FlowStatus.APPROVAL.getKey());
+                .setFlowStatus(FlowStatus.WAITING.getKey());
         MutatingGlobalListener.onStart = variable -> harness.taskDao.save(extra);
 
         FlowEngine.taskService().revoke(instance.getId(), TestFlows.context(TestFlows.HANDLER));
@@ -128,7 +128,7 @@ class ExecutionSnapshotCharacteristicTest {
                         .setInstanceId(instance.getId())
                         .setNodeCode("x1").setNodeName("x1")
                         .setNodeType(NodeType.BETWEEN.getKey())
-                        .setFlowStatus(FlowStatus.APPROVAL.getKey()));
+                        .setFlowStatus(FlowStatus.WAITING.getKey()));
             }
         };
 

@@ -179,7 +179,7 @@ comment on column FLOW_INSTANCE.NODE_TYPE is '开始节点类型 (0开始节点 
 comment on column FLOW_INSTANCE.NODE_CODE is '开始节点编码';
 comment on column FLOW_INSTANCE.NODE_NAME is '开始节点名称';
 comment on column FLOW_INSTANCE.VARIABLE is '任务变量';
-comment on column FLOW_INSTANCE.FLOW_STATUS is '实例状态（0待提交 1审批中 4终止 5作废 6撤销 7取回 8已完成 9已退回 12重启 13暂存）';
+comment on column FLOW_INSTANCE.FLOW_STATUS is '实例状态（draft待提交 waiting审批中 termination终止 invalid作废 cancel撤销 finish已完成 back已退回 restart重启）';
 comment on column FLOW_INSTANCE.ACTIVITY_STATUS is '流程激活状态（0挂起 1激活）';
 comment on column FLOW_INSTANCE.DEF_JSON is '流程定义json';
 comment on column FLOW_INSTANCE.CREATE_TIME is '创建时间';
@@ -219,7 +219,7 @@ comment on column FLOW_TASK.INSTANCE_ID is '对应flow_instance表的id';
 comment on column FLOW_TASK.NODE_CODE is '节点编码';
 comment on column FLOW_TASK.NODE_NAME is '节点名称';
 comment on column FLOW_TASK.NODE_TYPE is '节点类型 (0开始节点 1中间节点 2结束节点 3互斥网关 4并行网关 5包容网关 6服务任务)';
-comment on column FLOW_TASK.FLOW_STATUS is '任务状态（1待办理 2通过 8结束 9退回 10失效 11拿回；任务结果，勿套用实例状态编码）';
+comment on column FLOW_TASK.FLOW_STATUS is '任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送；任务结果，勿套用实例状态编码）';
 comment on column FLOW_TASK.FORM_CUSTOM is '审批表单是否自定义 (Y是 N否)';
 comment on column FLOW_TASK.FORM_PATH is '审批表单路径';
 comment on column FLOW_TASK.CREATE_TIME is '创建时间';
@@ -272,7 +272,7 @@ comment on column FLOW_HIS_TASK.NODE_TYPE is '开始节点类型 (0开始节点 
 comment on column FLOW_HIS_TASK.TARGET_NODE_CODE is '目标节点编码';
 comment on column FLOW_HIS_TASK.TARGET_NODE_NAME is '目标节点名称';
 comment on column FLOW_HIS_TASK.SKIP_TYPE is '流转类型（PASS通过 REJECT退回 NONE无动作）';
-comment on column FLOW_HIS_TASK.FLOW_STATUS is '任务状态（1待办理 2通过 8结束 9退回 10失效 11拿回；任务结果，勿套用实例状态编码）';
+comment on column FLOW_HIS_TASK.FLOW_STATUS is '任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送；任务结果，勿套用实例状态编码）';
 comment on column FLOW_HIS_TASK.FORM_CUSTOM is '审批表单是否自定义 (Y是 N否)';
 comment on column FLOW_HIS_TASK.FORM_PATH is '审批表单路径';
 comment on column FLOW_HIS_TASK.MESSAGE is '审批意见';

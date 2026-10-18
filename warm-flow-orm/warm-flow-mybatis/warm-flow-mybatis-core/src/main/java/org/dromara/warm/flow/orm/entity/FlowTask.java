@@ -104,7 +104,7 @@ public class FlowTask implements Task {
     private Integer nodeType;
 
     /**
-     * 流程状态（0待提交 1审批中 2审批通过 4终止 5作废 6撤销 8已完成 9已退回 10失效 11拿回）
+     * 任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送）
      *
      * @see org.dromara.warm.flow.core.enums.FlowStatus
      */

@@ -261,7 +261,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
             .setMessage(context.getMessage())
             .setSkipType(isPass ? SkipType.PASS.getKey() : SkipType.REJECT.getKey())
             .setFlowStatus(FlowStatusMachine.defaultStatus(flowStatus
-                , FlowStatusMachine.mapper().taskStatus(isPass ? TaskStatus.PASS : TaskStatus.REJECT)))
+                , FlowStatusMachine.mapper().taskStatus(isPass ? TaskStatus.PASS : TaskStatus.BACK)))
             .setFormCustom(task.getFormCustom())
             .setFormPath(task.getFormPath())
             .setMessage(context.getMessage())

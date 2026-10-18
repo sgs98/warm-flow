@@ -103,7 +103,7 @@ public class EventRuntimeHandler implements EventTaskHandler {
         WorkflowContext context = executionContext(wait, null);
         // 定时启动没有发起人提交环节：实例直接处于「审批中」，而不是「待提交」；
         // taskStatus 给 PASS 让发起事件的历史仍记「通过」，flowStatus 只影响实例状态
-        context.setFlowStatus(FlowStatusMachine.mapper().instanceStatus(FlowStatus.APPROVAL));
+        context.setFlowStatus(FlowStatusMachine.mapper().instanceStatus(FlowStatus.WAITING));
         context.setTaskStatus(FlowStatusMachine.mapper().taskStatus(TaskStatus.PASS));
         FlowExecution execution;
         try {

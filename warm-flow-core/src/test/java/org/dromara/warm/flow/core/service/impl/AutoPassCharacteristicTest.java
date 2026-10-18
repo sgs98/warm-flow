@@ -75,7 +75,7 @@ class AutoPassCharacteristicTest {
 
         // 自动通过复用标准办理链：历史写审批通过、无动作外的审批人仍为当前办理人
         HisTask auditHis = his(instance.getId(), "audit");
-        assertEquals(TaskStatus.PASS.getKey(), auditHis.getFlowStatus());
+        assertEquals(TaskStatus.AUTO_PASS.getKey(), auditHis.getFlowStatus());
         assertEquals(SkipType.PASS.getKey(), auditHis.getSkipType());
         assertEquals(TestFlows.HANDLER, auditHis.getApprover());
         assertTrue(auditHis.getMessage().contains("自动审批"), "自动审批应写入办理意见");
@@ -110,7 +110,7 @@ class AutoPassCharacteristicTest {
         assertEquals("end", finished.getNodeCode());
         HisTask auditHis = his(instance.getId(), "audit");
         assertEquals(TestFlows.HANDLER, auditHis.getApprover(), "自动审批以当前办理人身份记入历史");
-        assertEquals(TaskStatus.PASS.getKey(), auditHis.getFlowStatus());
+        assertEquals(TaskStatus.AUTO_PASS.getKey(), auditHis.getFlowStatus());
         assertTrue(TestFlows.pendingTasks(instance.getId()).isEmpty());
     }
 
@@ -126,7 +126,7 @@ class AutoPassCharacteristicTest {
         List<HisTask> auditHisList = FlowEngine.hisTaskService().getByInsId(instance.getId()).stream()
             .filter(h -> "audit".equals(h.getNodeCode())).collect(Collectors.toList());
         assertTrue(auditHisList.stream().anyMatch(h -> TestFlows.HANDLER.equals(h.getApprover())
-            && TaskStatus.PASS.getKey().equals(h.getFlowStatus())), "应只代投当前办理人一票");
+            && TaskStatus.AUTO_PASS.getKey().equals(h.getFlowStatus())), "应只代投当前办理人一票");
         List<Task> pending = TestFlows.pendingTasks(instance.getId());
         assertEquals(Set.of("audit"), pending.stream().map(Task::getNodeCode).collect(Collectors.toSet()),
             "会签任务应保留给其余办理人");
@@ -180,8 +180,8 @@ class AutoPassCharacteristicTest {
         Instance finished = TestFlows.pass(TestFlows.currentTask(instance.getId()).getId(), TestFlows.HANDLER);
 
         assertEquals("end", finished.getNodeCode());
-        assertEquals(TaskStatus.PASS.getKey(), his(instance.getId(), "audit").getFlowStatus());
-        assertEquals(TaskStatus.PASS.getKey(), his(instance.getId(), "review").getFlowStatus());
+        assertEquals(TaskStatus.AUTO_PASS.getKey(), his(instance.getId(), "audit").getFlowStatus());
+        assertEquals(TaskStatus.AUTO_PASS.getKey(), his(instance.getId(), "review").getFlowStatus());
         assertTrue(TestFlows.pendingTasks(instance.getId()).isEmpty());
     }
 
@@ -194,7 +194,7 @@ class AutoPassCharacteristicTest {
 
         assertEquals(Set.of("review"), TestFlows.pendingTasks(instance.getId()).stream()
             .map(Task::getNodeCode).collect(Collectors.toSet()));
-        assertEquals(TaskStatus.PASS.getKey(), his(instance.getId(), "audit").getFlowStatus());
+        assertEquals(TaskStatus.AUTO_PASS.getKey(), his(instance.getId(), "audit").getFlowStatus());
         assertTrue(FlowEngine.hisTaskService().getByInsId(instance.getId()).stream()
             .noneMatch(h -> "review".equals(h.getNodeCode())), "链式推进在他人办理人处停止");
     }
@@ -208,7 +208,7 @@ class AutoPassCharacteristicTest {
 
         assertEquals("ran", RecordingServiceTaskHandler.LAST_VARIABLES.get("svcFlag"));
         assertEquals("end", finished.getNodeCode());
-        assertEquals(TaskStatus.PASS.getKey(), his(instance.getId(), "review").getFlowStatus());
+        assertEquals(TaskStatus.AUTO_PASS.getKey(), his(instance.getId(), "review").getFlowStatus());
         assertTrue(TestFlows.pendingTasks(instance.getId()).isEmpty());
     }
 

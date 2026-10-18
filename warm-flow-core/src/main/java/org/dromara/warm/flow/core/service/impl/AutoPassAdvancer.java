@@ -155,7 +155,8 @@ final class AutoPassAdvancer {
     }
 
     /**
-     * 构造自动审批的办理上下文：办理人为当前办理人，权限集合即该办理人本身，历史状态写「审批通过」。
+     * 构造自动审批的办理上下文：办理人为当前办理人，权限集合即该办理人本身，
+     * 历史状态写 {@link TaskStatus#AUTO_PASS}（自动审批）——与人工办理的「通过」区分开。
      *
      * @param handler 当前办理人
      * @return 自动审批办理上下文
@@ -165,7 +166,7 @@ final class AutoPassAdvancer {
         context.setHandler(handler);
         context.setPermissions(List.of(handler));
         context.setMessage(AUTO_PASS_MESSAGE);
-        context.setTaskStatus(FlowStatusMachine.mapper().taskStatus(TaskStatus.PASS));
+        context.setTaskStatus(FlowStatusMachine.mapper().taskStatus(TaskStatus.AUTO_PASS));
         return context;
     }
 

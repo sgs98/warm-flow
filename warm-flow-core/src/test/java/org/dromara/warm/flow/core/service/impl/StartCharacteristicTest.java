@@ -7,6 +7,7 @@ import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
 import org.dromara.warm.flow.core.enums.FlowStatus;
+import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
@@ -87,15 +88,15 @@ class StartCharacteristicTest {
 
         // 实例：首中间节点、待提交状态（启动状态由调用方决定，不被首任务状态反向覆盖）
         assertEquals("apply", instance.getNodeCode());
-        assertEquals(FlowStatus.TOBESUBMIT.getKey(), instance.getFlowStatus());
+        assertEquals(FlowStatus.DRAFT.getKey(), instance.getFlowStatus());
         assertEquals(TestFlows.HANDLER, instance.getCreateBy());
         assertNotNull(instance.getDefJson(), "发起后应写入流程图元数据");
         assertEquals(3, ((Number) instance.getVariableMap().get("days")).intValue());
 
-        // 待办：apply 节点、审批中（permissionList 为瞬态列，查询后不回显，办理人由 user 行断言）
+        // 待办：apply 节点、待办理（permissionList 为瞬态列，查询后不回显，办理人由 user 行断言）
         Task task = TestFlows.currentTask(instance.getId());
         assertEquals("apply", task.getNodeCode());
-        assertEquals(FlowStatus.APPROVAL.getKey(), task.getFlowStatus());
+        assertEquals(TaskStatus.PENDING.getKey(), task.getFlowStatus());
 
         // 办理人：1 条 APPROVAL
         List<org.dromara.warm.flow.core.entity.User> users = harness.userDao.all();

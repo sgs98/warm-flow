@@ -1,4 +1,24 @@
--- 节点事件列：事件节点在 flow_node 上持久化事件类型与消息名称；事件 JSON 配置复用 node_config 的 event 段，不新增 event_config 列。
+-- ============================================================
+-- Warm-Flow 2.1.0 MySQL 增量升级脚本
+-- 适用：从 2.0.1（或更早）升级到 2.1.0。
+-- ============================================================
+
+-- ---- 原 2.0.2：节点配置列 ----
+-- 服务任务等节点在 flow_node 上持久化 node_config，历史任务快照同一份配置。
+ALTER TABLE `flow_node`
+    ADD COLUMN `node_config` text NULL COMMENT '节点配置（服务任务、事件等引擎节点配置json）' AFTER `ext`;
+
+ALTER TABLE `flow_his_task`
+    ADD COLUMN `node_config` text NULL COMMENT '节点配置（服务任务、事件等引擎节点配置json）' AFTER `ext`;
+
+-- ---- 原 2.0.2：流程定义配置列 ----
+-- 自动审批等定义级引擎配置从业务 ext 迁至 def_config，ext 回归业务系统独占。
+-- 引擎只读 def_config 中的 autoPass，不回退读 ext。
+ALTER TABLE `flow_definition`
+    ADD COLUMN `def_config` text NULL COMMENT '流程定义配置（自动审批等引擎配置与自定义扩展属性json）' AFTER `ext`;
+
+-- ---- 2.1.0：节点事件列 ----
+-- 事件节点在 flow_node 上持久化事件类型与消息名称；事件 JSON 配置复用 node_config 的 event 段，不新增 event_config 列。
 -- 兼容：旧数据四个事件列均为 NULL，表示无事件，既有流程行为不变；固定 START / END 不承载事件。
 ALTER TABLE `flow_node`
     ADD COLUMN `event_type` varchar(40) NULL COMMENT '事件类型（MESSAGE_START TIMER_START TIMER_CATCH MESSAGE_CATCH MESSAGE_THROW TIMER_BOUNDARY MESSAGE_BOUNDARY ERROR_CATCH ERROR_BOUNDARY TERMINATE_END MESSAGE_END）' AFTER `node_config`,
@@ -6,19 +26,24 @@ ALTER TABLE `flow_node`
     ADD COLUMN `attached_to_node_code` varchar(100) NULL COMMENT '边界事件附着的任务节点编码' AFTER `event_name`,
     ADD COLUMN `interrupting` tinyint(1) NULL COMMENT '边界事件是否中断型' AFTER `attached_to_node_code`;
 
--- 修正 node_config 注释：自定义扩展属性实际在 node.ext（NodeServiceImpl.getExt 读 getExt()），node_config 是服务任务 / 事件等引擎节点配置容器。
+-- node_config 注释定稿：自定义扩展属性实际在 node.ext（NodeServiceImpl.getExt 读 getExt()），node_config 是服务任务 / 事件等引擎节点配置容器。
+-- 从 2.0.2 草稿升级过的库已带旧注释，此句统一改到定稿；全新从 2.0.1 升级的库上一句已建对，重复执行无害。
 ALTER TABLE `flow_node`
     MODIFY COLUMN `node_config` text NULL COMMENT '节点配置（服务任务、事件等引擎节点配置json）';
 
--- 修正状态列注释：v2.1.0 把状态拆成「实例状态 / 任务状态 / 协作方式」三个维度（映射见 StatusMapper），
--- 旧注释三表共用一套编码且含已移除的「2审批通过」，容易误读 —— 例如 8 在实例表是「已完成」、在任务表是「结束」。
--- 仅改注释，不动列类型与数据；存量库若不便执行这些重建语句，可直接跳过（不影响引擎行为）。
+-- 状态编码重排：v2.1.0 把状态拆成「实例状态 / 任务状态 / 协作方式」三个独立维度（映射见 StatusMapper），
+-- 并让两个维度各自连续编号、不留空洞。两张表是不同维度、各有独立编码空间，编号允许相同。
+-- 2.1.0 为未发布版本，无存量数据需要迁移，此处只同步列注释。
+--   flow_instance.flow_status：draft待提交 waiting审批中 termination终止 invalid作废 cancel撤销 finish已完成 back已退回 restart重启
+--   flow_task / flow_his_task.flow_status：pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送
+
+-- 列注释同步为新编码
 ALTER TABLE `flow_instance`
-    MODIFY COLUMN `flow_status` varchar(20) NOT NULL COMMENT '实例状态（0待提交 1审批中 4终止 5作废 6撤销 7取回 8已完成 9已退回 12重启 13暂存）';
+    MODIFY COLUMN `flow_status` varchar(20) NOT NULL COMMENT '实例状态（draft待提交 waiting审批中 termination终止 invalid作废 cancel撤销 finish已完成 back已退回 restart重启）';
 ALTER TABLE `flow_task`
-    MODIFY COLUMN `flow_status` varchar(20) NOT NULL COMMENT '任务状态（1待办理 2通过 8结束 9退回 10失效 11拿回；任务结果，勿套用实例状态编码）';
+    MODIFY COLUMN `flow_status` varchar(20) NOT NULL COMMENT '任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送）';
 ALTER TABLE `flow_his_task`
-    MODIFY COLUMN `flow_status` varchar(20) NOT NULL COMMENT '任务状态（1待办理 2通过 8结束 9退回 10失效 11拿回；任务结果，勿套用实例状态编码）',
+    MODIFY COLUMN `flow_status` varchar(20) NOT NULL COMMENT '任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送）',
     MODIFY COLUMN `cooperate_type` tinyint(1) NOT NULL DEFAULT '0' COMMENT '协作方式（1无 2转办 3委派 4会签 5票签 6加签 7减签；行为维度，结果见 flow_status）';
 
 -- 事件等待表：定时 / 消息等需要“等待”的事件统一落在此表，状态独立于 flow_status。

@@ -69,7 +69,7 @@ class RejectCharacteristicTest {
                 .setNodeCode("audit")
                 .setNodeName("audit")
                 .setNodeType(auditTask.getNodeType())
-                .setFlowStatus(FlowStatus.APPROVAL.getKey());
+                .setFlowStatus(FlowStatus.WAITING.getKey());
         FlowEngine.taskService().save(sibling);
         FlowEngine.userService().save(FlowEngine.userService().structureUser(sibling.getId()
                 , "wangwu", UserType.APPROVAL.getKey(), TestFlows.HANDLER));
@@ -82,10 +82,10 @@ class RejectCharacteristicTest {
                 FlowEngine.newTask().setInstanceId(instance.getId()));
         assertEquals(1, pending.size(), "驳回后应仅有驳回目标待办: " + pending);
         assertEquals("apply", pending.get(0).getNodeCode());
-        assertEquals(TaskStatus.REJECT.getKey(), pending.get(0).getFlowStatus());
+        assertEquals(TaskStatus.BACK.getKey(), pending.get(0).getFlowStatus());
         Instance persisted = harness.insDao.raw(instance.getId());
         assertEquals("apply", persisted.getNodeCode());
-        assertEquals(TaskStatus.REJECT.getKey(), persisted.getFlowStatus());
+        assertEquals(FlowStatus.BACK.getKey(), persisted.getFlowStatus());
 
         // 一票否决现状：后置兄弟待办直接删除，不转历史（注释称转历史，实现是纯删除）
         assertNull(harness.taskDao.raw(sibling.getId()), "后置兄弟待办应被一票否决删除");
@@ -113,7 +113,7 @@ class RejectCharacteristicTest {
                 .setNodeCode("audit")
                 .setNodeName("audit")
                 .setNodeType(auditTask.getNodeType())
-                .setFlowStatus(FlowStatus.APPROVAL.getKey());
+                .setFlowStatus(FlowStatus.WAITING.getKey());
         FlowEngine.taskService().save(sibling);
         harness.reset();
 

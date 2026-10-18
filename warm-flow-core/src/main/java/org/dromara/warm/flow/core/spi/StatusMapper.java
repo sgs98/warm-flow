@@ -47,13 +47,15 @@ public interface StatusMapper {
      * 协作动作转任务状态编码。
      * <p>
      * 协作类型（转办 / 委派 / 加签 / 减签）是引擎的行为维度，由引擎固定维护；
-     * 本方法只决定该动作在历史任务上留下的状态编码。默认回落「待办理」。
+     * 本方法只决定该动作在历史任务上留下的状态编码。默认回落 {@link TaskStatus#PENDING}（待审批）——
+     * 协作后任务仍等待新办理人处理。宿主若需要区分「转办 / 委托 / 加签 / 减签」，
+     * 可覆写本方法映射成自有编码。
      *
      * @param type 协作类型
      * @return 宿主任务状态编码
      */
     default String cooperateStatus(CooperateType type) {
-        return taskStatus(TaskStatus.WAITING);
+        return taskStatus(TaskStatus.PENDING);
     }
 
     /**
@@ -69,18 +71,40 @@ public interface StatusMapper {
     }
 
     /**
-     * 状态编码转展示文案。
+     * 状态编码转展示文案（实例维度）。
+     * <p>
+     * 实例状态与任务状态是两张表、两套独立编码空间，同一个编码在两边含义不同
+     * （例如 {@code "2"} 在实例表是「终止」、在任务表是「通过」）。只拿一个编码无法判断维度，
+     * 因此本方法<b>只按实例状态解析</b>；任务状态请用 {@link #taskLabel(String)}。
      *
-     * @param code 状态编码
+     * @param code 实例状态编码
      * @return 展示文案；未匹配时返回编码本身
      */
     default String label(String code) {
         String instance = FlowStatus.getValueByKey(code);
-        if (instance != null) {
-            return instance;
-        }
+        return instance == null ? code : instance;
+    }
+
+    /**
+     * 状态编码转展示文案（任务维度）。
+     *
+     * @param code 任务状态编码
+     * @return 展示文案；未匹配时返回编码本身
+     */
+    default String taskLabel(String code) {
         String task = TaskStatus.getValueByKey(code);
         return task == null ? code : task;
+    }
+
+    /**
+     * 按维度解析状态编码的展示文案。
+     *
+     * @param code     状态编码
+     * @param instance 是否为实例维度（{@code false} 按任务维度解析）
+     * @return 展示文案；未匹配时返回编码本身
+     */
+    default String label(String code, boolean instance) {
+        return instance ? label(code) : taskLabel(code);
     }
 
 }

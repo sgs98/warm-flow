@@ -222,7 +222,7 @@ final class FlowStartChain {
             .setNodeCode(firstBetweenNode.getNodeCode())
             .setNodeName(firstBetweenNode.getNodeName())
             .setFlowStatus(StringUtils.emptyDefault(context.getFlowStatus()
-                , FlowStatusMachine.mapper().instanceStatus(FlowStatus.TOBESUBMIT)))
+                , FlowStatusMachine.mapper().instanceStatus(FlowStatus.DRAFT)))
             .setActivityStatus(ActivityStatus.ACTIVITY.getKey())
             .setVariable(FlowEngine.jsonConvert.objToStr(context.getVariables()))
             .setCreateTime(now)

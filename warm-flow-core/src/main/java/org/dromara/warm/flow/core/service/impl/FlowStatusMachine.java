@@ -155,6 +155,9 @@ final class FlowStatusMachine {
 
     /**
      * 根据目标节点和跳转类型计算新待办任务的默认状态。
+     * <p>
+     * 落到结束节点的待办只是收口用的临时任务（随后由 {@code setInsFinishInfo} 从待落库列表移除），
+     * 一律按「通过」处理——实例是否已完成由实例状态表达，不需要在任务维度再造一个「结束」。
      *
      * @param nodeType 目标节点类型
      * @param skipType 跳转类型
@@ -162,12 +165,10 @@ final class FlowStatusMachine {
      */
     static String taskStatus(Integer nodeType, String skipType) {
         StatusMapper mapper = mapper();
-        if (NodeType.isEnd(nodeType)) {
-            return mapper.taskStatus(TaskStatus.FINISHED);
-        } else if (SkipType.isReject(skipType)) {
-            return mapper.taskStatus(TaskStatus.REJECT);
+        if (SkipType.isReject(skipType)) {
+            return mapper.taskStatus(TaskStatus.BACK);
         }
-        return mapper.taskStatus(TaskStatus.WAITING);
+        return mapper.taskStatus(TaskStatus.PENDING);
     }
 
     /**
@@ -180,11 +181,11 @@ final class FlowStatusMachine {
     static String instanceStatus(Integer nodeType, String skipType) {
         StatusMapper mapper = mapper();
         if (NodeType.isStart(nodeType)) {
-            return mapper.instanceStatus(FlowStatus.TOBESUBMIT);
+            return mapper.instanceStatus(FlowStatus.DRAFT);
         } else if (NodeType.isEnd(nodeType)) {
             return mapper.instanceStatus(FlowStatus.FINISHED);
         }
-        return mapper.instanceStatus(FlowStatus.APPROVAL);
+        return mapper.instanceStatus(FlowStatus.WAITING);
     }
 
     /**
@@ -198,7 +199,7 @@ final class FlowStatusMachine {
         if (StringUtils.isNotEmpty(customStatus)) {
             return customStatus;
         }
-        return mapper().taskStatus(SkipType.isReject(skipType) ? TaskStatus.REJECT : TaskStatus.PASS);
+        return mapper().taskStatus(SkipType.isReject(skipType) ? TaskStatus.BACK : TaskStatus.PASS);
     }
 
     /**

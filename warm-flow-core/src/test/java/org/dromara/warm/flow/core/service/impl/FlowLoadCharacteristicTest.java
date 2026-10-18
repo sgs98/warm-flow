@@ -94,7 +94,7 @@ class FlowLoadCharacteristicTest {
                 .setInstanceId(instance.getId())
                 .setNodeCode("apply").setNodeName("apply")
                 .setNodeType(NodeType.BETWEEN.getKey())
-                .setFlowStatus(FlowStatus.APPROVAL.getKey()));
+                .setFlowStatus(FlowStatus.WAITING.getKey()));
 
         FlowException ex = assertThrows(FlowException.class,
                 () -> FlowEngine.taskService().load(902L));

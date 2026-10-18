@@ -105,7 +105,7 @@ public class FlowInstance implements Instance {
 
     /**
      * @see org.dromara.warm.flow.core.enums.FlowStatus
-     * 流程状态（0待提交 1审批中 2审批通过 4终止 5作废 6撤销 8已完成 9已退回 10失效 11拿回）
+     * 流程状态（draft待提交 waiting审批中 termination终止 invalid作废 cancel撤销 finish已完成 back已退回 restart重启）
      */
     private String flowStatus;
 

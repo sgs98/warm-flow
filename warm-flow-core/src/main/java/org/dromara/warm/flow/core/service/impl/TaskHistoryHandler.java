@@ -5,6 +5,7 @@ import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.entity.*;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.CollUtil;
+import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.List;
@@ -37,6 +38,12 @@ final class TaskHistoryHandler {
 
         List<User> users = FlowEngine.userService().taskAddUsers(addTasks);
         taskService.setInsFinishInfo(instance, addTasks, context.getVariables());
+        // 调用方经上下文显式指定了实例状态（典型是终止结束事件把「实例终止码」带下来）时按意图回写。
+        // 不能靠「落点任务码 == 实例码」的数值比较来识别终止：实例状态与任务状态是两个独立编码空间，
+        // 允许同号（如任务「通过」与实例「终止」都可能是 "2"），码值相等会把普通结束误判成终止。
+        if (StringUtils.isNotEmpty(context.getFlowStatus())) {
+            instance.setFlowStatus(context.getFlowStatus());
+        }
         if (CollUtil.isNotEmpty(addTasks)) {
             taskService.saveBatch(addTasks);
         }

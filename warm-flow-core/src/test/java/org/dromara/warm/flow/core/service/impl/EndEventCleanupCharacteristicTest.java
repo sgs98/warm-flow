@@ -82,7 +82,9 @@ class EndEventCleanupCharacteristicTest {
             .filter(h -> "te".equals(h.getNodeCode())).toList();
         assertEquals(1, traces.size(), "结束事件应写入一条历史留痕");
         assertEquals(0L, traces.get(0).getTaskId());
-        assertEquals(TaskStatus.FINISHED.getKey(), traces.get(0).getFlowStatus());
+        // 结束事件留痕按「通过」归档：任务维度不设「结束」状态，
+        // 留痕身份靠 task_id=0 哨兵 + message 文本区分，终止结束与消息结束的差别也体现在 message
+        assertEquals(TaskStatus.PASS.getKey(), traces.get(0).getFlowStatus());
         assertEquals("流程由该终止结束事件终止", traces.get(0).getMessage());
     }
 
@@ -124,12 +126,16 @@ class EndEventCleanupCharacteristicTest {
         return complete(instance, null);
     }
 
-    private Instance complete(Instance instance, String explicitStatus) {
+    /**
+     * 完成 a1 待办；explicitTaskStatus 非空时作为<b>任务</b>状态传给引擎，
+     * 用于验证手动指定的任务状态不会污染实例状态。
+     */
+    private Instance complete(Instance instance, String explicitTaskStatus) {
         Task a1 = FlowEngine.taskService().list(FlowEngine.newTask().setInstanceId(instance.getId())).stream()
             .filter(t -> "a1".equals(t.getNodeCode())).findFirst().orElseThrow();
         WorkflowContext context = TestFlows.context(TestFlows.HANDLER);
-        if (explicitStatus != null) {
-            context.setFlowStatus(explicitStatus);
+        if (explicitTaskStatus != null) {
+            context.setTaskStatus(explicitTaskStatus);
         }
         return FlowEngine.taskService().execute(a1.getId(), context, SkipType.PASS.getKey());
     }
@@ -184,8 +190,7 @@ class EndEventCleanupCharacteristicTest {
     }
 
     /**
-     * 只覆盖三种编码，其余走 {@link StatusMapper} 默认实现：验证「终止」的传递不会被
-     * 任务侧「结束」编码干扰。
+     * 只覆盖三种编码，其余走 {@link StatusMapper} 默认实现：验证「终止」的传递不会被任务侧编码干扰。
      */
     private static class HostStatusMapper implements StatusMapper {
 
@@ -194,7 +199,7 @@ class EndEventCleanupCharacteristicTest {
             return switch (semantic) {
                 case FINISHED -> "finish";
                 case TERMINATE -> "termination";
-                case APPROVAL -> "waiting";
+                case WAITING -> "waiting";
                 default -> StatusMapper.super.instanceStatus(semantic);
             };
         }
@@ -202,8 +207,8 @@ class EndEventCleanupCharacteristicTest {
         @Override
         public String taskStatus(TaskStatus semantic) {
             return switch (semantic) {
-                case FINISHED -> "task_end";
-                case WAITING -> "to_do";
+                case PASS -> "pass";
+                case PENDING -> "to_do";
                 default -> StatusMapper.super.taskStatus(semantic);
             };
         }

@@ -79,7 +79,7 @@ class VoteRuleCharacteristicTest {
         List<Task> pending = TestFlows.pendingTasks(instance.getId());
         assertEquals(1, pending.size());
         assertEquals("draft", pending.get(0).getNodeCode());
-        assertEquals(TaskStatus.REJECT.getKey()
+        assertEquals(FlowStatus.BACK.getKey()
                 , harness.insDao.raw(instance.getId()).getFlowStatus());
     }
 

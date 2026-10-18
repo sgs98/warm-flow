@@ -99,7 +99,7 @@ class EventRuntimeCharacteristicTest {
         assertEquals("T" + wait.getId() + "_" + wait.getNextTriggerAt().getTime(), instance.getBusinessId());
         assertEquals("apply", TestFlows.currentTask(instance.getId()).getNodeCode());
         // 定时启动没有发起人提交环节：实例直接处于审批中，而非待提交
-        assertEquals(FlowStatus.APPROVAL.getKey(), instance.getFlowStatus());
+        assertEquals(FlowStatus.WAITING.getKey(), instance.getFlowStatus());
         // 一次性事件成功后删除等待记录
         assertTrue(FlowEngine.eventWaitService().list(FlowEngine.newEventWait()
             .setDefinitionId(def.getId())).isEmpty());
@@ -142,7 +142,7 @@ class EventRuntimeCharacteristicTest {
         Instance stored = harness.insDao.raw(instance.getId());
         assertEquals("tc", stored.getNodeCode());
         // 无人工待办的事件等待同样要推进实例状态，不能停留在发起时的待提交
-        assertEquals(FlowStatus.APPROVAL.getKey(), stored.getFlowStatus()
+        assertEquals(FlowStatus.WAITING.getKey(), stored.getFlowStatus()
             , "到达捕获事件等待时实例状态应推进为审批中");
         assertFalse(FlowEngine.workflow().waitingEvents(instance.getId()).isEmpty());
 
@@ -270,7 +270,7 @@ class EventRuntimeCharacteristicTest {
         assertEquals("kick", wait.getEventName());
         assertNull(wait.getNextTriggerAt());
         // 消息等待期间实例状态同样推进为审批中
-        assertEquals(FlowStatus.APPROVAL.getKey(), harness.insDao.raw(instance.getId()).getFlowStatus());
+        assertEquals(FlowStatus.WAITING.getKey(), harness.insDao.raw(instance.getId()).getFlowStatus());
 
         // 消息触发推进至结束
         Instance after = FlowEngine.insService().triggerMessage(instance.getId(), "kick"

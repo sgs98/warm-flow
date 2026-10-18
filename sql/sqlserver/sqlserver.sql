@@ -612,7 +612,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'实例状态（0待提交 1审批中 4终止 5作废 6撤销 7取回 8已完成 9已退回 12重启 13暂存）',
+'MS_Description', N'实例状态（draft待提交 waiting审批中 termination终止 invalid作废 cancel撤销 finish已完成 back已退回 restart重启）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_instance',
 'COLUMN', N'flow_status'
@@ -753,7 +753,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'任务状态（1待办理 2通过 8结束 9退回 10失效 11拿回；任务结果，勿套用实例状态编码）',
+'MS_Description', N'任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送；任务结果，勿套用实例状态编码）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_task',
 'COLUMN', N'flow_status'
@@ -945,7 +945,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'任务状态（1待办理 2通过 8结束 9退回 10失效 11拿回；任务结果，勿套用实例状态编码）',
+'MS_Description', N'任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送；任务结果，勿套用实例状态编码）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_his_task',
 'COLUMN', N'flow_status'

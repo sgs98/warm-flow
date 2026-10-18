@@ -77,7 +77,7 @@ class CountersignCharacteristicTest {
 
         // 实例未被推进
         assertEquals("apply", instance.getNodeCode());
-        assertEquals(FlowStatus.APPROVAL.getKey(), instance.getFlowStatus());
+        assertEquals(FlowStatus.WAITING.getKey(), instance.getFlowStatus());
     }
 
     @Test
@@ -111,11 +111,11 @@ class CountersignCharacteristicTest {
         List<Task> pending = TestFlows.pendingTasks(instance.getId());
         assertEquals(1, pending.size());
         assertEquals("draft", pending.get(0).getNodeCode());
-        assertEquals(TaskStatus.REJECT.getKey(), pending.get(0).getFlowStatus());
+        assertEquals(TaskStatus.BACK.getKey(), pending.get(0).getFlowStatus());
         assertEquals(1, harness.userDao.size(), "仅新 draft 待办的办理人保留，原任务办理人随删");
         assertEquals(TestFlows.HANDLER, harness.userDao.all().get(0).getProcessedBy());
         assertEquals("draft", harness.insDao.raw(instance.getId()).getNodeCode());
-        assertEquals(TaskStatus.REJECT.getKey(), harness.insDao.raw(instance.getId()).getFlowStatus());
+        assertEquals(FlowStatus.BACK.getKey(), harness.insDao.raw(instance.getId()).getFlowStatus());
 
         // 驳回动作只产生流转历史，不产生签票历史
         assertEquals(hisBefore + 1, harness.hisTaskDao.size());

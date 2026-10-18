@@ -148,8 +148,8 @@ final class EventArrivalDispatcher {
      * 记录结束事件留痕。
      * <p>
      * 结束事件没有对应的待办，{@code task_id} 以 {@code 0} 作为哨兵值；
-     * 状态取 {@link TaskStatus#FINISHED}（「结束」），与固定 END 的收口记录区分开，
-     * 终止结束与消息结束的差别体现在 {@code message} 上。
+     * 状态取 {@link TaskStatus#PASS}（「通过」）——结束事件本质是「这一跳完成了」，
+     * 任务维度不再单设「结束」状态；终止结束与消息结束的差别体现在 {@code message} 上。
      *
      * @param execution 执行作用域
      * @param node      结束事件节点
@@ -169,7 +169,7 @@ final class EventArrivalDispatcher {
             .setApprover(FlowEngine.getFlowConfig().getSystemHandler())
             .setCooperateType(CooperateType.APPROVAL.getKey())
             .setSkipType(SkipType.NONE.getKey())
-            .setFlowStatus(FlowStatusMachine.mapper().taskStatus(TaskStatus.FINISHED))
+            .setFlowStatus(FlowStatusMachine.mapper().taskStatus(TaskStatus.PASS))
             .setMessage(terminate ? "流程由该终止结束事件终止" : "流程由该结束事件节点结束")
             .setCreateTime(now)
             .setUpdateTime(now);

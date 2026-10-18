@@ -3,6 +3,7 @@ package org.dromara.warm.flow.core.service.impl;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.FlowStatus;
+import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
 import org.junit.jupiter.api.AfterEach;
@@ -45,11 +46,11 @@ class ParallelGatewayCharacteristicTest {
         List<Task> pending = TestFlows.pendingTasks(instance.getId());
         Set<String> nodeCodes = pending.stream().map(Task::getNodeCode).collect(Collectors.toSet());
         assertEquals(Set.of("a1", "b1"), nodeCodes, "并行分叉应同时生成两支待办: " + nodeCodes);
-        assertTrue(pending.stream().allMatch(t -> FlowStatus.APPROVAL.getKey().equals(t.getFlowStatus())));
+        assertTrue(pending.stream().allMatch(t -> TaskStatus.PENDING.getKey().equals(t.getFlowStatus())));
         assertEquals(2, harness.userDao.size(), "两支待办各一名办理人");
 
         // 实例停留在发起状态，未被任一分支反向覆盖
-        assertEquals(FlowStatus.TOBESUBMIT.getKey(), harness.insDao.raw(instance.getId()).getFlowStatus());
+        assertEquals(FlowStatus.DRAFT.getKey(), harness.insDao.raw(instance.getId()).getFlowStatus());
     }
 
     @Test
@@ -66,7 +67,7 @@ class ParallelGatewayCharacteristicTest {
         assertEquals(Set.of("b1"), pending.stream().map(Task::getNodeCode).collect(Collectors.toSet()));
         Instance persisted = harness.insDao.raw(instance.getId());
         assertNotEquals("end", persisted.getNodeCode());
-        assertEquals(FlowStatus.TOBESUBMIT.getKey(), persisted.getFlowStatus());
+        assertEquals(FlowStatus.DRAFT.getKey(), persisted.getFlowStatus());
         assertEquals(2, harness.hisTaskDao.size(), "发起 + a1 归档");
 
         // 汇聚判定的定义图复用基线（R2 后：previousNodeList 复用 combine，不再回调后重查）：

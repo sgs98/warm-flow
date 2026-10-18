@@ -51,8 +51,8 @@ class StatusMapperCharacteristicTest {
     void defaultMapper_keepsBuiltInCodes() {
         Instance ins = TestFlows.start("mapperDefault", "BIZ-1");
         // 实例：待提交；待办：待办理
-        assertEquals(FlowStatus.TOBESUBMIT.getKey(), ins.getFlowStatus());
-        assertEquals(TaskStatus.WAITING.getKey(), TestFlows.currentTask(ins.getId()).getFlowStatus());
+        assertEquals(FlowStatus.DRAFT.getKey(), ins.getFlowStatus());
+        assertEquals(TaskStatus.PENDING.getKey(), TestFlows.currentTask(ins.getId()).getFlowStatus());
 
         Instance finished = TestFlows.pass(TestFlows.currentTask(ins.getId()).getId(), TestFlows.HANDLER);
         // 实例收口为已完成；历史任务为通过
@@ -60,7 +60,10 @@ class StatusMapperCharacteristicTest {
         assertEquals(TaskStatus.PASS.getKey(), lastHis(ins.getId()).getFlowStatus());
         assertTrue(FlowStatus.isTerminalKey(FlowStatus.FINISHED.getKey()));
         assertEquals("已完成", FlowEngine.statusMapper().label(FlowStatus.FINISHED.getKey()));
-        assertEquals("通过", FlowEngine.statusMapper().label(TaskStatus.PASS.getKey()));
+        assertEquals("通过", FlowEngine.statusMapper().taskLabel(TaskStatus.PASS.getKey()));
+        // 两个维度独立编码：实例「终止」与任务「通过」不再是同一个数值
+        assertEquals("终止", FlowEngine.statusMapper().label(FlowStatus.TERMINATE.getKey(), true));
+        assertEquals("通过", FlowEngine.statusMapper().label(TaskStatus.PASS.getKey(), false));
     }
 
     @Test
@@ -142,7 +145,7 @@ class StatusMapperCharacteristicTest {
     private static Instance runningIns() {
         return FlowEngine.newIns()
             .setActivityStatus(ActivityStatus.ACTIVITY.getKey())
-            .setFlowStatus(FlowStatus.APPROVAL.getKey())
+            .setFlowStatus(FlowStatus.WAITING.getKey())
             .setNodeType(NodeType.BETWEEN.getKey());
     }
 
@@ -154,27 +157,27 @@ class StatusMapperCharacteristicTest {
         @Override
         public String instanceStatus(FlowStatus semantic) {
             return switch (semantic) {
-                case TOBESUBMIT, PENDING -> "draft";
-                case APPROVAL -> "waiting";
+                case DRAFT -> "draft";
+                case WAITING -> "waiting";
                 case FINISHED -> "finish";
-                case REJECT -> "back";
+                case BACK -> "back";
                 case TERMINATE -> "termination";
                 case CANCEL -> "cancel";
-                case NULLIFY -> "invalid";
-                case RE_START -> "restart";
-                case RETRIEVE -> "retrieve";
+                case INVALID -> "invalid";
+                case RESTART -> "restart";
             };
         }
 
         @Override
         public String taskStatus(TaskStatus semantic) {
             return switch (semantic) {
-                case WAITING -> "waiting";
+                case PENDING -> "waiting";
                 case PASS -> "pass";
-                case FINISHED -> "task_end";
-                case REJECT -> "back";
+                case BACK -> "back";
                 case INVALID -> "invalid";
-                case TASK_BACK -> "take_back";
+                case TAKE_BACK -> "take_back";
+                case AUTO_PASS -> "auto_pass";
+                case COPY -> "copy";
             };
         }
 

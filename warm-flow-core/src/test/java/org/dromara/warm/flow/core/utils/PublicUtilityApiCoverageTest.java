@@ -134,8 +134,9 @@ class PublicUtilityApiCoverageTest {
         assertTrue(ActivityStatus.isSuspended(ActivityStatus.SUSPENDED.getKey()));
         assertEquals("eq", ConditionType.getKeyByValue("等于"));
         assertEquals(ConditionType.EQ, ConditionType.getByKey("eq"));
-        assertEquals("审批中", FlowStatus.getValueByKey("1"));
-        assertTrue(FlowStatus.isFinished(FlowStatus.FINISHED.getKey()));
+        assertEquals("审批中", FlowStatus.getValueByKey(FlowStatus.WAITING.getKey()));
+        assertTrue(FlowStatus.isTerminalKey(FlowStatus.FINISHED.getKey()));
+        assertFalse(FlowStatus.isTerminalKey(FlowStatus.WAITING.getKey()));
         assertEquals(NodeType.PARALLEL, NodeType.getByKey(NodeType.PARALLEL.getKey()));
         assertTrue(NodeType.isGateWay(NodeType.INCLUSIVE.getKey()));
         assertTrue(NodeType.isGateWayParallel(NodeType.PARALLEL.getKey()));
