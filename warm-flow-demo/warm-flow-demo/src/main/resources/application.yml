@@ -28,8 +28,11 @@ mybatis-plus:
 
 warm-flow:
   enabled: true
-  # 逻辑删除为默认行为（2.0 起默认开启）；如需验证物理删除模式，可改为 false
-  logic-delete: true
+  # 演示环境不保留逻辑删除数据：关闭后流程表删除走物理删除（切换前需先清空历史 del_flag=1 数据）
+  logic-delete: false
+  # 定时能力开关：事件案例（定时边界 / 定时捕获 / 定时启动）依赖扫描线程
+  timer-enabled: true
   global-listener-path: org.dromara.warm.demo.listener.DemoGlobalListener
   data-source-type: mysql
   banner: true
+  systemHandler: admin

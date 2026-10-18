@@ -28,11 +28,14 @@ public interface DemoTaskQueryMapper {
     /**
      * 分页查询当前用户收到的抄送历史。
      *
+     * <p>只返回抄送记录本身（{@code flow_status = 'copy'}）。同一 task 还会有一条办理历史
+     * （pass/reject 等），若不过滤，同一节点的抄送会被重复列出。</p>
+     *
      * @param page        MyBatis Plus 分页对象
      * @param permissions 当前用户权限标识
      * @return 抄送历史集合
      */
-    @Select("<script>SELECT h.* FROM flow_his_task h WHERE h.del_flag = '0' AND EXISTS (" +
+    @Select("<script>SELECT h.* FROM flow_his_task h WHERE h.del_flag = '0' AND h.flow_status = 'copy' AND EXISTS (" +
         "SELECT 1 FROM flow_user u WHERE u.associated = h.task_id AND u.processed_by IN " +
         "<foreach collection='permissions' item='permission' open='(' separator=',' close=')'>#{permission}</foreach> " +
         "AND u.type = '4' AND u.del_flag = '0') ORDER BY h.id DESC</script>")

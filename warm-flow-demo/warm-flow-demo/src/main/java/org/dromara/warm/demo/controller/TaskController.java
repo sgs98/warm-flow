@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.ApiResponse;
 import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.dto.TaskActionRequest;
-import org.dromara.warm.demo.service.WorkflowService;
+import org.dromara.warm.demo.service.TaskAppService;
 import org.dromara.warm.demo.vo.*;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,7 +22,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TaskController {
 
-    private final WorkflowService workflowService;
+    private final TaskAppService taskAppService;
 
     /**
      * 分页查询当前用户待办任务。
@@ -35,7 +35,7 @@ public class TaskController {
     public ApiResponse<PageVo<TaskVo>> todo(
         @RequestHeader("X-User-Name") String user,
         PageQuery pageQuery) {
-        return ApiResponse.ok(workflowService.todo(user, pageQuery));
+        return ApiResponse.ok(taskAppService.todo(user, pageQuery));
     }
 
     /**
@@ -49,7 +49,7 @@ public class TaskController {
     public ApiResponse<PageVo<TaskVo>> done(
         @RequestHeader("X-User-Name") String user,
         PageQuery pageQuery) {
-        return ApiResponse.ok(workflowService.done(user, pageQuery));
+        return ApiResponse.ok(taskAppService.done(user, pageQuery));
     }
 
     /**
@@ -60,7 +60,7 @@ public class TaskController {
      */
     @GetMapping("/tasks/{taskId}/button-permissions")
     public ApiResponse<List<ButtonPermissionVo>> buttonPermissions(@PathVariable("taskId") Long taskId) {
-        return ApiResponse.ok(workflowService.buttonPermissions(taskId));
+        return ApiResponse.ok(taskAppService.buttonPermissions(taskId));
     }
 
     /**
@@ -71,7 +71,7 @@ public class TaskController {
      */
     @GetMapping("/tasks/instances/{instanceId}/add-signature-handlers")
     public ApiResponse<List<DemoUserVo>> addSignatureHandlers(@PathVariable("instanceId") Long instanceId) {
-        return ApiResponse.ok(workflowService.addSignatureHandlers(instanceId));
+        return ApiResponse.ok(taskAppService.addSignatureHandlers(instanceId));
     }
 
     /**
@@ -82,7 +82,7 @@ public class TaskController {
      */
     @GetMapping("/tasks/instances/{instanceId}/reduction-signature-handlers")
     public ApiResponse<List<DemoUserVo>> reductionSignatureHandlers(@PathVariable("instanceId") Long instanceId) {
-        return ApiResponse.ok(workflowService.reductionSignatureHandlers(instanceId));
+        return ApiResponse.ok(taskAppService.reductionSignatureHandlers(instanceId));
     }
 
     /**
@@ -93,7 +93,7 @@ public class TaskController {
      */
     @GetMapping("/tasks/{taskId}/next-nodes")
     public ApiResponse<List<TaskNodeVo>> nextNodes(@PathVariable("taskId") Long taskId) {
-        return ApiResponse.ok(workflowService.nextNodes(taskId));
+        return ApiResponse.ok(taskAppService.nextNodes(taskId));
     }
 
     /**
@@ -104,7 +104,7 @@ public class TaskController {
      */
     @GetMapping("/tasks/{taskId}/back-nodes")
     public ApiResponse<List<TaskNodeVo>> backNodes(@PathVariable("taskId") Long taskId) {
-        return ApiResponse.ok(workflowService.backNodes(taskId));
+        return ApiResponse.ok(taskAppService.backNodes(taskId));
     }
 
     /**
@@ -118,7 +118,7 @@ public class TaskController {
     public ApiResponse<PageVo<TaskVo>> copy(
         @RequestHeader("X-User-Name") String user,
         PageQuery pageQuery) {
-        return ApiResponse.ok(workflowService.copy(user, pageQuery));
+        return ApiResponse.ok(taskAppService.copy(user, pageQuery));
     }
 
     /**
@@ -129,7 +129,7 @@ public class TaskController {
      */
     @PostMapping("/tasks/pass")
     public ApiResponse<InstanceVo> pass(@Valid @RequestBody TaskActionRequest request) {
-        return ApiResponse.ok(workflowService.pass(request));
+        return ApiResponse.ok(taskAppService.pass(request));
     }
 
     /**
@@ -140,7 +140,7 @@ public class TaskController {
      */
     @PostMapping("/tasks/reject")
     public ApiResponse<InstanceVo> reject(@Valid @RequestBody TaskActionRequest request) {
-        return ApiResponse.ok(workflowService.reject(request));
+        return ApiResponse.ok(taskAppService.reject(request));
     }
 
     /**
@@ -151,7 +151,7 @@ public class TaskController {
      */
     @PostMapping("/tasks/transfer")
     public ApiResponse<Void> transfer(@Valid @RequestBody TaskActionRequest request) {
-        workflowService.transfer(request);
+        taskAppService.transfer(request);
         return ApiResponse.ok();
     }
 
@@ -163,7 +163,7 @@ public class TaskController {
      */
     @PostMapping("/tasks/depute")
     public ApiResponse<Void> depute(@Valid @RequestBody TaskActionRequest request) {
-        workflowService.depute(request);
+        taskAppService.depute(request);
         return ApiResponse.ok();
     }
 
@@ -175,7 +175,7 @@ public class TaskController {
      */
     @PostMapping("/tasks/add-signature")
     public ApiResponse<Void> addSignature(@Valid @RequestBody TaskActionRequest request) {
-        workflowService.addSignature(request);
+        taskAppService.addSignature(request);
         return ApiResponse.ok();
     }
 
@@ -187,7 +187,7 @@ public class TaskController {
      */
     @PostMapping("/tasks/reduction-signature")
     public ApiResponse<Void> reductionSignature(@Valid @RequestBody TaskActionRequest request) {
-        workflowService.reductionSignature(request);
+        taskAppService.reductionSignature(request);
         return ApiResponse.ok();
     }
 }

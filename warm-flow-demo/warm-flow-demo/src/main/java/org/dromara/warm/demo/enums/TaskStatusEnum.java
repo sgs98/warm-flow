@@ -24,14 +24,19 @@ public enum TaskStatusEnum {
     PASS("pass", "通过"),
 
     /**
+     * 自动完成。
+     */
+    AUTO_PASS("auto_pass", "自动完成"),
+
+    /**
      * 待审核。
      */
     WAITING("waiting", "待审核"),
 
     /**
-     * 作废。
+     * 失效。
      */
-    INVALID("invalid", "作废"),
+    INVALID("invalid", "失效"),
 
     /**
      * 退回。

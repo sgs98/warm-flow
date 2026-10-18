@@ -1,0 +1,72 @@
+{
+ "flowCode": "demo_event_notify",
+ "flowName": "注销结果通知-消息启动示例",
+ "modelValue": "CLASSICS",
+ "version": "1",
+ "formCustom": "N",
+ "nodeList": [
+  {
+   "nodeType": 0,
+   "nodeCode": "start",
+   "nodeName": "开始",
+   "nodeRatio": "0",
+   "coordinate": "60,200|60,200",
+   "formCustom": "N",
+   "ext": "[]",
+   "skipList": [
+    {
+     "nowNodeCode": "start",
+     "nextNodeCode": "msgStart",
+     "skipType": "PASS",
+     "coordinate": "85,200;160,200"
+    }
+   ]
+  },
+  {
+   "nodeType": 1,
+   "nodeCode": "msgStart",
+   "nodeName": "账号已注销",
+   "nodeRatio": "0",
+   "coordinate": "210,200|210,200",
+   "formCustom": "N",
+   "ext": "[]",
+   "eventType": "MESSAGE_START",
+   "eventName": "membership.cancelled",
+   "skipList": [
+    {
+     "nowNodeCode": "msgStart",
+     "nextNodeCode": "notify",
+     "skipType": "PASS",
+     "coordinate": "260,200;310,200"
+    }
+   ]
+  },
+  {
+   "nodeType": 1,
+   "nodeCode": "notify",
+   "nodeName": "发送注销通知",
+   "nodeRatio": "0",
+   "coordinate": "360,200|360,200",
+   "formCustom": "N",
+   "ext": "[{\"code\":\"ButtonPermissionEnum\",\"value\":\"copy,back,termination,file\"}]",
+   "permissionFlag": "user:admin",
+   "skipList": [
+    {
+     "nowNodeCode": "notify",
+     "nextNodeCode": "end",
+     "skipType": "PASS",
+     "coordinate": "410,200;455,200"
+    }
+   ]
+  },
+  {
+   "nodeType": 2,
+   "nodeCode": "end",
+   "nodeName": "结束",
+   "nodeRatio": "0",
+   "coordinate": "480,200|480,200",
+   "formCustom": "N",
+   "ext": "[]"
+  }
+ ]
+}

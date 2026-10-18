@@ -1,64 +1,25 @@
 package org.dromara.warm.demo.service;
 
 import org.dromara.warm.demo.dto.PageQuery;
-import org.dromara.warm.demo.dto.StartInstanceRequest;
 import org.dromara.warm.demo.dto.TaskActionRequest;
-import org.dromara.warm.demo.vo.*;
+import org.dromara.warm.demo.vo.ButtonPermissionVo;
+import org.dromara.warm.demo.vo.DemoUserVo;
+import org.dromara.warm.demo.vo.InstanceVo;
+import org.dromara.warm.demo.vo.PageVo;
+import org.dromara.warm.demo.vo.TaskNodeVo;
+import org.dromara.warm.demo.vo.TaskVo;
 
 import java.util.List;
 
 /**
- * 流程实例与任务业务接口。
+ * 任务应用服务。
+ * <p>面向 Demo 页面的任务域用例：待办/已办/抄送查询、任务办理协作操作
+ * （通过/退回/转办/委派/加签/减签）、节点与选人辅助查询。</p>
  *
  * @author may
- * @since 2026/9/11
+ * @since 2026/10/17
  */
-public interface WorkflowService {
-
-    /**
-     * 发起流程，并返回当前用户需要办理的首个待办任务。
-     *
-     * @param user    当前用户名
-     * @param request 发起请求
-     * @return 发起结果
-     */
-    StartInstanceVo start(String user, StartInstanceRequest request);
-
-    /**
-     * 分页查询当前用户发起的流程实例。
-     *
-     * @param user         当前用户名
-     * @param pageQuery    分页参数
-     * @param definitionId 流程定义主键
-     * @param flowStatus   流程状态
-     * @param businessId   业务主键
-     * @return 流程实例分页数据
-     */
-    PageVo<InstanceVo> pageInstances(String user, PageQuery pageQuery,
-                                     Long definitionId, String flowStatus, String businessId);
-
-    /**
-     * 查询流程实例详情。
-     *
-     * @param id 流程实例主键
-     * @return 流程实例详情
-     */
-    InstanceVo detailInstance(Long id);
-
-    /**
-     * 查询流程实例审批历史。
-     *
-     * @param instanceId 流程实例主键
-     * @return 审批历史集合
-     */
-    List<HistoryVo> history(Long instanceId);
-
-    /**
-     * 物理删除流程实例及其流程用户、待办、历史任务数据。
-     *
-     * @param instanceId 流程实例主键
-     */
-    void removeInstance(Long instanceId);
+public interface TaskAppService {
 
     /**
      * 分页查询当前用户待办任务。
@@ -77,6 +38,15 @@ public interface WorkflowService {
      * @return 已办任务分页数据
      */
     PageVo<TaskVo> done(String user, PageQuery pageQuery);
+
+    /**
+     * 分页查询当前用户收到的抄送。
+     *
+     * @param user      当前用户名
+     * @param pageQuery 分页参数
+     * @return 抄送分页数据
+     */
+    PageVo<TaskVo> copy(String user, PageQuery pageQuery);
 
     /**
      * 查询待办任务所在节点的可操作按钮权限。
@@ -121,15 +91,6 @@ public interface WorkflowService {
     List<TaskNodeVo> backNodes(Long taskId);
 
     /**
-     * 分页查询当前用户收到的抄送。
-     *
-     * @param user      当前用户名
-     * @param pageQuery 分页参数
-     * @return 抄送分页数据
-     */
-    PageVo<TaskVo> copy(String user, PageQuery pageQuery);
-
-    /**
      * 通过待办任务，并按需保存抄送人。
      *
      * @param request 办理请求
@@ -172,20 +133,4 @@ public interface WorkflowService {
      * @param request 办理请求
      */
     void reductionSignature(TaskActionRequest request);
-
-    /**
-     * 撤回当前用户发起的流程实例。
-     *
-     * @param user       当前用户名
-     * @param instanceId 流程实例主键
-     */
-    void revoke(String user, Long instanceId);
-
-    /**
-     * 终止流程实例。
-     *
-     * @param user       当前用户名
-     * @param instanceId 流程实例主键
-     */
-    void termination(String user, Long instanceId);
 }

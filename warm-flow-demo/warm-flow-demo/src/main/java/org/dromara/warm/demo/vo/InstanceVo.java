@@ -57,6 +57,11 @@ public class InstanceVo {
     private Long taskId;
 
     /**
+     * 当前待办任务状态编码（引擎码：0 待提交 / 9 已退回），前端据此判断是否可继续办理。
+     */
+    private String taskStatusKey;
+
+    /**
      * 当前节点类型。
      */
     private Integer nodeType;

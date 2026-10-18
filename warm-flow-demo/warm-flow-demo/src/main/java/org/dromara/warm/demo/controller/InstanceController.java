@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.ApiResponse;
 import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.dto.StartInstanceRequest;
-import org.dromara.warm.demo.service.WorkflowService;
+import org.dromara.warm.demo.service.InstanceAppService;
 import org.dromara.warm.demo.vo.HistoryVo;
 import org.dromara.warm.demo.vo.InstanceVo;
 import org.dromara.warm.demo.vo.PageVo;
@@ -25,7 +25,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class InstanceController {
 
-    private final WorkflowService workflowService;
+    private final InstanceAppService instanceAppService;
 
     /**
      * 发起流程实例。
@@ -37,7 +37,7 @@ public class InstanceController {
     @PostMapping("/instances")
     public ApiResponse<StartInstanceVo> start(@RequestHeader(value = "X-User-Name", defaultValue = "admin") String user,
                                               @Valid @RequestBody StartInstanceRequest request) {
-        return ApiResponse.ok(workflowService.start(user, request));
+        return ApiResponse.ok(instanceAppService.start(user, request));
     }
 
     /**
@@ -57,7 +57,7 @@ public class InstanceController {
         @RequestParam(required = false) String flowStatus,
         @RequestParam(required = false) String businessId,
         @RequestHeader(value = "X-User-Name", required = false) String user) {
-        return ApiResponse.ok(workflowService.pageInstances(
+        return ApiResponse.ok(instanceAppService.pageInstances(
             user, pageQuery, definitionId, flowStatus, businessId));
     }
 
@@ -69,7 +69,7 @@ public class InstanceController {
      */
     @GetMapping("/instances/{id}")
     public ApiResponse<InstanceVo> detail(@PathVariable("id") Long id) {
-        return ApiResponse.ok(workflowService.detailInstance(id));
+        return ApiResponse.ok(instanceAppService.detailInstance(id));
     }
 
     /**
@@ -80,7 +80,7 @@ public class InstanceController {
      */
     @GetMapping("/instances/{id}/history")
     public ApiResponse<List<HistoryVo>> history(@PathVariable("id") Long id) {
-        return ApiResponse.ok(workflowService.history(id));
+        return ApiResponse.ok(instanceAppService.history(id));
     }
 
     /**
@@ -91,8 +91,19 @@ public class InstanceController {
      */
     @DeleteMapping("/instances/{id}")
     public ApiResponse<Void> remove(@PathVariable("id") Long id) {
-        workflowService.removeInstance(id);
+        instanceAppService.removeInstance(id);
         return ApiResponse.ok();
+    }
+
+    /**
+     * 批量物理删除流程实例及相关流程数据。
+     *
+     * @param ids 流程实例主键集合
+     * @return 实际删除的流程实例数量
+     */
+    @DeleteMapping("/instances")
+    public ApiResponse<Integer> removeBatch(@RequestParam("ids") List<Long> ids) {
+        return ApiResponse.ok(instanceAppService.removeInstances(ids));
     }
 
     /**
@@ -104,7 +115,7 @@ public class InstanceController {
      */
     @PostMapping("/instances/{id}/revoke")
     public ApiResponse<Void> revoke(@RequestHeader("X-User-Name") String user, @PathVariable("id") Long id) {
-        workflowService.revoke(user, id);
+        instanceAppService.revoke(user, id);
         return ApiResponse.ok();
     }
 
@@ -117,7 +128,7 @@ public class InstanceController {
      */
     @PostMapping("/instances/{id}/termination")
     public ApiResponse<Void> termination(@RequestHeader("X-User-Name") String user, @PathVariable("id") Long id) {
-        workflowService.termination(user, id);
+        instanceAppService.termination(user, id);
         return ApiResponse.ok();
     }
 }
