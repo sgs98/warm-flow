@@ -35,6 +35,109 @@
         <el-form-item label="节点名称：" prop="nodeName">
           <el-input v-model="form.nodeName" :disabled="disabled"></el-input>
         </el-form-item>
+        <el-form-item label="默认变量：">
+          <node-variables v-model="form.nodeConfig" :disabled="disabled"></node-variables>
+        </el-form-item>
+        </form-section>
+
+        <!-- 事件属性：中间节点选择事件类型后成为独立事件节点；固定开始 / 结束面板不含本区域。
+             只开放白名单事件（定时 / 消息 / 错误 / 终止），Signal、Conditional、
+             Escalation、Compensation、Cron 等不作为可选项。 -->
+        <form-section title="事件" :summary="eventSectionSummary" ref="eventSection" :default-open="isEventNode">
+        <el-form-item label="事件类型：" prop="eventType">
+          <el-select v-model="form.eventType" placeholder="选择后成为事件节点" clearable :disabled="disabled" @change="handleEventTypeChange">
+            <el-option-group v-for="group in eventTypeGroups" :key="group.label" :label="group.label">
+              <el-option v-for="opt in group.options" :key="opt.value" :label="opt.label" :value="opt.value"/>
+            </el-option-group>
+          </el-select>
+          <div class="field-hint">{{ eventTypeHint }}</div>
+        </el-form-item>
+
+        <template v-if="isEventNode">
+          <el-form-item v-if="isMessageEvent" label="消息名称：" prop="eventName" :rules="rules.eventName">
+            <el-input v-model="form.eventName" placeholder="外部定位该消息事件的消息名称" :disabled="disabled"></el-input>
+          </el-form-item>
+          <el-form-item v-if="isErrorEvent" label="错误码：" prop="eventName">
+            <el-input v-model="form.eventName" placeholder="匹配指定错误码，留空捕获任意错误" :disabled="disabled"></el-input>
+            <div class="field-hint">错误码留空表示通配，捕获任意错误</div>
+          </el-form-item>
+
+          <template v-if="isTimerEvent && eventCfg">
+            <el-form-item label="定时类型：" prop="nodeConfig.event.timerType" :rules="rules.eventTimerType">
+              <el-select v-model="form.nodeConfig.event.timerType" placeholder="请选择定时类型" :disabled="disabled" @change="handleTimerTypeChange">
+                <el-option label="延迟时长（AFTER）" value="AFTER"/>
+                <el-option label="固定间隔（FIXED）" value="FIXED"/>
+                <el-option label="指定时间点（POINT_IN_TIME）" value="POINT_IN_TIME"/>
+              </el-select>
+            </el-form-item>
+
+            <!-- 时长选择器：数值 + 单位生成 ISO-8601，覆盖 AFTER / FIXED 两种类型 -->
+            <el-form-item v-if="timerIsDuration && !timerDurationAdvanced" label="时长："
+              prop="nodeConfig.event.timerValue" :rules="rules.eventTimerValue">
+              <div class="duration-picker">
+                <el-input-number v-model="timerAmount" :min="1" :max="9999" :step="1" controls-position="right"
+                  :disabled="disabled" @change="writeDurationValue"></el-input-number>
+                <el-select v-model="timerUnit" :disabled="disabled" class="duration-unit" @change="writeDurationValue">
+                  <el-option label="秒" value="S"/>
+                  <el-option label="分钟" value="M"/>
+                  <el-option label="小时" value="H"/>
+                  <el-option label="天" value="D"/>
+                </el-select>
+                <el-link type="primary" :underline="false" class="advanced-link" :disabled="disabled"
+                  @click="timerDurationAdvanced = true">高级</el-link>
+              </div>
+              <div class="field-hint">{{ timerValueHint }}</div>
+            </el-form-item>
+
+            <!-- 高级模式：直接编辑 ISO-8601 时长，支持 P1DT12H 等组合写法 -->
+            <el-form-item v-if="timerIsDuration && timerDurationAdvanced" label="时间值："
+              prop="nodeConfig.event.timerValue" :rules="rules.eventTimerValue">
+              <div class="duration-picker">
+                <el-input v-model="form.nodeConfig.event.timerValue" class="advanced-input"
+                  :placeholder="timerValuePlaceholder" :disabled="disabled"></el-input>
+                <el-link type="primary" :underline="false" class="advanced-link" :disabled="disabled"
+                  @click="exitAdvancedIfSimple">返回选择器</el-link>
+              </div>
+              <div class="field-hint">{{ timerValueHint }}</div>
+            </el-form-item>
+
+            <!-- 时间点选择器：POINT_IN_TIME 每日多个固定时刻，最多 8 个 -->
+            <el-form-item v-if="timerIsPointInTime" label="每日时间点："
+              prop="nodeConfig.event.timerValue" :rules="rules.eventTimerValue">
+              <div v-for="(_, index) in timerPoints" :key="index" class="time-point-row">
+                <el-time-picker v-model="timerPoints[index]" value-format="HH:mm" format="HH:mm"
+                  placeholder="选择时间" :disabled="disabled" @change="writePointValue"></el-time-picker>
+                <el-button v-if="timerPoints.length > 1" link type="danger" :disabled="disabled" @click="removeTimePoint(index)">
+                  <el-icon><Delete/></el-icon>
+                </el-button>
+              </div>
+              <el-button link type="primary" :disabled="disabled || timerPoints.length >= 8" @click="addTimePoint">+ 添加时间点</el-button>
+              <div class="field-hint">{{ timerValueHint }}</div>
+            </el-form-item>
+
+            <el-form-item label="时区：">
+              <el-select v-model="form.nodeConfig.event.timezone" class="timezone-select" filterable allow-create clearable default-first-option
+                placeholder="留空取引擎默认" :disabled="disabled">
+                <el-option v-for="tz in COMMON_TIMEZONES" :key="tz" :label="tz" :value="tz"/>
+              </el-select>
+            </el-form-item>
+            <el-form-item label="重复次数：">
+              <el-input-number v-model="form.nodeConfig.event.maxCount" :min="1" :step="1" controls-position="right" :disabled="disabled"></el-input-number>
+              <div class="field-hint">留空表示不限次数</div>
+            </el-form-item>
+          </template>
+
+          <el-form-item v-if="isBoundaryEvent" label="附着任务节点：" prop="attachedToNodeCode" :rules="rules.attachedToNodeCode">
+            <el-select v-model="form.attachedToNodeCode" placeholder="选择边界事件附着的任务节点" clearable :disabled="disabled">
+              <el-option v-for="node in boundaryTaskNodes" :key="node.id" :label="node.text.value" :value="node.id"/>
+            </el-select>
+            <div class="field-hint">边界事件必须绑定到已有用户任务节点</div>
+          </el-form-item>
+          <el-form-item v-if="isBoundaryEvent" label="中断任务：" prop="interrupting" :rules="rules.interrupting">
+            <el-switch v-model="form.interrupting" :active-value="true" :inactive-value="false" :disabled="disabled"></el-switch>
+            <span class="field-hint">第一阶段仅支持中断型边界事件</span>
+          </el-form-item>
+        </template>
         </form-section>
 
         <form-section title="协作方式" :summary="collaborativeWaySummary">
@@ -282,6 +385,7 @@
               <div class="action-buttons">
                 <el-button v-if="!disabled" size="small" class="add-row-btn" @click="addPermission">添加行</el-button>
                 <el-button v-if="!disabled" size="small" class="add-row-btn add-row-btn-secondary" @click="initUser">选择</el-button>
+                <el-button v-if="!disabled" size="small" class="add-row-btn add-row-btn-secondary" @click="addInitiator">发起人</el-button>
               </div>
           </div>
         </div>
@@ -322,6 +426,7 @@ import { Delete } from '@element-plus/icons-vue'
 import {publishedList, handlerDict, nodeExt, handlerFeedback, listenerList} from "@/api/flow/definition";
 import nodeExtList from "./nodeExtList";
 import formSection from "./formSection";
+import nodeVariables from "./nodeVariables";
 import {getPreviousNodes} from "@/components/design/common/js/tool.js";
 import {getFramework} from "@/utils/auth.js";
 const { proxy } = getCurrentInstance();
@@ -428,8 +533,8 @@ const baseExtSummary = computed(() => {
   return filled.length > 1 ? `${text}　等 ${filled.length} 项` : text;
 });
 
-/** 引擎保留的节点配置键：服务任务配置，不参与自定义 KV 行 */
-const NODE_CONFIG_RESERVED_KEYS = ['serviceTask'];
+/** 引擎保留的节点配置键：服务任务配置与事件配置，不参与自定义 KV 行 */
+const NODE_CONFIG_RESERVED_KEYS = ['serviceTask', 'event'];
 
 /** 初始化 KV 行：从 form.nodeConfig 读取非保留键 */
 function initKvRows() {
@@ -452,6 +557,11 @@ function syncNodeConfig() {
   if (form.value.nodeConfig && typeof form.value.nodeConfig === 'object'
       && form.value.nodeConfig.serviceTask !== undefined) {
     config.serviceTask = form.value.nodeConfig.serviceTask;
+  }
+  // 事件配置：事件节点保留 node_config.event 段，避免 KV 行编辑时丢失定时配置
+  if (form.value.nodeConfig && typeof form.value.nodeConfig === 'object'
+      && form.value.nodeConfig.event !== undefined) {
+    config.event = form.value.nodeConfig.event;
   }
   form.value.nodeConfig = config;
 }
@@ -496,6 +606,378 @@ const formSummary = computed(() => {
 
 const listenerSummary = computed(() => listenerCount.value > 0 ? `已配置 ${listenerCount.value} 项` : '未配置监听器');
 
+// ========== 事件节点（第一阶段白名单） ==========
+
+/** 可选事件类型分组：仅第一阶段白名单，不提供 Signal / Conditional / Error / Cron 等 */
+const EVENT_TYPE_GROUPS = [
+  { label: '启动事件', options: [
+    { value: 'TIMER_START', label: '定时启动' },
+    { value: 'MESSAGE_START', label: '消息启动' },
+  ]},
+  { label: '中间捕获事件', options: [
+    { value: 'TIMER_CATCH', label: '定时捕获' },
+    { value: 'MESSAGE_CATCH', label: '消息捕获' },
+    { value: 'ERROR_CATCH', label: '错误捕获' },
+  ]},
+  { label: '中间抛出事件', options: [
+    { value: 'MESSAGE_THROW', label: '消息抛出' },
+  ]},
+  { label: '边界事件', options: [
+    { value: 'TIMER_BOUNDARY', label: '定时边界' },
+    { value: 'MESSAGE_BOUNDARY', label: '消息边界' },
+    { value: 'ERROR_BOUNDARY', label: '错误边界' },
+  ]},
+  { label: '结束事件', options: [
+    { value: 'TERMINATE_END', label: '终止结束' },
+    { value: 'MESSAGE_END', label: '消息结束' },
+  ]},
+];
+
+/** 事件类型显示名（与后端 EventType 枚举一致） */
+const EVENT_TYPE_LABELS = {
+  TIMER_START: '定时启动', MESSAGE_START: '消息启动',
+  TIMER_CATCH: '定时捕获', MESSAGE_CATCH: '消息捕获', MESSAGE_THROW: '消息抛出',
+  TIMER_BOUNDARY: '定时边界', MESSAGE_BOUNDARY: '消息边界',
+  ERROR_CATCH: '错误捕获', ERROR_BOUNDARY: '错误边界',
+  TERMINATE_END: '终止结束', MESSAGE_END: '消息结束',
+};
+
+const TIMER_TYPE_LABELS = { AFTER: '延迟时长', FIXED: '固定间隔', POINT_IN_TIME: '指定时间点' };
+
+/** 是否紧邻固定开始节点（存在来自 start 节点的普通连线）——启动事件仅允许该位置 */
+function adjacentToStartNode() {
+  const startIds = (props.nodes || []).filter(node => node.type === 'start').map(node => node.id);
+  return (props.skips || []).some(skip => skip.properties && skip.properties.skipType === 'PASS'
+    && skip.targetNodeId === form.value.nodeCode && startIds.includes(skip.sourceNodeId));
+}
+
+/** 是否直连固定结束节点（存在指向 end 节点的普通连线）——结束事件仅允许该位置 */
+function connectedToEndNode() {
+  const endIds = (props.nodes || []).filter(node => node.type === 'end').map(node => node.id);
+  return (props.skips || []).some(skip => skip.properties && skip.properties.skipType === 'PASS'
+    && skip.sourceNodeId === form.value.nodeCode && endIds.includes(skip.targetNodeId));
+}
+
+/** 类型下拉按当前事件类别锁定：同类事件之间才能切换，避免出现拓扑不合法的选项 */
+const eventTypeGroups = computed(() => {
+  const current = form.value.eventType;
+  if (['TIMER_BOUNDARY', 'MESSAGE_BOUNDARY', 'ERROR_BOUNDARY'].includes(current)) {
+    return EVENT_TYPE_GROUPS.filter(group => group.label === '边界事件');
+  }
+  if (['TIMER_START', 'MESSAGE_START'].includes(current)) {
+    return EVENT_TYPE_GROUPS.filter(group => group.label === '启动事件');
+  }
+  if (['TIMER_CATCH', 'MESSAGE_CATCH', 'ERROR_CATCH'].includes(current)) {
+    return EVENT_TYPE_GROUPS.filter(group => group.label === '中间捕获事件');
+  }
+  if (['MESSAGE_THROW'].includes(current)) {
+    return EVENT_TYPE_GROUPS.filter(group => group.label === '中间抛出事件');
+  }
+  if (['TERMINATE_END', 'MESSAGE_END'].includes(current)) {
+    return EVENT_TYPE_GROUPS.filter(group => group.label === '结束事件');
+  }
+  // 未选择类型：捕获 / 抛出任意位置可用；启动事件需紧邻开始节点；结束事件需直连结束节点；边界只能从侧栏拖入
+  const allowedLabels = ['中间捕获事件', '中间抛出事件'];
+  if (adjacentToStartNode()) allowedLabels.push('启动事件');
+  if (connectedToEndNode()) allowedLabels.push('结束事件');
+  return EVENT_TYPE_GROUPS.filter(group => allowedLabels.includes(group.label));
+});
+
+const eventTypeHint = computed(() => {
+  if (['TIMER_BOUNDARY', 'MESSAGE_BOUNDARY', 'ERROR_BOUNDARY'].includes(form.value.eventType)) {
+    return '边界事件附着在任务节点上触发，可在三种边界类型间切换';
+  }
+  if (['TIMER_CATCH', 'MESSAGE_CATCH', 'ERROR_CATCH'].includes(form.value.eventType)) {
+    return '流程在此等待触发条件满足后继续，可在三种捕获类型间切换';
+  }
+  if (['TIMER_START', 'MESSAGE_START'].includes(form.value.eventType)) {
+    return '启动事件连接在固定开始节点之后，可在两种启动类型间切换';
+  }
+  if (['TERMINATE_END', 'MESSAGE_END'].includes(form.value.eventType)) {
+    return '结束事件连接在固定结束节点之前，可在两种结束类型间切换';
+  }
+  if (attachedBoundaryCount.value > 0) {
+    return `已被 ${attachedBoundaryCount.value} 个边界事件附着，转为事件节点会使附着失效，请在边界事件面板更换附着目标`;
+  }
+  if (adjacentToStartNode() && connectedToEndNode()) {
+    return '可选捕获 / 抛出事件；当前节点紧邻开始且直连结束，也可转为启动或结束事件';
+  }
+  if (adjacentToStartNode()) {
+    return '可选捕获 / 抛出事件；当前节点紧邻开始节点，也可转为启动事件';
+  }
+  if (connectedToEndNode()) {
+    return '可选捕获 / 抛出事件；当前节点直连结束节点，也可转为结束事件';
+  }
+  return '可选捕获 / 抛出事件；启动事件需紧邻开始节点，结束事件需直连结束节点，边界事件请拖入「边界事件」节点';
+});
+
+const isEventNode = computed(() => !!form.value.eventType);
+const isStartEvent = computed(() => ['TIMER_START', 'MESSAGE_START'].includes(form.value.eventType));
+const isTimerEvent = computed(() => ['TIMER_START', 'TIMER_CATCH', 'TIMER_BOUNDARY'].includes(form.value.eventType));
+const isMessageEvent = computed(() => ['MESSAGE_START', 'MESSAGE_CATCH', 'MESSAGE_THROW', 'MESSAGE_BOUNDARY', 'MESSAGE_END']
+  .includes(form.value.eventType));
+const isBoundaryEvent = computed(() => ['TIMER_BOUNDARY', 'MESSAGE_BOUNDARY', 'ERROR_BOUNDARY'].includes(form.value.eventType));
+const isErrorEvent = computed(() => ['ERROR_CATCH', 'ERROR_BOUNDARY'].includes(form.value.eventType));
+
+/** node_config.event 段（定时事件专用；消息 / 边界事件不写该段） */
+const eventCfg = computed(() => {
+  const config = form.value.nodeConfig;
+  return config && typeof config === 'object' && config.event && typeof config.event === 'object'
+    ? config.event : null;
+});
+
+/** 边界事件可附着的任务节点：已有中间节点中排除当前节点与其它事件节点 */
+const boundaryTaskNodes = computed(() => (props.nodes || []).filter(node => node.type === 'between'
+  && node.id !== form.value.nodeCode && !(node.properties && node.properties.eventType)));
+
+/** 附着在当前节点上的边界事件数量（其它边界节点选了本节点作为附着目标） */
+const attachedBoundaryCount = computed(() => (props.nodes || []).filter(node => node.type === 'between'
+  && node.id !== form.value.nodeCode
+  && ['TIMER_BOUNDARY', 'MESSAGE_BOUNDARY', 'ERROR_BOUNDARY'].includes(node.properties && node.properties.eventType)
+  && node.properties.attachedToNodeCode === form.value.nodeCode).length);
+
+const eventSectionSummary = computed(() => {
+  if (!isEventNode.value) {
+    return attachedBoundaryCount.value > 0
+      ? `普通中间节点 · 已被 ${attachedBoundaryCount.value} 个边界事件附着`
+      : '普通中间节点';
+  }
+  const label = EVENT_TYPE_LABELS[form.value.eventType] || form.value.eventType;
+  if (isTimerEvent.value && eventCfg.value) {
+    const timerLabel = TIMER_TYPE_LABELS[eventCfg.value.timerType] || '未配置定时';
+    const friendly = friendlyTimerValue();
+    return friendly ? `${label} · ${timerLabel} ${friendly}` : `${label} · ${timerLabel}`;
+  }
+  if (isMessageEvent.value) return form.value.eventName ? `${label} · ${form.value.eventName}` : `${label} · 未配置名称`;
+  if (isErrorEvent.value) return form.value.eventName ? `${label} · ${form.value.eventName}` : `${label} · 通配`;
+  return label;
+});
+
+/** 定时值人性化展示：单单位时长 / 时间点数组转中文，其余原样 */
+function friendlyTimerValue() {
+  const value = String((eventCfg.value && eventCfg.value.timerValue) || '').trim();
+  if (!value) return '';
+  const match = value.match(SIMPLE_DURATION_PATTERN);
+  if (match) {
+    const unitText = { S: '秒', M: '分钟', H: '小时', D: '天' };
+    const amount = match[1] || match[2] || match[3] || match[4];
+    const unit = match[1] != null ? 'D' : (match[2] != null ? 'H' : (match[3] != null ? 'M' : 'S'));
+    return `${amount} ${unitText[unit]}`;
+  }
+  const points = parseTimePoints(value);
+  if (points.length) return points.join('、');
+  return value;
+}
+
+const timerValuePlaceholder = computed(() => eventCfg.value && eventCfg.value.timerType === 'POINT_IN_TIME'
+  ? '如 ["09:00","18:00"]' : '如 P3D（3 天）、PT30M（30 分钟）');
+
+const timerValueHint = computed(() => {
+  const type = eventCfg.value && eventCfg.value.timerType;
+  if (type === 'AFTER' || type === 'FIXED') {
+    // 高级模式下且当前值不是单一单位时长：说明自动降级的原因
+    const value = String((eventCfg.value && eventCfg.value.timerValue) || '').trim();
+    if (timerDurationAdvanced.value && value && !SIMPLE_DURATION_PATTERN.test(value)) {
+      return '当前值为组合或特殊写法（如 P1DT12H），已自动切换高级模式；改成单一单位后可点「返回选择器」';
+    }
+    return type === 'AFTER' ? '进入节点后开始计时，到点触发' : '按固定间隔重复触发';
+  }
+  if (type === 'POINT_IN_TIME') return '每日在所选时刻触发，可设置多个时间点';
+  return '';
+});
+
+// ========== 定时触发选择器：数值 + 单位 / 时间点列表，与 ISO-8601 持久化值双向转换 ==========
+
+/** 常用时区候选（可搜索可自定义），避免用户手写 IANA 名称出错 */
+const COMMON_TIMEZONES = [
+  'Asia/Shanghai', 'UTC', 'Asia/Tokyo', 'Asia/Singapore', 'Asia/Hong_Kong',
+  'Europe/London', 'Europe/Berlin', 'America/New_York', 'America/Los_Angeles',
+];
+
+const timerIsDuration = computed(() => ['AFTER', 'FIXED'].includes(eventCfg.value && eventCfg.value.timerType));
+const timerIsPointInTime = computed(() => eventCfg.value && eventCfg.value.timerType === 'POINT_IN_TIME');
+
+/** 时长选择器状态：单单位数值（分钟 / 小时 / 天）；组合值走高级模式手写 */
+const timerAmount = ref(1);
+const timerUnit = ref('D');
+const timerDurationAdvanced = ref(false);
+
+/** 时间点选择器状态：HH:mm 字符串数组 */
+const timerPoints = ref(['09:00']);
+
+/** 单单位 ISO-8601 时长（Java Duration.parse 不支持周，故只提供秒 / 分钟 / 小时 / 天） */
+const SIMPLE_DURATION_PATTERN = /^(?:P(\d+)D|PT(\d+)H|PT(\d+)M|PT(\d+)S)$/;
+
+function syncDurationFromValue() {
+  const value = (eventCfg.value && eventCfg.value.timerValue) || '';
+  const match = String(value).trim().match(SIMPLE_DURATION_PATTERN);
+  if (match) {
+    if (match[1] != null) { timerAmount.value = Number(match[1]); timerUnit.value = 'D'; }
+    else if (match[2] != null) { timerAmount.value = Number(match[2]); timerUnit.value = 'H'; }
+    else if (match[3] != null) { timerAmount.value = Number(match[3]); timerUnit.value = 'M'; }
+    else { timerAmount.value = Number(match[4]); timerUnit.value = 'S'; }
+    timerDurationAdvanced.value = false;
+  } else if (!value) {
+    timerAmount.value = 1;
+    timerUnit.value = 'D';
+    timerDurationAdvanced.value = false;
+  } else {
+    // P1DT12H 等组合写法或非法值：交给高级模式，保留原值供修改
+    timerDurationAdvanced.value = true;
+  }
+}
+
+/** 选择器 → 持久化值：PT30S / PT30M / PT2H / P1D */
+function writeDurationValue() {
+  if (props.disabled || !eventCfg.value) return;
+  const amount = Math.max(1, Math.floor(Number(timerAmount.value) || 1));
+  form.value.nodeConfig.event.timerValue = timerUnit.value === 'D'
+    ? `P${amount}D` : `PT${amount}${timerUnit.value}`;
+}
+
+function exitAdvancedIfSimple() {
+  if (String((eventCfg.value && eventCfg.value.timerValue) || '').match(SIMPLE_DURATION_PATTERN)) {
+    timerDurationAdvanced.value = false;
+  }
+}
+
+const TIME_POINT_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function parseTimePoints(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return [];
+  let items = raw;
+  if (items.startsWith('[')) {
+    try { items = JSON.parse(items); } catch (e) { return []; }
+  } else {
+    items = items.split(',');
+  }
+  return (Array.isArray(items) ? items : [])
+    .map(item => String(item || '').trim()).filter(item => TIME_POINT_PATTERN.test(item));
+}
+
+function syncPointsFromValue() {
+  const points = parseTimePoints(eventCfg.value && eventCfg.value.timerValue);
+  timerPoints.value = points.length ? [...points] : ['09:00'];
+}
+
+/** 时间点列表 → JSON 数组持久化；全部无效时置空由校验兜底 */
+function writePointValue() {
+  if (props.disabled || !eventCfg.value) return;
+  const points = timerPoints.value.filter(point => TIME_POINT_PATTERN.test(String(point || '')));
+  form.value.nodeConfig.event.timerValue = points.length ? JSON.stringify(points) : '';
+}
+
+function addTimePoint() {
+  timerPoints.value.push('09:00');
+  writePointValue();
+}
+
+function removeTimePoint(index) {
+  timerPoints.value.splice(index, 1);
+  writePointValue();
+}
+
+/** 定时类型切换：按新类型同步选择器初始状态，缺省值时补 P1D / ["09:00"] */
+function handleTimerTypeChange() {
+  if (props.disabled || !eventCfg.value) return;
+  const value = String(eventCfg.value.timerValue || '').trim();
+  if (timerIsPointInTime.value) {
+    if (!parseTimePoints(value).length) {
+      form.value.nodeConfig.event.timerValue = '["09:00"]';
+    }
+    syncPointsFromValue();
+  } else {
+    if (!SIMPLE_DURATION_PATTERN.test(value)) {
+      form.value.nodeConfig.event.timerValue = 'P1D';
+    }
+    syncDurationFromValue();
+  }
+}
+
+// 外部值变化（节点切换 / 回显 / 代码写入）时同步选择器状态
+watch(() => {
+  const cfg = eventCfg.value;
+  return cfg ? `${cfg.timerType || ''}|${cfg.timerValue || ''}` : '';
+}, () => {
+  if (!eventCfg.value) return;
+  if (timerIsPointInTime.value) {
+    syncPointsFromValue();
+  } else if (timerIsDuration.value) {
+    syncDurationFromValue();
+  }
+}, { immediate: true });
+
+/** 定时事件必须有 node_config.event 段，缺失时补齐，供定时字段双向绑定 */
+function ensureEventConfig() {
+  if (!form.value.nodeConfig || typeof form.value.nodeConfig !== 'object') {
+    form.value.nodeConfig = {};
+  }
+  if (!form.value.nodeConfig.event || typeof form.value.nodeConfig.event !== 'object') {
+    form.value.nodeConfig.event = {};
+  }
+}
+
+/** 事件类型切换：同步清理不再适用的事件字段，避免草稿残留脏数据 */
+function handleEventTypeChange(type) {
+  if (!type) {
+    if (form.value.nodeConfig && typeof form.value.nodeConfig === 'object') {
+      delete form.value.nodeConfig.event;
+    }
+    form.value.eventName = '';
+    form.value.attachedToNodeCode = null;
+    form.value.interrupting = null;
+    return;
+  }
+  if (!isMessageEvent.value && !isErrorEvent.value) {
+    form.value.eventName = '';
+  }
+  if (isBoundaryEvent.value) {
+    // 第一阶段边界事件固定为中断型
+    form.value.interrupting = true;
+  } else {
+    form.value.interrupting = null;
+    form.value.attachedToNodeCode = null;
+  }
+  if (isTimerEvent.value) {
+    ensureEventConfig();
+  } else if (form.value.nodeConfig && typeof form.value.nodeConfig === 'object') {
+    delete form.value.nodeConfig.event;
+  }
+}
+
+// 事件节点：定时事件缺 event 段时补齐（含从后端回显的草稿）
+watch(() => form.value.eventType, () => {
+  if (isTimerEvent.value) {
+    ensureEventConfig();
+  }
+}, { immediate: true });
+
+function validateEventName(rule, value, callback) {
+  if (!isMessageEvent.value) return callback();
+  if (!value || !String(value).trim()) return callback(new Error('请输入消息名称'));
+  callback();
+}
+
+function validateEventTimerValue(rule, value, callback) {
+  if (!isTimerEvent.value) return callback();
+  if (!value || !String(value).trim()) return callback(new Error('请输入时间值'));
+  callback();
+}
+
+function validateEventAttachedNode(rule, value, callback) {
+  if (!isBoundaryEvent.value) return callback();
+  if (!value) return callback(new Error('请选择附着的任务节点'));
+  callback();
+}
+
+function validateEventInterrupting(rule, value, callback) {
+  if (!isBoundaryEvent.value) return callback();
+  if (value !== true) return callback(new Error('第一阶段边界事件必须为中断型'));
+  callback();
+}
+
+
 function getCurrentTabLabel() {
   const currentTab = tabsList.value.find(t => t.name === tabsValue.value);
   return currentTab ? currentTab.label : '节点扩展属性';
@@ -530,7 +1012,13 @@ const rules = reactive({
         return [];
     }),
     listenerType: [{required: true, message: '监听器类型不能为空', trigger: 'change'}],
-    listenerPath: [{required: true, message: '监听器路径不能为空', trigger: 'blur'}]
+    listenerPath: [{required: true, message: '监听器路径不能为空', trigger: 'blur'}],
+    // 事件节点字段校验：与后端 FlowConfigUtil 的事件结构校验保持一致，尽量在保存前拦截
+    eventName: [{validator: validateEventName, trigger: ['blur', 'change']}],
+    eventTimerType: [{required: true, message: '请选择定时类型', trigger: 'change'}],
+    eventTimerValue: [{validator: validateEventTimerValue, trigger: ['blur', 'change']}],
+    attachedToNodeCode: [{validator: validateEventAttachedNode, trigger: 'change'}],
+    interrupting: [{validator: validateEventInterrupting, trigger: 'change'}]
 });
 
 watch(() => form.value, n => {
@@ -636,6 +1124,20 @@ function addPermission() {
   form.value.permissionFlag.push("");
   permissionRows.value.push({ storageId: "", handlerName: "" });
 }
+
+// 发起人办理人标识：引擎创建任务时会替换为流程实例发起人（FlowCons.WARMFLOWINITIATOR）
+const INITIATOR_FLAG = "warmFlowInitiator";
+const INITIATOR_NAME = "发起人（流程发起人）";
+
+// 快捷添加发起人：办理人配置为发起人，实现"谁发起、谁提交"
+function addInitiator() {
+  if (!Array.isArray(form.value.permissionFlag)) {
+    form.value.permissionFlag = [];
+  }
+  if (form.value.permissionFlag.some(flag => flag === INITIATOR_FLAG)) return;
+  form.value.permissionFlag.push(INITIATOR_FLAG);
+  permissionRows.value.push({ storageId: INITIATOR_FLAG, handlerName: INITIATOR_NAME });
+}
 // 办理人手动输入，失焦获取权限名称
 function inputBlur(event, index) {
   form.value.permissionFlag[index] = event.target.value;
@@ -696,7 +1198,12 @@ async function getHandlerFeedback() {
       let permissionFlag = form.value.permissionFlag;
       handlerFeedback({storageIds: permissionFlag}).then(response => {
           if (response.code === 200 && response.data) {
-            permissionRows.value = response.data;
+            const resolved = response.data || [];
+            // 后端解析不到的标识（如发起人 warmFlowInitiator）补充占位行，避免表格丢行
+            const missing = (Array.isArray(permissionFlag) ? permissionFlag : [])
+              .filter(id => id && !resolved.some(row => row.storageId === id))
+              .map(id => ({ storageId: id, handlerName: id === INITIATOR_FLAG ? INITIATOR_NAME : id }));
+            permissionRows.value = [...resolved, ...missing];
           }
     });
   }
@@ -833,6 +1340,12 @@ function validate() {
         if (fields && Object.keys(fields).some((key) => String(key).startsWith('listenerRows.'))) {
           proxy.$refs.listenerSection?.open();
         }
+        // 同理：事件分组收起时命中事件字段/定时配置的错误也要先展开
+        if (fields && Object.keys(fields).some((key) => String(key) === 'eventType' || String(key) === 'eventName'
+            || String(key).startsWith('nodeConfig.event') || String(key) === 'attachedToNodeCode'
+            || String(key) === 'interrupting')) {
+          proxy.$refs.eventSection?.open();
+        }
         reject(false);
       }
     });
@@ -925,6 +1438,53 @@ defineExpose({
   color: var(--wf-text-secondary, #909399);
   font-size: 12px;
   line-height: 1.4;
+  width: 100%;
+}
+
+/* 定时时长选择器：数值 + 单位 + 高级切换 */
+.duration-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.duration-unit {
+  width: 96px;
+  flex-shrink: 0;
+}
+
+.advanced-link {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.advanced-input {
+  flex: 1;
+}
+
+/* 每日时间点列表：时刻选择 + 删除按钮 */
+.time-point-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.time-point-row .el-date-editor {
+  flex: 1;
+  max-width: 180px;
+}
+
+.time-point-row .el-button {
+  flex-shrink: 0;
+  padding: 4px;
+}
+
+/* 时区下拉占满整行，与其他表单项对齐 */
+.timezone-select {
   width: 100%;
 }
 

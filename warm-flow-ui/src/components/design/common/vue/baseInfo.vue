@@ -1,10 +1,10 @@
 <template>
   <div class="app-container">
-    <el-form ref="formRef" :model="form" class="dialogForm" :rules="rules" label-width="150px" :disabled="disabled" size="small">
-      <div class="form-section">
-        <div class="section-title">基本配置</div>
+    <el-form ref="formRef" :model="form" class="dialogForm" :rules="rules" label-position="top" :disabled="disabled" size="small">
+      <!-- 分区结构与节点属性面板（propertySetting/between）保持一致：可折叠 form-section + 收起摘要 -->
+      <form-section ref="secBase" title="基础信息" :summary="baseInfoSummary">
         <el-form-item label="流程编码" prop="flowCode">
-          <el-input v-model="form.flowCode" placeholder="请输入流程编码" maxlength="40" />
+          <el-input ref="flowCodeInputRef" v-model="form.flowCode" placeholder="请输入流程编码" maxlength="40" />
         </el-form-item>
 
         <el-form-item label="流程名称" prop="flowName">
@@ -12,31 +12,11 @@
         </el-form-item>
 
         <el-form-item label="设计器模型" prop="modelValue">
-          <el-radio-group v-model="form.modelValue" :disabled="!!definitionId || isMobile" @change="modelValueChange" class="radio-card-group">
-            <el-radio label="CLASSICS" class="radio-card">
-              <div class="radio-card-content">
-                <div class="radio-card-icon">
-                  <svg-icon icon-class="classic" class="model-icon"/>
-                </div>
-                <div class="radio-card-info">
-                  <div class="radio-card-title">经典模型</div>
-                  <div class="radio-card-desc">自由拖拽连线，灵活编排流程</div>
-                </div>
-              </div>
-            </el-radio>
-            <el-radio label="MIMIC" class="radio-card">
-              <div class="radio-card-content">
-                <div class="radio-card-icon">
-                  <svg-icon icon-class="mimic" class="model-icon"/>
-                </div>
-                <div class="radio-card-info">
-                  <div class="radio-card-title">仿钉钉模型</div>
-                  <div class="radio-card-desc">类钉钉审批流，上下结构布局</div>
-                </div>
-              </div>
-            </el-radio>
+          <el-radio-group v-model="form.modelValue" :disabled="isMobile" @change="handleModelRadioChange">
+            <el-radio label="CLASSICS">经典模型</el-radio>
+            <el-radio label="MIMIC">仿钉钉模型</el-radio>
           </el-radio-group>
-          <div class="radio-card-warning">切换后重置节点，保存后不支持修改！</div>
+          <div class="radio-card-warning">切换模型将按新布局重排节点，保存后生效并更新设计器模型</div>
           <div class="radio-card-warning radio-card-warning--mobile" v-if="isMobile">移动端不支持选择模型，如果新增默认仿钉钉</div>
         </el-form-item>
 
@@ -47,9 +27,12 @@
               :props="{ value: 'id', label: 'name', children: 'children' }"
               value-key="id"
               placeholder="请选择流程类别"
+              style="width: 100%"
               check-strictly/>
         </el-form-item>
+      </form-section>
 
+      <form-section ref="secForm" title="审批表单" :summary="formSummary">
         <el-form-item label="自定义表单" prop="formCustom">
           <el-switch
             v-model="form.formCustom"
@@ -58,7 +41,7 @@
             inactive-value="N"
             active-text="是"
             inactive-text="否" />
-          <span class="form-tip">{{ form.formCustom === 'Y' ? '选择已配置的自定义表单' : '填写审批页面路径' }}</span>
+          <span class="form-tip form-tip--block">{{ form.formCustom === 'Y' ? '选择已配置的自定义表单' : '填写审批页面路径' }}</span>
         </el-form-item>
 
         <el-form-item label="表单路径" prop="formPath" v-if="form.formCustom === 'N'">
@@ -74,18 +57,16 @@
                 placeholder="请选择表单唯一标识"
                 check-strictly/>
         </el-form-item>
-      </div>
+      </form-section>
 
-      <div class="form-section">
-        <div class="section-title">自动审批</div>
-        <el-form-item label="同一办理人自动审批" prop="autoPass" class="autoPassItem">
-          <el-switch v-model="form.autoPass" size="small" />
-          <span class="form-tip">下一节点办理人包含当前办理人时，由引擎以该办理人身份自动通过该待办</span>
+      <form-section ref="secAuto" title="自动审批" :summary="autoPassSummary" :default-open="false">
+        <el-form-item prop="autoPass">
+          <el-switch v-model="form.autoPass" size="small" active-text="同一办理人自动通过" />
+          <span class="form-tip form-tip--block">下一节点办理人包含当前办理人时，由引擎以该办理人身份自动通过该待办</span>
         </el-form-item>
-      </div>
+      </form-section>
 
-      <div class="form-section">
-        <div class="section-title">监听器配置</div>
+      <form-section ref="secListener" title="监听器配置" :summary="listenerSummary" :default-open="false">
         <el-form-item prop="listenerRows" class="listenerItem">
           <el-table :data="form.listenerRows" style="width: 100%" empty-text="暂无监听器，点击下方「增加行」添加">
             <el-table-column prop="listenerType" :width="isMobile ? 60 : 160" label="类型">
@@ -130,14 +111,16 @@
           </el-table>
           <el-button v-if="!disabled" size="small" class="add-row-btn" @click="handleAddRow">增加行</el-button>
         </el-form-item>
-      </div>
+      </form-section>
     </el-form>
   </div>
 </template>
 
 <script setup name="BaseInfo">
-import { ref, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ElMessageBox } from "element-plus";
 import {listenerList} from "@/api/flow/definition.js";
+import formSection from "./formSection";
 
 const { proxy } = getCurrentInstance();
 
@@ -158,6 +141,8 @@ onMounted(() => {
   if (isMobile.value && !props.definitionId) {
     form.value.modelValue = 'MIMIC';
   }
+  // 挂载完成后记录初始快照（脏检测基准），未编辑前 isDirty 恒为 false
+  snapshotForm();
 });
 
 onUnmounted(() => {
@@ -222,10 +207,43 @@ watch(() => props.logicJson, newValue => {
       form.value.modelValue = 'MIMIC';
     }
   }
-});
+}, { immediate: true });
 
 const definitionList = ref([]);
 const ListenerVo = ref([]); // 监听器列表
+
+/** 流程编码输入框引用：新建流程打开抽屉时自动聚焦 */
+const flowCodeInputRef = ref();
+
+/** 表单快照（脏检测基准）：抽屉打开 / 确定保存时刷新 */
+const initialFormSnapshot = ref('');
+
+function snapshotForm() {
+  initialFormSnapshot.value = JSON.stringify(form.value);
+}
+
+/** 抽屉是否有未保存改动：当前表单与最近一次快照比对 */
+function isDirty() {
+  if (!initialFormSnapshot.value) return false;
+  return JSON.stringify(form.value) !== initialFormSnapshot.value;
+}
+
+/** 标记表单为干净状态（打开抽屉 / 确定保存后调用） */
+function markClean() {
+  snapshotForm();
+}
+
+/** 自动聚焦第一个必填字段（新建流程时引导键盘录入） */
+function focusFirstField() {
+  proxy.$nextTick(() => {
+    flowCodeInputRef.value?.focus?.();
+  });
+}
+
+/** 清除校验痕迹：抽屉每次打开都从干净状态开始，未操作前不显示红框 */
+function clearValidation() {
+  formRef.value?.clearValidate();
+}
 
 
 const rules = {
@@ -251,6 +269,29 @@ const rules = {
 
 // 表单引用（用于校验）
 const formRef = ref();
+
+/* ===== 分区收起摘要：收起后也能一眼看到当前配置（与节点面板 form-section 摘要同语言） ===== */
+const baseInfoSummary = computed(() => {
+  const code = form.value.flowCode || '未设置编码';
+  const name = form.value.flowName || '未命名流程';
+  return `${code} · ${name}`;
+});
+
+const formSummary = computed(() => {
+  if (form.value.formCustom === 'Y') {
+    return form.value.formPath ? `自定义表单 · ${form.value.formPath}` : '自定义表单 · 未选择';
+  }
+  return form.value.formPath ? `内置表单 · ${form.value.formPath}` : '内置表单 · 未填写路径';
+});
+
+const autoPassSummary = computed(() => (form.value.autoPass ? '已开启' : '未开启'));
+
+const listenerSummary = computed(() => {
+  const rows = (form.value.listenerRows || []).filter(
+      r => String(r.listenerType || '').trim() || String(r.listenerPath || '').trim()
+  );
+  return rows.length ? `${rows.length} 个监听器` : '未配置';
+});
 
 function setListenerData() {
   // 处理监听器数据
@@ -311,7 +352,7 @@ function buildDefConfig() {
   return JSON.stringify({ [AUTO_PASS_KEY]: form.value.autoPass === true });
 }
 
-// 表单必填校验
+// 表单必填校验：失败时展开所有分区，确保红字对用户可见（分区可能处于收起状态）
 function validate() {
   return new Promise((resolve, reject) => {
     proxy.$nextTick(() => {
@@ -319,6 +360,9 @@ function validate() {
         if (valid) {
           resolve(true);
         } else {
+          ['secBase', 'secForm', 'secAuto', 'secListener'].forEach(key => {
+            proxy.$refs[key]?.open?.();
+          });
           resolve(false);
         }
       });
@@ -333,6 +377,28 @@ function nameChange(flowName) {
 
 function modelValueChange() {
   proxy.$emit('update:model-value'); // 如果需要通知父组件
+}
+
+/**
+ * 设计器模型单选（工具栏切换入口已移除，这里成为唯一入口）：
+ * 新流程直接生效；已有流程先确认（切换会重排节点布局），取消则回退到画布当前模型。
+ */
+async function handleModelRadioChange() {
+  if (!props.definitionId) {
+    modelValueChange();
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+        '切换为另一种模型后将按新布局重排全部节点，保存后生效并更新该流程的设计器模型。确定切换吗？',
+        '切换设计器模型',
+        { confirmButtonText: '确认切换', cancelButtonText: '取消', type: 'warning' }
+    );
+    modelValueChange();
+  } catch (e) {
+    // 取消切换：回退单选到画布当前模型
+    form.value.modelValue = props.logicJson?.modelValue || form.value.modelValue;
+  }
 }
 
 function getFormData() {
@@ -370,7 +436,7 @@ function handleListenerPathChange(path, row) {
     }
 }
 
-defineExpose({ getFormData, validate });
+defineExpose({ getFormData, validate, isDirty, markClean, focusFirstField, clearValidation });
 
 getListenerList()
 </script>
@@ -393,56 +459,26 @@ getListenerList()
 .dialogForm {
   max-width: 960px;
   width: 100%;
-  margin: 24px auto;
+  margin: 4px auto 16px;
   padding: 0;
   background: transparent;
   border-top: 0;
 }
 
-/* ========== 2. 扁平分区（去内层卡片，外层壳已提供容器） ========== */
-.form-section {
-  position: relative;
-  background: transparent;
-  padding: 0;
-  margin-bottom: 32px;
-  overflow: visible;
+/* ========== 2. 分区改用 form-section 组件（与节点属性面板同语言），此处不再自定义分区样式 ========== */
 
-  &:last-child {
-    margin-bottom: 0;
-  }
-}
-
-/* ========== 3. 区块标题 ========== */
-.section-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--wf-text-primary, #303133);
-  letter-spacing: 0.3px;
-  padding: 0 0 14px 0;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--wf-border-lighter, #ebeef5);
-  display: flex;
-  align-items: center;
-}
-
-/* ========== 4. 表单项增强 ========== */
+/* ========== 3/4. 表单项增强（顶部标签：窄面板原生形态，标签在上、输入件满宽） ========== */
 :deep(.el-form-item) {
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
 :deep(.el-form-item__label) {
-  font-weight: 600;
-  color: var(--wf-text-primary, #303133);
-  /* 右对齐：label 贴输入框侧对齐，红星紧贴首字（EP 经典表单样式） */
-  width: 110px !important;
-  min-width: 110px !important;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  text-align: right;
-  /* 与 el-input 默认高度(32px)对齐，保证 label 与右侧控件垂直居中 */
-  height: 32px;
+  font-weight: 500;
+  color: var(--wf-text-regular, #606266);
+  font-size: 13px;
+  line-height: 1.4;
+  padding-bottom: 4px;
+  margin-bottom: 0;
 }
 
 /* 错误提示增加上下间距 - PC端/平板端 */
@@ -498,155 +534,7 @@ getListenerList()
   border-color: #3a3e48 !important;
 }
 
-/* ========== 5. 卡片式 Radio 选择器 ========== */
-.radio-card-group {
-  display: flex;
-  gap: 12px;
-  width: 100%;
-}
-
-.radio-card-group--compact {
-  gap: 10px;
-}
-
-:deep(.radio-card) {
-  position: relative;
-  border: 1.5px solid var(--wf-border-color, #dcdfe6);
-  border-radius: var(--wf-radius-lg, 12px);
-  padding: 16px;
-  margin-right: 0;
-  height: auto;
-  background: var(--wf-bg-white, #fff);
-  box-shadow: var(--wf-shadow-sm, 0 1px 4px rgba(0, 0, 0, 0.04));
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-
-  &:hover {
-    border-color: var(--wf-primary, #409eff);
-    transform: translateY(-2px);
-    box-shadow: var(--wf-shadow, 0 2px 12px rgba(0, 0, 0, 0.06));
-  }
-
-  /* 隐藏原生 radio 圆点 */
-  .el-radio__input {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-
-    .el-radio__inner {
-      width: 16px;
-      height: 16px;
-      border-width: 1.5px;
-      transition: all 0.25s ease;
-    }
-  }
-
-  .el-radio__label {
-    padding-left: 0;
-    width: 100%;
-    color: var(--wf-text-primary, #303133);
-    font-weight: normal;
-  }
-
-  /* 选中态：边框 + 浅底 + 原生 radio 圆点，单一指示，去渐变/发光/角标 */
-  &.is-checked {
-    border-color: var(--wf-primary, #409eff);
-    background: var(--wf-primary-light, #ecf5ff);
-
-    .el-radio__input .el-radio__inner {
-      background: var(--wf-primary, #409eff);
-      border-color: var(--wf-primary, #409eff);
-    }
-
-    .radio-card-title {
-      color: var(--wf-primary, #409eff);
-    }
-
-    .radio-card-icon {
-      background: var(--wf-primary, #409eff);
-      color: #fff;
-    }
-  }
-
-  /* 禁用态 */
-  &.is-disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    background: var(--wf-bg-color, #f5f7fa);
-    border-color: var(--wf-border-light, #e4e7ed);
-
-    &:hover {
-      box-shadow: none;
-      border-color: var(--wf-border-light, #e4e7ed);
-      transform: none;
-    }
-  }
-
-  /* 禁用态暗黑模式覆盖 — html.dark 必须作为外层 */
-  :global(html.dark) .radio-card.is-disabled {
-    background: #2a2d35 !important;
-    border-color: #3a3e48 !important;
-  }
-}
-
-:deep(.radio-card--sm) {
-  padding: 10px 14px;
-}
-
-.radio-card-content {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.radio-card-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--wf-bg-color, #f5f7fa);
-  color: var(--wf-primary, #409eff);
-  flex-shrink: 0;
-  transition: all 0.25s ease;
-  font-size: 22px;
-}
-
-/* 模型卡线性图标：跟随 radio-card-icon 字号与颜色（选中态自动变白） */
-.model-icon {
-  width: 1em;
-  height: 1em;
-  vertical-align: -0.1em;
-}
-
-.radio-card-icon--sm {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-}
-
-.radio-card-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.radio-card-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--wf-text-primary, #303133);
-  line-height: 1.4;
-  transition: color 0.25s ease;
-}
-
-.radio-card-desc {
-  font-size: 12px;
-  color: var(--wf-text-secondary, #909399);
-  line-height: 1.4;
-  margin-top: 4px;
-}
+/* ========== 5. 设计器模型：普通单选按钮（卡片样式已按用户要求移除） ========== */
 
 /* ========== 6. 监听器表格 ========== */
 :deep(.el-table) {
@@ -760,11 +648,6 @@ getListenerList()
 :deep(.listenerItem) {
   margin-bottom: 0;
 
-  .el-form-item__label {
-    float: none;
-    display: inline-block;
-    text-align: left;
-  }
   .el-form-item__content {
     margin-left: 0 !important;
   }
@@ -795,13 +678,12 @@ getListenerList()
   line-height: 1.5;
 }
 
-/* 自动审批：标签较长，单独放宽 label 宽度并禁止折行（宽度与 form 的 label-width 一致，避免留空隙） */
-:deep(.autoPassItem) {
-  .el-form-item__label {
-    width: 150px !important;
-    min-width: 150px !important;
-    white-space: nowrap;
-  }
+/* 开关下方的整行 helper 提示：不与开关抢一行，读起来更像说明而非标签 */
+.form-tip--block {
+  display: block;
+  width: 100%;
+  margin-left: 0;
+  margin-top: 4px;
 }
 
 /* ========== 8. 暗黑模式增强 ========== */
@@ -830,37 +712,9 @@ getListenerList()
   box-shadow: 0 0 0 4px rgba(64, 158, 255, 0.18);
 }
 
-:global(html.dark) .form-section {
-  background: transparent;
-}
-
 :global(html.dark) :deep(.el-table) {
   .el-table__header-wrapper th {
     background: linear-gradient(135deg, rgba(30, 40, 60, 0.95), rgba(25, 35, 55, 0.95)) !important;
-  }
-}
-
-:global(html.dark) :deep(.radio-card) {
-  /* Radio 卡片暗黑模式 - 非选中态也要深色背景 */
-  & { background: #1a1a1a; border-color: #444444; }
-
-  .el-radio__label { color: #c0c4cc; }
-  .radio-card-title { color: #e0e0e0; }
-  .radio-card-desc { color: #888888; }
-  .radio-card-icon { background: rgba(255,255,255,.06); }
-
-  &:hover { border-color: #409eff; }
-
-  &.is-checked {
-    background: #1a2744;
-    border-color: #409eff;
-    .radio-card-icon { background: #409eff; }
-    .radio-card-title { color: #409eff; }
-  }
-
-  &.is-disabled {
-    background: rgba(120,120,120,.1);
-    border-color: #3a3a3a;
   }
 }
 
@@ -897,10 +751,6 @@ getListenerList()
   .dialogForm {
     margin: 12px auto;
   }
-
-  .form-section {
-    margin-bottom: 24px;
-  }
 }
 
 /* ========== 响应式适配：手机端 (<= 768px) ========== */
@@ -911,34 +761,6 @@ getListenerList()
 
   .app-container {
     overflow-x: hidden;
-  }
-
-  .form-section {
-    margin-bottom: 20px;
-  }
-
-  .section-title {
-    font-size: 14px;
-    padding-bottom: 10px;
-    margin-bottom: 16px;
-  }
-
-  :deep(.dialogForm .el-form-item__label),
-  :deep(.el-form-item__label) {
-    /* 手机端右对齐，仅收窄宽度 */
-    width: 90px !important;
-    min-width: 90px !important;
-    font-size: 13px;
-    font-weight: 600;
-    text-align: right;
-    justify-content: flex-end;
-  }
-
-  /* 手机端：长标签回到窄栏，允许折行，避免与内容区重叠 */
-  :deep(.autoPassItem) .el-form-item__label {
-    width: 90px !important;
-    min-width: 90px !important;
-    white-space: normal;
   }
 
   /* 手机端错误提示间距 */
@@ -957,96 +779,10 @@ getListenerList()
     font-size: 13px !important;
   }
 
-  /* Radio 卡片组：手机端全部纵向紧凑排列 */
-  .radio-card-group {
-    flex-direction: column;
-    gap: 8px;
-    width: 100% !important;
-  }
-
   /* 确保表单项内容区不限制宽度 */
   :deep(.el-form-item__content) {
     max-width: 100% !important;
     overflow: visible !important;
-  }
-
-  .radio-card-group--compact {
-    flex-direction: column; /* 手机端纵向排列，与设计器模型一致 */
-    gap: 8px;
-  }
-
-  /* 设计器模型卡片：手机端占满行，显示小字提示 */
-  :deep(.radio-card) {
-    width: 100% !important;
-    max-width: none !important;
-    padding: 10px 14px;
-    box-sizing: border-box !important;
-
-    &:hover {
-      transform: none;
-    }
-
-    .radio-card-desc {
-      display: block; /* 显示描述文字在标题下方 */
-      font-size: 10px !important;
-      line-height: 1.2 !important;
-      margin-top: 2px;
-      color: var(--wf-text-placeholder, #c0c4cc);
-    }
-
-    .radio-card-icon {
-      width: 28px;
-      height: 28px;
-    }
-
-    .radio-card-title {
-      font-size: 13px;
-      white-space: nowrap;
-      overflow: visible;
-    }
-  }
-
-  /* 自定义表单小卡片：与设计器模型一致，纵向+小字提示 */
-  :deep(.radio-card--sm) {
-    width: 100% !important;
-    max-width: none !important;
-    padding: 10px 12px !important;
-    box-sizing: border-box !important;
-
-    .radio-card-desc {
-      display: block !important; /* 小字提示显示在标题下方 */
-      font-size: 10px !important;
-      line-height: 1.2 !important;
-      margin-top: 2px;
-      color: var(--wf-text-placeholder, #c0c4cc);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-  }
-
-  .radio-card-content {
-    gap: 8px;
-  }
-
-  .radio-card-icon {
-    width: 32px;
-    height: 32px;
-    font-size: 18px;
-  }
-
-  .radio-card-icon--sm {
-    width: 28px;
-    height: 28px;
-  }
-
-  .radio-card-title {
-    font-size: 13px;
-  }
-
-  .radio-card-desc {
-    font-size: 10px;
   }
 
   :deep(.el-form-item) {
@@ -1136,26 +872,6 @@ getListenerList()
     margin: 4px 2px;
   }
 
-  .form-section {
-    margin-bottom: 16px;
-  }
-
-  .section-title {
-    font-size: 13px;
-    padding-bottom: 8px;
-    margin-bottom: 12px;
-  }
-
-  :deep(.dialogForm .el-form-item__label),
-  :deep(.el-form-item__label) {
-    /* 超小屏右对齐 */
-    width: 80px !important;
-    min-width: 80px !important;
-    font-size: 12px;
-    text-align: right;
-    justify-content: flex-end;
-  }
-
   /* 超小屏错误提示间距 */
   ::deep(.el-form-item__error) {
     padding-top: 6px;
@@ -1169,57 +885,6 @@ getListenerList()
   :deep(.el-input__inner),
   :deep(.el-textarea__inner) {
     font-size: 12px !important;
-  }
-
-  .radio-card-group--compact {
-    flex-direction: column; /* 纵向排列 */
-    gap: 6px;
-  }
-
-  :deep(.radio-card) {
-    padding: 8px 10px;
-
-    .radio-card-desc {
-      display: block !important;
-      font-size: 9px !important;
-      line-height: 1.2 !important;
-      margin-top: 1px;
-    }
-  }
-
-  :deep(.radio-card--sm) {
-    width: 100% !important;
-    padding: 8px 10px !important;
-
-    .radio-card-desc {
-      display: block !important;
-      font-size: 9px !important;
-      line-height: 1.2 !important;
-      margin-top: 1px;
-    }
-  }
-
-  .radio-card-content {
-    gap: 6px;
-  }
-
-  .radio-card-icon {
-    width: 26px;
-    height: 26px;
-    font-size: 16px;
-  }
-
-  .radio-card-icon--sm {
-    width: 24px;
-    height: 24px;
-  }
-
-  .radio-card-title {
-    font-size: 12px;
-  }
-
-  .radio-card-desc {
-    display: none;
   }
 
   :deep(.el-table) {

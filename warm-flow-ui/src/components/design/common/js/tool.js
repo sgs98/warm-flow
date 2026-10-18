@@ -140,6 +140,11 @@ export const json2LogicFlowJson = (definition) => {
       if (node.nodeConfig) {
         lfNode.properties.nodeConfig = node.nodeConfig
       }
+      // 事件节点字段：仅透传；固定开始 / 结束与普通中间节点保持空值（后端按空值等价「无事件」）
+      lfNode.properties.eventType = node.eventType
+      lfNode.properties.eventName = node.eventName
+      lfNode.properties.attachedToNodeCode = node.attachedToNodeCode
+      lfNode.properties.interrupting = node.interrupting
       lfNode.properties.ext = {};
       if (node.ext && typeof node.ext === "string") {
         try {
@@ -324,6 +329,13 @@ export const logicFlowJsonToWarmFlow = (data) => {
     if (anyNode.properties.nodeConfig !== undefined && anyNode.properties.nodeConfig !== null
         && anyNode.properties.nodeConfig !== '') {
       node.nodeConfig = anyNode.properties.nodeConfig
+    }
+    // 事件节点字段：无 eventType 的普通节点不写入，保持旧流程 json 结构不变
+    if (anyNode.properties.eventType) {
+      node.eventType = anyNode.properties.eventType
+      node.eventName = anyNode.properties.eventName
+      node.attachedToNodeCode = anyNode.properties.attachedToNodeCode
+      node.interrupting = anyNode.properties.interrupting
     }
     node.version = definition.version
     node.skipList = []

@@ -110,22 +110,29 @@ const form = ref({});
 const objId = ref(undefined);
 const nodeCode = ref(null);
 const title = computed(() => {
+  let base;
   if (props.node && props.node.type === 'skip') {
-    return '设置边属性'
+    base = '设置边属性'
   } else if (props.node && props.node.type === 'serial') {
-    return '设置串行网关属性'
+    base = '设置串行网关属性'
   } else if (props.node && props.node.type === 'parallel') {
-    return '设置并行网关属性'
+    base = '设置并行网关属性'
   } else if (props.node && props.node.type === 'inclusive') {
-      return '设置包容网关属性'
+      base = '设置包容网关属性'
   }  else if (props.node && props.node.type === 'start') {
-    return '设置开始属性'
+    base = '设置开始属性'
   } else if (props.node && props.node.type === 'end') {
-    return '设置结束属性'
+    base = '设置结束属性'
   } else if (props.node && props.node.type === 'service') {
-    return '设置服务任务属性'
+    base = '设置服务任务属性'
+  } else if (props.node && props.node.type === 'between' && props.node.properties?.eventType) {
+    base = '设置事件属性'
+  } else {
+    base = '设置中间属性'
   }
-  return '设置中间属性'
+  // 标题带上当前节点名：改名字不用展开「基础信息」也能确认在改哪个节点；随输入实时更新
+  const nodeName = form.value?.nodeName;
+  return nodeName ? `${base} · ${nodeName}` : base;
 });
 
 // 解析服务任务节点配置（nodeConfig 为 JSON 字符串，结构见后端 ServiceTaskConfig）
@@ -210,6 +217,8 @@ watch(() => props.node, n => {
         serviceHandler: serviceTask.handler || '',
         serviceExpression: serviceTask.expression || '',
         resultVariable: serviceTask.resultVariable || '',
+        // 节点配置的其余段（含默认变量）由 nodeVariables 等面板直接读写，服务配置 watch 会合并写回
+        nodeConfig: parseNodeConfig(n.properties.nodeConfig)
       }
     } else {
       let nodeRatio = n.properties.nodeRatio || "0";
@@ -337,6 +346,19 @@ watch(() => form.value.formPath, (n) => {
 // 服务任务配置：执行方式 / 处理类 / 表达式 / 结果变量变化时序列化回 nodeConfig。
 // 未填写必填项时不下发，避免把无效配置写进节点（关闭抽屉时的 validate 会拦截）。
 watch(() => [form.value.serviceType, form.value.serviceHandler, form.value.serviceExpression, form.value.resultVariable], () => {
+  syncServiceNodeConfig()
+})
+
+// 服务任务的默认变量变化同样要落回节点：只盯 variables 段，避免与其它字段写回互相覆盖
+watch(() => JSON.stringify(form.value.nodeConfig?.variables || {}), () => {
+  syncServiceNodeConfig()
+})
+
+/**
+ * 序列化服务任务节点配置：serviceTask 段由专用字段拼装，其余段（默认变量等）从面板当前值透传。
+ * 未填写必填项时不下发。
+ */
+function syncServiceNodeConfig() {
   if (props.node?.type !== 'service') {
     return
   }
@@ -352,13 +374,13 @@ watch(() => [form.value.serviceType, form.value.serviceHandler, form.value.servi
       serviceTask.resultVariable = form.value.resultVariable
     }
   }
-  // 保留节点上已有的自定义扩展属性（serviceTask 之外的键），避免保存服务配置时被整体覆盖
-  const existing = parseNodeConfig(props.node?.properties?.nodeConfig)
+  // 保留面板上的其余段（默认变量 / 自定义扩展属性），避免保存服务配置时被整体覆盖
+  const existing = parseNodeConfig(form.value.nodeConfig)
   const { serviceTask: _ignored, ...extConfig } = existing
   props.lf.setProperties(objId.value, {
     nodeConfig: JSON.stringify({ ...extConfig, serviceTask })
   })
-})
+}
 
 watch(() => form.value.skipName, (n) => {
   if (['skip'].includes(props.node.type)) {
@@ -396,6 +418,21 @@ watch(() => form.value.nodeConfig, (n) => {
     nodeConfig: Object.keys(n || {}).length ? JSON.stringify(n) : ''
   })
 }, { deep: true });
+
+// 事件节点字段：事件类型 / 消息名称 / 附着节点 / 中断开关写回画布节点属性。
+// 固定开始 / 结束节点不承载事件，事件节点统一使用中间节点（between）承载，故仅对 between 生效。
+watch(() => [form.value.eventType, form.value.eventName, form.value.attachedToNodeCode, form.value.interrupting], () => {
+  if (props.node?.type !== 'between') {
+    return
+  }
+  props.lf.setProperties(objId.value, {
+    eventType: form.value.eventType || null,
+    eventName: form.value.eventName || null,
+    attachedToNodeCode: form.value.attachedToNodeCode || null,
+    interrupting: form.value.interrupting === undefined || form.value.interrupting === ''
+      ? null : form.value.interrupting
+  })
+})
 
 function show () {
   lastOpenTime = Date.now();

@@ -18,6 +18,8 @@ export class BaseNodeView extends HtmlNode {
       chartStatusColor: props.model.properties.chartStatusColor,
       status: props.model.properties.status,
       nodeConfig: props.model.properties.nodeConfig,
+      eventType: props.model.properties.eventType,
+      eventName: props.model.properties.eventName,
       type: props.model.type,
       fill: nodeStyle.fill,
       stroke: nodeStyle._statusHex || nodeStyle.stroke,
@@ -48,6 +50,8 @@ export class BaseNodeView extends HtmlNode {
           || currentProperties.nodeRatio !== preProperties.nodeRatio
           || currentProperties.status !== preProperties.status
           || currentProperties.nodeConfig !== preProperties.nodeConfig
+          || currentProperties.eventType !== preProperties.eventType
+          || currentProperties.eventName !== preProperties.eventName
           || currentProperties.chartStatusColor !== preProperties.chartStatusColor) {
         this.preProperties = this.currentProperties;
         flag = true
@@ -86,6 +90,8 @@ export class BaseNodeView extends HtmlNode {
       this.r.component.props.nodeRatio = this.props.model.properties.nodeRatio
       this.r.component.props.status = this.props.model.properties.status
       this.r.component.props.nodeConfig = this.props.model.properties.nodeConfig
+      this.r.component.props.eventType = this.props.model.properties.eventType
+      this.r.component.props.eventName = this.props.model.properties.eventName
       this.r.component.props.chartStatusColor = this.props.model.properties.chartStatusColor
       this.r.component.props.selected = this.props.model.isSelected
     }

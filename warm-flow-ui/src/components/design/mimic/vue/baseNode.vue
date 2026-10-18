@@ -9,6 +9,9 @@
       <svg v-if="props.type === 'service'" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
         <path :d="GEAR_PATH"/>
       </svg>
+      <svg v-else-if="isEvent" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path :d="BOLT_PATH"/>
+      </svg>
       <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="9" r="3.1" stroke="currentColor" stroke-width="1.7"/>
         <path d="M6.6 18.2c.9-2.5 2.8-3.8 5.4-3.8s4.5 1.3 5.4 3.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
@@ -26,7 +29,11 @@
             @keyup.enter="saveNodeName"
             @blur="saveNodeName"/>
       </div>
-      <div v-if="showHandler && props.type !== 'service'" class="mimic-who" :title="handler">
+      <div v-if="isEvent" class="mimic-who" :title="eventSummary">
+        <span class="mimic-handler">{{ eventSummary }}</span>
+        <span class="mimic-badge">{{ eventLabel }}</span>
+      </div>
+      <div v-else-if="showHandler && props.type !== 'service'" class="mimic-who" :title="handler">
         <span class="mimic-av">{{ handlerChar }}</span>
         <span class="mimic-handler">{{ handler }}</span>
         <span v-if="collaborativeBadge" class="mimic-badge">{{ collaborativeBadge }}</span>
@@ -50,6 +57,9 @@ import {handlerFeedback} from "@/api/flow/definition.js";
 
 // 齿轮图标路径（Material settings，viewBox 0 0 24 24），服务任务节点图标
 const GEAR_PATH = 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z'
+
+// 闪电图标路径（Material bolt，viewBox 0 0 24 24），事件节点图标
+const BOLT_PATH = 'M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C12.96 17.55 11 21 11 21z'
 
 const props = defineProps({
   text: {
@@ -80,6 +90,20 @@ const props = defineProps({
   },
   // 服务任务节点配置（JSON 字符串），仅 service 节点使用
   nodeConfig: {
+    type: String,
+    default () {
+      return ''
+    }
+  },
+  // 事件类型（后端 EventType 值）：非空表示该中间节点是独立事件节点
+  eventType: {
+    type: String,
+    default () {
+      return ''
+    }
+  },
+  // 消息事件的名称
+  eventName: {
     type: String,
     default () {
       return ''
@@ -172,6 +196,53 @@ const serviceTarget = computed(() => {
   const cfg = serviceTaskConfig.value;
   return cfg.type === 'class' ? (cfg.handler || '') : (cfg.expression || '');
 });
+
+// 事件节点标识：定时 / 消息 / 终止等事件类型，用闪电图标 + 事件徽标替代办理人信息
+const EVENT_TYPE_LABELS = {
+  TIMER_START: '定时启动', MESSAGE_START: '消息启动',
+  TIMER_CATCH: '定时捕获', MESSAGE_CATCH: '消息捕获', MESSAGE_THROW: '消息抛出',
+  TIMER_BOUNDARY: '定时边界', MESSAGE_BOUNDARY: '消息边界',
+  ERROR_CATCH: '错误捕获', ERROR_BOUNDARY: '错误边界',
+  TERMINATE_END: '终止结束', MESSAGE_END: '消息结束',
+};
+const TIMER_TYPE_LABELS = { AFTER: '延迟时长', FIXED: '固定间隔', POINT_IN_TIME: '指定时间点' };
+const TIMER_EVENT_TYPES = ['TIMER_START', 'TIMER_CATCH', 'TIMER_BOUNDARY'];
+
+const isEvent = computed(() => !!props.eventType);
+const eventLabel = computed(() => EVENT_TYPE_LABELS[props.eventType] || '事件');
+const eventSummary = computed(() => {
+  if (!isEvent.value) return '';
+  if (TIMER_EVENT_TYPES.includes(props.eventType)) {
+    try {
+      const timer = (JSON.parse(props.nodeConfig || '{}').event) || {};
+      const typeLabel = TIMER_TYPE_LABELS[timer.timerType] || '未配置定时';
+      return timer.timerValue ? `${typeLabel} ${friendlyTimerValue(timer.timerValue)}` : typeLabel;
+    } catch (e) {
+      return '未配置定时';
+    }
+  }
+  return props.eventName || (['ERROR_CATCH', 'ERROR_BOUNDARY'].includes(props.eventType) ? '通配' : '未配置名称');
+});
+
+/** 定时值人性化展示：单单位时长 / 时间点数组转中文，其余原样 */
+function friendlyTimerValue(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(?:P(\d+)D|PT(\d+)H|PT(\d+)M)$/);
+  if (match) {
+    const unitText = { M: '分钟', H: '小时', D: '天' };
+    const amount = match[1] || match[2] || match[3];
+    const unit = match[1] != null ? 'D' : (match[2] != null ? 'H' : 'M');
+    return `${amount} ${unitText[unit]}`;
+  }
+  if (raw.startsWith('[')) {
+    try {
+      return JSON.parse(raw).join('、');
+    } catch (e) {
+      return raw;
+    }
+  }
+  return raw;
+}
 
 const handlerChar = computed(() => {
   if (!handler.value || handler.value === '所有人') {

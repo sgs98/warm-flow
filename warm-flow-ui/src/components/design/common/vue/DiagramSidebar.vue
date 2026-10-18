@@ -1,57 +1,91 @@
 <template>
   <div class="diagram-sidebar">
-    <div class="sidebar-header">
-      <span class="sidebar-title">基础节点</span>
-    </div>
     <div class="sidebar-content">
-      <!-- 基础流程节点组 -->
+      <!-- 基础流程节点组（开始 / 中间 / 服务 / 结束） -->
       <div class="node-group">
-        <div
+        <el-tooltip
           v-for="item in flowNodes"
           :key="item.type"
-          class="sidebar-item"
-          :class="[`item-${item.type}`]"
-          @mousedown="handleDragInNode(item)"
+          :content="item.label"
+          placement="right"
+          :show-after="250"
         >
-          <div class="item-icon-wrap" v-html="item.icon"></div>
-          <span class="item-label">{{ item.label }}</span>
-        </div>
+          <div
+            class="tool-item"
+            @mousedown="handleDragInNode(item)"
+          >
+            <div class="item-icon-wrap" v-html="item.icon"></div>
+          </div>
+        </el-tooltip>
       </div>
 
-      <!-- 分隔线 -->
-      <div class="sidebar-divider"></div>
+      <!-- 类型分组（网关 / 事件）：单个入口，悬停 / 点击展开子菜单 -->
+      <template v-for="group in groups" :key="group.key">
+        <div class="sidebar-divider"></div>
 
-      <!-- 网关节点组标题 -->
-      <div class="group-header">
-        <span class="group-title">网关节点</span>
-      </div>
-
-      <!-- 网关节点组 -->
-      <div class="node-group">
         <div
-          v-for="item in gatewayNodes"
-          :key="item.type"
-          class="sidebar-item"
-          :class="[`item-${item.type}`]"
-          @mousedown="handleDragInNode(item)"
+          :ref="(el) => setEntryRef(group.key, el)"
+          class="group-entry"
+          @mouseenter="openMenu(group.key)"
+          @mouseleave="scheduleCloseMenu"
         >
-          <div class="item-icon-wrap" v-html="item.icon"></div>
-          <span class="item-label">{{ item.label }}</span>
+          <el-tooltip
+            :content="group.label"
+            placement="right"
+            :show-after="250"
+            :disabled="openMenuKey === group.key"
+          >
+            <div
+              class="tool-item"
+              :class="{ 'is-open': openMenuKey === group.key }"
+              @click="openMenu(group.key)"
+            >
+              <div class="item-icon-wrap" v-html="group.icon"></div>
+              <span class="tool-caret"></span>
+            </div>
+          </el-tooltip>
         </div>
-      </div>
+      </template>
+
+      <!-- 子菜单 teleport 到 body：避免被设计器 el-header 的 overflow 裁剪 -->
+      <Teleport to="body">
+        <transition name="group-pop">
+          <div
+            v-show="!!openMenuKey"
+            ref="popupRef"
+            class="group-popup"
+            :style="popupStyle"
+            @mouseenter="keepMenuOpen"
+            @mouseleave="scheduleCloseMenu"
+          >
+            <div
+              v-for="opt in activeOptions"
+              :key="opt.value || opt.type"
+              class="group-option"
+              :title="`拖拽到画布添加${opt.label}`"
+              @mousedown="handleDragInNode(opt)"
+            >
+              <span class="opt-icon" :class="`opt-${opt.tint}`" v-html="opt.icon"></span>
+              <span class="opt-label">{{ opt.label }}</span>
+            </div>
+          </div>
+        </transition>
+      </Teleport>
     </div>
   </div>
 </template>
 
 <script setup>
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
-  startIcon, betweenIcon, endIcon,
-  serialIcon, parallelIcon, inclusiveIcon, serviceIcon,
+  startIcon, betweenIcon, endIcon, serviceIcon,
+  gatewayIcon, serialIcon, parallelIcon, inclusiveIcon,
+  eventIcon, timerEventIcon, messageEventIcon, errorEventIcon, boundaryEventIcon,
 } from '@/components/design/classics/js/sidebarIcons.js'
 
 const emit = defineEmits(['dragInNode'])
 
-// 基础节点（开始/中间/结束）
+// 基础节点（开始/中间/服务/结束）
 const flowNodes = [
   { type: 'start', text: '开始', label: '开始', icon: startIcon },
   { type: 'between', text: '中间节点', label: '中间节点', icon: betweenIcon, properties: { collaborativeWay: '1' } },
@@ -59,24 +93,141 @@ const flowNodes = [
   { type: 'end', text: '结束', label: '结束', icon: endIcon },
 ]
 
-// 网关节点（互斥/并行/包含）
-const gatewayNodes = [
-  { type: 'serial', text: '', label: '互斥网关', icon: serialIcon, properties: {} },
-  { type: 'parallel', text: '', label: '并行网关', icon: parallelIcon, properties: {} },
-  { type: 'inclusive', text: '', label: '包容网关', icon: inclusiveIcon, properties: {} },
+// 网关 / 事件分组：单入口 + 子菜单；选项沿用现有拖拽契约（type / properties / text）
+const groups = [
+  {
+    key: 'gateway',
+    label: '网关',
+    icon: gatewayIcon,
+    options: [
+      { type: 'serial', text: '', label: '互斥网关', icon: serialIcon, tint: 'serial', properties: {} },
+      { type: 'parallel', text: '', label: '并行网关', icon: parallelIcon, tint: 'parallel', properties: {} },
+      { type: 'inclusive', text: '', label: '包容网关', icon: inclusiveIcon, tint: 'inclusive', properties: {} },
+    ],
+  },
+  {
+    key: 'event',
+    label: '事件',
+    icon: eventIcon,
+    // 事件统一由中间节点（between）承载，拖入即带 eventType，具体类型与触发配置在属性面板调整
+    options: [
+      {
+        type: 'between', value: 'TIMER_CATCH', text: '定时事件', label: '定时事件', icon: timerEventIcon, tint: 'event',
+        properties: { eventType: 'TIMER_CATCH', nodeConfig: '{"event":{"timerType":"AFTER","timerValue":"P1D"}}' },
+      },
+      {
+        type: 'between', value: 'MESSAGE_CATCH', text: '消息事件', label: '消息事件', icon: messageEventIcon, tint: 'event',
+        properties: { eventType: 'MESSAGE_CATCH' },
+      },
+      {
+        type: 'between', value: 'ERROR_CATCH', text: '错误事件', label: '错误事件', icon: errorEventIcon, tint: 'event',
+        properties: { eventType: 'ERROR_CATCH' },
+      },
+      {
+        type: 'between', value: 'TIMER_BOUNDARY', text: '边界事件', label: '边界事件', icon: boundaryEventIcon, tint: 'event',
+        properties: {
+          eventType: 'TIMER_BOUNDARY', interrupting: true,
+          nodeConfig: '{"event":{"timerType":"AFTER","timerValue":"P1D"}}',
+        },
+      },
+    ],
+  },
 ]
 
+// ===== 分组子菜单开合 =====
+const openMenuKey = ref(null)
+const popupRef = ref(null)
+const popupStyle = ref({})
+// 各分组入口元素（key -> HTMLElement），用于把子菜单定位到入口右侧
+const entryEls = {}
+// 离开入口到子菜单之间留一个短延迟，避免鼠标穿过间隙时菜单闪退
+let closeTimer = null
+
+function setEntryRef(key, el) {
+  if (el) {
+    entryEls[key] = el
+  } else {
+    delete entryEls[key]
+  }
+}
+
+function openMenu(key) {
+  clearTimeout(closeTimer)
+  openMenuKey.value = key
+  nextTick(positionPopup)
+}
+
+function keepMenuOpen() {
+  clearTimeout(closeTimer)
+}
+
+function scheduleCloseMenu() {
+  clearTimeout(closeTimer)
+  closeTimer = setTimeout(() => {
+    openMenuKey.value = null
+  }, 120)
+}
+
+/** 子菜单 teleport 到 body，需按当前入口位置做 fixed 定位 */
+function positionPopup() {
+  const entry = openMenuKey.value ? entryEls[openMenuKey.value] : null
+  if (!entry) {
+    return
+  }
+  const rect = entry.getBoundingClientRect()
+  popupStyle.value = {
+    position: 'fixed',
+    left: `${rect.right + 10}px`,
+    top: `${Math.max(8, rect.top - 6)}px`,
+  }
+}
+
+const activeOptions = computed(() => {
+  const group = groups.find((item) => item.key === openMenuKey.value)
+  return group ? group.options : []
+})
+
+/** 点击入口与子菜单之外的区域时关闭（覆盖触摸端无法 hover 收起的场景） */
+function onDocumentPointerDown(event) {
+  if (!openMenuKey.value) {
+    return
+  }
+  const target = event.target
+  for (const el of Object.values(entryEls)) {
+    if (el && el.contains(target)) {
+      return
+    }
+  }
+  if (popupRef.value && popupRef.value.contains(target)) {
+    return
+  }
+  openMenuKey.value = null
+}
+
 function handleDragInNode(item) {
+  openMenuKey.value = null
   emit('dragInNode', item.type, item.properties, item.text || {})
 }
+
+onMounted(() => {
+  document.addEventListener('pointerdown', onDocumentPointerDown, true)
+  window.addEventListener('resize', positionPopup)
+  window.addEventListener('scroll', positionPopup, true)
+})
+onBeforeUnmount(() => {
+  clearTimeout(closeTimer)
+  document.removeEventListener('pointerdown', onDocumentPointerDown, true)
+  window.removeEventListener('resize', positionPopup)
+  window.removeEventListener('scroll', positionPopup, true)
+})
 </script>
 
 <style scoped>
 .diagram-sidebar {
   position: absolute;
   left: 12px;
-  top: 70px;
-  width: 76px;
+  top: 16px;
+  width: 56px;
   border-radius: 14px;
   background: var(--wf-sidebar-bg, rgba(255, 255, 255, 0.95));
   backdrop-filter: blur(12px);
@@ -89,8 +240,25 @@ function handleDragInNode(item) {
   flex-direction: column;
   z-index: 10;
   user-select: none;
-  overflow: hidden;
+  /* 子菜单 teleport 到 body，不依赖父级裁剪；此处保留纵向滚动以适配矮屏 */
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(100vh - 100px);
   transition: box-shadow 0.25s ease;
+}
+
+/* 侧栏内容较长时使用细滚动条，避免底部节点被裁切 */
+.diagram-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.diagram-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 2px;
+}
+
+.diagram-sidebar::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .diagram-sidebar:hover {
@@ -99,106 +267,71 @@ function handleDragInNode(item) {
     0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-/* ====== 头部 ====== */
-.sidebar-header {
-  padding: 12px 4px 8px;
-  border-bottom: 1px solid var(--wf-border-light, #f1f5f9);
-}
-
-.sidebar-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--wf-text-primary, #303133);
-  text-align: center;
-  letter-spacing: 2px;
-}
-
 /* ====== 内容区 ====== */
 .sidebar-content {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 8px 6px 10px;
-
-  &::-webkit-scrollbar {
-    width: 3px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: #e2e8f0;
-    border-radius: 3px;
-  }
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
 }
 
 .node-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 6px;
 }
 
-/* ====== 分隔线 ====== */
+/* ====== 分隔线（整宽细线，清晰区分分组） ====== */
 .sidebar-divider {
+  width: calc(100% - 16px);
   height: 1px;
-  margin: 8px 8px;
-  background: linear-gradient(90deg, transparent, var(--wf-border-light, #e2e8f0) 30%, var(--wf-border-light, #e2e8f0) 70%, transparent);
+  margin: 10px 0;
+  background: var(--wf-border-light, #e2e8f0);
 }
 
-/* ====== 网关分组标题 ====== */
-.group-header {
-  padding: 6px 0 4px;
-}
-
-.group-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--wf-text-primary, #303133);
-  text-align: center;
-  letter-spacing: 2px;
-}
-
-/* ====== 节点项 ====== */
-.sidebar-item {
+/* ====== 工具项（图标按钮） ====== */
+.tool-item {
+  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 7px 4px;
-  cursor: grab;
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
+  cursor: grab;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
 }
 
-.sidebar-item:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(99, 102, 241, 0.06));
+.tool-item:hover,
+.tool-item.is-open {
   transform: translateY(-1px);
 
   .item-icon-wrap {
-    transform: scale(1.08);
-  }
-
-  .item-label {
-    color: var(--wf-primary, #409eff);
-    font-weight: 500;
+    background: var(--wf-primary-light, #ecf5ff);
+    transform: scale(1.05);
   }
 }
 
-.sidebar-item:active {
+.tool-item:active {
   cursor: grabbing;
   transform: translateY(0) scale(0.97);
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(99, 102, 241, 0.08));
+
+  .item-icon-wrap {
+    background: var(--wf-primary-light, #ecf5ff);
+  }
 }
 
-/* ====== 图标容器 ====== */
+/* ====== 图标容器（工具条风：中性底，语义色只落在图标描边） ====== */
 .item-icon-wrap {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 9px;
   background: #f8fafc;
-  transition: all 0.2s ease;
-  position: relative;
+  transition: background 0.2s ease, transform 0.2s ease;
 
   /* v-html 渲染的 SVG 自适应容器 */
   :deep(svg) {
@@ -208,26 +341,106 @@ function handleDragInNode(item) {
   }
 }
 
-/* 各类型节点的图标底色（与图标语义色呼应的淡色） */
-.item-start .item-icon-wrap   { background: linear-gradient(135deg, #ecfdf5, #d1fae5); }
-.item-between .item-icon-wrap { background: linear-gradient(135deg, #eff6ff, #dbeafe); }
-.item-end .item-icon-wrap     { background: linear-gradient(135deg, #fef2f2, #fee2e2); }
-.item-serial .item-icon-wrap  { background: linear-gradient(135deg, #fffbeb, #fef3c7); }
-.item-parallel .item-icon-wrap{ background: linear-gradient(135deg, #ecfeff, #cffafe); }
-.item-inclusive .item-icon-wrap { background: linear-gradient(135deg, #faf5ff, #f3e8ff); }
-.item-service .item-icon-wrap { background: linear-gradient(135deg, #eef2ff, #e0e7ff); }
+/* 分组入口右侧居中的「›」：默认隐藏，hover / 展开时显示 */
+.tool-caret {
+  position: absolute;
+  right: 1px;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  color: var(--wf-text-placeholder, #c0c4cc);
+  transform: translateY(-50%) rotate(-45deg);
+  opacity: 0;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
 
-/* ====== 标签文字 ====== */
-.item-label {
-  font-size: 12px;
-  color: var(--wf-text-regular, #606266);
-  text-align: center;
-  margin-top: 5px;
-  line-height: 1.3;
-  word-break: break-word;
-  max-width: 68px;
-  transition: all 0.2s ease;
-  letter-spacing: 0.3px;
+.tool-item:hover .tool-caret,
+.tool-item.is-open .tool-caret {
+  opacity: 1;
+  color: var(--wf-primary, #409eff);
+}
+
+/* ====== 分组子菜单 ====== */
+.group-entry {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.group-popup {
+  /* position / left / top 由 positionPopup() 以内联 fixed 样式注入（teleport 到 body） */
+  z-index: 2200;
+  min-width: 148px;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--wf-bg-white, #fff);
+  border: 1px solid var(--wf-border-light, rgba(226, 232, 240, 0.9));
+  box-shadow:
+    0 8px 28px rgba(15, 23, 42, 0.12),
+    0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.group-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: grab;
+  color: var(--wf-text-primary, #303133);
+  font-size: 13px;
+  line-height: 1;
+  transition: background 0.18s ease;
+}
+
+.group-option:hover {
+  background: var(--wf-primary-light, #ecf5ff);
+}
+
+.group-option:active {
+  cursor: grabbing;
+  background: var(--wf-primary-lighter, #f0f7ff);
+}
+
+.group-option .opt-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: #f8fafc;
+  transition: background 0.18s ease;
+
+  :deep(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+}
+
+.group-option:hover .opt-icon {
+  background: var(--wf-primary-light, #ecf5ff);
+}
+
+.group-option .opt-label {
+  white-space: nowrap;
+}
+
+/* 子菜单进出场 */
+.group-pop-enter-active,
+.group-pop-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  transform-origin: left center;
+}
+
+.group-pop-enter-from,
+.group-pop-leave-to {
+  opacity: 0;
+  transform: translateX(-6px) scale(0.96);
 }
 
 /* ====== 暗黑模式（统一走 wf-* 变量） ====== */
@@ -245,22 +458,20 @@ html.dark .diagram-sidebar:hover {
     0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-html.dark .sidebar-header,
-html.dark .group-header {
-  border-bottom-color: var(--wf-border-color, #333);
-}
-
-html.dark .sidebar-title,
-html.dark .group-title {
-  color: var(--wf-text-primary, #e0e0e0);
-}
-
 html.dark .sidebar-divider {
   background: linear-gradient(90deg, transparent, var(--wf-border-color, #333) 30%, var(--wf-border-color, #333) 70%, transparent);
 }
 
-html.dark .item-icon-wrap {
+html.dark .item-icon-wrap,
+html.dark .group-option .opt-icon {
   background: var(--wf-bg-color, #222) !important;
+}
+
+/* 暗黑模式下 hover 的浅蓝底色（需压过上面的 !important 中性底） */
+html.dark .tool-item:hover .item-icon-wrap,
+html.dark .tool-item.is-open .item-icon-wrap,
+html.dark .group-option:hover .opt-icon {
+  background: rgba(64, 158, 255, 0.16) !important;
 }
 
 /* 暗黑模式下 SVG 图标内部背景色切换 */
@@ -268,58 +479,39 @@ html.dark .diagram-sidebar {
   --wf-icon-bg: #1e2028;
 }
 
-html.dark .sidebar-item:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(99, 102, 241, 0.1));
+html.dark .group-popup {
+  background: var(--wf-bg-color, #1d1e1f);
+  border-color: var(--wf-border-color, #333);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-html.dark .item-label {
-  color: var(--wf-text-regular, #c0c4cc);
+html.dark .group-option {
+  color: var(--wf-text-primary, #e0e0e0);
 }
 
-html.dark .sidebar-item:hover .item-label {
-  color: var(--wf-primary, #409eff);
+html.dark .group-option:hover {
+  background: rgba(64, 158, 255, 0.12);
 }
 
 /* ====== 响应式：平板端 ====== */
 @media (max-width: 1024px) {
   .diagram-sidebar {
     left: 8px;
-    top: 48px;
-    width: 72px;
+    top: 14px;
+    width: 52px;
     border-radius: 12px;
   }
 
-  .sidebar-header {
-    padding: 10px 4px 6px;
-  }
-
-  .sidebar-title {
-    font-size: 12px;
-    letter-spacing: 1.5px;
-  }
-
-  .group-header {
-    padding: 5px 0 3px;
-  }
-
-  .group-title {
-    font-size: 11px;
-    letter-spacing: 1.5px;
-  }
-
-  .sidebar-item {
-    padding: 7px 3px;
+  .tool-item {
+    width: 38px;
+    height: 38px;
   }
 
   .item-icon-wrap {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-  }
-
-  .item-label {
-    font-size: 11px;
-    max-width: 64px;
+    width: 28px;
+    height: 28px;
   }
 }
 
@@ -327,52 +519,38 @@ html.dark .sidebar-item:hover .item-label {
 @media (max-width: 768px) {
   .diagram-sidebar {
     left: 6px;
-    top: 42px;
-    width: 62px;
+    top: 12px;
+    width: 46px;
     border-radius: 10px;
   }
 
-  .sidebar-header {
-    padding: 8px 2px 5px;
-  }
-
-  .sidebar-title {
-    font-size: 11px;
-    letter-spacing: 1px;
-  }
-
-  .group-header {
-    padding: 4px 0 2px;
-  }
-
-  .group-title {
-    font-size: 10px;
-    letter-spacing: 1px;
-  }
-
   .sidebar-content {
-    padding: 6px 4px 8px;
+    padding: 6px 0;
   }
 
-  .sidebar-item {
-    padding: 6px 2px;
+  .tool-item {
+    width: 34px;
+    height: 34px;
     border-radius: 8px;
   }
 
   .item-icon-wrap {
-    width: 28px;
-    height: 28px;
-    border-radius: 7px;
-  }
-
-  .item-label {
-    font-size: 10px;
-    max-width: 56px;
-    margin-top: 4px;
+    width: 26px;
+    height: 26px;
   }
 
   .sidebar-divider {
-    margin: 6px 6px;
+    width: calc(100% - 14px);
+    margin: 8px 0;
+  }
+
+  .group-popup {
+    min-width: 132px;
+    padding: 4px;
+  }
+
+  .group-option {
+    padding: 7px 8px;
   }
 }
 </style>

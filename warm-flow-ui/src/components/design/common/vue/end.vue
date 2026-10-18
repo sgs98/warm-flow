@@ -9,6 +9,9 @@
           <el-form-item label="节点名称：" prop="nodeName">
             <el-input v-model="form.nodeName" ref="nodeInput" :disabled="disabled" @change="nodeNameChange"></el-input>
           </el-form-item>
+          <el-form-item label="默认变量：">
+            <node-variables v-model="form.nodeConfig" :disabled="disabled"></node-variables>
+          </el-form-item>
         </div>
       </div>
     </el-form>
@@ -16,6 +19,7 @@
 </template>
 
 <script setup name="End">
+import nodeVariables from "./nodeVariables";
 
 const props = defineProps({
   modelValue: {

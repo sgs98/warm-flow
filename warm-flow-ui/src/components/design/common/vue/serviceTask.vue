@@ -27,6 +27,9 @@
             <el-form-item label="节点名称：" prop="nodeName">
               <el-input v-model="form.nodeName" :disabled="disabled"></el-input>
             </el-form-item>
+            <el-form-item label="默认变量：">
+              <node-variables v-model="form.nodeConfig" :disabled="disabled"></node-variables>
+            </el-form-item>
             <el-form-item label="执行方式：" prop="serviceType">
               <div class="radio-card-group">
                 <label
@@ -110,6 +113,7 @@
 
 <script setup name="ServiceTask">
 import { Delete, WarningFilled } from '@element-plus/icons-vue'
+import nodeVariables from "./nodeVariables";
 
 const props = defineProps({
   modelValue: {

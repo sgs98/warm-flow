@@ -2,33 +2,29 @@
   <div class="design-root" :style="headerDiv">
     <!-- 顶部导航栏 -->
     <div class="design-header" v-if="!onlyDesignShow">
-      <!-- 左侧：流程名称 -->
+      <!-- 左侧：流程名称（点击打开流程配置抽屉） -->
       <div class="header-left">
         <div class="flow-name-wrapper">
-          <el-tooltip :content="logicJson.flowName" placement="bottom" :show-after="500">
-            <div class="flow-name">
-                <svg-icon icon-class="flowName" style="margin-right: 5px"/>
-                {{ logicJson.flowName || '未命名流程' }}
+          <el-tooltip content="点击编辑流程编码、名称、类别等配置" placement="bottom" :show-after="500">
+            <button type="button" class="flow-name flow-name--editable" @click="openBaseInfo" v-if="!onlyDesignShow">
+                <svg-icon icon-class="flowName"/>
+                <span class="flow-name-text">{{ logicJson.flowName || '未命名流程' }}</span>
+                <svg class="flow-name-edit-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                  <path d="M11.3 1.7a1.6 1.6 0 0 1 2.3 0l.7.7a1.6 1.6 0 0 1 0 2.3l-8.3 8.3-3.5.9a.5.5 0 0 1-.6-.6l.9-3.5 8.3-8.3z"
+                        fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+                  <path d="M10.2 2.9l2.9 2.9" stroke="currentColor" stroke-width="1.4"/>
+                </svg>
+            </button>
+            <div class="flow-name" v-else>
+                <svg-icon icon-class="flowName"/>
+                <span class="flow-name-text">{{ logicJson.flowName || '未命名流程' }}</span>
             </div>
           </el-tooltip>
         </div>
       </div>
 
-      <!-- 中间：步骤切换 -->
-      <div class="header-center">
-        <div class="steps-tabs">
-          <div
-              v-for="(step, index) in steps"
-              :key="index"
-              class="step-tab"
-              :class="{ 'active': activeStep === index }"
-              @click="handleStepClick(index)"
-          >
-            <svg-icon :icon-class="step.icon" class="tab-icon"/>
-            <span class="tab-text">{{ step.title }}</span>
-          </div>
-        </div>
-      </div>
+      <!-- 中间：占位（原步骤切换已移除，流程配置收进画布空白点击弹出的抽屉） -->
+      <div class="header-center"></div>
 
       <!-- 右侧：保存按钮 -->
       <div class="header-right">
@@ -41,7 +37,7 @@
 
     <el-header :style="headerStyle">
       <div class="design-toolbar">
-        <div v-if="activeStep === 1">
+        <div>
           <span class="toolbar-group">
             <el-tooltip content="缩小" placement="bottom"><el-button size="small" icon="ZoomOut" @click="zoomViewport(false)"></el-button></el-tooltip>
             <!-- 自适应：所有端均 fitView 显示全部节点 -->
@@ -57,10 +53,11 @@
             <el-tooltip content="下载流程图" placement="bottom"><el-button size="small" icon="Picture" @click="downLoad"></el-button></el-tooltip>
             <el-tooltip content="下载JSON" placement="bottom"><el-button size="small" icon="Download" @click="downJson"></el-button></el-tooltip>
           </span>
-          <!-- 嵌入模式（onlyDesignShow）同样允许切换模型：切换会重排坐标，保存时单独回写 model_value -->
-          <span class="toolbar-group" v-if="!disabled">
-            <el-tooltip :content="isClassicsModel ? '切换为仿钉钉模型' : '切换为经典模型'" placement="bottom">
-              <el-button size="small" icon="Switch" @click="switchModel"></el-button>
+          <!-- 设计器模型切换已统一收进「流程配置」抽屉的单选（已有流程切换前会确认），工具栏不再保留入口 -->
+          <!-- 流程配置：点画布空白同样可打开；嵌入模式的定义元数据由宿主管理，不提供入口 -->
+          <span class="toolbar-group" v-if="!onlyDesignShow && !disabled">
+            <el-tooltip content="流程配置" placement="bottom">
+              <el-button size="small" icon="Setting" @click="openBaseInfo"></el-button>
             </el-tooltip>
           </span>
           <span class="toolbar-group" v-if="onlyDesignShow && !disabled">
@@ -71,25 +68,69 @@
         </div>
       </div>
 
-      <BaseInfo :style="baseInfoStyle" ref="baseInfoRef" v-if="!onlyDesignShow" v-show="activeStep === 0"
-                :logic-json="logicJson" :category-list="categoryList" :form-path-list="formPathList"
-                :definition-id="definitionId" :disabled="disabled"
-                @update:flow-name="handleFlowNameUpdate" @update:model-value="handleModelValueUpdate"/>
+      <!-- 流程配置抽屉：由点画布空白 / 顶部流程名称 / 工具栏按钮打开；嵌入模式的定义元数据由宿主管理，不渲染 -->
+      <el-drawer
+        v-if="!onlyDesignShow"
+        v-model="baseInfoDrawer"
+        direction="rtl"
+        :size="baseInfoDrawerSize"
+        :destroy-on-close="false"
+        :close-on-click-modal="true"
+        :before-close="attemptCloseBaseInfo"
+        class="base-info-drawer"
+      >
+        <template #header>
+          <div class="base-info-drawer-header">
+            <div class="base-info-drawer-title">流程配置</div>
+            <div class="base-info-drawer-subtitle">编码、名称、模型等定义信息，随画布一起保存</div>
+          </div>
+        </template>
+        <BaseInfo ref="baseInfoRef" class="base-info-in-drawer"
+                  :logic-json="logicJson" :category-list="categoryList" :form-path-list="formPathList"
+                  :definition-id="definitionId" :disabled="disabled"
+                  @update:flow-name="handleFlowNameUpdate" @update:model-value="handleModelValueUpdate"/>
+        <template #footer>
+          <div class="base-info-drawer-footer">
+            <span class="base-info-drawer-footer-hint">配置随下次保存一起提交</span>
+            <span class="base-info-drawer-footer-actions">
+              <el-button @click="attemptCloseBaseInfo()">取 消</el-button>
+              <el-button type="primary" @click="confirmBaseInfo">确 定</el-button>
+            </span>
+          </div>
+        </template>
+      </el-drawer>
 
-      <!-- 自定义拖拽侧边栏：仅流程设计页签显示 + 延迟显示避免与 LogicFlow DOM 冲突 -->
+      <!-- 自定义拖拽侧边栏：延迟显示避免与 LogicFlow DOM 冲突 -->
       <DiagramSidebar
-        v-if="sidebarVisible && activeStep === 1"
+        v-if="sidebarVisible"
         class="diagram-sidebar"
         @dragInNode="handleDragInNode"
       />
 
-      <div class="container" ref="containerRef" v-show="activeStep === 1">
-        <PropertySetting ref="propertySettingRef" :node="nodeClick" :lf="lf" :disabled="disabled"
-                         :skipConditionShow="skipConditionShow" :nodes="nodes" :skips="skips"
-                         :form-path-list="formPathList">
-        </PropertySetting>
+      <!-- 节点属性面板：抽屉 teleport 到 body，原地只留占位符。
+           必须放在 .container 外面！LogicFlow 初始化会接管 .container 的内部 DOM，
+           放在里面会被清掉锚点，之后 Vue 每次 patch Design 子树都会 insertBefore null 崩溃 -->
+      <PropertySetting ref="propertySettingRef" :node="nodeClick" :lf="lf" :disabled="disabled"
+                       :skipConditionShow="skipConditionShow" :nodes="nodes" :skips="skips"
+                       :form-path-list="formPathList">
+      </PropertySetting>
+
+      <div class="container" ref="containerRef"></div>
+      <!-- 画布空态引导：必须是 .container 的「兄弟节点」覆盖层！
+           LogicFlow 初始化会接管 .container 的 DOM，若 v-if 元素放在其内部，
+           节点计数变化引发的 patch 会在同一 flush 里撞上被销毁的锚点，
+           导致 flush 崩溃、$refs 丢失、后续画布重建全部静默失效 -->
+      <div class="canvas-empty-guide" v-if="canvasEmpty">
+        <svg class="canvas-empty-guide-icon" viewBox="0 0 48 48" aria-hidden="true">
+          <rect x="6" y="19" width="14" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/>
+          <rect x="28" y="19" width="14" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M20 24h8M24 24v0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M24 10v9M24 29v9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 3"/>
+        </svg>
+        <p class="canvas-empty-guide-title">画布是空的</p>
+        <p class="canvas-empty-guide-desc">从左侧拖入节点开始设计 · 点击空白处可打开流程配置</p>
       </div>
-      <div class="logo-text" v-if="activeStep === 1">Warm-Flow</div>
+      <div class="logo-text">Warm-Flow</div>
     </el-header>
 
     <!-- 弹框组件 -->
@@ -148,7 +189,7 @@ import {computed, onMounted, onUnmounted, ref, watch} from "vue";
 import BaseInfo from "@/components/design/common/vue/baseInfo.vue";
 import initClassicsData from "@/components/design/classics/initClassicsData.json";
 import initMimicData from "@/components/design/mimic/initMimicData.json";
-import {addBetweenNode, addServiceNode, addGatewayNode, gatewayAddNode, removeNode} from "@/components/design/mimic/js/mimic.js";
+import {addBetweenNode, addServiceNode, addGatewayNode, addEventNode, gatewayAddNode, removeNode} from "@/components/design/mimic/js/mimic.js";
 import EdgeTooltip from "@/components/design/mimic/vue/EdgeTooltip.vue";
 import DiagramSidebar from "@/components/design/common/vue/DiagramSidebar.vue";
 import { useDark } from '@/composables/useDark';
@@ -205,7 +246,6 @@ function fitViewAll() {
   }
 }
 
-const activeStep = ref(0);
 const onlyDesignShow = ref(false);
 
 const headerStyle = computed(() => {
@@ -227,17 +267,9 @@ const headerStyle = computed(() => {
     color: "var(--wf-text-primary, #303133)",
   };
 });
-const baseInfoStyle = computed(() => {
-  return {
-    flex: "1",
-    margin: "5px",
-    backgroundColor: "var(--wf-bg-white, #fff)",
-  };
-});
-
 const headerDiv = computed(() => {
     return {
-        backgroundColor: activeStep.value === 1 ? "var(--wf-bg-page, #eef1f6)" : "var(--wf-bg-white, #fff)",
+        backgroundColor: "var(--wf-bg-page, #eef1f6)",
         // 100dvh 精确等于 iframe / 视口高度；不支持 dvh 的老浏览器由 CSS 回退到 100vh
         display: "flex",
         flexDirection: "column",
@@ -247,46 +279,138 @@ const headerDiv = computed(() => {
     };
 });
 
-// 步骤数据
-const steps = [
-  { title: '基础信息', icon: 'baseInfo' },
-  { title: '流程设计', icon: 'flowDesign' },
-  // { title: '表单设计', icon: 'formDesign' }
-];
-
 const tooltipVisible = ref(false);
 const tooltipPosition = ref({ x: 0, y: 0 });
 const tooltipEdge = ref({});
 
+// 流程配置抽屉：画布是唯一视图，定义元数据（编码 / 名称 / 类别 / 表单 / 监听器等）收进抽屉。
+// 打开入口：点画布空白、点顶部流程名称、工具栏「流程配置」按钮；新建流程时自动打开一次。
+const baseInfoDrawer = ref(false);
+
+// 抽屉宽度响应式：与节点属性面板（propertySetting）保持一致——手机（≤768px）100%，桌面 37%
+const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1280);
+const onViewportResize = () => { viewportWidth.value = window.innerWidth; };
+window.addEventListener('resize', onViewportResize);
+const baseInfoDrawerSize = computed(() => viewportWidth.value <= 768 ? '100%' : '37%');
+
+// 画布空态引导：节点数为 0（如清空后）时中央显示引导文案
+const canvasNodeCount = ref(0);
+const canvasEmpty = computed(() => canvasNodeCount.value === 0);
+
+function updateCanvasNodeCount() {
+  if (lf.value?.getGraphData) {
+    canvasNodeCount.value = (lf.value.getGraphData().nodes || []).length;
+  }
+}
+
+/**
+ * 全局键盘快捷键：
+ * - Cmd/Ctrl + S：保存流程（替代伸手找按钮）
+ * - Delete：删除选中元素（经典模式由 LogicFlow 内置键盘处理，这里补齐仿钉钉模式）
+ */
+function onGlobalKeydown(e) {
+  if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) {
+    e.preventDefault();
+    if (!disabled.value) saveJsonModel();
+    return;
+  }
+  if (e.key === 'Delete' && !disabled.value && lf.value && !isClassics(logicJson.value.modelValue)) {
+    const target = e.target;
+    // 焦点在输入控件里时不劫持（输入框内删除字符是正常行为）
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+    const elements = lf.value.getSelectElements(true);
+    if (elements && (elements.nodes.length || elements.edges.length)) {
+      e.preventDefault();
+      lf.value.clearSelectElements();
+      elements.edges.forEach((edge) => lf.value.deleteEdge(edge.id));
+      elements.nodes.forEach((node) => lf.value.deleteNode(node.id));
+    }
+  }
+}
+
+function openBaseInfo() {
+  baseInfoDrawer.value = true;
+}
+
+/**
+ * 关闭流程配置抽屉（统一出口）：关闭按钮 / 遮罩 / Esc / 取消按钮都走这里。
+ * 有未保存改动时先弹确认，防止误关丢配置；无改动直接收起。
+ * @param done el-drawer before-close 回调，footer 取消按钮调用时不传（直接改 v-model）
+ */
+function attemptCloseBaseInfo(done) {
+  const comp = proxy.$refs.baseInfoRef;
+  const closeIt = () => {
+    comp?.markClean?.();
+    if (typeof done === 'function') {
+      done();
+    } else {
+      baseInfoDrawer.value = false;
+    }
+  };
+  if (!disabled.value && comp?.isDirty?.()) {
+    ElMessageBox.confirm('流程配置尚未保存，配置会随画布保存一起提交，确定放弃本次修改？', '放弃修改', {
+      confirmButtonText: '放弃修改',
+      cancelButtonText: '继续编辑',
+      type: 'warning'
+    }).then(closeIt).catch(() => {});
+    return;
+  }
+  closeIt();
+}
+
+/** 抽屉「确定」：校验通过才收起，失败留在抽屉内就近提示 */
+async function confirmBaseInfo() {
+  const comp = proxy.$refs.baseInfoRef;
+  const valid = await comp?.validate();
+  if (valid === false) return;
+  // 校验通过即视为确认当前配置：刷新脏检测基准后直接收起，不再触发「放弃修改」确认
+  comp?.markClean?.();
+  baseInfoDrawer.value = false;
+}
+
+// 抽屉打开时：清除上次留下的校验红框（首屏不报错）、刷新脏检测基准、新建流程聚焦第一个必填字段。
+// 例外：保存失败自动打开抽屉时保留红框（用户要就近改错），由 keepValidationOnNextOpen 控制。
+const keepValidationOnNextOpen = ref(false);
+watch(baseInfoDrawer, (open) => {
+  if (!open) return;
+  const keepValidate = keepValidationOnNextOpen.value;
+  keepValidationOnNextOpen.value = false;
+  // 抽屉首次打开时 BaseInfo 才懒渲染，nextTick 可能拿不到 ref，做短重试兜底
+  const tryInit = (tries = 0) => {
+    const comp = proxy.$refs.baseInfoRef;
+    if (!comp && tries < 10) {
+      setTimeout(() => tryInit(tries + 1), 50);
+      return;
+    }
+    if (!keepValidate) comp?.clearValidation?.();
+    comp?.markClean?.();
+    if (!definitionId.value) comp?.focusFirstField?.();
+  };
+  proxy.$nextTick(() => tryInit());
+});
+
 const handleOptionClick = (item) => {
-  if (item.icon === "between") {
-    addBetweenNode(lf.value, item.tooltipEdge);
-  } else if (item.icon === "service") {
+  if (item.kind === "event") {
+    addEventNode(lf.value, item.tooltipEdge, item.properties, item.label);
+  } else if (item.kind === "service") {
     addServiceNode(lf.value, item.tooltipEdge);
+  } else if (item.kind === "gateway") {
+    addGatewayNode(lf.value, item.tooltipEdge, item.type);
   } else {
-    addGatewayNode(lf.value, item.tooltipEdge, item.icon);
+    addBetweenNode(lf.value, item.tooltipEdge);
   }
   tooltipVisible.value = false;
   // 移动端/平板端：新增节点后自适应画布，确保所有节点可见
   proxy.$nextTick(() => { fitViewIfMobile(); });
 };
 
-async function handleStepClick(index) {
-  if (activeStep.value === 0 && !onlyDesignShow.value) {
-    let validate = await proxy.$refs.baseInfoRef.validate();
-    if (!validate) return
-  }
-  activeStep.value = index;
-
-  if (index === 1) {
-    handleModelValueUpdate()
-  }
-}
-
-
 onMounted(() => {
     // 隐藏滚动条
     document.body.style.overflow = 'hidden';
+    // 构建版本标记：控制台核对「加载的是哪次构建」，产物链排查用
+    console.info('[warm-flow-designer] build:', typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev');
+    // 全局键盘快捷键（保存 / 删除选中）
+    window.addEventListener('keydown', onGlobalKeydown);
     // 标记当前处于设计器页面：供经典节点设计态语义色判断（业务侧实例进度图不受影响）
     window.__WF_FLOW_DESIGN_MODE__ = true;
     if (!appParams.value) appStore.fetchTokenName();
@@ -326,9 +450,12 @@ onMounted(() => {
           ...initData
         };
       }
-      if (onlyDesignShow.value) {
-        handleStepClick(1)
-      }
+    }
+    // 画布是唯一视图：初始加载即初始化（原由「切到流程设计」步骤触发，Tab 移除后在此补上）
+    handleModelValueUpdate();
+    // 新建流程：没有定义 id，直接弹出流程配置抽屉让用户先填编码 / 名称 / 模型
+    if (!definitionId.value && !onlyDesignShow.value) {
+      baseInfoDrawer.value = true;
     }
   });
 })
@@ -426,6 +553,8 @@ function initLogicFlow() {
       resetEdgeTextPositions(lf.value);
       // 打开即自适应显示全部节点（所有端）
       fitViewAll();
+      // 渲染后刷新画布节点计数（空态引导依赖）
+      updateCanvasNodeCount();
     }
     // 初始化完成后，如果当前是暗黑模式，显式应用一次主题（解决 URL 参数初始化时序问题）
     if (isDark.value && lf.value) {
@@ -463,25 +592,6 @@ function scheduleMobileResize() {
   setTimeout(doFit, 1000);
 }
 
-/**
- * 监听步骤切换：从"基础信息"切到"流程设计"时，自适应显示全部节点（所有端）
- */
-watch(activeStep, (newVal) => {
-  if (newVal === 1 && lf.value) {
-    const doFit = () => {
-      if (lf.value?.resize) {
-        lf.value.resize();
-        requestAnimationFrame(fitViewAll);
-      }
-    };
-    // 多次延迟确保在各种时序下移动端能正确适配
-    nextTick(doFit);
-    setTimeout(doFit, 150);
-    setTimeout(doFit, 400);
-    setTimeout(doFit, 800);
-  }
-});
-
 watch(isDark, (v) => {
   if (!lf.value) {
     return;
@@ -493,6 +603,8 @@ watch(isDark, (v) => {
 onUnmounted(() => {
   cleanupMessageListener();
   window.removeEventListener('resize', handleMobileResize);
+  window.removeEventListener('resize', onViewportResize);
+  window.removeEventListener('keydown', onGlobalKeydown);
   // 离开设计器页面，复位设计态标记
   window.__WF_FLOW_DESIGN_MODE__ = false;
 });
@@ -551,7 +663,12 @@ function getBaseInfo() {
   if (onlyDesignShow.value) {
     return
   }
-  const baseInfoData = proxy.$refs.baseInfoRef.getFormData();
+  // 抽屉懒渲染：从未打开过配置抽屉时表单尚未挂载，此时用 logicJson 的初始值即可
+  const baseInfoComp = proxy.$refs.baseInfoRef;
+  if (!baseInfoComp) {
+    return
+  }
+  const baseInfoData = baseInfoComp.getFormData();
   logicJson.value = {
     ...logicJson.value,
     ...baseInfoData
@@ -569,87 +686,73 @@ function handleModelValueUpdate() {
   getBaseInfo();
   const modeNew = logicJson.value.modelValue;
 
-  if (!lf.value || modeOrg !== modeNew) {
-    // 先隐藏侧边栏，等 initLogicFlow 完成后再显示
+  // 首次初始化（画布还没建）
+  if (!lf.value) {
     sidebarVisible.value = false;
     nextTick(() => {
-      if (!jsonString.value.nodeList || jsonString.value.nodeList.length === 0) {
-        // 读取本地文件/initData.json文件，并将数据转换json对象
-        let initData = isClassics(logicJson.value.modelValue) ? initClassicsData : initMimicData;
-        logicJson.value = {
-          ...logicJson.value,
-          ...initData
-        };
+      try {
+        if (!jsonString.value.nodeList || jsonString.value.nodeList.length === 0) {
+          // 读取本地文件/initData.json文件，并将数据转换json对象
+          let initData = isClassics(logicJson.value.modelValue) ? initClassicsData : initMimicData;
+          logicJson.value = {
+            ...logicJson.value,
+            ...initData
+          };
+        }
+        initLogicFlow();
+      } catch (e) {
+        console.error('[wf-designer] 首次初始化异常:', e);
       }
-      initLogicFlow();
     });
-  }
-}
-
-/** 当前是否经典模式（工具栏切换按钮的提示与目标方向） */
-const isClassicsModel = computed(() => isClassics(logicJson.value?.modelValue));
-
-/** 画布内是否切换过设计器模型：嵌入模式下保存时据此单独回写 model_value */
-const modelValueDirty = ref(false);
-
-/**
- * 切换设计器模型（经典 ↔ 仿钉钉）。
- * 仅在画布内做「转换预览」：重排坐标 + 换 modelValue + 重建画布，
- * 点击保存时才随 saveJson 把新模型与坐标落库；不保存则刷新页面即还原。
- */
-function switchModel() {
-  if (!lf.value || !logicJson.value?.nodes?.length) {
     return;
   }
-  const toMimic = isClassicsModel.value;
-  const tip = toMimic
-    ? '将按上下结构自动重排节点布局（分支间距、网关配对），保存后生效并更新该流程的设计器模型。'
-    : '将保留当前坐标切换为自由布局，保存后生效并更新该流程的设计器模型。';
-  ElMessageBox.confirm(tip, toMimic ? '切换为仿钉钉模型' : '切换为经典模型', {
-    confirmButtonText: '确认转换',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    doSwitchModel(toMimic);
-  }).catch(() => {});
-}
 
-function doSwitchModel(toMimic) {
-  // logicJson 只在保存时同步画布，转换前必须先取画布最新数据：
-  // 否则本次新增的节点/连线不在数据里，转换后会被静默丢弃；拖动过的坐标也会回退到旧值。
-  if (lf.value) {
+  // 模型没变（普通联动），无需重建
+  if (modeOrg === modeNew) return;
+
+  // 模型切换重建（原工具栏 switchModel 链路，现由抽屉单选触发）：
+  // 先取画布最新节点/连线（否则本次新增会被丢弃、拖过的坐标回退），
+  // 丢弃旧模型折点，切仿钉钉时按上下结构重排，再按新模式注册元素重建画布
+  try {
     const graphData = lf.value.getGraphData();
     logicJson.value = {
       ...logicJson.value,
       nodes: graphData['nodes'],
       edges: graphData['edges']
     };
+    clearEdgePoints(logicJson.value.edges);
+    if (!isClassics(modeNew)) {
+      relayoutToMimic(logicJson.value.nodes, logicJson.value.edges);
+    }
+  } catch (e) {
+    console.error('[model-switch] 同步段失败:', e);
+    return;
   }
-  // 折点/端点都是按上一个模型的节点尺寸算出来的（如仿钉钉卡片宽 260、经典卡片宽 100），
-  // 换模型后不再贴合节点，先整体丢弃，重建后由 updateEdges 按目标模型尺寸重新生成
-  clearEdgePoints(logicJson.value.edges);
-  if (toMimic) {
-    relayoutToMimic(logicJson.value.nodes, logicJson.value.edges);
-  }
-  // 整体重建 logicJson：既换模型，也触发 BaseInfo 表单的模型卡片联动
-  logicJson.value = { ...logicJson.value, modelValue: toMimic ? 'MIMIC' : 'CLASSICS' };
-  modelValueDirty.value = true;
-  // 与 handleModelValueUpdate 相同的重建链路：按新模式注册元素并重渲染
   sidebarVisible.value = false;
   nextTick(() => {
-    initLogicFlow();
-    if (lf.value) {
-      // 重建后按「目标模型的节点尺寸」重算全部折点：只换 modelValue 会让旧模型的折点留在画布上，
-      // 端点对不上新节点尺寸（如仿钉钉折点按 260 宽卡片算，经典卡片只有 100 宽就会脱开节点）
-      updateEdges(lf.value);
-      // 连线已按新模型重建，标签坐标按新几何全部重算，避免旧坐标落到别的节点/连线上
-      resetEdgeTextPositions(lf.value, true);
-      // 转换是整体重建，历史里残留的「删边/加边」中间态会让「上一步」退成错乱路由，
-      // 这里把转换后的状态设为新的撤销基准（后续编辑仍可撤销）
-      resetHistory(lf.value);
+    try {
+      initLogicFlow();
+      if (lf.value) {
+        // 重建后按「目标模型的节点尺寸」重算全部折点：只换 modelValue 会让旧折点脱开节点
+        updateEdges(lf.value);
+        // 连线已按新模型重建，标签坐标按新几何全部重算
+        resetEdgeTextPositions(lf.value, true);
+        // 转换是整体重建，把转换后的状态设为新的撤销基准
+        resetHistory(lf.value);
+        // 整体重建后刷新节点计数（空态引导依赖）
+        updateCanvasNodeCount();
+      }
+    } catch (e) {
+      console.error('[model-switch] 重建失败:', e);
     }
   });
 }
+
+/** 当前是否经典模式（供其它逻辑判断模型方向） */
+const isClassicsModel = computed(() => isClassics(logicJson.value?.modelValue));
+
+/** 画布内是否切换过设计器模型：嵌入模式下保存时据此单独回写 model_value */
+const modelValueDirty = ref(false);
 
 /**
  * 嵌入模式下的最小定义载荷：只回写设计器模型，不携带宿主管理的其它定义字段。
@@ -667,10 +770,18 @@ function modelValuePayload(json) {
 async function saveJsonModel() {
   const loadingInstance = ElLoading.service(({fullscreen: true, text: "保存中，请稍等"}))
   if (!onlyDesignShow.value) {
-    let validate = await proxy.$refs.baseInfoRef.validate();
-    if (!validate) {
-      loadingInstance.close();
-      return;
+    // 抽屉懒渲染：从未打开过配置抽屉时表单尚未挂载，此时不需要校验（初始值即当前值）
+    const baseInfoComp = proxy.$refs.baseInfoRef;
+    if (baseInfoComp) {
+      let validate = await baseInfoComp.validate();
+      if (!validate) {
+        loadingInstance.close();
+        // 就近改错：打开配置抽屉并定位到第一个错误项（保留红框，不让「打开即清校验」擦掉）
+        keepValidationOnNextOpen.value = true;
+        baseInfoDrawer.value = true;
+        proxy.$modal.msgWarning("请先完善流程配置中标红项");
+        return;
+      }
     }
   }
   getBaseInfo();
@@ -1124,11 +1235,24 @@ function initEvent() {
     })
   })
 
+  // 画布空态引导：跟随节点增删刷新节点计数
+  eventCenter.on('node:add,node:delete,node:deleted', () => {
+    updateCanvasNodeCount()
+  })
+
   eventCenter.on('blank:click', () => {
-    nodeClick.value = null
-    proxy.$nextTick(() => {
-      propertySettingRef.value.handleClose()
-    })
+    // 手势区分意图：选中态下点空白 = 收起属性面板（只做取消选中）；
+    // 空态下点空白 = 打开流程配置。两个意图不叠加，避免「取消选中」永远伴随抽屉弹出。
+    if (nodeClick.value != null) {
+      nodeClick.value = null
+      proxy.$nextTick(() => {
+        propertySettingRef.value.handleClose()
+      })
+      return
+    }
+    if (!onlyDesignShow.value) {
+      baseInfoDrawer.value = true
+    }
   })
 }
 
@@ -1175,6 +1299,8 @@ const undoOrRedo = async (undo) => {
   }else{
     lf.value.redo(undo)
   }
+  // 撤销/重做可能删掉节点，刷新空态引导
+  nextTick(() => updateCanvasNodeCount());
 };
 //清空
 const clear = async () => {
@@ -1187,7 +1313,8 @@ const clear = async () => {
         };
         lf.value.render(logicJson.value);
     }
-
+    // 清空 / 重置后刷新节点计数（空态引导依赖）
+    nextTick(() => updateCanvasNodeCount());
 }
 
 /**
@@ -1288,6 +1415,44 @@ html.dark .container :deep(.lf-container-bg) {
   background-color: var(--wf-bg-color, #141414) !important;
 }
 
+/* ========== 画布空态引导（.container 的兄弟覆盖层，见模板内注释） ========== */
+.canvas-empty-guide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  /* 纯引导展示：不挡画布的点击 / 拖拽 */
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+  color: var(--wf-text-placeholder, #c0c4cc);
+}
+
+.canvas-empty-guide-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
+  color: var(--wf-text-placeholder, #c0c4cc);
+  opacity: 0.8;
+}
+
+.canvas-empty-guide-title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--wf-text-secondary, #909399);
+}
+
+.canvas-empty-guide-desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--wf-text-placeholder, #c0c4cc);
+  line-height: 1.6;
+}
+
 /* ========== Logo 水印 ========== */
 .logo-text {
   position: absolute;
@@ -1341,23 +1506,31 @@ html.dark .container :deep(.lf-container-bg) {
 }
 
 .flow-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 600;
   font-size: 15px;
-  max-width: 300px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 320px;
   color: #1e293b;
-  padding: 8px 16px;
+  padding: 8px 14px;
   background: var(--wf-bg-white, #fff);
   border-radius: 8px;
   border: 1px solid var(--wf-border-light, #e2e8f0);
   cursor: default;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-family: inherit;
 }
 
 html.dark .flow-name {
   color: var(--wf-text-primary) !important;
+}
+
+.flow-name-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .flow-name:hover {
@@ -1365,65 +1538,159 @@ html.dark .flow-name {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-/* ========== 步骤切换标签 ========== */
-.steps-tabs {
+/* 可点击的流程名称 = 流程配置抽屉入口：button 语义 + 编辑铅笔暗示，键盘可达 */
+.flow-name--editable {
+  cursor: pointer;
+}
+
+.flow-name--editable:focus-visible {
+  outline: 2px solid var(--wf-primary, #409eff);
+  outline-offset: 2px;
+}
+
+.flow-name--editable:active {
+  transform: scale(0.98);
+}
+
+.flow-name-edit-icon {
+  flex: none;
+  color: #94a3b8;
+  transition: color 0.2s ease;
+}
+
+.flow-name--editable:hover .flow-name-edit-icon,
+.flow-name--editable:focus-visible .flow-name-edit-icon {
+  color: var(--wf-primary, #409eff);
+}
+
+/* ========== 流程配置抽屉 ========== */
+.base-info-drawer-header {
   display: flex;
-  gap: 4px;
-  padding: 4px;
-  background: var(--wf-bg-white, #fff);
-  border: 1px solid var(--wf-border-lighter, #ebeef5);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  flex-direction: column;
+  gap: 2px;
 }
 
-html.dark .steps-tabs {
-  background: var(--wf-bg-color) !important;
+.base-info-drawer-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--wf-text-primary, #303133);
+  line-height: 1.4;
 }
 
-.step-tab {
+.base-info-drawer-subtitle {
+  font-size: 12px;
+  color: var(--wf-text-secondary, #909399);
+  line-height: 1.5;
+}
+
+/* BaseInfo 根节点 .app-container 自带 padding:0，抽屉内由外层统一给呼吸感。
+   el-drawer teleport 到 body、class 与 el-drawer 同元素，本文件 style 无 scoped，
+   直接用 .el-drawer.base-info-drawer 全局选择器（:deep 与后代形式都无效） */
+.base-info-in-drawer {
+  padding: 4px 2px 16px;
+}
+
+/* 抽屉内表单密度收紧：BaseInfo 原按 960px 大对话框设计，放进 680px 抽屉按面板密度排，
+   行距 / 标题 / 卡片整体收一档，避免「糊脸」的放大感 */
+.el-drawer.base-info-drawer .dialogForm {
+  max-width: 100%;
+  margin: 8px auto 16px;
+}
+
+.el-drawer.base-info-drawer .form-section {
+  margin-bottom: 22px;
+}
+
+.el-drawer.base-info-drawer .section-title {
+  font-size: 14px;
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+}
+
+.el-drawer.base-info-drawer .el-form-item {
+  margin-bottom: 16px;
+}
+
+.el-drawer.base-info-drawer .el-input__wrapper,
+.el-drawer.base-info-drawer .el-select .el-input__wrapper,
+.el-drawer.base-info-drawer .el-textarea__inner {
+  border-radius: 8px;
+}
+
+/* 设计器模型已是普通单选按钮，无需卡片覆盖；仅保留警告条收一档 */
+.el-drawer.base-info-drawer .radio-card-warning {
+  margin-top: 6px;
+  padding: 5px 9px;
+  font-size: 11px;
+}
+
+/* 流程配置抽屉：动画规格与节点属性面板（property-drawer-modern）一致，走 el-drawer 默认滑出 */
+
+/* 亮色主题：头部/主体/页脚分界线 */
+.el-drawer.base-info-drawer .el-drawer__header {
+  margin-bottom: 0;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--wf-border-lighter, #ebeef5);
+}
+
+.el-drawer.base-info-drawer .el-drawer__body {
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+.el-drawer.base-info-drawer .el-drawer__footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--wf-border-lighter, #ebeef5);
+}
+
+.base-info-drawer-footer {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 28px;
-  cursor: pointer;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #64748b;
-  background: transparent;
-  border: none;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  user-select: none;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.step-tab:hover {
-  color: var(--wf-primary, #409eff);
-  background: var(--wf-primary-light, #ecf5ff);
+.base-info-drawer-footer-hint {
+  font-size: 12px;
+  color: var(--wf-text-secondary, #909399);
 }
 
-.step-tab .tab-icon {
-  width: 18px;
-  height: 18px;
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
+.base-info-drawer-footer-actions {
+  display: inline-flex;
+  gap: 10px;
 }
 
-.step-tab:hover .tab-icon {
-  opacity: 1;
+/* 小屏抽屉（100% 宽）空间紧：footer 提示让位，只留按钮 */
+@media (max-width: 768px) {
+  .base-info-drawer-footer-hint {
+    display: none;
+  }
+
+  .base-info-drawer-footer {
+    justify-content: flex-end;
+  }
 }
 
-.step-tab.active {
-  color: #fff;
-  background: var(--wf-primary, #409eff);
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.28);
+/* ========== 流程配置抽屉（暗黑模式） ========== */
+html.dark .el-drawer.base-info-drawer {
+  background: var(--wf-bg-white, #1f2937);
 }
 
-.step-tab.active .tab-icon {
-  opacity: 1;
+html.dark .base-info-drawer-title {
+  color: var(--wf-text-primary);
 }
 
-.step-tab.active:hover {
-  background: var(--wf-primary-dark, #2b7de9);
+html.dark .base-info-drawer-subtitle,
+html.dark .base-info-drawer-footer-hint {
+  color: var(--wf-text-secondary);
+}
+
+html.dark .el-drawer.base-info-drawer .el-drawer__header {
+  border-bottom-color: var(--wf-border-color, #374151);
+}
+
+html.dark .el-drawer.base-info-drawer .el-drawer__footer {
+  border-top-color: var(--wf-border-color, #374151);
 }
 
 /* ========== 保存按钮 ========== */
@@ -1508,20 +1775,6 @@ html.dark .toolbar-group {
 
 /* flow-name 的暗黑样式已在 L830-832 通过 CSS 变量 + !important 处理 */
 
-html.dark .steps-tabs {
-  background: var(--wf-bg-color);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-html.dark .step-tab {
-  color: var(--wf-text-regular);
-}
-
-html.dark .step-tab:hover {
-  color: var(--wf-primary);
-  background: rgba(96, 165, 250, 0.1);
-}
-
 html.dark .logo-text {
   color: var(--wf-text-secondary);
 }
@@ -1603,23 +1856,6 @@ html.dark .logo-text {
     min-width: 80px;
   }
 
-  /* 步骤标签缩小 */
-  .step-tab {
-    padding: 8px 18px;
-    font-size: 13px;
-    gap: 6px;
-  }
-
-  .step-tab .tab-icon {
-    width: 16px;
-    height: 16px;
-  }
-
-  .steps-tabs {
-    gap: 2px;
-    padding: 3px;
-  }
-
   /* 流程名称缩短 */
   .flow-name {
     max-width: 180px;
@@ -1682,28 +1918,6 @@ html.dark .logo-text {
     justify-content: flex-end;
   }
 
-  /* 步骤标签紧凑模式：纯图标+短文字 */
-  .steps-tabs {
-    gap: 2px;
-    border-radius: 8px;
-  }
-
-  .step-tab {
-    padding: 6px 12px;
-    font-size: 12px;
-    gap: 4px;
-    border-radius: 6px;
-  }
-
-  .step-tab .tab-icon {
-    width: 15px;
-    height: 15px;
-  }
-
-  .step-tab.active {
-    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
-  }
-
   /* 流程名称进一步压缩 */
   .flow-name {
     max-width: 120px;
@@ -1757,19 +1971,6 @@ html.dark .logo-text {
   .design-header {
     padding: 4px 6px;
     min-height: 36px;
-  }
-
-  /* 步骤标签极简模式：更紧凑 */
-  .step-tab {
-    padding: 4px 10px;
-    font-size: 11px;
-    gap: 2px;
-    border-radius: 5px;
-  }
-
-  .step-tab .tab-icon {
-    width: 13px;
-    height: 13px;
   }
 
   /* 流程名称极短 */

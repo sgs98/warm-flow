@@ -2,6 +2,11 @@ import {RectNode, RectNodeModel, h} from "@logicflow/core";
 import {setCommonStyle, applyClassicDesignColor} from "@/components/design/common/js/tool.js";
 import {handlerFeedback} from "@/api/flow/definition.js";
 
+// 事件节点设计态语义色：品红，与左侧事件节点图标、侧栏底色保持一致
+const EVENT_COLOR_RGB = '217,70,239';
+// 闪电图标路径（Material bolt，viewBox 0 0 24 24），事件节点标识
+const BOLT_PATH = 'M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C12.96 17.55 11 21 11 21z';
+
 class BetweenModel extends RectNodeModel {
 
   initNodeData(data) {
@@ -41,14 +46,15 @@ class BetweenModel extends RectNodeModel {
 
   getNodeStyle() {
     const style = setCommonStyle(super.getNodeStyle(), this.properties, "node");
-    // 设计态语义色：中间 / 审批节点用品牌蓝
-    return applyClassicDesignColor(style, this.properties, '64,158,255');
+    // 设计态语义色：事件节点用品红，中间 / 审批节点用品牌蓝
+    const designRgb = this.properties.eventType ? EVENT_COLOR_RGB : '64,158,255';
+    return applyClassicDesignColor(style, this.properties, designRgb);
   }
 }
 
 class BetweenView extends RectNode {
 
-  /** 现代化审批/任务图标：柔和色块章 + 语义色符号 */
+  /** 现代化审批/任务图标：柔和色块章 + 语义色符号（事件节点改用闪电标识） */
   getIconShape() {
     const {model} = this.props;
     const {x, y} = model;
@@ -58,6 +64,39 @@ class BetweenView extends RectNode {
     const size = 24;
     const iconX = x - 40; // 左上角
     const iconY = y - 32; // 底边 y-8，避开居中标题的纵向区间
+
+    // 事件节点：闪电（触发）标识；普通中间 / 审批节点：「用户 + 对勾」标识
+    const glyph = model.properties.eventType
+        ? [
+          h('path', {
+            d: BOLT_PATH,
+            fill: `rgb(${sc})`,
+          }),
+        ]
+        : [
+          // 用户 + 对勾标识
+          h('circle', {
+            cx: 10.2, cy: 9.2, r: 3.4,
+            fill: 'none',
+            stroke: `rgb(${sc})`,
+            strokeWidth: 1.7,
+          }),
+          h('path', {
+            d: 'M4.6 18.4c1-2.8 3-4.2 5.6-4.2 1 0 1.9.2 2.7.6',
+            fill: 'none',
+            stroke: `rgb(${sc})`,
+            strokeWidth: 1.7,
+            strokeLinecap: 'round',
+          }),
+          h('path', {
+            d: 'M14.6 15.6l2 2 3.6-4',
+            fill: 'none',
+            stroke: `rgb(${sc})`,
+            strokeWidth: 1.8,
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+          }),
+        ];
 
     return h(
         'g',
@@ -82,30 +121,7 @@ class BetweenView extends RectNode {
                 height: size - 6,
                 viewBox: '0 0 24 24',
               },
-              [
-                // 用户 + 对勾标识
-                h('circle', {
-                  cx: 10.2, cy: 9.2, r: 3.4,
-                  fill: 'none',
-                  stroke: `rgb(${sc})`,
-                  strokeWidth: 1.7,
-                }),
-                h('path', {
-                  d: 'M4.6 18.4c1-2.8 3-4.2 5.6-4.2 1 0 1.9.2 2.7.6',
-                  fill: 'none',
-                  stroke: `rgb(${sc})`,
-                  strokeWidth: 1.7,
-                  strokeLinecap: 'round',
-                }),
-                h('path', {
-                  d: 'M14.6 15.6l2 2 3.6-4',
-                  fill: 'none',
-                  stroke: `rgb(${sc})`,
-                  strokeWidth: 1.8,
-                  strokeLinecap: 'round',
-                  strokeLinejoin: 'round',
-                }),
-              ]
+              glyph
           ),
         ]
     );

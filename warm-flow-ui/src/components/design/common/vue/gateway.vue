@@ -6,6 +6,9 @@
           <el-form-item label="节点编码：" prop="nodeCode">
             <el-input v-model="form.nodeCode" :disabled="disabled"></el-input>
           </el-form-item>
+          <el-form-item label="默认变量：">
+            <node-variables v-model="form.nodeConfig" :disabled="disabled"></node-variables>
+          </el-form-item>
         </div>
       </div>
     </el-form>
@@ -13,6 +16,7 @@
 </template>
 
 <script setup name="Gateway">
+import nodeVariables from "./nodeVariables";
 
 const props = defineProps({
   modelValue: {

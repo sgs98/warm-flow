@@ -8,7 +8,7 @@ function isCardNode(nodeType) {
   return nodeType === 'between' || nodeType === 'service';
 }
 
-function addNode(lf, nodeType, x, y, name) {
+function addNode(lf, nodeType, x, y, name, properties) {
   let text = null;
   if (name) {
     text = {
@@ -17,12 +17,17 @@ function addNode(lf, nodeType, x, y, name) {
       y: y,
     }
   }
-  return lf.addNode({
+  const nodeConfig = {
     type: nodeType,
     x: x,
     y: y,
     text: text,
-  });
+  }
+  // 事件节点等需要初始属性时透传；普通节点不写 properties，保持原有节点结构
+  if (properties) {
+    nodeConfig.properties = properties
+  }
+  return lf.addNode(nodeConfig);
 }
 
 function addEdge(lf, nodeType, sourceNodeId, targetNodeId, pointsList) {
@@ -199,6 +204,27 @@ export const addBetweenNode = (lf, edge) => {
 
   // 当目标节点减新增中间节点差，小于竖向偏移量，才移动节点
   recursivelyMoveNodes(lf, betweenNode);
+
+  updateEdges(lf)
+}
+
+// 在边中间插入事件节点：事件即 between + eventType，结构与审批节点一致（单进单出）
+export const addEventNode = (lf, edge, properties, name) => {
+  const nodes = lf.getGraphData().nodes;
+  const sourceNode = nodes.find(node => node.id === edge.sourceNodeId);
+  const targetNode = nodes.find(node => node.id === edge.targetNodeId);
+
+  // 添加事件节点（between 承载，带 eventType 等初始属性）
+  const eventNode = addNode(lf, 'between', sourceNode.x, getMoveY(sourceNode, 'between'), name, properties)
+  addEdge(lf, "skip", sourceNode.id, eventNode.id)
+
+  // 找到并删除开始节点和结束节点之间的直接连接
+  lf.deleteEdge(edge.id);
+
+  addEdgeAll(lf, "skip", eventNode.id, targetNode.id, edge.properties)
+
+  // 当目标节点减新增事件节点差，小于竖向偏移量，才移动节点
+  recursivelyMoveNodes(lf, eventNode);
 
   updateEdges(lf)
 }
