@@ -189,6 +189,8 @@ CREATE TABLE flow_node (
     node_ratio nvarchar(200)  NULL,
     coordinate nvarchar(100) NULL,
     any_node_skip nvarchar(100) NULL,
+    listener_type nvarchar(100) NULL,
+    listener_path nvarchar(400) NULL,
     form_custom nchar(1) DEFAULT('N') NULL,
     form_path nvarchar(100) NULL,
     create_time datetime2(7)  NULL,
@@ -197,6 +199,10 @@ CREATE TABLE flow_node (
     update_by nvarchar(64) NULL,
     ext nvarchar(max) NULL,
     node_config nvarchar(max) NULL,
+    event_type nvarchar(40) NULL,
+    event_name nvarchar(100) NULL,
+    attached_to_node_code nvarchar(100) NULL,
+    interrupting tinyint NULL,
     del_flag nchar(1) DEFAULT('0') NULL,
     tenant_id nvarchar(40) NULL,
     CONSTRAINT PK__flow_nod__3213E83F372470DE PRIMARY KEY CLUSTERED (id)
@@ -333,10 +339,38 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'节点配置（服务任务等引擎配置与自定义扩展属性json）',
+'MS_Description', N'节点配置（服务任务、事件等引擎节点配置json）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_node',
 'COLUMN', N'node_config'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'事件类型（MESSAGE_START TIMER_START TIMER_CATCH MESSAGE_CATCH MESSAGE_THROW TIMER_BOUNDARY MESSAGE_BOUNDARY ERROR_CATCH ERROR_BOUNDARY TERMINATE_END MESSAGE_END）',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_node',
+'COLUMN', N'event_type'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'事件名称（消息事件使用）',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_node',
+'COLUMN', N'event_name'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'边界事件附着的任务节点编码',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_node',
+'COLUMN', N'attached_to_node_code'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'边界事件是否中断型',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_node',
+'COLUMN', N'interrupting'
 GO
 
 
@@ -578,7 +612,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'流程状态（0待提交 1审批中 2审批通过 4终止 5作废 6撤销 8已完成 9已退回 10失效 11拿回）',
+'MS_Description', N'实例状态（0待提交 1审批中 4终止 5作废 6撤销 7取回 8已完成 9已退回 12重启 13暂存）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_instance',
 'COLUMN', N'flow_status'
@@ -719,7 +753,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'流程状态（0待提交 1审批中 2审批通过 4终止 5作废 6撤销 8已完成 9已退回 10失效 11拿回）',
+'MS_Description', N'任务状态（1待办理 2通过 8结束 9退回 10失效 11拿回；任务结果，勿套用实例状态编码）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_task',
 'COLUMN', N'flow_status'
@@ -890,7 +924,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'协作方式(1审批 2转办 3委派 4会签 5票签 6加签 7减签)',
+'MS_Description', N'协作方式（1无 2转办 3委派 4会签 5票签 6加签 7减签；行为维度，结果见 flow_status）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_his_task',
 'COLUMN', N'cooperate_type'
@@ -911,7 +945,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'流程状态（0待提交 1审批中 2审批通过 4终止 5作废 6撤销 8已完成 9已退回 10失效 11拿回）',
+'MS_Description', N'任务状态（1待办理 2通过 8结束 9退回 10失效 11拿回；任务结果，勿套用实例状态编码）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_his_task',
 'COLUMN', N'flow_status'
@@ -1090,4 +1124,242 @@ EXEC sp_addextendedproperty
 'MS_Description', N'流程用户表',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_user'
+GO
+
+-- 事件等待表：定时 / 消息等需要“等待”的事件统一落在此表，状态独立于流程状态。
+CREATE TABLE flow_event_wait (
+    id bigint NOT NULL,
+    tenant_id nvarchar(40) NULL,
+    del_flag nchar(1) DEFAULT('0') NULL,
+    definition_id bigint NULL,
+    instance_id bigint NULL,
+    node_code nvarchar(100) NULL,
+    event_type nvarchar(40) NOT NULL,
+    event_name nvarchar(100) NULL,
+    attached_task_id bigint NULL,
+    trigger_type nvarchar(40) NULL,
+    trigger_interval nvarchar(100) NULL,
+    next_trigger_at datetime2(7) NULL,
+    timezone nvarchar(40) NULL,
+    repeat_count int NULL,
+    max_repeat_count int NULL,
+    status nvarchar(20) NOT NULL,
+    retry_count int NULL,
+    max_retry_count int NULL,
+    retry_at datetime2(7) NULL,
+    lock_owner nvarchar(64) NULL,
+    lock_until datetime2(7) NULL,
+    version int NULL,
+    payload nvarchar(max) NULL,
+    last_error nvarchar(500) NULL,
+    create_time datetime2(7) NULL,
+    update_time datetime2(7) NULL,
+    CONSTRAINT PK_flow_event_wait PRIMARY KEY CLUSTERED (id)
+    WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON)
+    ON [PRIMARY]
+)
+ON [PRIMARY]
+GO
+
+CREATE NONCLUSTERED INDEX event_wait_status_next ON flow_event_wait (status ASC, next_trigger_at ASC, id ASC)
+GO
+CREATE NONCLUSTERED INDEX event_wait_status_retry ON flow_event_wait (status ASC, retry_at ASC, id ASC)
+GO
+CREATE NONCLUSTERED INDEX event_wait_tenant_status_next ON flow_event_wait (tenant_id ASC, status ASC, next_trigger_at ASC, id ASC)
+GO
+CREATE NONCLUSTERED INDEX event_wait_tenant_status_retry ON flow_event_wait (tenant_id ASC, status ASC, retry_at ASC, id ASC)
+GO
+CREATE NONCLUSTERED INDEX event_wait_instance_task ON flow_event_wait (instance_id ASC, attached_task_id ASC)
+GO
+CREATE NONCLUSTERED INDEX event_wait_name_instance_status ON flow_event_wait (event_name ASC, instance_id ASC, status ASC)
+GO
+CREATE NONCLUSTERED INDEX event_wait_def_node_status ON flow_event_wait (definition_id ASC, node_code ASC, status ASC)
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'事件等待表',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'主键id',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'id'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'租户id',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'tenant_id'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'删除标志',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'del_flag'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'流程定义id（定时启动事件必须有）',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'definition_id'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'流程实例id（实例等待事件必须有）',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'instance_id'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'事件节点编码（定位沿用 definition_id + node_code）',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'node_code'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'事件类型（MESSAGE_START TIMER_START TIMER_CATCH MESSAGE_CATCH MESSAGE_THROW TIMER_BOUNDARY MESSAGE_BOUNDARY ERROR_CATCH ERROR_BOUNDARY TERMINATE_END MESSAGE_END）',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'event_type'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'事件名称（消息事件使用）',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'event_name'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'边界事件关联的待办任务id',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'attached_task_id'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'触发策略类型（AFTER FIXED POINT_IN_TIME）',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'trigger_type'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'触发策略原始配置',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'trigger_interval'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'下次触发时间',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'next_trigger_at'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'定时触发使用的时区',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'timezone'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'已触发次数',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'repeat_count'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'最大触发次数',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'max_repeat_count'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'等待状态（WAITING RUNNING CANCELLED RETRY DEAD）',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'status'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'已重试次数',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'retry_count'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'最大重试次数',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'max_retry_count'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'下次重试时间',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'retry_at'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'抢占持有者标识',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'lock_owner'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'抢占租约到期时间',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'lock_until'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'乐观锁版本号',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'version'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'消息事件接收的业务载荷',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'payload'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'最近一次失败原因摘要',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'last_error'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'创建时间',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'create_time'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'更新时间',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_event_wait',
+'COLUMN', N'update_time'
 GO
