@@ -39,90 +39,63 @@ public class ListenerVariable {
     /**
      * 流程定义
      * -- GETTER --
-     *  获取流程定义。
-     *
-     * @return 流程定义
-
+     * 获取流程定义。
      */
     private Definition definition;
 
     /**
      * 流程实例
      * -- GETTER --
-     *  获取流程实例。
-     *
-     * @return 流程实例
-
+     * 获取流程实例。
      */
     private Instance instance;
 
     /**
      * 监听器对应的节点
      * -- GETTER --
-     *  获取监听器对应节点。
-     *
-     * @return 节点
-
+     * 获取监听器对应节点。
      */
     private Node node;
 
     /**
      * 当前任务
      * -- GETTER --
-     *  获取当前任务。
-     *
-     * @return 当前任务
-
+     * 获取当前任务。
      */
     private Task task;
 
     /**
      * 下一次执行的节点集合
      * -- GETTER --
-     *  获取后续节点集合。
-     *
-     * @return 后续节点集合
-
+     * 获取后续节点集合。
      */
     private List<Node> nextNodes;
 
     /**
      * 新创建任务集合
      * -- GETTER --
-     *  获取新创建任务集合。
-     *
-     * @return 新任务集合
-
+     * 获取新创建任务集合。
      */
     private List<Task> nextTasks;
 
     /**
      * 流程变量
      * -- GETTER --
-     *  获取流程变量。
-     *
-     * @return 流程变量
-
+     * 获取流程变量。
      */
     private Map<String, Object> variable;
 
     /**
      * 本次实际触发的监听器事件类型，取值见 {@link Listener} 事件常量
      * -- GETTER --
-     *  获取本次实际触发的监听器事件类型。
-     *
-     * @return 监听器事件类型，取值见 {@link Listener} 事件常量
-
+     * 获取本次实际触发的监听器事件类型。
      */
     private String eventType;
 
     /**
      * 工作流内置参数
      * -- GETTER --
-     *  获取流程动作执行上下文。
-     *
-     * @return 流程动作执行上下文
-
+     * 获取流程动作执行上下文。
      */
     private WorkflowContext context;
 
