@@ -20,6 +20,7 @@ import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.orm.dao.*;
 import org.dromara.warm.flow.core.service.*;
 import org.dromara.warm.flow.core.service.impl.*;
+import org.dromara.warm.flow.core.timer.EventTaskHandler;
 import org.dromara.warm.flow.core.utils.IdUtils;
 import org.dromara.warm.flow.core.workflow.WorkflowService;
 import org.dromara.warm.flow.core.workflow.WorkflowServiceImpl;
@@ -145,6 +146,27 @@ public class FlowAutoConfig extends BeanConfig {
         return new FormServiceImpl().setDao(dao);
     }
 
+    @Bean
+    public FlowEventWaitDao eventWaitDao() {
+        return new FlowEventWaitDaoImpl();
+    }
+
+    @Bean
+    public EventWaitService eventWaitService(FlowEventWaitDao dao) {
+        return new EventWaitServiceImpl().setDao(dao);
+    }
+
+    /**
+     * 注册事件运行时默认处理器：定时 / 消息触发后的真实流程推进；
+     * 宿主需要事务边界时可定义同类型 Bean 覆盖。
+     *
+     * @return 事件任务处理器
+     */
+    @Bean
+    public EventTaskHandler eventTaskHandler() {
+        return new EventRuntimeHandler();
+    }
+
     @Override
     public void setNewEntity() {
         FlowEngine.setNewDef(FlowDefinition::new);
@@ -155,6 +177,7 @@ public class FlowAutoConfig extends BeanConfig {
         FlowEngine.setNewTask(FlowTask::new);
         FlowEngine.setNewUser(FlowUser::new);
         FlowEngine.setNewForm(FlowForm::new);
+        FlowEngine.setNewEventWait(FlowEventWait::new);
     }
 
     @Override

@@ -16,6 +16,9 @@ import java.util.List;
  * {@code @TableLogic} 逻辑删除；logic-delete=false 时在表信息初始化阶段关闭
  * 流程表的 withLogicDelete，使删除操作变为物理删除。
  * <p>
+ * 覆盖全部流程表：definition / node / skip / instance / task / his_task / user /
+ * event_wait / form，非 flow 表不受影响。
+ * <p>
  * 注意：关闭后 MP 的查询也不再过滤 del_flag，切换物理删除模式前需先清理
  * 历史逻辑删除数据，否则已删数据会重新出现在查询结果中。
  *
@@ -25,7 +28,8 @@ import java.util.List;
 public class WarmFlowPostInitTableInfoHandler implements PostInitTableInfoHandler {
 
     private static final List<String> FLOW_TABLES = Arrays.asList("flow_definition", "flow_node",
-        "flow_skip", "flow_instance", "flow_task", "flow_his_task", "flow_user");
+        "flow_skip", "flow_instance", "flow_task", "flow_his_task", "flow_user", "flow_event_wait",
+        "flow_form");
 
     private final boolean logicDelete;
 

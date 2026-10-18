@@ -24,8 +24,11 @@ import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
+import org.dromara.warm.flow.core.constant.EventCons;
+import org.dromara.warm.flow.orm.entity.FlowEventWait;
 import org.dromara.warm.flow.orm.entity.FlowNode;
 import org.dromara.warm.flow.orm.handler.WarmFlowPostInitTableInfoHandler;
+import org.dromara.warm.flow.orm.mapper.FlowEventWaitMapper;
 import org.dromara.warm.flow.orm.mapper.FlowNodeMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -43,7 +46,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * MyBatis-Plus 逻辑删除/物理删除模式验证：
  * 默认（logic-delete=true）删除走 MP @TableLogic 逻辑删除；
  * logic-delete=false 时 warm-flow 注册 {@link WarmFlowPostInitTableInfoHandler}
- * 关闭流程表 withLogicDelete，删除变为物理删除，不产生 del_flag='1' 尸体行。
+ * 关闭全部流程表 withLogicDelete，删除变为物理删除，不产生 del_flag='1' 尸体行
+ * （flow_node 与 flow_event_wait 均覆盖，含按实体条件删除：实例删除级联依赖该路径）。
  *
  * 注意：withLogicDelete 必须在 mapper 注册（TableInfo 初始化）前关闭，
  * 运行时由 MP 在构建 TableInfo 时回调 handler。
@@ -70,6 +74,19 @@ class LogicDeleteModeTest {
             return physicalSession.getMapper(FlowNodeMapper.class);
         }
     };
+    // 事件等待 DAO：验证 flow_event_wait 也纳入物理删除表清单
+    private static final FlowEventWaitDaoImpl logicWaitDao = new FlowEventWaitDaoImpl() {
+        @Override
+        public FlowEventWaitMapper getMapper() {
+            return logicSession.getMapper(FlowEventWaitMapper.class);
+        }
+    };
+    private static final FlowEventWaitDaoImpl physicalWaitDao = new FlowEventWaitDaoImpl() {
+        @Override
+        public FlowEventWaitMapper getMapper() {
+            return physicalSession.getMapper(FlowEventWaitMapper.class);
+        }
+    };
 
     @BeforeAll
     static void init() throws Exception {
@@ -80,6 +97,9 @@ class LogicDeleteModeTest {
                 + " node_name varchar(64), definition_id bigint, node_type int,"
                 + " node_ratio varchar(20), create_time timestamp, update_time timestamp,"
                 + " del_flag char(1) default '0', tenant_id varchar(40))");
+            st.execute("CREATE TABLE flow_event_wait (id bigint primary key, version int,"
+                + " status varchar(32), lock_owner varchar(64), definition_id bigint,"
+                + " instance_id bigint, del_flag char(1) default '0')");
         }
 
         // 逻辑删除工厂：默认配置，MP @TableLogic 生效
@@ -101,12 +121,14 @@ class LogicDeleteModeTest {
         GlobalConfigUtils.setGlobalConfig(configuration, globalConfig);
         configuration.setEnvironment(new Environment("test", new JdbcTransactionFactory(), dataSource));
         configuration.addMapper(FlowNodeMapper.class);
+        configuration.addMapper(FlowEventWaitMapper.class);
         return new MybatisSqlSessionFactoryBuilder().build(configuration);
     }
 
     @AfterEach
     void reset() {
         exec("DELETE FROM flow_node");
+        exec("DELETE FROM flow_event_wait");
     }
 
     private static void exec(String sql) {
@@ -174,5 +196,70 @@ class LogicDeleteModeTest {
         cond.setDefinitionId(DEF_ID);
         physicalDao.delete(cond);
         assertEquals(0, rawCount("1=1"));
+    }
+
+    @Test
+    void logicModeKeepsEventWaitSoftDeleted() {
+        saveEventWait(101);
+        logicWaitDao.deleteCompleted(101L, 1, "w1");
+        // 逻辑删除：活动等待查不到，del_flag='1' 尸体行保留 1 行
+        assertEquals(0, waitRawCount("del_flag='0'"));
+        assertEquals(1, waitRawCount("del_flag='1'"));
+    }
+
+    @Test
+    void physicalModeDeletesEventWaitPhysically() {
+        saveEventWait(102);
+        physicalWaitDao.deleteCompleted(102L, 1, "w1");
+        // 物理删除：flow_event_wait 也在表清单内，不产生 del_flag='1' 尸体行
+        assertEquals(0, waitRawCount("1=1"));
+        assertEquals(0, waitRawCount("del_flag='1'"));
+    }
+
+    @Test
+    void logicModeDeletesWaitsByInstanceCriteria() {
+        saveEventWait(111, 1L);
+        saveEventWait(112, 2L);
+        FlowEventWait cond = new FlowEventWait();
+        cond.setInstanceId(1L);
+        logicWaitDao.delete(cond);
+        // 按实例条件删除（引擎实例删除级联用到的路径）：只软删目标实例的行，其它实例不受影响
+        assertEquals(1, waitRawCount("instance_id = 1 AND del_flag = '1'"));
+        assertEquals(1, waitRawCount("instance_id = 2 AND del_flag = '0'"));
+        // 软删行对业务查询不可见：活动行只剩实例 2 的 1 行，按实例 1 查不到
+        assertEquals(1, logicWaitDao.selectCount(new FlowEventWait()));
+        assertEquals(0, logicWaitDao.selectCount(cond));
+    }
+
+    @Test
+    void physicalModeDeletesWaitsByInstanceCriteria() {
+        saveEventWait(113, 1L);
+        saveEventWait(114, 2L);
+        FlowEventWait cond = new FlowEventWait();
+        cond.setInstanceId(1L);
+        physicalWaitDao.delete(cond);
+        // 物理删除模式：目标实例的行直接删除，其它实例保留
+        assertEquals(0, waitRawCount("instance_id = 1"));
+        assertEquals(1, waitRawCount("instance_id = 2"));
+    }
+
+    private static void saveEventWait(long id) {
+        saveEventWait(id, null);
+    }
+
+    private static void saveEventWait(long id, Long instanceId) {
+        exec("INSERT INTO flow_event_wait (id, version, status, lock_owner, instance_id, del_flag) VALUES ("
+            + id + ", 1, '" + EventCons.STATUS_RUNNING + "', 'w1', " + instanceId + ", '0')");
+    }
+
+    private static int waitRawCount(String where) {
+        try (Connection conn = dataSource.getConnection();
+             Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM flow_event_wait WHERE " + where)) {
+            rs.next();
+            return rs.getInt(1);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

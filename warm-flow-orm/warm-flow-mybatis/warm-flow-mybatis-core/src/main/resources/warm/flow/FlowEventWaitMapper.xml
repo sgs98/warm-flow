@@ -1,0 +1,814 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.dromara.warm.flow.orm.mapper.FlowEventWaitMapper">
+
+    <resultMap type="org.dromara.warm.flow.orm.entity.FlowEventWait" id="FlowEventWaitResult">
+        <result property="id" column="id"/>
+        <result property="tenantId" column="tenant_id"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="definitionId" column="definition_id"/>
+        <result property="instanceId" column="instance_id"/>
+        <result property="nodeCode" column="node_code"/>
+        <result property="eventType" column="event_type"/>
+        <result property="eventName" column="event_name"/>
+        <result property="attachedTaskId" column="attached_task_id"/>
+        <result property="triggerType" column="trigger_type"/>
+        <result property="triggerInterval" column="trigger_interval"/>
+        <result property="nextTriggerAt" column="next_trigger_at"/>
+        <result property="timezone" column="timezone"/>
+        <result property="repeatCount" column="repeat_count"/>
+        <result property="maxRepeatCount" column="max_repeat_count"/>
+        <result property="status" column="status"/>
+        <result property="retryCount" column="retry_count"/>
+        <result property="maxRetryCount" column="max_retry_count"/>
+        <result property="retryAt" column="retry_at"/>
+        <result property="lockOwner" column="lock_owner"/>
+        <result property="lockUntil" column="lock_until"/>
+        <result property="version" column="version"/>
+        <result property="payload" column="payload"/>
+        <result property="lastError" column="last_error"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectVo">
+        select t.id,
+               t.tenant_id,
+               t.del_flag,
+               t.definition_id,
+               t.instance_id,
+               t.node_code,
+               t.event_type,
+               t.event_name,
+               t.attached_task_id,
+               t.trigger_type,
+               t.trigger_interval,
+               t.next_trigger_at,
+               t.timezone,
+               t.repeat_count,
+               t.max_repeat_count,
+               t.status,
+               t.retry_count,
+               t.max_retry_count,
+               t.retry_at,
+               t.lock_owner,
+               t.lock_until,
+               t.version,
+               t.payload,
+               t.last_error,
+               t.create_time,
+               t.update_time
+        from flow_event_wait t
+    </sql>
+
+    <sql id="paging_end">
+        <if test="page !=null and page.pageNum != null and page.pageSize != null">
+            LIMIT #{page.pageSize} offset #{page.pageNum}
+        </if>
+    </sql>
+
+    <sql id="order_by">
+        <if test="order != null and order != ''">order by ${order}</if>
+    </sql>
+
+    <sql id="select_parameter">
+        <where>
+            <if test="entity.id != null">and t.id = #{entity.id}</if>
+            <if test="entity.tenantId != null and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
+            <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
+            <if test="entity.definitionId != null">and t.definition_id = #{entity.definitionId}</if>
+            <if test="entity.instanceId != null">and t.instance_id = #{entity.instanceId}</if>
+            <if test="entity.nodeCode != null and entity.nodeCode != ''">and t.node_code = #{entity.nodeCode}</if>
+            <if test="entity.eventType != null and entity.eventType != ''">and t.event_type = #{entity.eventType}</if>
+            <if test="entity.eventName != null and entity.eventName != ''">and t.event_name = #{entity.eventName}</if>
+            <if test="entity.attachedTaskId != null">and t.attached_task_id = #{entity.attachedTaskId}</if>
+            <if test="entity.triggerType != null and entity.triggerType != ''">and t.trigger_type =
+                #{entity.triggerType}
+            </if>
+            <if test="entity.triggerInterval != null and entity.triggerInterval != ''">and t.trigger_interval =
+                #{entity.triggerInterval}
+            </if>
+            <if test="entity.nextTriggerAt != null">and t.next_trigger_at = #{entity.nextTriggerAt}</if>
+            <if test="entity.timezone != null and entity.timezone != ''">and t.timezone = #{entity.timezone}</if>
+            <if test="entity.repeatCount != null">and t.repeat_count = #{entity.repeatCount}</if>
+            <if test="entity.maxRepeatCount != null">and t.max_repeat_count = #{entity.maxRepeatCount}</if>
+            <if test="entity.status != null and entity.status != ''">and t.status = #{entity.status}</if>
+            <if test="entity.retryCount != null">and t.retry_count = #{entity.retryCount}</if>
+            <if test="entity.maxRetryCount != null">and t.max_retry_count = #{entity.maxRetryCount}</if>
+            <if test="entity.retryAt != null">and t.retry_at = #{entity.retryAt}</if>
+            <if test="entity.lockOwner != null and entity.lockOwner != ''">and t.lock_owner = #{entity.lockOwner}</if>
+            <if test="entity.lockUntil != null">and t.lock_until = #{entity.lockUntil}</if>
+            <if test="entity.version != null">and t.version = #{entity.version}</if>
+            <if test="entity.payload != null">and t.payload = #{entity.payload}</if>
+            <if test="entity.lastError != null">and t.last_error = #{entity.lastError}</if>
+            <if test="entity.createTime != null">and t.create_time = #{entity.createTime}</if>
+            <if test="entity.updateTime != null">and t.update_time = #{entity.updateTime}</if>
+        </where>
+    </sql>
+
+    <sql id="query_condition">
+        <where>
+            <if test="entity.tenantId != null and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
+            <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
+            <if test="query.definitionIds != null and query.definitionIds.size() > 0">
+                and t.definition_id in
+                <foreach item="definitionId" collection="query.definitionIds" open="(" separator="," close=")">
+                    #{definitionId}
+                </foreach>
+            </if>
+            <if test="query.instanceIds != null and query.instanceIds.size() > 0">
+                and t.instance_id in
+                <foreach item="instanceId" collection="query.instanceIds" open="(" separator="," close=")">
+                    #{instanceId}
+                </foreach>
+            </if>
+            <if test="query.nodeCode != null and query.nodeCode != ''">and t.node_code = #{query.nodeCode}</if>
+            <if test="query.eventName != null and query.eventName != ''">and t.event_name = #{query.eventName}</if>
+            <if test="query.attachedTaskId != null">and t.attached_task_id = #{query.attachedTaskId}</if>
+            <if test="query.eventTypes != null and query.eventTypes.size() > 0">
+                and t.event_type in
+                <foreach item="eventType" collection="query.eventTypes" open="(" separator="," close=")">
+                    #{eventType}
+                </foreach>
+            </if>
+            <if test="query.triggerTypes != null and query.triggerTypes.size() > 0">
+                and t.trigger_type in
+                <foreach item="triggerType" collection="query.triggerTypes" open="(" separator="," close=")">
+                    #{triggerType}
+                </foreach>
+            </if>
+            <if test="query.statuses != null and query.statuses.size() > 0">
+                and t.status in
+                <foreach item="status" collection="query.statuses" open="(" separator="," close=")">
+                    #{status}
+                </foreach>
+            </if>
+            <if test="query.nextTriggerAtFrom != null">and t.next_trigger_at &gt;= #{query.nextTriggerAtFrom}</if>
+            <if test="query.nextTriggerAtTo != null">and t.next_trigger_at &lt;= #{query.nextTriggerAtTo}</if>
+            <if test="query.createTimeFrom != null">and t.create_time &gt;= #{query.createTimeFrom}</if>
+            <if test="query.createTimeTo != null">and t.create_time &lt;= #{query.createTimeTo}</if>
+        </where>
+    </sql>
+
+    <sql id="mysql_insert_batch">
+        insert into flow_event_wait(
+        id,
+        tenant_id,
+        del_flag,
+        definition_id,
+        instance_id,
+        node_code,
+        event_type,
+        event_name,
+        attached_task_id,
+        trigger_type,
+        trigger_interval,
+        next_trigger_at,
+        timezone,
+        repeat_count,
+        max_repeat_count,
+        status,
+        retry_count,
+        max_retry_count,
+        retry_at,
+        lock_owner,
+        lock_until,
+        version,
+        payload,
+        last_error,
+        create_time,
+        update_time
+        )
+        values
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.id},
+            #{item.tenantId},
+            #{item.delFlag},
+            #{item.definitionId},
+            #{item.instanceId},
+            #{item.nodeCode},
+            #{item.eventType},
+            #{item.eventName},
+            #{item.attachedTaskId},
+            #{item.triggerType},
+            #{item.triggerInterval},
+            #{item.nextTriggerAt},
+            #{item.timezone},
+            #{item.repeatCount},
+            #{item.maxRepeatCount},
+            #{item.status},
+            #{item.retryCount},
+            #{item.maxRetryCount},
+            #{item.retryAt},
+            #{item.lockOwner},
+            #{item.lockUntil},
+            #{item.version},
+            #{item.payload},
+            #{item.lastError},
+            #{item.createTime},
+            #{item.updateTime}
+            )
+        </foreach>
+    </sql>
+
+    <sql id="oracle_insert_batch">
+        insert
+        into
+        flow_event_wait(
+        id,
+        tenant_id,
+        del_flag,
+        definition_id,
+        instance_id,
+        node_code,
+        event_type,
+        event_name,
+        attached_task_id,
+        trigger_type,
+        trigger_interval,
+        next_trigger_at,
+        timezone,
+        repeat_count,
+        max_repeat_count,
+        status,
+        retry_count,
+        max_retry_count,
+        retry_at,
+        lock_owner,
+        lock_until,
+        version,
+        payload,
+        last_error,
+        create_time,
+        update_time
+        )
+        <foreach collection="list" item="item" separator=" union all">
+            select
+            #{item.id},
+            #{item.tenantId},
+            #{item.delFlag},
+            #{item.definitionId},
+            #{item.instanceId},
+            #{item.nodeCode},
+            #{item.eventType},
+            #{item.eventName},
+            #{item.attachedTaskId},
+            #{item.triggerType},
+            #{item.triggerInterval},
+            #{item.nextTriggerAt},
+            #{item.timezone},
+            #{item.repeatCount},
+            #{item.maxRepeatCount},
+            #{item.status},
+            #{item.retryCount},
+            #{item.maxRetryCount},
+            #{item.retryAt},
+            #{item.lockOwner},
+            #{item.lockUntil},
+            #{item.version},
+            #{item.payload},
+            #{item.lastError},
+            #{item.createTime},
+            #{item.updateTime}
+            from dual
+        </foreach>
+    </sql>
+
+    <select id="selectCount" parameterType="org.dromara.warm.flow.orm.entity.FlowEventWait" resultType="java.lang.Long">
+        select count(*) from flow_event_wait t
+        <include refid="select_parameter"/>
+    </select>
+
+    <select id="selectList" parameterType="org.dromara.warm.flow.orm.entity.FlowEventWait" resultMap="FlowEventWaitResult">
+        <choose>
+            <when test="dataSourceType == 'oracle'.toString()">
+                <if test="page !=null and page.pageNum != null and page.pageSize != null">
+                    SELECT * FROM ( SELECT TMP.*, ROWNUM ROW_ID FROM (
+                </if>
+                <include refid="includeAll"/>
+                <if test="page !=null and page.pageNum != null and page.pageSize != null">
+                    ) TMP WHERE ROWNUM &lt;= #{page.pageSize}) WHERE ROW_ID &gt; #{page.pageNum}
+                </if>
+            </when>
+            <otherwise>
+                <include refid="includeAll"/>
+                <include refid="paging_end"/>
+            </otherwise>
+        </choose>
+    </select>
+
+    <sql id="includeAll">
+        <include refid="selectVo"/>
+        <include refid="select_parameter"/>
+        <include refid="order_by"/>
+    </sql>
+
+    <select id="selectCountByQuery" resultType="java.lang.Long">
+        select count(*) from flow_event_wait t
+        <include refid="query_condition"/>
+    </select>
+
+    <select id="selectListByQuery" resultMap="FlowEventWaitResult">
+        <choose>
+            <when test="dataSourceType == 'oracle'.toString()">
+                <if test="page !=null and page.pageNum != null and page.pageSize != null">
+                    SELECT * FROM ( SELECT TMP.*, ROWNUM ROW_ID FROM (
+                </if>
+                <include refid="selectVo"/>
+                <include refid="query_condition"/>
+                <include refid="order_by"/>
+                <if test="page !=null and page.pageNum != null and page.pageSize != null">
+                    ) TMP WHERE ROWNUM &lt;= #{page.pageSize}) WHERE ROW_ID &gt; #{page.pageNum}
+                </if>
+            </when>
+            <otherwise>
+                <include refid="selectVo"/>
+                <include refid="query_condition"/>
+                <include refid="order_by"/>
+                <include refid="paging_end"/>
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectByIds" resultMap="FlowEventWaitResult">
+        <include refid="selectVo"/>
+        where t.id in
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
+        <if test="entity.tenantId != null  and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
+    </select>
+
+    <select id="selectById" resultMap="FlowEventWaitResult">
+        <include refid="selectVo"/>
+        where t.id = #{id}
+        <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
+        <if test="entity.tenantId != null  and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
+    </select>
+
+    <insert id="insert" parameterType="org.dromara.warm.flow.orm.entity.FlowEventWait">
+        insert into flow_event_wait
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="tenantId != null and tenantId != ''">tenant_id,</if>
+            <if test="delFlag != null and delFlag != ''">del_flag,</if>
+            <if test="definitionId != null">definition_id,</if>
+            <if test="instanceId != null">instance_id,</if>
+            <if test="nodeCode != null and nodeCode != ''">node_code,</if>
+            <if test="eventType != null and eventType != ''">event_type,</if>
+            <if test="eventName != null and eventName != ''">event_name,</if>
+            <if test="attachedTaskId != null">attached_task_id,</if>
+            <if test="triggerType != null and triggerType != ''">trigger_type,</if>
+            <if test="triggerInterval != null and triggerInterval != ''">trigger_interval,</if>
+            <if test="nextTriggerAt != null">next_trigger_at,</if>
+            <if test="timezone != null and timezone != ''">timezone,</if>
+            <if test="repeatCount != null">repeat_count,</if>
+            <if test="maxRepeatCount != null">max_repeat_count,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="retryCount != null">retry_count,</if>
+            <if test="maxRetryCount != null">max_retry_count,</if>
+            <if test="retryAt != null">retry_at,</if>
+            <if test="lockOwner != null and lockOwner != ''">lock_owner,</if>
+            <if test="lockUntil != null">lock_until,</if>
+            <if test="version != null">version,</if>
+            <if test="payload != null">payload,</if>
+            <if test="lastError != null">last_error,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="tenantId != null and tenantId != ''">#{tenantId},</if>
+            <if test="delFlag != null and delFlag != ''">#{delFlag},</if>
+            <if test="definitionId != null">#{definitionId},</if>
+            <if test="instanceId != null">#{instanceId},</if>
+            <if test="nodeCode != null and nodeCode != ''">#{nodeCode},</if>
+            <if test="eventType != null and eventType != ''">#{eventType},</if>
+            <if test="eventName != null and eventName != ''">#{eventName},</if>
+            <if test="attachedTaskId != null">#{attachedTaskId},</if>
+            <if test="triggerType != null and triggerType != ''">#{triggerType},</if>
+            <if test="triggerInterval != null and triggerInterval != ''">#{triggerInterval},</if>
+            <if test="nextTriggerAt != null">#{nextTriggerAt},</if>
+            <if test="timezone != null and timezone != ''">#{timezone},</if>
+            <if test="repeatCount != null">#{repeatCount},</if>
+            <if test="maxRepeatCount != null">#{maxRepeatCount},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="retryCount != null">#{retryCount},</if>
+            <if test="maxRetryCount != null">#{maxRetryCount},</if>
+            <if test="retryAt != null">#{retryAt},</if>
+            <if test="lockOwner != null and lockOwner != ''">#{lockOwner},</if>
+            <if test="lockUntil != null">#{lockUntil},</if>
+            <if test="version != null">#{version},</if>
+            <if test="payload != null">#{payload},</if>
+            <if test="lastError != null">#{lastError},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updateById" parameterType="org.dromara.warm.flow.orm.entity.FlowEventWait">
+        update flow_event_wait
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="tenantId != null and tenantId != ''">tenant_id = #{tenantId},</if>
+            <if test="delFlag != null and delFlag != ''">del_flag = #{delFlag},</if>
+            <if test="definitionId != null">definition_id = #{definitionId},</if>
+            <if test="instanceId != null">instance_id = #{instanceId},</if>
+            <if test="nodeCode != null and nodeCode != ''">node_code = #{nodeCode},</if>
+            <if test="eventType != null and eventType != ''">event_type = #{eventType},</if>
+            <if test="eventName != null and eventName != ''">event_name = #{eventName},</if>
+            <if test="attachedTaskId != null">attached_task_id = #{attachedTaskId},</if>
+            <if test="triggerType != null and triggerType != ''">trigger_type = #{triggerType},</if>
+            <if test="triggerInterval != null and triggerInterval != ''">trigger_interval = #{triggerInterval},</if>
+            <if test="nextTriggerAt != null">next_trigger_at = #{nextTriggerAt},</if>
+            <if test="timezone != null and timezone != ''">timezone = #{timezone},</if>
+            <if test="repeatCount != null">repeat_count = #{repeatCount},</if>
+            <if test="maxRepeatCount != null">max_repeat_count = #{maxRepeatCount},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="retryCount != null">retry_count = #{retryCount},</if>
+            <if test="maxRetryCount != null">max_retry_count = #{maxRetryCount},</if>
+            <if test="retryAt != null">retry_at = #{retryAt},</if>
+            <if test="lockOwner != null and lockOwner != ''">lock_owner = #{lockOwner},</if>
+            <if test="lockUntil != null">lock_until = #{lockUntil},</if>
+            <if test="version != null">version = #{version},</if>
+            <if test="payload != null">payload = #{payload},</if>
+            <if test="lastError != null">last_error = #{lastError},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+        <if test="delFlag != null  and delFlag != ''">and del_flag = #{delFlag}</if>
+        <if test="tenantId != null  and tenantId != ''">and tenant_id = #{tenantId}</if>
+    </update>
+
+    <delete id="deleteById">
+        delete
+        from flow_event_wait
+        where id = #{id}
+        <if test="entity.tenantId != null  and entity.tenantId != ''">and tenant_id = #{entity.tenantId}</if>
+    </delete>
+
+    <update id="updateByIdLogic">
+        update flow_event_wait
+        set del_flag = #{logicDeleteValue}
+        where id = #{id}
+        <if test="entity.tenantId != null  and entity.tenantId != ''">and tenant_id = #{entity.tenantId}</if>
+        <if test="logicNotDeleteValue != null and logicNotDeleteValue != ''">and del_flag = #{logicNotDeleteValue}
+        </if>
+    </update>
+
+    <delete id="deleteByIds">
+        delete from flow_event_wait where id in
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        <if test="entity.tenantId != null  and entity.tenantId != ''">and tenant_id = #{entity.tenantId}</if>
+    </delete>
+
+    <update id="updateByIdsLogic">
+        update flow_event_wait
+        set del_flag = #{logicDeleteValue}
+        where id in
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        <if test="entity.tenantId != null  and entity.tenantId != ''">and tenant_id = #{entity.tenantId}</if>
+        <if test="logicNotDeleteValue != null and logicNotDeleteValue != ''">and del_flag = #{logicNotDeleteValue}
+        </if>
+    </update>
+
+    <delete id="delete" parameterType="org.dromara.warm.flow.orm.entity.FlowEventWait">
+        delete from flow_event_wait
+        <where>
+            <if test="id != null">and id = #{id}</if>
+            <if test="tenantId != null and tenantId != ''">and tenant_id = #{tenantId}</if>
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+            <if test="definitionId != null">and definition_id = #{definitionId}</if>
+            <if test="instanceId != null">and instance_id = #{instanceId}</if>
+            <if test="nodeCode != null and nodeCode != ''">and node_code = #{nodeCode}</if>
+            <if test="eventType != null and eventType != ''">and event_type = #{eventType}</if>
+            <if test="eventName != null and eventName != ''">and event_name = #{eventName}</if>
+            <if test="attachedTaskId != null">and attached_task_id = #{attachedTaskId}</if>
+            <if test="triggerType != null and triggerType != ''">and trigger_type = #{triggerType}</if>
+            <if test="triggerInterval != null and triggerInterval != ''">and trigger_interval = #{triggerInterval}</if>
+            <if test="nextTriggerAt != null">and next_trigger_at = #{nextTriggerAt}</if>
+            <if test="timezone != null and timezone != ''">and timezone = #{timezone}</if>
+            <if test="repeatCount != null">and repeat_count = #{repeatCount}</if>
+            <if test="maxRepeatCount != null">and max_repeat_count = #{maxRepeatCount}</if>
+            <if test="status != null and status != ''">and status = #{status}</if>
+            <if test="retryCount != null">and retry_count = #{retryCount}</if>
+            <if test="maxRetryCount != null">and max_retry_count = #{maxRetryCount}</if>
+            <if test="retryAt != null">and retry_at = #{retryAt}</if>
+            <if test="lockOwner != null and lockOwner != ''">and lock_owner = #{lockOwner}</if>
+            <if test="lockUntil != null">and lock_until = #{lockUntil}</if>
+            <if test="version != null">and version = #{version}</if>
+            <if test="payload != null">and payload = #{payload}</if>
+            <if test="lastError != null">and last_error = #{lastError}</if>
+            <if test="createTime != null">and create_time = #{createTime}</if>
+            <if test="updateTime != null">and update_time = #{updateTime}</if>
+        </where>
+    </delete>
+
+    <update id="updateLogic">
+        update flow_event_wait
+        set del_flag = #{logicDeleteValue}
+        <where>
+            <if test="entity.id != null">and id = #{entity.id}</if>
+            <if test="entity.tenantId != null and entity.tenantId != ''">and tenant_id = #{entity.tenantId}</if>
+            <if test="entity.definitionId != null">and definition_id = #{entity.definitionId}</if>
+            <if test="entity.instanceId != null">and instance_id = #{entity.instanceId}</if>
+            <if test="entity.nodeCode != null and entity.nodeCode != ''">and node_code = #{entity.nodeCode}</if>
+            <if test="entity.eventType != null and entity.eventType != ''">and event_type = #{entity.eventType}</if>
+            <if test="entity.eventName != null and entity.eventName != ''">and event_name = #{entity.eventName}</if>
+            <if test="entity.attachedTaskId != null">and attached_task_id = #{entity.attachedTaskId}</if>
+            <if test="entity.triggerType != null and entity.triggerType != ''">and trigger_type =
+                #{entity.triggerType}
+            </if>
+            <if test="entity.triggerInterval != null and entity.triggerInterval != ''">and trigger_interval =
+                #{entity.triggerInterval}
+            </if>
+            <if test="entity.nextTriggerAt != null">and next_trigger_at = #{entity.nextTriggerAt}</if>
+            <if test="entity.timezone != null and entity.timezone != ''">and timezone = #{entity.timezone}</if>
+            <if test="entity.repeatCount != null">and repeat_count = #{entity.repeatCount}</if>
+            <if test="entity.maxRepeatCount != null">and max_repeat_count = #{entity.maxRepeatCount}</if>
+            <if test="entity.status != null and entity.status != ''">and status = #{entity.status}</if>
+            <if test="entity.retryCount != null">and retry_count = #{entity.retryCount}</if>
+            <if test="entity.maxRetryCount != null">and max_retry_count = #{entity.maxRetryCount}</if>
+            <if test="entity.retryAt != null">and retry_at = #{entity.retryAt}</if>
+            <if test="entity.lockOwner != null and entity.lockOwner != ''">and lock_owner = #{entity.lockOwner}</if>
+            <if test="entity.lockUntil != null">and lock_until = #{entity.lockUntil}</if>
+            <if test="entity.version != null">and version = #{entity.version}</if>
+            <if test="entity.payload != null">and payload = #{entity.payload}</if>
+            <if test="entity.lastError != null">and last_error = #{entity.lastError}</if>
+            <if test="entity.createTime != null">and create_time = #{entity.createTime}</if>
+            <if test="entity.updateTime != null">and update_time = #{entity.updateTime}</if>
+            <if test="logicNotDeleteValue != null and logicNotDeleteValue != ''">and del_flag =
+                #{logicNotDeleteValue}
+            </if>
+        </where>
+    </update>
+
+    <insert id="saveBatch" parameterType="org.dromara.warm.flow.orm.entity.FlowEventWait">
+        <choose>
+            <when test="dataSourceType == 'oracle'.toString()">
+                <include refid="oracle_insert_batch"/>
+            </when>
+            <otherwise>
+                <include refid="mysql_insert_batch"/>
+            </otherwise>
+        </choose>
+    </insert>
+
+    <!-- ==================== 定时器底座（阶段 B）：到期扫描 / CAS 抢占 / 租约 / 重试 / 重排期 ==================== -->
+
+    <sql id="waiting_due_condition">
+        <where>
+            t.status = 'WAITING'
+            and t.next_trigger_at is not null
+            and t.next_trigger_at &lt;= #{now}
+            <if test="cursorAt != null and cursorId != null">
+                and (t.next_trigger_at &gt; #{cursorAt}
+                or (t.next_trigger_at = #{cursorAt} and t.id &gt; #{cursorId}))
+            </if>
+            <if test="delFlag != null and delFlag != ''">and t.del_flag = #{delFlag}</if>
+        </where>
+    </sql>
+
+    <sql id="retry_due_condition">
+        <where>
+            t.status = 'RETRY'
+            and t.retry_at is not null
+            and t.retry_at &lt;= #{now}
+            <if test="cursorAt != null and cursorId != null">
+                and (t.retry_at &gt; #{cursorAt}
+                or (t.retry_at = #{cursorAt} and t.id &gt; #{cursorId}))
+            </if>
+            <if test="delFlag != null and delFlag != ''">and t.del_flag = #{delFlag}</if>
+        </where>
+    </sql>
+
+    <sql id="expired_condition">
+        <where>
+            status = 'RUNNING'
+            and lock_until is not null
+            and lock_until &lt; #{now}
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </sql>
+
+    <select id="selectWaitingDue" resultMap="FlowEventWaitResult">
+        <choose>
+            <when test="dataSourceType == 'oracle'.toString()">
+                SELECT * FROM (
+                <include refid="selectVo"/>
+                <include refid="waiting_due_condition"/>
+                order by t.next_trigger_at asc, t.id asc
+                ) TMP WHERE ROWNUM &lt;= #{limit}
+            </when>
+            <otherwise>
+                <include refid="selectVo"/>
+                <include refid="waiting_due_condition"/>
+                order by t.next_trigger_at asc, t.id asc
+                LIMIT #{limit}
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectRetryDue" resultMap="FlowEventWaitResult">
+        <choose>
+            <when test="dataSourceType == 'oracle'.toString()">
+                SELECT * FROM (
+                <include refid="selectVo"/>
+                <include refid="retry_due_condition"/>
+                order by t.retry_at asc, t.id asc
+                ) TMP WHERE ROWNUM &lt;= #{limit}
+            </when>
+            <otherwise>
+                <include refid="selectVo"/>
+                <include refid="retry_due_condition"/>
+                order by t.retry_at asc, t.id asc
+                LIMIT #{limit}
+            </otherwise>
+        </choose>
+    </select>
+
+    <update id="claim">
+        update flow_event_wait
+        set status = 'RUNNING',
+            lock_owner = #{workerId},
+            lock_until = #{lockUntil},
+            version = version + 1,
+            update_time = #{now}
+        <where>
+            id = #{id}
+            and version = #{version}
+            and (
+                (status = 'WAITING' and next_trigger_at is not null and next_trigger_at &lt;= #{now})
+                or
+                (status = 'RETRY' and retry_at is not null and retry_at &lt;= #{now})
+            )
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+
+    <update id="renewLease">
+        update flow_event_wait
+        set lock_until = #{lockUntil},
+            update_time = #{now}
+        <where>
+            id = #{id}
+            and version = #{version}
+            and status = 'RUNNING'
+            and lock_owner = #{workerId}
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+
+    <select id="selectExpired" resultMap="FlowEventWaitResult">
+        <choose>
+            <when test="dataSourceType == 'oracle'.toString()">
+                SELECT * FROM (
+                <include refid="selectVo"/>
+                <include refid="expired_condition"/>
+                order by id asc
+                ) TMP WHERE ROWNUM &lt;= #{limit}
+            </when>
+            <otherwise>
+                <include refid="selectVo"/>
+                <include refid="expired_condition"/>
+                order by id asc
+                LIMIT #{limit}
+            </otherwise>
+        </choose>
+    </select>
+
+    <update id="recoverExpired">
+        update flow_event_wait
+        set status = #{status},
+            retry_count = #{retryCount},
+            retry_at = #{retryAt, jdbcType=TIMESTAMP},
+            last_error = #{error},
+            lock_owner = null,
+            lock_until = null,
+            version = version + 1,
+            update_time = #{now}
+        <where>
+            id = #{id}
+            and version = #{version}
+            and status = 'RUNNING'
+            and lock_until &lt; #{now}
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+
+    <delete id="deleteCompleted">
+        delete from flow_event_wait
+        <where>
+            id = #{id}
+            and version = #{version}
+            and status = 'RUNNING'
+            and lock_owner = #{workerId}
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </delete>
+
+    <update id="markRetry">
+        update flow_event_wait
+        set status = 'RETRY',
+            retry_count = retry_count + 1,
+            retry_at = #{retryAt},
+            last_error = #{error},
+            version = version + 1,
+            update_time = #{now}
+        <where>
+            id = #{id}
+            and version = #{version}
+            and status = 'RUNNING'
+            and lock_owner = #{workerId}
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+
+    <update id="markDead">
+        update flow_event_wait
+        set status = 'DEAD',
+            retry_count = retry_count + 1,
+            retry_at = null,
+            last_error = #{error},
+            version = version + 1,
+            update_time = #{now}
+        <where>
+            id = #{id}
+            and version = #{version}
+            and status = 'RUNNING'
+            and lock_owner = #{workerId}
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+
+    <update id="reschedule">
+        update flow_event_wait
+        set status = 'WAITING',
+            next_trigger_at = #{nextTriggerAt},
+            repeat_count = #{repeatCount},
+            retry_at = null,
+            lock_owner = null,
+            lock_until = null,
+            version = version + 1,
+            update_time = #{now}
+        <where>
+            id = #{id}
+            and version = #{version}
+            and status = 'RUNNING'
+            and lock_owner = #{workerId}
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+
+    <update id="releaseClaim">
+        update flow_event_wait
+        set status = #{status},
+            next_trigger_at = #{nextTriggerAt, jdbcType=TIMESTAMP},
+            retry_at = #{retryAt, jdbcType=TIMESTAMP},
+            lock_owner = null,
+            lock_until = null,
+            version = version + 1,
+            update_time = #{now}
+        <where>
+            id = #{id}
+            and version = #{version}
+            and status = 'RUNNING'
+            and lock_owner = #{workerId}
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+
+    <update id="claimMessage">
+        update flow_event_wait
+        set status = 'RUNNING',
+            lock_owner = #{workerId},
+            lock_until = #{lockUntil},
+            version = version + 1,
+            update_time = #{now}
+        <where>
+            id = #{id}
+            and version = #{version}
+            and status in ('WAITING', 'RETRY')
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+
+    <update id="bindPayload">
+        update flow_event_wait
+        set payload = #{payload}
+        <where>
+            id = #{id}
+            and version = #{version}
+            and status in ('WAITING', 'RETRY')
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+</mapper>

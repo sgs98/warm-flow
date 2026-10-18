@@ -33,6 +33,12 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <!-- 分页插件与 starter 同源，测试内用于验证分页语句 -->
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>test</scope>

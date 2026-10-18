@@ -145,7 +145,7 @@ public abstract class WarmDaoImpl<T extends RootEntity> implements WarmDao<T> {
         }
     }
 
-    private void ifNecessaryChangePage(Page<T> page, String dataSourceType) {
+    protected void ifNecessaryChangePage(Page<T> page, String dataSourceType) {
         page.setPageNum((page.getPageNum() - 1) * page.getPageSize());
         if ("oracle".equals(dataSourceType)) {
             page.setPageSize(page.getPageSize() + page.getPageNum());

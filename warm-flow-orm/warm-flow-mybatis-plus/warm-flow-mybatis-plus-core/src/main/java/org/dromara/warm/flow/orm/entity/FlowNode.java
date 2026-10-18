@@ -140,4 +140,24 @@ public class FlowNode implements Node {
      */
     private String nodeConfig;
 
+    /**
+     * 事件类型
+     */
+    private String eventType;
+
+    /**
+     * 事件名称
+     */
+    private String eventName;
+
+    /**
+     * 边界事件附着的任务节点编码
+     */
+    private String attachedToNodeCode;
+
+    /**
+     * 边界事件是否中断型
+     */
+    private Boolean interrupting;
+
 }
