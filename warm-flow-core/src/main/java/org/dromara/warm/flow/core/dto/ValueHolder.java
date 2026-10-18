@@ -13,9 +13,10 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-package org.dromara.warm.flow.core.spi;
+package org.dromara.warm.flow.core.dto;
 
 import lombok.Data;
+import org.dromara.warm.flow.core.spi.Listener;
 
 /**
  * 监听器路径解析结果。

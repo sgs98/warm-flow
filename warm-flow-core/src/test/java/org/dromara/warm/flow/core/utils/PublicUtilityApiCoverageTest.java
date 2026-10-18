@@ -24,7 +24,7 @@ import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.dto.ApiResult;
 import org.dromara.warm.flow.core.dto.FlowPage;
-import org.dromara.warm.flow.core.spi.ValueHolder;
+import org.dromara.warm.flow.core.dto.ValueHolder;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

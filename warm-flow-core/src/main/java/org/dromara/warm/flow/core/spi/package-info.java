@@ -27,16 +27,16 @@
  *   <li>{@link org.dromara.warm.flow.core.spi.StatusMapper}：状态语义 → 宿主编码映射</li>
  * </ul>
  *
- * <h2>二级扩展点（策略插槽，业务方一般无需实现）</h2>
+ * <h2>二级扩展点（表达式策略插槽，业务方一般无需实现）</h2>
  * <p>默认由 {@code warm-flow-plugin-modes-sb} 提供基于 SpEL 的实现；仅当需要更换
- * 表达式引擎（如 QLExpress / Groovy）或网关路由算法时才实现：
+ * 表达式引擎（如 QLExpress / Groovy）时才实现：
  * <ul>
  *   <li>{@link org.dromara.warm.flow.core.spi.ExpressionStrategy}：表达式策略基接口（按类型前缀路由，后注册优先）</li>
  *   <li>ConditionStrategy / HandlerStrategy / ListenerStrategy / ServiceTaskStrategy / VoteSignStrategy：条件、办理人、监听器、服务任务、票签各表达域</li>
- *   <li>{@link org.dromara.warm.flow.core.spi.GatewayStrategy}：网关路由策略（内置串行/并行/包容）</li>
  * </ul>
  *
  * <p>引擎兜底实现见子包 {@code org.dromara.warm.flow.core.spi.impl}；
- * 内置条件/网关策略实现见 {@code org.dromara.warm.flow.core.strategy}。
+ * 网关路由策略（GatewayStrategy）与内置串行/并行/包容实现属于引擎内部，
+ * 见 {@code org.dromara.warm.flow.core.strategy}，不作为扩展点开放。
  */
 package org.dromara.warm.flow.core.spi;

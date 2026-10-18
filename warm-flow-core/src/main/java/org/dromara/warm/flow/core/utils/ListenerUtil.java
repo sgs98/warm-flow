@@ -24,7 +24,7 @@ import org.dromara.warm.flow.core.invoker.FrameInvoker;
 import org.dromara.warm.flow.core.spi.GlobalListener;
 import org.dromara.warm.flow.core.spi.Listener;
 import org.dromara.warm.flow.core.spi.ListenerVariable;
-import org.dromara.warm.flow.core.spi.ValueHolder;
+import org.dromara.warm.flow.core.dto.ValueHolder;
 
 import java.util.HashMap;
 import java.util.List;
