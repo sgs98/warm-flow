@@ -76,35 +76,9 @@
       <div class="section-card section-purple">
         <div class="section-card-body">
           <slot name="form-item-task-listenerType" :model="form" field="listenerType">
-            <el-table :data="form.listenerRows" style="width: 100%">
-              <el-table-column prop="listenerType" label="类型" :width="isMobile ? 60 : 160">
-                <template #default="scope">
-                  <el-form-item :prop="'listenerRows.' + scope.$index + '.listenerType'">
-                    <el-select v-model="scope.row.listenerType" placeholder="请选择">
-                      <el-option label="开始" value="start"></el-option>
-                      <el-option label="完成" value="finish"></el-option>
-                      <el-option label="创建" value="create"></el-option>
-                    </el-select>
-                  </el-form-item>
-                </template>
-              </el-table-column>
-              <el-table-column prop="listenerPath" label="路径（可输入类路径）">
-                <template #default="scope">
-                  <el-form-item :prop="'listenerRows.' + scope.$index + '.listenerPath'">
-                    <el-input v-model="scope.row.listenerPath" placeholder="请输入"></el-input>
-                  </el-form-item>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="65" align="center" v-if="!disabled">
-                <template #default="scope">
-                  <el-button link size="small" type="danger" :icon="Delete" @click="handleDeleteRow(scope.$index)"/>
-                </template>
-              </el-table-column>
-            </el-table>
+            <!-- 服务任务节点无「分派」事件，选项裁剪为 开始/完成/创建 -->
+            <listener-config :rows="form.listenerRows" :disabled="disabled" :types="serviceTaskListenerTypes" />
           </slot>
-          <div class="action-buttons">
-            <el-button v-if="!disabled" size="small" class="add-row-btn" @click="handleAddRow">增加行</el-button>
-          </div>
         </div>
       </div>
     </div>
@@ -112,8 +86,9 @@
 </template>
 
 <script setup name="ServiceTask">
-import { Delete, WarningFilled } from '@element-plus/icons-vue'
+import { WarningFilled } from '@element-plus/icons-vue'
 import nodeVariables from "./nodeVariables";
+import listenerConfig from "./listenerConfig";
 
 const props = defineProps({
   modelValue: {
@@ -129,6 +104,10 @@ const props = defineProps({
 });
 
 const form = ref(props.modelValue);
+// 无监听器时保证行数组存在，共享组件 listenerConfig 依赖它增删行
+if (!Array.isArray(form.value.listenerRows)) {
+  form.value.listenerRows = [];
+}
 const formRef = ref(null);
 const isMobile = computed(() => typeof window !== 'undefined' && window.innerWidth <= 768);
 
@@ -165,22 +144,18 @@ const TAB_ICONS = {
 };
 const tabsList = ref([
   { name: "1", label: "基础设置", iconPath: TAB_ICONS.base },
-  { name: "2", label: "监听器", iconPath: TAB_ICONS.listener }
+  { name: "2", label: "节点监听器", iconPath: TAB_ICONS.listener }
 ]);
 const tabsValue = ref("1");
 
-// 增加行
-function handleAddRow() {
-  if (!form.value.listenerRows) {
-    form.value.listenerRows = [];
-  }
-  form.value.listenerRows.push({ listenerType: '', listenerPath: '' });
-}
+// 服务任务节点无「分派」事件，监听器类型选项裁剪
+const serviceTaskListenerTypes = [
+  { label: '开始', value: 'start' },
+  { label: '完成', value: 'finish' },
+  { label: '创建', value: 'create' }
+];
 
-// 删除行
-function handleDeleteRow(index) {
-  form.value.listenerRows.splice(index, 1);
-}
+// 增加行 / 删除行：由共享组件 listenerConfig 处理
 
 /**
  * 表单校验：抽屉关闭前由 propertySetting 调用，任一必填项不通过则不关闭

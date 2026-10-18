@@ -250,57 +250,10 @@
                 check-strictly/>
         </el-form-item>
         </form-section>
-        <form-section title="监听器" :summary="listenerSummary" ref="listenerSection" :default-open="false">
+        <form-section title="节点监听器" :summary="listenerSummary" ref="listenerSection" :default-open="false">
         <div class="section-card section-purple">
           <div class="section-card-body">
-            <el-table :data="form.listenerRows" style="width: 100%">
-              <el-table-column prop="listenerType" label="类型" :width="isMobile ? 60 : 160">
-                <template #default="scope">
-                  <el-form-item :prop="'listenerRows.' + scope.$index + '.listenerType'" :rules="rules.listenerType">
-                    <el-select v-model="scope.row.listenerType" placeholder="请选择">
-                      <el-option label="开始" value="start"></el-option>
-                      <el-option label="分派" value="assignment"></el-option>
-                      <el-option label="完成" value="finish"></el-option>
-                      <el-option label="创建" value="create"></el-option>
-                    </el-select>
-                  </el-form-item>
-                </template>
-              </el-table-column>
-              <el-table-column prop="listenerPath" label="监听器（可输入类路径）">
-                <template #default="scope">
-                  <el-form-item :prop="'listenerRows.' + scope.$index + '.listenerPath'" :rules="rules.listenerPath">
-                      <!-- 业务方没实现 ListenerListService 时候选为空，此时下拉只会误导用户，退化成输入框 -->
-                      <el-select
-                          v-if="ListenerVo.length > 0"
-                          v-model="scope.row.listenerPath"
-                          placeholder="请输入或选择"
-                          allow-create
-                          filterable
-                          clearable
-                          style="width: 100%"
-                          @change="(value) => handleListenerPathChange(value, scope.row)">
-                          <el-option
-                              v-for="item in ListenerVo"
-                              :key="item.path"
-                              :label="item.description"
-                              :value="item.path"/>
-                      </el-select>
-                      <el-input
-                          v-else
-                          v-model="scope.row.listenerPath"
-                          placeholder="请输入监听器全限定类路径"/>
-                  </el-form-item>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="65" align="center" v-if="!disabled">
-                <template #default="scope">
-                  <el-button link size="small" type="danger" :icon="Delete" @click="handleDeleteRow(scope.$index)"/>
-                </template>
-              </el-table-column>
-            </el-table>
-            <div class="action-buttons">
-              <el-button v-if="!disabled" size="small" class="add-row-btn" @click="handleAddRow">增加行</el-button>
-            </div>
+            <listener-config :rows="form.listenerRows" :disabled="disabled" />
           </div>
         </div>
         </form-section>
@@ -423,9 +376,10 @@
 <script setup name="Between">
 import selectUser from "./selectUser";
 import { Delete } from '@element-plus/icons-vue'
-import {publishedList, handlerDict, nodeExt, handlerFeedback, listenerList} from "@/api/flow/definition";
+import {publishedList, handlerDict, nodeExt, handlerFeedback} from "@/api/flow/definition";
 import nodeExtList from "./nodeExtList";
 import formSection from "./formSection";
+import listenerConfig from "./listenerConfig";
 import nodeVariables from "./nodeVariables";
 import {getPreviousNodes} from "@/components/design/common/js/tool.js";
 import {getFramework} from "@/utils/auth.js";
@@ -492,7 +446,6 @@ const buttonList = ref({});
 const definitionList = ref([]); // 流程表单列表
 const dictList = ref(); // 办理人选项
 const permissionRows = ref([]); // 办理人表格
-const ListenerVo = ref([]); // 监听器列表
 const emit = defineEmits(['update:modelValue']);
 
 /** 扩展属性值是否算"已填写"：多选看数组长度，其余看去掉空白后是否有内容 */
@@ -1011,8 +964,6 @@ const rules = reactive({
         // 其他类型不作限制
         return [];
     }),
-    listenerType: [{required: true, message: '监听器类型不能为空', trigger: 'change'}],
-    listenerPath: [{required: true, message: '监听器路径不能为空', trigger: 'blur'}],
     // 事件节点字段校验：与后端 FlowConfigUtil 的事件结构校验保持一致，尽量在保存前拦截
     eventName: [{validator: validateEventName, trigger: ['blur', 'change']}],
     eventTimerType: [{required: true, message: '请选择定时类型', trigger: 'change'}],
@@ -1172,6 +1123,9 @@ function getPermissionFlag() {
       listenerType: type,
       listenerPath: listenerPaths[index]
     }));
+  } else if (!Array.isArray(form.value.listenerRows)) {
+    // 无监听器时也要保证行数组存在，共享组件 listenerConfig 依赖它增删行
+    form.value.listenerRows = [];
   }
 }
 
@@ -1207,34 +1161,6 @@ async function getHandlerFeedback() {
           }
     });
   }
-}
-
-/** 获取监听器列表 */
-async function getListenerList() {
-    listenerList().then(response => {
-        if (response.code === 200 && response.data) {
-            ListenerVo.value = response.data;
-        }
-    });
-}
-
-
-// 处理监听器路径变化，级联更新类型
-function handleListenerPathChange(path, row) {
-    if (!path) {
-        // 清空时，也清空类型
-        row.listenerType = '';
-        return;
-    }
-
-    // 在下拉选项中查找匹配的项
-    const matchedItem = ListenerVo.value.find(item => item.path === path);
-    if (matchedItem && matchedItem.type) {
-        // 候选自带类型才联动
-        row.listenerType = matchedItem.type;
-    }
-    // 其余情况（手动输入、候选未声明类型）保持用户已选类型：
-    // 一个监听器类通常可配到开始/分派/完成/创建任意事件，清空会抹掉用户上一步的选择
 }
 
 /** 查询节点扩展属性 */
@@ -1296,15 +1222,7 @@ function handleUserSelect(checkedItemList) {
   permissionRows.value = checkedItemList;
 }
 
-// 增加行
-function handleAddRow() {
-  form.value.listenerRows.push({ listenerType: '', listenerPath: '' });
-}
-
-// 删除行
-function handleDeleteRow(index) {
-  form.value.listenerRows.splice(index, 1);
-}
+// 增加行 / 删除行：由共享组件 listenerConfig 处理
 
 const filteredNodes = computed(() => {
   let previousNodes = getPreviousNodes(props.nodes, props.skips, form.value.nodeCode)
@@ -1325,7 +1243,6 @@ getPermissionFlag();
 
 // 监听器已收进基础设置分组，没有页签切换可挂钩，改为初始化时取一次候选
 getNodeExt();
-getListenerList();
 // 扩展属性（KV）行初始化
 initKvRows();
 
