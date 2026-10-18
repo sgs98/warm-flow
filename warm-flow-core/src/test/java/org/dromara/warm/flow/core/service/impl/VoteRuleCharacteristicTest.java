@@ -5,7 +5,7 @@ import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.TaskStatus;
-import org.dromara.warm.flow.core.spi.VoteSignStrategy;
+import org.dromara.warm.flow.core.strategy.VoteSignStrategy;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
 import org.dromara.warm.flow.core.utils.ExpressionUtil;

@@ -1,4 +1,4 @@
-package org.dromara.warm.flow.core.spi;
+package org.dromara.warm.flow.core.strategy;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -6,7 +6,7 @@ import java.util.List;
 /**
  * 服务任务表达式策略接口。
  *
- * @author warm
+ * @author may
  */
 public interface ServiceTaskStrategy extends ExpressionStrategy<Object> {
 

@@ -16,7 +16,7 @@ import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.spi.GlobalListener;
 import org.dromara.warm.flow.core.spi.ListenerVariable;
-import org.dromara.warm.flow.core.spi.ServiceTaskStrategy;
+import org.dromara.warm.flow.core.strategy.ServiceTaskStrategy;
 import org.dromara.warm.flow.core.service.task.ServiceTaskHandler;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;

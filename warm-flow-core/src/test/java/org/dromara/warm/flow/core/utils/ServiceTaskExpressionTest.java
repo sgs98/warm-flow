@@ -1,7 +1,7 @@
 package org.dromara.warm.flow.core.utils;
 
 import org.dromara.warm.flow.core.exception.FlowException;
-import org.dromara.warm.flow.core.spi.ServiceTaskStrategy;
+import org.dromara.warm.flow.core.strategy.ServiceTaskStrategy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 

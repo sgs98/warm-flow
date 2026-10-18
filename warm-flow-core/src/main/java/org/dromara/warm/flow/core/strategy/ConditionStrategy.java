@@ -13,36 +13,47 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-package org.dromara.warm.flow.core.spi;
+package org.dromara.warm.flow.core.strategy;
+
+import org.dromara.warm.flow.core.constant.FlowCons;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 监听器表达式策略接口。
+ * 流程条件表达式策略接口。
  * <p>
- * 监听器路径支持表达式化解析，外部扩展可通过该接口注册监听器表达式策略。
- * 执行结果用于表示监听器表达式是否成功触发。
+ * 节点跳转线、排他网关、包容网关等场景通过条件表达式判断连线是否命中。
+ * 内置比较策略和外部扩展策略都会注册到该接口维护的策略列表中。
  *
- * @author warm,battcn
+ * @author warm
  */
-public interface ListenerStrategy extends ExpressionStrategy<Boolean> {
+public interface ConditionStrategy extends ExpressionStrategy<Boolean> {
 
     /**
-     * 监听器表达式策略实现集合。
+     * 条件表达式策略实现集合。
      * <p>
      * {@code ExpressionUtil} 倒序遍历该集合，因此后注册的策略优先级更高。
      */
     List<ExpressionStrategy<Boolean>> EXPRESSION_STRATEGY_LIST = new ArrayList<>();
 
     /**
-     * 注册监听器表达式策略。
+     * 注册条件表达式策略。
      *
-     * @param expressionStrategy 监听器表达式策略
+     * @param expressionStrategy 条件表达式策略
      */
     @Override
     default void setExpression(ExpressionStrategy<Boolean> expressionStrategy) {
         EXPRESSION_STRATEGY_LIST.add(expressionStrategy);
     }
 
+    /**
+     * 条件表达式默认使用 {@code @@} 分隔策略类型和表达式主体。
+     *
+     * @return 表达式分隔符
+     */
+    @Override
+    default String interceptStr() {
+        return FlowCons.SPLIT_AT;
+    }
 }

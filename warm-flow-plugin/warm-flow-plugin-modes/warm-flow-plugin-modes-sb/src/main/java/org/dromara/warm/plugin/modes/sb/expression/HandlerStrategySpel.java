@@ -15,7 +15,7 @@
  */
 package org.dromara.warm.plugin.modes.sb.expression;
 
-import org.dromara.warm.flow.core.spi.HandlerStrategy;
+import org.dromara.warm.flow.core.strategy.HandlerStrategy;
 import org.dromara.warm.plugin.modes.sb.helper.SpelHelper;
 
 import java.util.Map;
