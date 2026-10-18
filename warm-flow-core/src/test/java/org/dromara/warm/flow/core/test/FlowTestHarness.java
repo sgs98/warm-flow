@@ -165,7 +165,7 @@ public class FlowTestHarness implements AutoCloseable {
         FlowEngine.jsonConvert = new FlatJsonConvert();
         FlowEngine.setAutoNodeExecutors(new ArrayList<>(List.of(new ServiceTaskExecutor())));
         FlowEngine.initDataFillHandler(null);
-        FlowEngine.initGlobalListener(null);
+        FlowEngine.initGlobalListener();
         FlowEngine.initTenantHandler(null);
         FlowEngine.initPermissionHandler(null);
         FlowEngine.setStatusMapper(null);

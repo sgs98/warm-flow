@@ -11,16 +11,19 @@ import org.dromara.warm.flow.core.listener.GlobalListener;
 import org.dromara.warm.flow.core.listener.ListenerVariable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * demo 全局流程监听器。
+ * demo 全局流程监听器：按 SPI/Bean 方式注册（Spring 容器自动发现），
+ * 无需 warm-flow.global-listener-path 之类的类路径配置。
  *
  * @author may
  * @since 2026/9/11
  */
+@Component
 public class DemoGlobalListener implements GlobalListener {
 
     /**

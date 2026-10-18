@@ -130,7 +130,7 @@ class ServiceTaskCharacteristicTest {
                 }
             }
         });
-        FlowEngine.initGlobalListener(null);
+        FlowEngine.initGlobalListener();
         FlowEngine.insService().start("biz-assign", "svcAssign", TestFlows.context(TestFlows.HANDLER));
 
         assertTrue(assignedNodes.contains("apply"),

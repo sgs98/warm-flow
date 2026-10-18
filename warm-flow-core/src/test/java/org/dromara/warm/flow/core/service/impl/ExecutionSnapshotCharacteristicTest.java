@@ -50,7 +50,7 @@ class ExecutionSnapshotCharacteristicTest {
         harness = new FlowTestHarness();
         harness.register(GlobalListener.class, MutatingGlobalListener.instance());
         // harness 构造时已把默认全局监听器固化进 FlowEngine 字段，需重新解析才能生效
-        FlowEngine.initGlobalListener(null);
+        FlowEngine.initGlobalListener();
     }
 
     @AfterEach

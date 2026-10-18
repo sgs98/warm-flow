@@ -144,7 +144,7 @@ public class WarmFlowUiProvider implements NodeExtService, HandlerSelectService,
      *   <li>{@code DemoFinishListener}：只用于完成事件，带上 {@code type=finish}，
      *       选中后事件类型自动联动。</li>
      * </ul>
-     * 全局监听器 DemoGlobalListener 不在这里列出——它已经通过 warm-flow.global-listener-path 生效，
+     * 全局监听器 DemoGlobalListener 不在这里列出——它已按 SPI/Bean 方式注册（{@code @Component}），
      * 再配到节点上会重复触发。
      */
     @Override

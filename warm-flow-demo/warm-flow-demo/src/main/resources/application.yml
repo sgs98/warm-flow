@@ -32,7 +32,6 @@ warm-flow:
   logic-delete: false
   # 定时能力开关：事件案例（定时边界 / 定时捕获 / 定时启动）依赖扫描线程
   timer-enabled: true
-  global-listener-path: org.dromara.warm.demo.listener.DemoGlobalListener
   data-source-type: mysql
   banner: true
   systemHandler: admin

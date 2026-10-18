@@ -86,11 +86,6 @@ public class WarmFlow implements Serializable {
     private String permissionHandlerPath;
 
     /**
-     * 全局监听器类路径
-     */
-    private String globalListenerPath;
-
-    /**
      * 状态映射器类路径：实例 / 任务 / 协作三维语义 → 宿主编码，未配置时使用内置编码
      */
     private String statusMapperPath;
@@ -189,8 +184,8 @@ public class WarmFlow implements Serializable {
         // 设置办理人权限处理类
         FlowEngine.initPermissionHandler(this.getPermissionHandlerPath());
 
-        // 设置全局监听器
-        FlowEngine.initGlobalListener(this.getGlobalListenerPath());
+        // 设置全局监听器：按 SPI/Bean 方式从容器获取（业务方实现 GlobalListener 并注册为 Bean）
+        FlowEngine.initGlobalListener();
 
         // 设置状态映射器
         FlowEngine.initStatusMapper(this.getStatusMapperPath());

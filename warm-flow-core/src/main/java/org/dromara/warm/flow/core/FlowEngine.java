@@ -416,12 +416,11 @@ public class FlowEngine {
     }
 
     /**
-     * 初始化全局监听器。
-     *
-     * @param handlerPath 监听器类路径，为空时尝试从容器获取
+     * 初始化全局监听器：从容器（Spring Bean / 测试挂具注册表）获取实现。
+     * 全局监听器按 SPI/Bean 方式注册，业务方实现 GlobalListener 接口并交给容器管理即可，不再支持类路径配置。
      */
-    public static void initGlobalListener(String handlerPath) {
-        globalListener = initBean(GlobalListener.class, handlerPath, null);
+    public static void initGlobalListener() {
+        globalListener = FrameInvoker.getBean(GlobalListener.class);
     }
 
     /**

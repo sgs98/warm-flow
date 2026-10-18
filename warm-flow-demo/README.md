@@ -75,8 +75,7 @@ curl -F "file=@leave_1.json" "http://localhost:8080/api/definitions/import"
 
 Demo 内置了全局监听器和任务监听器示例，便于观察 Warm-Flow 的监听器触发时机：
 
-- 全局监听器通过 `warm-flow.global-listener-path` 配置为
-  `org.dromara.warm.demo.listener.DemoGlobalListener`，覆盖 `start`、`assignment`、`finish`、`create` 四类全局事件；其中 `assignment` 还负责把 Demo 流程中的用户/部门权限标识展开为实际用户名。
+- 全局监听器为 `org.dromara.warm.demo.listener.DemoGlobalListener`，按 SPI/Bean 方式注册（`@Component` 交给 Spring 容器，引擎自动发现），无需任何类路径配置；覆盖 `start`、`assignment`、`finish`、`create` 四类全局事件；其中 `assignment` 还负责把 Demo 流程中的用户/部门权限标识展开为实际用户名。
 - 任务监听器为 `org.dromara.warm.demo.listener.DemoTaskListener`。在 iframe 流程设计器的节点监听器配置中手动填写该类路径，并按需配置 `start`、`assignment`、`finish`、`create` 事件；同一个监听器配置多个事件时，可通过 `ListenerVariable.getEventType()` 获取本次实际触发的事件。
 - 判定型监听器为 `org.dromara.warm.demo.listener.DemoPayFailListener`，挂在「付款失败善后」案例「财务执行付款」节点的 `create` 事件上：读取流程变量 `payAmount`（付款金额），大于限额 `1000` 时调用 `TaskService.throwError` 抛 `PAY_FAILED` 命中错误边界，自动中断付款任务并转到「失败善后处理」；未超限（或未传、非数字）时不处理。它演示「业务在监听器里读变量判定后显式抛错进边界」的写法——引擎**不会**自动把监听器抛出的 Java 异常转成错误事件，必须调用抛出 API。
 - 启动流程并办理任务后，可在 Demo 后端日志中查看监听器读取到的流程定义、实例、节点、任务和流程变量上下文。
