@@ -15,6 +15,7 @@
  */
 package org.dromara.warm.flow.core.spi;
 
+import lombok.Getter;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
@@ -32,50 +33,96 @@ import java.util.Map;
  *
  * @author warm
  */
+@Getter
 public class ListenerVariable {
 
     /**
      * 流程定义
+     * -- GETTER --
+     *  获取流程定义。
+     *
+     * @return 流程定义
+
      */
     private Definition definition;
 
     /**
      * 流程实例
+     * -- GETTER --
+     *  获取流程实例。
+     *
+     * @return 流程实例
+
      */
     private Instance instance;
 
     /**
      * 监听器对应的节点
+     * -- GETTER --
+     *  获取监听器对应节点。
+     *
+     * @return 节点
+
      */
     private Node node;
 
     /**
      * 当前任务
+     * -- GETTER --
+     *  获取当前任务。
+     *
+     * @return 当前任务
+
      */
     private Task task;
 
     /**
      * 下一次执行的节点集合
+     * -- GETTER --
+     *  获取后续节点集合。
+     *
+     * @return 后续节点集合
+
      */
     private List<Node> nextNodes;
 
     /**
      * 新创建任务集合
+     * -- GETTER --
+     *  获取新创建任务集合。
+     *
+     * @return 新任务集合
+
      */
     private List<Task> nextTasks;
 
     /**
      * 流程变量
+     * -- GETTER --
+     *  获取流程变量。
+     *
+     * @return 流程变量
+
      */
     private Map<String, Object> variable;
 
     /**
      * 本次实际触发的监听器事件类型，取值见 {@link Listener} 事件常量
+     * -- GETTER --
+     *  获取本次实际触发的监听器事件类型。
+     *
+     * @return 监听器事件类型，取值见 {@link Listener} 事件常量
+
      */
     private String eventType;
 
     /**
      * 工作流内置参数
+     * -- GETTER --
+     *  获取流程动作执行上下文。
+     *
+     * @return 流程动作执行上下文
+
      */
     private WorkflowContext context;
 
@@ -188,15 +235,6 @@ public class ListenerVariable {
     }
 
     /**
-     * 获取流程定义。
-     *
-     * @return 流程定义
-     */
-    public Definition getDefinition() {
-        return definition;
-    }
-
-    /**
      * 设置流程定义。
      *
      * @param definition 流程定义
@@ -205,15 +243,6 @@ public class ListenerVariable {
     public ListenerVariable setDefinition(Definition definition) {
         this.definition = definition;
         return this;
-    }
-
-    /**
-     * 获取流程实例。
-     *
-     * @return 流程实例
-     */
-    public Instance getInstance() {
-        return instance;
     }
 
     /**
@@ -228,15 +257,6 @@ public class ListenerVariable {
     }
 
     /**
-     * 获取监听器对应节点。
-     *
-     * @return 节点
-     */
-    public Node getNode() {
-        return node;
-    }
-
-    /**
      * 设置监听器对应节点。
      *
      * @param node 节点
@@ -245,15 +265,6 @@ public class ListenerVariable {
     public ListenerVariable setNode(Node node) {
         this.node = node;
         return this;
-    }
-
-    /**
-     * 获取当前任务。
-     *
-     * @return 当前任务
-     */
-    public Task getTask() {
-        return task;
     }
 
     /**
@@ -268,15 +279,6 @@ public class ListenerVariable {
     }
 
     /**
-     * 获取后续节点集合。
-     *
-     * @return 后续节点集合
-     */
-    public List<Node> getNextNodes() {
-        return nextNodes;
-    }
-
-    /**
      * 设置后续节点集合。
      *
      * @param nextNodes 后续节点集合
@@ -285,15 +287,6 @@ public class ListenerVariable {
     public ListenerVariable setNextNodes(List<Node> nextNodes) {
         this.nextNodes = nextNodes;
         return this;
-    }
-
-    /**
-     * 获取新创建任务集合。
-     *
-     * @return 新任务集合
-     */
-    public List<Task> getNextTasks() {
-        return nextTasks;
     }
 
     /**
@@ -308,15 +301,6 @@ public class ListenerVariable {
     }
 
     /**
-     * 获取流程变量。
-     *
-     * @return 流程变量
-     */
-    public Map<String, Object> getVariable() {
-        return variable;
-    }
-
-    /**
      * 设置流程变量。
      *
      * @param variable 流程变量
@@ -328,15 +312,6 @@ public class ListenerVariable {
     }
 
     /**
-     * 获取本次实际触发的监听器事件类型。
-     *
-     * @return 监听器事件类型，取值见 {@link Listener} 事件常量
-     */
-    public String getEventType() {
-        return eventType;
-    }
-
-    /**
      * 设置本次实际触发的监听器事件类型。
      *
      * @param eventType 监听器事件类型
@@ -345,15 +320,6 @@ public class ListenerVariable {
     public ListenerVariable setEventType(String eventType) {
         this.eventType = eventType;
         return this;
-    }
-
-    /**
-     * 获取流程动作执行上下文。
-     *
-     * @return 流程动作执行上下文
-     */
-    public WorkflowContext getContext() {
-        return context;
     }
 
     /**
