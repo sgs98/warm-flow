@@ -232,7 +232,7 @@ CREATE TABLE flow_his_task
     target_node_code varchar(200) NULL,
     target_node_name varchar(200) NULL,
     approver         varchar(40)  NULL,
-    cooperate_type   int2         NOT NULL DEFAULT 0,
+    cooperate_type   varchar(20)  NOT NULL DEFAULT 'none',
     collaborator     varchar(500)  NULL,
     skip_type        varchar(10)  NULL,
     flow_status      varchar(20)  NOT NULL,
@@ -260,7 +260,7 @@ COMMENT ON COLUMN flow_his_task.node_type IS '开始节点类型（0开始节点
 COMMENT ON COLUMN flow_his_task.target_node_code IS '目标节点编码';
 COMMENT ON COLUMN flow_his_task.target_node_name IS '结束节点名称';
 COMMENT ON COLUMN flow_his_task.approver IS '审批者';
-COMMENT ON COLUMN flow_his_task.cooperate_type IS '协作方式（1无 2转办 3委派 4会签 5票签 6加签 7减签；行为维度，结果见 flow_status）';
+COMMENT ON COLUMN flow_his_task.cooperate_type IS '协作方式（none无 transfer转办 delegate委派 add_signer加签 remove_signer减签；行为维度，抄送/会签/票签不落此列，结果见 flow_status）';
 COMMENT ON COLUMN flow_his_task.collaborator IS '协作人';
 COMMENT ON COLUMN flow_his_task.skip_type IS '流转类型（PASS通过 REJECT退回 NONE无动作）';
 COMMENT ON COLUMN flow_his_task.flow_status IS '任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送；任务结果，勿套用实例状态编码）';
@@ -294,9 +294,9 @@ CREATE INDEX user_associated_idx ON FLOW_USER USING btree (associated);
 COMMENT ON TABLE flow_user IS '流程用户表';
 
 COMMENT ON COLUMN flow_user.id IS '主键id';
-COMMENT ON COLUMN flow_user."type" IS '人员类型（1待办任务的审批人权限 2待办任务的转办人权限 3待办任务的委托人权限）';
+COMMENT ON COLUMN flow_user."type" IS '人员类型（1待办任务的审批人权限 2待办任务的转办人权限 3待办任务的委托人权限 4待办任务的抄送人）';
 COMMENT ON COLUMN flow_user.processed_by IS '权限人';
-COMMENT ON COLUMN flow_user.associated IS '任务表id';
+COMMENT ON COLUMN flow_user.associated IS '关联id（待办任务id；抄送人记录为 flow_his_task.id）';
 COMMENT ON COLUMN flow_user.create_time IS '创建时间';
 COMMENT ON COLUMN flow_user.create_by IS '创建人';
 COMMENT ON COLUMN flow_user.update_time IS '更新时间';

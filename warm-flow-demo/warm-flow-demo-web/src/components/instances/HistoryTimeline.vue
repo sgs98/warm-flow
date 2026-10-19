@@ -19,7 +19,8 @@
           </el-tag>
         </div>
         <div v-if="h.targetNodeName" class="tl-line">→ {{ h.targetNodeName }}</div>
-        <div class="tl-line">办理人：{{ h.approver || '-' }}</div>
+        <div v-if="h.copyUsers" class="tl-line">抄送给：{{ h.copyUsers }}</div>
+        <div v-else class="tl-line">办理人：{{ h.approver || '-' }}</div>
         <div v-if="h.current" class="tl-line">当前待办</div>
         <div v-if="h.message" class="tl-line">意见：{{ h.message }}</div>
       </div>

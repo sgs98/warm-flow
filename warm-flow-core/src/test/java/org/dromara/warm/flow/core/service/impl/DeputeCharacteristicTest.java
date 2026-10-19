@@ -52,14 +52,14 @@ class DeputeCharacteristicTest {
 
         FlowException empty = assertThrows(FlowException.class, () -> FlowEngine.taskService()
                 .updateHandlers(task.getId(), TestFlows.context(TestFlows.HANDLER), List.of(), List.of()
-                        , CooperateType.DEPUTE.getKey()));
+                        , CooperateType.DELEGATE.getKey()));
         assertEquals(ExceptionCons.NULL_DEPUTE_HANDLER, empty.getMessage());
 
         FlowEngine.taskService().updateHandlers(task.getId(), TestFlows.context(TestFlows.HANDLER)
-                , List.of("lisi"), List.of(), CooperateType.DEPUTE.getKey());
+                , List.of("lisi"), List.of(), CooperateType.DELEGATE.getKey());
         FlowException dup = assertThrows(FlowException.class, () -> FlowEngine.taskService()
                 .updateHandlers(task.getId(), TestFlows.context(TestFlows.HANDLER), List.of("lisi"), List.of()
-                        , CooperateType.DEPUTE.getKey()));
+                        , CooperateType.DELEGATE.getKey()));
         assertEquals(ExceptionCons.IS_ALREADY_DEPUTE, dup.getMessage());
     }
 
@@ -68,9 +68,9 @@ class DeputeCharacteristicTest {
         Instance instance = TestFlows.start("dp2", "biz-d2");
         Task task = TestFlows.currentTask(instance.getId());
         FlowEngine.taskService().updateHandlers(task.getId(), TestFlows.context(TestFlows.HANDLER)
-                , List.of("lisi"), List.of(), CooperateType.DEPUTE.getKey());
+                , List.of("lisi"), List.of(), CooperateType.DELEGATE.getKey());
         int deputeHisBefore = harness.hisTaskDao.all().stream()
-                .filter(h -> CooperateType.DEPUTE.getKey().equals(h.getCooperateType())).toList().size();
+                .filter(h -> CooperateType.DELEGATE.getKey().equals(h.getCooperateType())).toList().size();
         harness.reset();
 
         // 受托人 lisi 办理：办案权回还 zhangsan，本次不流转
@@ -84,7 +84,7 @@ class DeputeCharacteristicTest {
 
         // 受托办理历史：新增 1 条 DEPUTE（skipType=PASS、approver=受托人、collaborator=委托人）
         List<org.dromara.warm.flow.core.entity.HisTask> deputeHis = harness.hisTaskDao.all().stream()
-                .filter(h -> CooperateType.DEPUTE.getKey().equals(h.getCooperateType())).toList();
+                .filter(h -> CooperateType.DELEGATE.getKey().equals(h.getCooperateType())).toList();
         assertEquals(deputeHisBefore + 1, deputeHis.size());
         assertEquals(1, deputeHis.stream()
                 .filter(h -> SkipType.PASS.getKey().equals(h.getSkipType())).count());
@@ -107,7 +107,7 @@ class DeputeCharacteristicTest {
         Instance instance = TestFlows.start("dp3", "biz-d3");
         Task task = TestFlows.currentTask(instance.getId());
         FlowEngine.taskService().updateHandlers(task.getId(), TestFlows.context(TestFlows.HANDLER)
-                , List.of("lisi"), List.of(), CooperateType.DEPUTE.getKey());
+                , List.of("lisi"), List.of(), CooperateType.DELEGATE.getKey());
         TestFlows.pass(task.getId(), "lisi");
 
         // 委托人续办：正常流转到 end

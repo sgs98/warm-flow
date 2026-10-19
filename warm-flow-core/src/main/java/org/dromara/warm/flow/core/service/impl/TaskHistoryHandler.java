@@ -47,6 +47,8 @@ final class TaskHistoryHandler {
         if (CollUtil.isNotEmpty(addTasks)) {
             taskService.saveBatch(addTasks);
         }
+        // 到达节点：按 node_config.copy 自动抄送
+        CopyAdvancer.copyOnArrival(addTasks, instance, context);
         boolean updated = FlowEngine.insService().updateById(instance);
         AssertUtil.isFalse(updated, ExceptionCons.NOT_FOUNT_INSTANCE);
         FlowEngine.userService().saveBatch(users);

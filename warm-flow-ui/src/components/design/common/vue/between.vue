@@ -209,6 +209,32 @@
         </el-form-item>
         </form-section>
 
+        <!-- 抄送：流程到达该节点时把这条待办抄送给这些人。
+             只写留痕（flow_his_task + flow_user，类型 4），不产生待办、不改流程状态，也不走协作方式。
+             只有会产生待办的节点才有抄送——事件节点（含边界事件，画布上是圆圈）不产生待办，不开放该配置。 -->
+        <form-section v-if="!isEventNode" title="抄送" :summary="copySummary" :default-open="false">
+        <el-form-item label="抄送人：">
+          <div class="copy-picker">
+            <div class="copy-tags" v-if="copyHandlerRows.length > 0">
+              <el-tag
+                v-for="(row, index) in copyHandlerRows"
+                :key="row.storageId"
+                class="copy-tag"
+                size="small"
+                :closable="!disabled"
+                @close="removeCopyHandler(index)"
+              >{{ row.handlerName || row.storageId }}</el-tag>
+            </div>
+            <div v-else class="copy-empty">{{ disabled ? '未配置抄送人' : '到达该节点时自动抄送给这些人' }}</div>
+            <div class="copy-actions" v-if="!disabled">
+              <el-button size="small" class="add-row-btn add-row-btn-secondary" @click="openCopyUser">选择</el-button>
+              <el-button size="small" class="add-row-btn add-row-btn-secondary" @click="addCopyInitiator">发起人</el-button>
+            </div>
+          </div>
+          <div class="field-hint">抄送只产生留痕，不进入待办；同一节点配置多人时每人各收一条。选部门 / 角色时由后端展开成具体用户，展开不到人的标识不会抄送</div>
+        </el-form-item>
+        </form-section>
+
         <form-section title="表单" :summary="formSummary" :default-open="false">
         <!-- 自定义表单 - 卡片式单选 -->
         <el-form-item label="自定义表单：" prop="formCustom">
@@ -371,6 +397,13 @@
     >
       <selectUser v-model:selectUser="form.permissionFlag" v-model:userVisible="userVisible" :permissionRows="permissionRows" @handleUserSelect="handleUserSelect"></selectUser>
     </el-dialog>
+
+    <!-- 抄送人：复用同一套人员选择器，结果写 node_config.copy.handlers -->
+    <el-dialog title="选择抄送人" v-if="copyUserVisible" v-model="copyUserVisible" :width="isMobile ? '96%' : '80%'" append-to-body
+      class="person-select-dialog" :class="{ 'mobile-user-dialog': isMobile }"
+    >
+      <selectUser :selectUser="copyHandlerIds" v-model:userVisible="copyUserVisible" :permissionRows="copyHandlerRows" @handleUserSelect="handleCopyUserSelect"></selectUser>
+    </el-dialog>
   </div>
 </template>
 
@@ -487,8 +520,8 @@ const baseExtSummary = computed(() => {
   return filled.length > 1 ? `${text}　等 ${filled.length} 项` : text;
 });
 
-/** 引擎保留的节点配置键：服务任务配置与事件配置，不参与自定义 KV 行 */
-const NODE_CONFIG_RESERVED_KEYS = ['serviceTask', 'event'];
+/** 引擎保留的节点配置键：服务任务配置、事件配置与抄送配置，不参与自定义 KV 行 */
+const NODE_CONFIG_RESERVED_KEYS = ['serviceTask', 'event', 'copy'];
 
 /** 初始化 KV 行：从 form.nodeConfig 读取非保留键 */
 function initKvRows() {
@@ -516,6 +549,11 @@ function syncNodeConfig() {
   if (form.value.nodeConfig && typeof form.value.nodeConfig === 'object'
       && form.value.nodeConfig.event !== undefined) {
     config.event = form.value.nodeConfig.event;
+  }
+  // 抄送配置：node_config.copy 段由抄送面板维护，KV 行编辑时同样要保留
+  if (form.value.nodeConfig && typeof form.value.nodeConfig === 'object'
+      && form.value.nodeConfig.copy !== undefined) {
+    config.copy = form.value.nodeConfig.copy;
   }
   form.value.nodeConfig = config;
 }
@@ -1223,6 +1261,98 @@ function handleUserSelect(checkedItemList) {
   permissionRows.value = checkedItemList;
 }
 
+// ========== 抄送（node_config.copy） ==========
+// 抄送不产生待办、不改流程状态，只是到达节点时写一条留痕（flow_his_task.flow_status = copy
+// + flow_user.type = 4）。存储结构见后端 CopyConfig：{ "copy": { "handlers": ["..."] } }。
+const copyUserVisible = ref(false);
+// 抄送人展示行：storageId 是写入 nodeConfig 的值，handlerName 只用于界面展示
+const copyHandlerRows = ref([]);
+
+/** 当前抄送人标识（node_config.copy.handlers），面板内的唯一读取入口 */
+const copyHandlerIds = computed(() => {
+  const config = form.value.nodeConfig;
+  const handlers = config && typeof config === 'object' && config.copy && typeof config.copy === 'object'
+    ? config.copy.handlers : null;
+  return Array.isArray(handlers) ? handlers.filter(handler => handler) : [];
+});
+
+const copySummary = computed(() => {
+  const rows = copyHandlerRows.value;
+  if (rows.length === 0) return '未配置';
+  const names = rows.map(row => row.handlerName || row.storageId);
+  return names.length > 3 ? `${names.slice(0, 3).join('、')} 等 ${names.length} 人` : names.join('、');
+});
+
+/** 写入抄送人：没有抄送人时整段删掉，避免留下空的 copy 段 */
+function syncCopyHandlers(ids) {
+  const config = form.value.nodeConfig && typeof form.value.nodeConfig === 'object'
+    ? { ...form.value.nodeConfig } : {};
+  const handlers = (ids || []).filter(id => id);
+  if (handlers.length > 0) {
+    config.copy = { ...(config.copy && typeof config.copy === 'object' ? config.copy : {}), handlers };
+  } else {
+    delete config.copy;
+  }
+  form.value.nodeConfig = config;
+}
+
+/** 抄送人名称回显：先按已知行补齐，缺失的再问一次宿主的 handlerFeedback */
+async function loadCopyHandlerNames() {
+  const ids = copyHandlerIds.value;
+  if (ids.length === 0) {
+    copyHandlerRows.value = [];
+    return;
+  }
+  const known = new Map(copyHandlerRows.value.map(row => [row.storageId, row.handlerName]));
+  const pending = ids.filter(id => !known.get(id));
+  let resolved = [];
+  if (pending.length > 0) {
+    try {
+      const response = await handlerFeedback({ storageIds: pending });
+      resolved = response && response.code === 200 ? (response.data || []) : [];
+    } catch (e) {
+      resolved = [];
+    }
+  }
+  // 请求期间可能已经切到别的节点：结果回来时标识对不上就丢弃，避免把上一个节点的名称写到当前节点
+  if (JSON.stringify(copyHandlerIds.value) !== JSON.stringify(ids)) {
+    return;
+  }
+  copyHandlerRows.value = ids.map(id => {
+    if (id === INITIATOR_FLAG) return { storageId: id, handlerName: INITIATOR_NAME };
+    const hit = resolved.find(row => row.storageId === id);
+    // 宿主解析不到时退回标识本身，至少不丢行
+    return { storageId: id, handlerName: (hit && hit.handlerName) || known.get(id) || id };
+  });
+}
+
+function openCopyUser() {
+  copyUserVisible.value = true;
+  loadCopyHandlerNames();
+}
+
+/** 选择器确认：整体覆盖抄送人，未选则清空 */
+function handleCopyUserSelect(checkedItemList) {
+  const rows = (checkedItemList || []).filter(row => row && row.storageId);
+  copyHandlerRows.value = rows;
+  syncCopyHandlers(rows.map(row => row.storageId));
+}
+
+function removeCopyHandler(index) {
+  const rows = [...copyHandlerRows.value];
+  rows.splice(index, 1);
+  copyHandlerRows.value = rows;
+  syncCopyHandlers(rows.map(row => row.storageId));
+}
+
+/** 快捷添加发起人：引擎在抄送时把它替换成流程实例的发起人 */
+function addCopyInitiator() {
+  if (copyHandlerIds.value.includes(INITIATOR_FLAG)) return;
+  const rows = [...copyHandlerRows.value, { storageId: INITIATOR_FLAG, handlerName: INITIATOR_NAME }];
+  copyHandlerRows.value = rows;
+  syncCopyHandlers(rows.map(row => row.storageId));
+}
+
 // 增加行 / 删除行：由共享组件 listenerConfig 处理
 
 const filteredNodes = computed(() => {
@@ -1246,6 +1376,13 @@ getPermissionFlag();
 getNodeExt();
 // 扩展属性（KV）行初始化
 initKvRows();
+// 抄送人名称回显：没有配置抄送人时不会发请求。
+// 必须监听节点切换：属性面板复用同一个 form 对象（propertySetting 原地改写），
+// 不监听的话切到另一个节点时还显示上一个节点的抄送人，
+// 再点「选择」确认就会把上一个节点的抄送人写进当前节点。
+watch(() => JSON.stringify(copyHandlerIds.value), () => {
+  loadCopyHandlerNames();
+}, { immediate: true });
 
 // 表单必填校验
 // 注意：必须 await 表单校验结果。ElForm 的 validate(callback) 回调是异步的，
@@ -1346,6 +1483,52 @@ defineExpose({
 .ratio-value {
   flex: 1 1 0;
   min-width: 0;
+}
+
+/* ========== 抄送人：标签列表 + 选择入口 ========== */
+.copy-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.copy-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+}
+
+.copy-tag {
+  border-radius: 12px;
+  font-size: 12px;
+  background: var(--wf-primary-lighter, #f0f7ff);
+  border-color: rgba(64, 158, 255, 0.25);
+  color: var(--wf-primary, #409eff);
+
+  html.dark & {
+    background: rgba(64, 158, 255, 0.12);
+    border-color: rgba(64, 158, 255, 0.3);
+  }
+}
+
+.copy-empty {
+  color: var(--wf-text-secondary, #909399);
+  font-size: 12px;
+  line-height: 22px;
+}
+
+.copy-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .add-row-btn {
+    width: auto;
+    flex: 0 0 auto;
+    padding: 0 14px;
+  }
 }
 
 .field-hint {

@@ -100,14 +100,14 @@ final class FlowStatusMachine {
      * 协作动作对应的任务状态默认值。
      * <p>
      * 协作类型为空时按「无协作」处理，宿主可通过
-     * {@code CooperateStatusMapper} 把转办 / 委派 / 加签 / 减签映射为自定义任务状态。
+     * {@code StatusMapper#cooperateStatus(CooperateType)} 把转办 / 委派 / 加签 / 减签映射为自定义任务状态。
      *
      * @param cooperateType 协作类型 key
      * @return 任务状态编码
      */
-    static String cooperateStatus(Integer cooperateType) {
+    static String cooperateStatus(String cooperateType) {
         CooperateType type = CooperateType.getByKey(cooperateType);
-        return mapper().cooperateStatus(type == null ? CooperateType.APPROVAL : type);
+        return mapper().cooperateStatus(type == null ? CooperateType.NONE : type);
     }
 
     /**

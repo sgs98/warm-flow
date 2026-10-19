@@ -22,18 +22,23 @@ import org.dromara.warm.flow.core.utils.MathUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 
 /**
- * 任务协作类型。
+ * 任务协作动作。
  * <p>
- * 用于标识普通审批、转办、委派、会签、票签、加签和减签等协作行为。
- * APPROVAL-无：无其他协作方式
+ * 记录「这条历史是被哪种协作动作改出来的」：
+ * NONE-无：普通办理，没有协作动作
  * TRANSFER-转办：任务转给其他人办理
- * DEPUTE-委派：求助其他人审批，然后参照他的意见决定是否审批通过
- * COUNTERSIGN-会签：和其他人一起审批通过，才算通过
- * VOTE-票签：和部分人一起审批，达到一定通过率，才算通过
- * ADD_SIGNATURE-加签：办理中途，希望其他人一起参与办理
- * REDUCTION_SIGNATURE-减签：办理中途，希望某些人不参与办理
+ * DELEGATE-委派：求助其他人审批，然后参照他的意见决定是否审批通过
+ * ADD_SIGNER-加签：办理中途，希望其他人一起参与办理
+ * REMOVE_SIGNER-减签：办理中途，希望某些人不参与办理
  * <p>
- * 本枚举是<b>行为维度</b>（引擎据此决定怎么处理协作，key 落 {@code flow_his_task.cooperate_type}），
+ * 会签 / 票签不在此列：它们是<b>节点的多人审批模式</b>（由 {@code node_ratio} 决定，
+ * 见 {@link #isCountersign(String)} / {@link #isVoteSignPassRatio(String)}），
+ * 不是某个人做过的动作，因此不落 {@code cooperate_type}。
+ * <p>
+ * 抄送也不在此列：抄送只告知、不改任务归属，也不改变谁在办理，
+ * 由 {@code HisTaskService#setCopyHisTask} 单独构造，结果列记 {@link TaskStatus#COPY}。
+ * <p>
+ * 本枚举是<b>行为维度</b>（key 落 {@code flow_his_task.cooperate_type}），
  * 与任务结果维度 {@link TaskStatus}（落 {@code flow_status}）正交：一次协作动作完成后
  * 写什么任务状态，由 {@code StatusMapper#cooperateStatus(CooperateType)} 决定。
  *
@@ -44,21 +49,17 @@ import org.dromara.warm.flow.core.utils.StringUtils;
 @AllArgsConstructor
 public enum CooperateType {
 
-    APPROVAL(1, "无"),
+    NONE("none", "无"),
 
-    TRANSFER(2, "转办"),
+    TRANSFER("transfer", "转办"),
 
-    DEPUTE(3, "委派"),
+    DELEGATE("delegate", "委派"),
 
-    COUNTERSIGN(4, "会签"),
+    ADD_SIGNER("add_signer", "加签"),
 
-    VOTE(5, "票签"),
+    REMOVE_SIGNER("remove_signer", "减签");
 
-    ADD_SIGNATURE(6, "加签"),
-
-    REDUCTION_SIGNATURE(7, "减签");
-
-    private final Integer key;
+    private final String key;
     private final String value;
 
 
@@ -82,7 +83,7 @@ public enum CooperateType {
      * @param value 展示文案
      * @return 协作类型 key；未匹配时返回 {@code null}
      */
-    public static Integer getKeyByValue(String value) {
+    public static String getKeyByValue(String value) {
         for (CooperateType item : CooperateType.values()) {
             if (item.getValue().equals(value)) {
                 return item.getKey();
@@ -97,7 +98,7 @@ public enum CooperateType {
      * @param key 协作类型 key
      * @return 展示文案；未匹配时返回 {@code null}
      */
-    public static String getValueByKey(Integer key) {
+    public static String getValueByKey(String key) {
         for (CooperateType item : CooperateType.values()) {
             if (item.getKey().equals(key)) {
                 return item.getValue();
@@ -112,7 +113,7 @@ public enum CooperateType {
      * @param key 协作类型 key
      * @return 协作类型枚举；未匹配时返回 {@code null}
      */
-    public static CooperateType getByKey(Integer key) {
+    public static CooperateType getByKey(String key) {
         for (CooperateType item : CooperateType.values()) {
             if (item.getKey().equals(key)) {
                 return item;

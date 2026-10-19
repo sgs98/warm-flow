@@ -57,4 +57,24 @@ public interface PermissionHandler {
         return permissions;
     }
 
+    /**
+     * 解析抄送人：把节点上配置的抄送标识展开成具体用户。
+     * <p>
+     * 抄送只告知、不参与办理，收件人必须是具体用户——{@code dept:001} 这类标识写进留痕后，
+     * 只有权限集合里恰好带该标识的人能看到，等于抄送给“部门”这个字符串本身。业务方在这里把
+     * 用户、角色、部门等标识统一展开成真实用户标识；展开不到人的标识直接丢弃，引擎不会落库。
+     * <p>
+     * 返回值同时是「同一条待办是否抄送过」的去重键：节点上配的 {@code dept:001} 与办理时手选的
+     * {@code user:zhangsan} 只要展开成同一个标识，就只留一条抄送记录。因此同一用户在不同调用中
+     * 必须返回<b>稳定一致</b>的标识——时而裸名、时而带前缀，会让引擎把一个人当成两个人重复通知。
+     * <p>
+     * 默认沿用 {@link #convertPermissions(List)}：未实现本方法时，抄送标识按办理人同一套规则转换。
+     *
+     * @param handlers 节点配置的抄送人标识
+     * @return 具体用户标识；空集合表示一个都落不到人
+     */
+    default List<String> resolveCopyHandlers(List<String> handlers) {
+        return convertPermissions(handlers);
+    }
+
 }

@@ -35,7 +35,7 @@
       <el-table-column label="操作" width="180">
         <template #default="{ row }">
           <el-button v-if="canContinue(row)" link type="primary" @click="continueDraft(row)">
-            {{ row.taskStatusKey === '9' ? '重新提交' : '继续办理' }}
+            {{ row.taskStatusKey === 'back' ? '重新提交' : '继续办理' }}
           </el-button>
           <el-button link type="primary" @click="goDetail(row)">详情</el-button>
           <el-button link type="danger" @click="remove(row)">删除</el-button>
@@ -178,14 +178,11 @@ function continueDraft(row: InstanceRow) {
 }
 
 /**
- * 是否可继续办理：有待办且任务停在申请节点（0 待提交，如新建/暂存草稿）
- * 或被退回申请节点（9 已退回），兼容旧字符串业务码。
+ * 是否可继续办理：实例仍处于待提交（草稿）/ 已退回 / 已撤销，
+ * 当前待办停在申请节点，可重新打开办理。
  */
 function canContinue(row: InstanceRow) {
   if (!row.taskId) return false
-  if (row.taskStatusKey) {
-    return ['0', '9'].includes(row.taskStatusKey)
-  }
   return ['draft', 'back', 'cancel'].includes(row.businessStatus)
 }
 

@@ -31,6 +31,8 @@ export interface WorkflowHistoryItem {
   current: boolean
   taskStatusName: string
   message: string
+  /** 抄送人（仅抄送记录有值，逗号分隔）。 */
+  copyUsers?: string
   createTime: string
 }
 
@@ -131,7 +133,7 @@ export interface InstanceRow {
   nodeCode: string
   nodeName: string
   taskId?: string
-  /** 当前待办任务状态编码（引擎码：0 待提交 / 9 已退回）。 */
+  /** 当前待办任务状态编码（引擎码：pending 待审批 / back 退回）。 */
   taskStatusKey?: string
   nodeType?: number
   flowStatusKey?: string

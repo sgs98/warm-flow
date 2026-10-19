@@ -21,7 +21,7 @@ import lombok.Getter;
 /**
  * 流程用户记录类型。
  * <p>
- * 用于区分审批人权限、转办人权限和委托人权限等用户记录用途。
+ * 用于区分审批人权限、转办人权限、委托人权限和抄送人。
  *
  * @author xiarg
  * @since 2024/5/10 16:04
@@ -34,7 +34,9 @@ public enum UserType {
 
     TRANSFER("2", "待办任务的转办人权限"),
 
-    DEPUTE("3", "待办任务的委托人权限");
+    DEPUTE("3", "待办任务的委托人权限"),
+
+    COPY("4", "待办任务的抄送人");
 
     private final String key;
     private final String value;

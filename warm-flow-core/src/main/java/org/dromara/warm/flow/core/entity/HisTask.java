@@ -93,7 +93,7 @@ public interface HisTask extends RootEntity {
      * @return 协作类型
      * @see org.dromara.warm.flow.core.enums.CooperateType
      */
-    Integer getCooperateType();
+    String getCooperateType();
 
     /**
      * 设置协作类型。
@@ -101,7 +101,7 @@ public interface HisTask extends RootEntity {
      * @param cooperateType 协作类型
      * @return 当前历史任务
      */
-    HisTask setCooperateType(Integer cooperateType);
+    HisTask setCooperateType(String cooperateType);
 
     /**
      * 获取来源待办任务 ID。

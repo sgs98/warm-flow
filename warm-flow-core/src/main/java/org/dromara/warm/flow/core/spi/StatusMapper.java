@@ -48,8 +48,10 @@ public interface StatusMapper {
      * <p>
      * 协作类型（转办 / 委派 / 加签 / 减签）是引擎的行为维度，由引擎固定维护；
      * 本方法只决定该动作在历史任务上留下的状态编码。默认回落 {@link TaskStatus#PENDING}（待审批）——
-     * 协作后任务仍等待新办理人处理。宿主若需要区分「转办 / 委托 / 加签 / 减签」，
-     * 可覆写本方法映射成自有编码。
+     * 协作后任务仍等待新办理人处理。宿主若要区分「转办 / 委托 / 加签 / 减签」，可覆写本方法。
+     * <p>
+     * 抄送不走本方法：它不改任务归属，由 {@code HisTaskService#setCopyHisTask} 直接按
+     * {@link #taskStatus(TaskStatus)} 取 {@link TaskStatus#COPY}。
      *
      * @param type 协作类型
      * @return 宿主任务状态编码

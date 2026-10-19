@@ -42,7 +42,7 @@ public interface HisTaskService extends IWarmService<HisTask> {
      * @param cooperateTypes 协作类型集合
      * @return List<HisTask>
      */
-    List<HisTask> listByTaskIdAndCooperateTypes(Long taskId, Integer... cooperateTypes);
+    List<HisTask> listByTaskIdAndCooperateTypes(Long taskId, String... cooperateTypes);
 
     /**
      * 根据实例Id和节点编码查询
@@ -92,7 +92,20 @@ public interface HisTaskService extends IWarmService<HisTask> {
      * @param cooperateType 协作类型
      * @return 协作历史任务
      */
-    HisTask setCooperateHis(Task task, WorkflowContext context, List<String> collaborators, Integer cooperateType);
+    HisTask setCooperateHis(Task task, WorkflowContext context, List<String> collaborators, String cooperateType);
+
+    /**
+     * 设置抄送历史记录。
+     *
+     * <p>抄送只告知、不改任务归属，也不改变谁在办理：动作列（{@code cooperate_type}）记「无」，
+     * 结果列（{@code flow_status}）记「抄送」。</p>
+     *
+     * @param task          当前任务
+     * @param context       流程执行上下文
+     * @param collaborators 抄送人
+     * @return 抄送历史任务
+     */
+    HisTask setCopyHisTask(Task task, WorkflowContext context, List<String> collaborators);
 
     /**
      * 委派历史任务

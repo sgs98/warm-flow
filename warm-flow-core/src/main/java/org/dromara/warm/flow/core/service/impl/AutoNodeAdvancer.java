@@ -112,6 +112,8 @@ final class AutoNodeAdvancer {
             FlowEngine.taskService().setInsFinishInfo(execution.instance, afterTasks, variables);
             if (CollUtil.isNotEmpty(afterTasks)) {
                 FlowEngine.taskService().saveBatch(afterTasks);
+                // 到达节点：按 node_config.copy 自动抄送
+                CopyAdvancer.copyOnArrival(afterTasks, execution.instance, execution.intent);
             }
             FlowEngine.insService().updateById(execution.instance);
             FlowEngine.userService().saveBatch(users);

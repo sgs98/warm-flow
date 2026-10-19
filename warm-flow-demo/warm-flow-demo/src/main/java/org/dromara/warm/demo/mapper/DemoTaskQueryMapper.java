@@ -31,12 +31,15 @@ public interface DemoTaskQueryMapper {
      * <p>只返回抄送记录本身（{@code flow_status = 'copy'}）。同一 task 还会有一条办理历史
      * （pass/reject 等），若不过滤，同一节点的抄送会被重复列出。</p>
      *
+     * <p>抄送人记录挂在<b>抄送历史主键</b>上而不是待办主键：待办办理完 / 撤回时会连同办理人一起删除，
+     * 抄送记录却要跟着流程留档，按待办 id 关联会让抄送在办结瞬间从列表里消失。</p>
+     *
      * @param page        MyBatis Plus 分页对象
      * @param permissions 当前用户权限标识
      * @return 抄送历史集合
      */
     @Select("<script>SELECT h.* FROM flow_his_task h WHERE h.del_flag = '0' AND h.flow_status = 'copy' AND EXISTS (" +
-        "SELECT 1 FROM flow_user u WHERE u.associated = h.task_id AND u.processed_by IN " +
+        "SELECT 1 FROM flow_user u WHERE u.associated = h.id AND u.processed_by IN " +
         "<foreach collection='permissions' item='permission' open='(' separator=',' close=')'>#{permission}</foreach> " +
         "AND u.type = '4' AND u.del_flag = '0') ORDER BY h.id DESC</script>")
     List<FlowHisTask> selectCopyPage(Page<FlowHisTask> page, @Param("permissions") List<String> permissions);

@@ -1,8 +1,6 @@
 package org.dromara.warm.demo.service.support;
 
 import org.dromara.warm.demo.common.BizException;
-import org.dromara.warm.demo.enums.BusinessStatusEnum;
-import org.dromara.warm.demo.enums.TaskStatusEnum;
 import org.dromara.warm.demo.utils.ButtonPermissionUtils;
 import org.dromara.warm.demo.vo.HistoryVo;
 import org.dromara.warm.demo.vo.InstanceVo;
@@ -19,6 +17,7 @@ import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.entity.User;
 import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.FlowStatus;
+import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
@@ -159,33 +158,28 @@ public class WorkflowSupport {
 
     /**
      * 判断任务是否已结束，结束任务不再作为当前活动待办展示。
+     * <p>
+     * 撤销 / 终止 / 已完成 / 失效都是终态，统一由引擎的 {@link FlowStatus#isTerminalKey(String)} 判定。
      *
      * @param flowStatus 任务流程状态
      * @return 是否已结束
      */
     public boolean isClosedTaskStatus(String flowStatus) {
-        return BusinessStatusEnum.CANCEL.getStatus().equals(flowStatus)
-            || BusinessStatusEnum.TERMINATION.getStatus().equals(flowStatus)
-            || BusinessStatusEnum.FINISH.getStatus().equals(flowStatus)
-            || BusinessStatusEnum.INVALID.getStatus().equals(flowStatus);
+        return FlowStatus.isTerminalKey(flowStatus);
     }
 
     /**
-     * 获取任务历史展示状态；非任务操作状态回退到 Demo 业务状态。
+     * 获取任务历史展示状态：先按任务维度解析，再回退到实例维度（撤销 / 终止等由实例状态落库）。
      *
      * @param status 状态编码
      * @return 状态名称
      */
     public String displayTaskStatus(String status) {
-        String taskStatus = TaskStatusEnum.findByStatus(status);
+        String taskStatus = TaskStatus.getValueByKey(status);
         if (StringUtils.isNotEmpty(taskStatus)) {
             return taskStatus;
         }
-        BusinessStatusEnum businessStatus = BusinessStatusEnum.getByStatus(status);
-        if (businessStatus != null) {
-            return businessStatus.getDesc();
-        }
-        // 回退到引擎默认状态文案
+        // 回退到实例维度文案：撤销 / 终止等收口状态写的是实例编码
         return StringUtils.emptyDefault(FlowStatus.getValueByKey(status), status);
     }
 
@@ -278,17 +272,12 @@ public class WorkflowSupport {
     }
 
     /**
-     * 解析实例状态名称：先查 demo 业务状态枚举，再回落引擎 FlowStatus 文案
-     * （实例状态由引擎写入数字码，如 1=审批中；均未命中时回落原始值）。
+     * 解析实例状态名称：直接取引擎 {@link FlowStatus} 的展示文案，未命中时回落原始值。
      *
      * @param status 状态编码
      * @return 状态名称
      */
     public String displayInstanceStatus(String status) {
-        BusinessStatusEnum businessStatus = BusinessStatusEnum.getByStatus(status);
-        if (businessStatus != null) {
-            return businessStatus.getDesc();
-        }
         return StringUtils.emptyDefault(FlowStatus.getValueByKey(status), status);
     }
 
@@ -337,6 +326,29 @@ public class WorkflowSupport {
     }
 
     /**
+     * 转换抄送记录，状态列取流程实例状态。
+     *
+     * <p>抄送行的 {@code flow_status} 恒为 {@code copy}——那是留痕类型，不是流程进展。
+     * 直接展示会变成「流程状态：抄送」，看着像状态机坏了；这里把状态换成实例状态，
+     * 「这是一条抄送」由列表本身表达。</p>
+     *
+     * @param hisTask  抄送历史
+     * @param instance 抄送所属流程实例，可为 {@code null}
+     * @return 抄送记录
+     */
+    public TaskVo toCopyVo(HisTask hisTask, Instance instance) {
+        TaskVo vo = toDoneVo(hisTask);
+        if (instance != null) {
+            vo.setFlowStatusKey(instance.getFlowStatus());
+            String statusName = displayInstanceStatus(instance.getFlowStatus());
+            vo.setFlowStatusName(StringUtils.isEmpty(statusName) ? instance.getFlowStatus() : statusName);
+            vo.setBusinessStatus(instance.getFlowStatus());
+            vo.setBusinessStatusName(vo.getFlowStatusName());
+        }
+        return vo;
+    }
+
+    /**
      * 转换审批历史，并补充状态展示字段。
      *
      * @param hisTask 历史任务
@@ -351,16 +363,21 @@ public class WorkflowSupport {
         vo.setTaskStatusName(vo.getFlowStatusName());
         vo.setBusinessStatus(hisTask.getFlowStatus());
         vo.setBusinessStatusName(StringUtils.isEmpty(statusName) ? hisTask.getFlowStatus() : statusName);
+        // 抄送行没有办理人，时间线上要显示「抄送给谁」，否则只剩一个「办理人：-」
+        if (TaskStatus.COPY.getKey().equals(hisTask.getFlowStatus())) {
+            vo.setCopyUsers(hisTask.getCollaborator());
+        }
         return vo;
     }
 
     /**
      * 将当前活动任务转换为历史时间线中的待办节点，便于退回或撤回后继续办理。
      *
-     * @param task 当前活动任务
+     * @param task           当前活动任务
+     * @param instanceStatus 流程实例状态，用于区分「待提交」与「待审核」
      * @return 当前待办历史信息
      */
-    public HistoryVo toCurrentHistoryVo(Task task) {
+    public HistoryVo toCurrentHistoryVo(Task task, String instanceStatus) {
         HistoryVo vo = new HistoryVo();
         vo.setId(-task.getId());
         vo.setInstanceId(task.getInstanceId());
@@ -372,7 +389,7 @@ public class WorkflowSupport {
             .map(User::getProcessedBy)
             .collect(Collectors.joining(",")));
         vo.setFlowStatusKey(task.getFlowStatus());
-        vo.setFlowStatusName(isResubmittableStatus(task.getFlowStatus()) ? "待提交" : "待审核");
+        vo.setFlowStatusName(isResubmittableStatus(instanceStatus) ? "待提交" : "待审核");
         vo.setTaskStatusName(vo.getFlowStatusName());
         vo.setBusinessStatus(task.getFlowStatus());
         vo.setBusinessStatusName(vo.getFlowStatusName());
@@ -382,14 +399,15 @@ public class WorkflowSupport {
     }
 
     /**
-     * 判断当前任务是否需要由发起人重新提交。
+     * 判断流程实例是否停在申请节点、需要由发起人重新提交。
+     * <p>入参是<b>实例维度</b>状态编码（{@link FlowStatus}），不要传入任务状态编码。
      *
-     * @param flowStatus 任务状态
+     * @param instanceStatus 流程实例状态
      * @return 是否可重新提交
      */
-    public boolean isResubmittableStatus(String flowStatus) {
-        return BusinessStatusEnum.DRAFT.getStatus().equals(flowStatus)
-            || BusinessStatusEnum.BACK.getStatus().equals(flowStatus)
-            || BusinessStatusEnum.CANCEL.getStatus().equals(flowStatus);
+    public boolean isResubmittableStatus(String instanceStatus) {
+        return FlowStatus.DRAFT.getKey().equals(instanceStatus)
+            || FlowStatus.BACK.getKey().equals(instanceStatus)
+            || FlowStatus.CANCEL.getKey().equals(instanceStatus);
     }
 }

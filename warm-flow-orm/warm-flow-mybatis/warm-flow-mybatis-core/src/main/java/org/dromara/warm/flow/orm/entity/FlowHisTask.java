@@ -78,9 +78,9 @@ public class FlowHisTask implements HisTask {
     private Long taskId;
 
     /**
-     * 协作方式(1审批 2转办 3委派 4会签 5票签 6加签 7减签)
+     * 协作方式（none无 transfer转办 delegate委派 add_signer加签 remove_signer减签；行为维度，抄送/会签/票签不落此列，结果见 flowStatus）
      */
-    private Integer cooperateType;
+    private String cooperateType;
 
     /**
      * 业务id

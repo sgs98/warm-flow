@@ -144,7 +144,9 @@ class PublicUtilityApiCoverageTest {
         assertTrue(SkipType.isPass("PASS"));
         assertTrue(SkipType.isReject("REJECT"));
         assertTrue(SkipType.isNone("NONE"));
-        assertEquals(CooperateType.COUNTERSIGN, CooperateType.getByKey(4));
+        assertEquals(CooperateType.ADD_SIGNER, CooperateType.getByKey("add_signer"));
+        // 会签 / 票签是节点模式，不在协作动作枚举里
+        assertNull(CooperateType.getByKey("countersign"));
         assertTrue(CooperateType.isOrSign("0"));
         assertTrue(CooperateType.isCountersign("100"));
         assertTrue(CooperateType.isVoteSignPassRatio("50"));

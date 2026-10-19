@@ -70,7 +70,7 @@ public interface User extends RootEntity {
     /**
      * 获取人员类型
      *
-     * @return 人员类型（1待办任务的审批人权限 2待办任务的转办人权限 3待办任务的委托人权限）
+     * @return 人员类型（1待办任务的审批人权限 2待办任务的转办人权限 3待办任务的委托人权限 4待办任务的抄送人）
      * @see org.dromara.warm.flow.core.enums.UserType
      */
     String getType();

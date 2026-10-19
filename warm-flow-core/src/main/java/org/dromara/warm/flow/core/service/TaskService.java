@@ -17,6 +17,7 @@ package org.dromara.warm.flow.core.service;
 
 import org.dromara.warm.flow.core.dto.FlowDto;
 import org.dromara.warm.flow.core.entity.Definition;
+import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
@@ -101,7 +102,7 @@ public interface TaskService extends IWarmService<Task> {
      * @return 调整后的流程实例
      */
     Instance updateHandlers(Long taskId, WorkflowContext context, List<String> addHandlers
-        , List<String> removeHandlers, Integer cooperateType);
+        , List<String> removeHandlers, String cooperateType);
 
     /**
      * 根据流程实例主键批量删除待办任务。
@@ -172,4 +173,23 @@ public interface TaskService extends IWarmService<Task> {
      * @return 流程表单数据
      */
     FlowDto hisLoad(Long hisTaskId);
+
+    /**
+     * 对当前待办追加抄送。
+     *
+     * <p>抄送只写留痕（历史任务 + 抄送人），不产生待办、不改任务和实例状态。
+     * 节点上配置的抄送由引擎在到达节点时自动执行，本方法用于办理过程中临时追加。</p>
+     * <p>待办办结后也能调用：办理完待办行会被删除，此时按归档历史还原节点信息，
+     * 所以「办完顺手抄送」不需要抢在办理之前执行。</p>
+     * <p>同一条待办对同一个人只留一条抄送记录，重复抄送（含重试）不会产生重复留痕。</p>
+     * <p>抄送必须落到具体用户：标识由 {@code PermissionHandler#resolveCopyHandlers} 展开，
+     * 一个都落不到人时抛异常，不会静默成功。</p>
+     *
+     * @param taskId   待办任务主键（已办结的也可以）
+     * @param handlers 抄送人标识（用户、角色、部门等，或发起人占位）
+     * @param context  流程执行上下文
+     * @return 抄送历史；抄送人都已抄送过时返回 {@code null}
+     * @throws org.dromara.warm.flow.core.exception.FlowException 抄送人全都落不到具体用户时
+     */
+    HisTask copy(Long taskId, List<String> handlers, WorkflowContext context);
 }

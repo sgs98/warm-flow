@@ -62,10 +62,10 @@ class CountersignCharacteristicTest {
         List<String> processedBys = harness.userDao.all().stream().map(u -> u.getProcessedBy()).toList();
         assertEquals(List.of("lisi"), processedBys, "签票人应被剔除: " + processedBys);
 
-        // 签票历史：COUNTERSIGN + PASS，flowStatus 为 PASS
+        // 签票历史：结果记 pass，动作记 none（会签是节点模式，不是协作动作）
         assertEquals(1, harness.hisTaskDao.all().stream()
                 .filter(h -> Objects.equals(h.getTaskId(), task.getId()))
-                .filter(h -> CooperateType.COUNTERSIGN.getKey().equals(h.getCooperateType())).count());
+                .filter(h -> CooperateType.NONE.getKey().equals(h.getCooperateType())).count());
         assertEquals(1, harness.hisTaskDao.all().stream()
                 .filter(h -> Objects.equals(h.getTaskId(), task.getId()))
                 .filter(h -> SkipType.PASS.getKey().equals(h.getSkipType())).count());
@@ -94,8 +94,9 @@ class CountersignCharacteristicTest {
         assertEquals(FlowStatus.FINISHED.getKey(), harness.insDao.raw(instance.getId()).getFlowStatus());
         // 历史：start 发起 + draft 办理 + 首票签票 + 末票归档 = 4
         assertEquals(4, harness.hisTaskDao.size());
-        assertEquals(1, harness.hisTaskDao.all().stream()
-                .filter(h -> CooperateType.COUNTERSIGN.getKey().equals(h.getCooperateType())).count());
+        // 会签全程不落协作动作：所有历史行的动作列都是 none
+        assertEquals(0, harness.hisTaskDao.all().stream()
+                .filter(h -> !CooperateType.NONE.getKey().equals(h.getCooperateType())).count());
     }
 
     @Test
@@ -117,10 +118,10 @@ class CountersignCharacteristicTest {
         assertEquals("draft", harness.insDao.raw(instance.getId()).getNodeCode());
         assertEquals(FlowStatus.BACK.getKey(), harness.insDao.raw(instance.getId()).getFlowStatus());
 
-        // 驳回动作只产生流转历史，不产生签票历史
+        // 驳回动作只产生流转历史，不产生协作动作记录
         assertEquals(hisBefore + 1, harness.hisTaskDao.size());
         assertEquals(0, harness.hisTaskDao.all().stream()
-                .filter(h -> CooperateType.COUNTERSIGN.getKey().equals(h.getCooperateType())).count());
+                .filter(h -> !CooperateType.NONE.getKey().equals(h.getCooperateType())).count());
         assertEquals(1, harness.hisTaskDao.all().stream()
                 .filter(h -> Objects.equals(h.getTaskId(), task.getId()))
                 .filter(h -> SkipType.REJECT.getKey().equals(h.getSkipType())).count());

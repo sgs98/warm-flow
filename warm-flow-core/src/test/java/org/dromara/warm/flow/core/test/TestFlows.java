@@ -69,6 +69,39 @@ public final class TestFlows {
     }
 
     /**
+     * 构建并保存串行流程，apply 节点写入指定 node_config：start(0) → apply(1) → end(2)。
+     *
+     * @param flowCode        流程编码
+     * @param applyNodeConfig apply 节点的 node_config（如抄送配置）
+     * @return 已保存的流程定义
+     */
+    public static Definition serialFlowWithApplyConfig(String flowCode, String applyNodeConfig) {
+        Definition def = FlowEngine.newDef()
+                .setFlowCode(flowCode)
+                .setFlowName("带节点配置的串行测试流程")
+                .setVersion("1")
+                .setIsPublish(PublishStatus.PUBLISHED.getKey())
+                .setActivityStatus(ActivityStatus.ACTIVITY.getKey());
+        FlowEngine.defService().save(def);
+        node(def, "start", NodeType.START.getKey(), null);
+        org.dromara.warm.flow.core.entity.Node apply = FlowEngine.newNode()
+                .setDefinitionId(def.getId())
+                .setNodeCode("apply")
+                .setNodeName("apply")
+                .setNodeType(NodeType.BETWEEN.getKey())
+                .setNodeRatio("0")
+                .setPermissionFlag(HANDLER)
+                .setNodeConfig(applyNodeConfig)
+                .setListenerType(LISTENER_TYPES)
+                .setListenerPath(LISTENER_PATH);
+        FlowEngine.nodeService().save(apply);
+        node(def, "end", NodeType.END.getKey(), null);
+        skip(def, "start", NodeType.START.getKey(), "apply", NodeType.BETWEEN.getKey());
+        skip(def, "apply", NodeType.BETWEEN.getKey(), "end", NodeType.END.getKey());
+        return def;
+    }
+
+    /**
      * 构建并保存服务任务 + 人工审批流程：start(0) → s1(6) → apply(1) → end(2)，全部连线为 PASS。
      *
      * @param flowCode 流程编码

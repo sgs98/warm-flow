@@ -8,6 +8,7 @@ import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -89,5 +90,25 @@ public class DemoPermissionHandler implements PermissionHandler {
         }
         String userName = permission.substring(USER_PREFIX.length());
         return userNames.contains(userName) ? userName : permission;
+    }
+
+    /**
+     * 解析抄送人：把设计器配置的标识展开成具体用户。
+     * <p>抄送不参与办理，收件人必须是人：{@code user:approver1} 取该用户，{@code dept:001} 展开成
+     * 部门内全部用户，裸用户名按用户处理；都匹配不上（角色、未知编码等）的标识直接丢弃，
+     * 引擎不会把这些字符串写进抄送留痕。</p>
+     *
+     * @param handlers 节点上配置的抄送人标识
+     * @return 具体用户名集合；空集合表示一个都落不到人
+     */
+    @Override
+    public List<String> resolveCopyHandlers(List<String> handlers) {
+        if (CollUtil.isEmpty(handlers)) {
+            return new ArrayList<>();
+        }
+        return userService.listByPermissionFlags(handlers).stream()
+            .map(DemoUserVo::getUserName)
+            .distinct()
+            .collect(Collectors.toList());
     }
 }

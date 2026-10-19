@@ -273,6 +273,8 @@ final class FlowStartChain {
             List<User> users = FlowEngine.userService().taskAddUsers(addTasks);
             FlowEngine.taskService().saveBatch(addTasks);
             FlowEngine.userService().saveBatch(users);
+            // 到达节点：按 node_config.copy 自动抄送（实例尚未落库，直接传对象）
+            CopyAdvancer.copyOnArrival(addTasks, instance, context);
         }
         insService.save(instance);
     }

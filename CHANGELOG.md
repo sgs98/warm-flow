@@ -16,17 +16,23 @@
 - 无普通任务的事件等待实例支持查询（`WorkflowService.waitingEvents`）、撤回与终止；终止结束、实例终止、作废、撤回与级联删除统一清理等待记录；定时启动等待随定义发布 / 取消发布 / 挂起 / 激活同步重建与取消。
 - 事件等待记录新增只读查询 API（`WorkflowService.pageEventWaits` / `listEventWaits` / `countEventWaits` / `getEventWait`，数据侧 `FlowEventWaitDao` 同步提供）：条件对象 `EventWaitQuery` 可按 `definitionId(s)` / `instanceId(s)` / `nodeCode` / `eventName` / `attachedTaskId` / `eventTypes` / `triggerTypes` / `statuses` / 下次触发时间与创建时间区间自由组合，`businessId` / `flowCode` 由引擎解析为实例 / 定义主键后下推（可与主键条件互斥校验）；排序字段走白名单、非法值直接报错，默认只查定时类事件、按下次触发时间升序，解析均基于查询条件副本，不改写调用方入参。
 
+- 新增节点级抄送（`node_config.copy`）：`CopyConfig` 解析 `{"copy":{"handlers":[...]}}`，在待办落库的 5 个位置（发起 / 办理 / 撤回 / 自动节点推进 / 事件推进）自动抄送；另提供 `TaskService#copy` 与门面 `WorkflowService#copy(CopyCommand)` 供办理中手动追加。抄送只写 `flow_his_task`（`flow_status=copy`、`cooperate_type=none`）与 `flow_user`（`type=4`）留痕，不产生待办、不改实例 / 任务状态、不触发监听器。抄送人支持发起人占位 `warmFlowInitiator`；**抄送必须落到具体人**：新增 SPI `PermissionHandler#resolveCopyHandlers`（默认回落 `convertPermissions`），宿主把 `user:zhangsan`、`dept:001` 等标识展开成真实用户，展开不到人的标识直接丢弃；手动抄送时若一个都落不到人则抛 `FlowException`，不再静默成功。自动抄送直接接收调用方的实例对象而非按主键回查——发起链的抄送发生在实例落库之前，回查会丢掉发起人。新增特征测试 `CopyCharacteristicTest`。
+- 抄送留痕的生命周期与审计更正：抄送人记录（`flow_user.type=4`）改挂**抄送历史主键**（`flow_his_task.id`）而非待办主键——待办办理完 / 撤回 / 终止会被连同办理人整批删除，按待办 id 关联会让抄送在办结瞬间从「我的抄送」里消失；实例删除时按历史主键一并清理，不留孤儿。抄送历史不再写 `approver`（否则触发抄送的人「已办」里会凭空多出一条抄送记录，谁抄送看 `create_by`），`create_time` 改记抄送时刻而非待办创建时间（办理中追加抄送时两者可能相差很久）。流程结束时统计「已归档待办」排除抄送行，避免带抄送的未办待办被误判为已归档而漏记失效历史。`flow_user` 的 `type` / `associated` 注释与四套全量脚本、实体 javadoc 同步（新增「4待办任务的抄送人」）。
+- 设计器抄送面板随节点切换重载：属性面板复用同一个 `form` 对象，原先只在初始化时回显一次，切到别的节点还显示上一个节点的抄送人，点「选择」确认会把上一个节点的抄送人写进当前节点；改为监听抄送人标识变化重载。抄送分组同时只在会产生待办的节点出现，事件节点（画布上是圆圈，易被误认为网关）不显示。
+- 抄送收尾（demo 联调暴露的问题）：① **办结后补抄送不再报 `NOT_FOUNT_TASK`** —— 办理完成待办行即被删除，`TaskService#copy` 改为按归档历史还原节点信息（取该待办最近一条非抄送历史），「办完顺手抄送」不必抢在办理之前；② **同一待办对同一人幂等** —— 已抄送过的人不再重复留痕（读抄送历史的 `collaborator` 快照），全部重复时返回 `null`，自动抄送静默跳过、手动抄送按无新增处理，重试或「节点自动抄送 + 手动抄送同一人」都不会产生重复记录；③ demo 抄送列表的「流程状态」改取**实例状态**（原先显示「抄送」，那是留痕类型不是流程进展），按页 `getByIds` 批量回查实例，不做 N+1；④ 流程详情时间线的抄送行显示「抄送给 xxx」，不再出现「办理人：-」；⑤ demo 办理时的抄送注册到**事务提交之后**（`TransactionSynchronization#afterCommit`）执行，抄送自身失败只告警，不会回滚已提交的办理。节点级自动抄送仍与流转同事务——它属于「到达节点」这件事，理应一起成功或一起回滚。⑥ **门面抄送同样支持办结后补抄送**：`WorkflowService#copy` 原先自己先 `getById` 断言待办存在，把 `TaskService#copy` 的归档还原兜底挡在外面（单元测试直接调服务所以没暴露，demo 走门面才现形）；改为不前置断言，实例信息由抄送留痕带回，`CopyCharacteristicTest#facadeCopy_afterTaskCompleted_remainsAvailable` 锁定该路径。⑦ **demo 手动抄送人与节点配置同构**：`copyUsers` 支持 `user:xxx` / `dept:xxx` 前缀，先展开成具体用户再校验，展开不到人的标识报「抄送人不存在」并回滚本次办理，避免同一份抄送人写法在节点上和办理时两套语义。
 - 状态与协作三维拆分：实例状态（`FlowStatus`）、任务状态（新增 `TaskStatus`）、协作动作（`CooperateType`）分开建模，分别落 `flow_instance.flow_status`、`flow_task` / `flow_his_task.flow_status`、`flow_his_task.cooperate_type`；实例状态不再复制待办状态码，改由落点语义推导（结束→已完成、退回→已退回、其余→审批中），避免宿主自定义映射后两套编码串列。
-- **状态编码改为小写英文**：两个维度是不同表、独立编码空间，落库编码直接用英文（如 `finish` / `pass`），不再用数字，落库即可自解释（2.1.0 未发布，无存量数据需迁移，仅同步列注释）。
+- **状态编码改为小写英文**：三个维度是不同表、独立编码空间，落库编码直接用英文（如 `finish` / `pass` / `transfer`），不再用数字，落库即可自解释（2.1.0 未发布，无存量数据需迁移，仅同步列类型与注释）。
   - 实例 `FlowStatus`：`draft` 待提交、`waiting` 审批中、`termination` 终止、`invalid` 作废、`cancel` 撤销、`finish` 已完成、`back` 已退回、`restart` 重启；移除「暂存」「取回」（取回属任务维度，由 `take_back` 表达）。
   - 任务 `TaskStatus`：`pending` 待审批、`pass` 通过、`auto_pass` 自动审批、`back` 退回、`invalid` 失效、`take_back` 拿回、`copy` 抄送；移除「结束」（结束事件留痕统一按「通过」归档）。
+  - 协作 `CooperateType`：`none` 无、`transfer` 转办、`delegate` 委派、`add_signer` 加签、`remove_signer` 减签；`flow_his_task.cooperate_type` 列类型随之由 `tinyint` 改为 `varchar(20)`（默认值 `none`）。该列只记<b>协作动作</b>，三个原本混在里面的语义已拆走：会签 / 票签是节点的多人审批模式（由 `node_ratio` 决定，判断仍用 `CooperateType.isCountersign(...)` 等静态方法），`COUNTERSIGN` / `VOTE` 常量移除；抄送只告知、不改任务归属，`COPY` 常量移除，改由 `HisTaskService#setCopyHisTask(task, context, collaborators)` 构造，结果列记 `copy`、动作列记 `none`，避免两个枚举出现同名值。常量同时改为语义更准的英文：`APPROVAL`→`NONE`（值本就是「无」）、`DEPUTE`→`DELEGATE`、`ADD_SIGNATURE`→`ADD_SIGNER`、`REDUCTION_SIGNATURE`→`REMOVE_SIGNER`（加/减签是给当前节点增减签署人，不是「签名」，也不必然等于会签——是否会签由节点比例决定），接口签名 `Integer cooperateType` 一并改为 `String`。
 - 修复两个维度编码重叠导致的误判：`TaskServiceImpl.instanceStatusOf` 原先用「落点任务码 == 实例终止码」识别终止，同号时会把普通结束误判成终止；改为按执行意图（`WorkflowContext.flowStatus`）判定。`StatusMapper.label(String)` 明确只按实例维度解析，新增 `taskLabel(String)` 与 `label(String, boolean)` 支持任务维度。
-- 新增状态映射扩展点 `StatusMapper`（`instanceStatus` / `taskStatus` / `cooperateStatus` / `isTerminal` / `label`）：宿主用自己的状态枚举接管三个维度的落库编码与终态判定，各操作点不再需要手动传 `flowStatus` / `taskStatus`；默认实现沿用内置编码，升级不需要迁移数据。注册方式 `FlowEngine.setStatusMapper(...)` 或配置 `warm-flow.status-mapper-path`。demo 的编码已与引擎对齐，因此移除了 `DemoStatusMapper`，直接使用默认实现（协作动作回落 `pending`「待审批」）。
+- 新增状态映射扩展点 `StatusMapper`（`instanceStatus` / `taskStatus` / `cooperateStatus` / `isTerminal` / `label`）：宿主用自己的状态枚举接管三个维度的落库编码与终态判定，各操作点不再需要手动传 `flowStatus` / `taskStatus`；默认实现沿用内置编码，升级不需要迁移数据。注册方式 `FlowEngine.setStatusMapper(...)` 或配置 `warm-flow.status-mapper-path`。demo 的编码已与引擎对齐，因此移除了 `DemoStatusMapper`，直接使用默认实现。
+- 状态默认值全部内置于引擎：发起 / 通过 / 退回 / 撤回 / 终止的状态由引擎按操作语义推导（提交或通过 → `pass`、退回 → `back`、撤回 → `cancel`、终止 → `termination`），业务层只调用 `start` / `complete` / `reject` / `revoke` / `terminate`，不必再 `setTaskStatus(...)`。抄送补齐为内置能力：新增 `HisTaskService#setCopyHisTask`，状态直接按 `StatusMapper.taskStatus(TaskStatus.COPY)` 取，业务层不必再手写 `copy`；协作动作仍在 `StatusMapper.cooperateStatus` 里统一回落 `pending`（待审批）。需要自有编码时只覆写 `StatusMapper` 对应方法即可覆盖内置默认，调用方无需改动。
 - `FlowStatus` 精简为实例状态（移除 `PASS` / `INVALID` / `TASK_BACK`，任务维度改用新增的 `TaskStatus`）；自动审批历史记 `auto_pass`（自动审批），服务任务历史记「通过」。
 - 结束收口语义补全：流程结束时仍存在的待办不再静默删除，改按「失效」（`TaskStatus.INVALID`）归档进 `flow_his_task`（保留节点、办理人、创建时间，便于审计）；已归档的待办（本次办理 / 终止的那条）自动去重，不重复归档。
 - 普通完成链路补齐事件等待清理：实例到达结束节点即取消本实例的 `flow_event_wait` 记录，避免流程已完成后仍有僵尸等待被外部消息或定时器唤醒；终止结束、显式终止路径行为不变（原本就会清理）。
-- 结束事件留痕：`TERMINATE_END` / `MESSAGE_END` 到达时在 `flow_his_task` 写一条结束事件记录（`task_id` 以 `0` 为哨兵、`flow_status` 为「结束」），备注区分「流程由该终止结束事件终止」与「流程由该结束事件节点结束」，按 `node_code` 即可筛出「因严重异常终止」的单子。
-- 终止结束的实例状态修正：`TERMINATE_END` 到达后实例状态由「已完成」改为「终止」（内置码 `4`，自定义映射取 `StatusMapper.instanceStatus(FlowStatus.TERMINATE)`），消息结束与普通完成仍为「已完成」；结构上仍收口到固定 `END` 节点，语义上不再与正常办结混淆。
+- 结束事件留痕：`TERMINATE_END` / `MESSAGE_END` 到达时在 `flow_his_task` 写一条结束事件记录（`task_id` 以 `0` 为哨兵、`flow_status` 按「通过」`pass` 归档），备注区分「流程由该终止结束事件终止」与「流程由该结束事件节点结束」，按 `node_code` 即可筛出「因严重异常终止」的单子。
+- 终止结束的实例状态修正：`TERMINATE_END` 到达后实例状态由「已完成」改为「终止」（`termination`，自定义映射取 `StatusMapper.instanceStatus(FlowStatus.TERMINATE)`），消息结束与普通完成仍为「已完成」；结构上仍收口到固定 `END` 节点，语义上不再与正常办结混淆。
 - 节点默认流程变量提到节点级并全节点开放：数据位置由 `node_config.event.variables` 改为 `node_config.variables`（旧格式仍兼容读取，存量 JSON 无需迁移），语义为「缺失时的兜底默认值」——流程走到该节点才补充，办理时传入的同名变量优先，随后写入实例变量；设计器在开始 / 中间 / 网关 / 服务任务 / 结束五类节点的「默认变量」中配，不再局限于事件节点。
 - 定时启动的实例状态修正：触发后实例直接处于「审批中」（此前为「待提交」）——定时启动没有发起人提交环节，首个待办即审批任务。
 
@@ -35,6 +41,7 @@
 - 经典与仿钉钉设计器开放 11 类事件配置（事件类型、消息名称、错误码、定时策略与时间值、附着任务节点、中断开关），保存后重新打开 JSON 保持一致。
 - 开始 / 中间 / 网关 / 服务任务 / 结束五类节点的基础信息区新增「默认变量」键值编辑器（数字 / 布尔自动类型推断），此前该能力只挂在启动事件上。
 - 办理人设置新增「发起人」快捷按钮（写入 `warmFlowInitiator` 标识），办理人名称回显对引擎无法解析的标识补充占位行。
+- 中间节点基础设置新增「抄送」分组：复用人员选择器写入 `node_config.copy.handlers`，抄送人以标签展示、可单个移除，并有「发起人」快捷按钮；未配置时不发名称回显请求。`copy` 同步纳入引擎保留键，扩展属性 KV 编辑器不再把它当自定义属性、编辑其它 KV 时也不会丢。该分组只在会产生待办的节点上出现——选中事件类型后的中间 / 边界事件节点（画布上是圆圈，易被误认为网关）不显示抄送，网关面板则从始至终没有该配置。
 
 ### Demo
 
@@ -43,25 +50,25 @@
 - Demo 后端分层重构：1171 行的 `WorkflowServiceImpl` 拆分为 `WorkflowSupport`（共享缓存与 VO 组装）+ `InstanceAppService`（发起 / 查询 / 撤回 / 终止 / 删除）+ `TaskAppService`（待办已办抄送 / 按钮权限 / 通过退回转办委派加签减签），Controller 与对外 API 路径保持不变。
 - 事件测试页（`/events`）：重构为通用外部事件模拟器——发起回归实例列表（仅消息启动案例保留「消息启动」按钮），实例操作按钮由等待事件数据驱动（有消息等待出现「触发消息」弹窗，不再按流程硬编码）。错误边界案例改为「财务执行付款」节点 `create` 监听器 `DemoPayFailListener` 读流程变量 `payAmount`、超过限额 1000 即抛 `PAY_FAILED` 自动进边界，前端不再提供「模拟抛错」按钮。
 - 新增定时任务观测页（`/timers`）与配套只读接口：`GET /api/event-waits`（分页查询 `flow_event_wait`，默认只查定时类事件、按下次触发时间升序，支持状态 / 事件类型 / 流程编码 / 业务 ID / 节点编码 / 事件名 / 下次触发与创建时间区间组合过滤）与 `GET /api/event-waits/summary`（同组筛选条件下的各状态计数）；页面提供状态计数快捷过滤、条件区、详情抽屉、查看实例，并对消息类等待「触发消息」、错误类等待「抛错」（复用既有事件触发接口），不提供取消 / 立即触发 / 重新排期等写操作。
-- 接入状态映射扩展点 `DemoStatusMapper`：实例状态映射到 `BusinessStatusEnum`、任务状态映射到 `TaskStatusEnum`、协作动作映射为任务状态，业务层不再在发起 / 撤回 / 终止 / 办理 / 退回 / 转办 / 委派 / 加签 / 减签处手动传状态。
 - 各列表页表格补充统一空状态提示（el-empty）。
-- 修复实例/待办状态展示裸数字的存量缺陷：实例状态由引擎写入数字码（如 1=审批中），VO 组装只查了 demo 字符串枚举 `BusinessStatusEnum`，未命中时回落原始值导致列表显示「1」；现补充引擎 `FlowStatus` 文案兜底，实例详情/列表均正常显示「审批中」等。
-- 修复实例列表「继续办理/重新提交」按钮从不显示的存量缺陷：按钮判断依赖 demo 字符串业务码（draft/back/cancel），与引擎写入的任务状态码不匹配；现 `InstanceVo` 透出当前待办任务状态码 `taskStatusKey`（0 待提交 / 9 已退回），按钮按此显隐。
+- 业务层不再手动传任务状态：发起、通过、退回、撤回、终止全部交给引擎按操作语义推导，抄送改走 `setCopyHisTask`（不再手写 `copy`），Demo 只按引擎枚举读展示文案。
+- 修复实例/待办状态展示裸数字的存量缺陷：VO 组装只按 demo 字符串枚举查文案，未命中时回落原始值，导致列表直接显示引擎写入的裸码；现状态文案统一由引擎 `FlowStatus` / `TaskStatus` 提供（demo 侧业务状态枚举与任务状态枚举已删除），实例详情/列表均正常显示「审批中」等。
+- 修复实例列表「继续办理/重新提交」按钮从不显示的存量缺陷：按钮判断依赖 demo 业务码（draft/back/cancel），与引擎写入的任务状态码不匹配；现 `InstanceVo` 透出当前待办任务状态码 `taskStatusKey`（`pending` 待审批 / `back` 退回），按钮改按实例状态（`draft` / `back` / `cancel`）显隐、按 `taskStatusKey` 是否 `back` 区分「继续办理」与「重新提交」。
 
 ### 数据库
 
 - 新增表 `flow_event_wait`；`flow_node` 新增 `event_type`、`event_name`、`attached_to_node_code`、`interrupting` 4 列；修正 `flow_node.node_config` 列注释（自定义扩展属性实际在 `node.ext`）。四套全量脚本（MySQL / Oracle / PostgreSQL / SQL Server）已同步，且经脚本逐表逐列比对结构一致；MySQL 增量升级脚本见 [sql/mysql/v1-upgrade/warm-flow_2.1.0.sql](./sql/mysql/v1-upgrade/warm-flow_2.1.0.sql)。
 - 全量脚本修正两处存量问题：SQL Server 的 `flow_node` 补齐 `listener_type` / `listener_path` 两列（其余三方言已有）；Oracle 删除 `FLOW_NODE.HANDLER_TYPE` / `HANDLER_PATH` 两条孤儿注释（表无此两列，执行脚本会报 ORA-00904）。
-- 同步状态列注释到三维语义：四套全量脚本中 `flow_instance.flow_status` 改为「实例状态（0待提交 1审批中 4终止 5作废 6撤销 7取回 8已完成 9已退回 12重启 13暂存）」，`flow_task` / `flow_his_task.flow_status` 改为「任务状态（1待办理 2通过 8结束 9退回 10失效 11拿回）」，并标注「勿套用实例状态编码」——此前三处共用一套旧混合注释（含已移除的「2审批通过」），且 `8` 在实例表是「已完成」、在任务表是「结束」，极易误读。`cooperate_type` 注释同步纠正为「1无」（此前写「1审批」）并注明是行为维度。MySQL 升级脚本给出对应的 `MODIFY COLUMN` 语句（仅改注释、不动类型与数据，存量库可跳过）。
+- 同步状态列注释到三维语义：四套全量脚本中 `flow_instance.flow_status` 改为「实例状态（draft待提交 waiting审批中 termination终止 invalid作废 cancel撤销 finish已完成 back已退回 restart重启）」，`flow_task` / `flow_his_task.flow_status` 改为「任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送；任务结果，勿套用实例状态编码）」，此前三处共用一套旧混合注释（含已移除的「2审批通过」），两个维度同号不同义，极易误读。`cooperate_type` 注释同步纠正为「1无」（此前写「1审批」）并注明是行为维度。MySQL 升级脚本给出对应的 `MODIFY COLUMN` 语句（仅改注释、不动类型与数据）。
 
 ### 升级提示
 
 - 事件能力默认关闭：升级需执行对应数据库脚本，并显式配置 `warm-flow.timer-enabled=true` 才会启动定时扫描线程；未开启或未建表时既有流程行为不变。
 - 事务边界：事件到达会同时写任务、实例与等待记录，消息触发后的流程推进亦然，宿主必须用 ORM / JDBC 事务包裹相关调用；`MESSAGE_THROW` / `MESSAGE_END` 的发布器调用与流程状态更新在同一提交边界内，需要可靠投递时请在发布器实现中接入 Outbox。
 - 数据库方言：定时扫描的固定条数查询在 Oracle 下使用 `ROWNUM`（MyBatis）/ `OFFSET ... FETCH NEXT`（MyBatis-Plus）改写，Oracle 需 12c 及以上；MySQL、PostgreSQL、SQLServer 使用 `LIMIT`。
-- 状态枚举拆分（破坏性）：`FlowStatus.PASS` / `FlowStatus.INVALID` / `FlowStatus.TASK_BACK` 已移除，任务维度改用 `TaskStatus` 对应常量；扩展点 `FlowStatusMapper` 更名为 `StatusMapper`，配置项 `flow-status-mapper-path` 改为 `status-mapper-path`。落库编码未变（`0`/`1`/`2`/`4`~`13`），存量数据无需迁移，只需调整代码引用。
+- 状态枚举拆分（破坏性）：`FlowStatus` 只保留实例维度（移除 `PASS` / `TASK_BACK`），任务维度改用新增的 `TaskStatus`；扩展点 `FlowStatusMapper` 更名为 `StatusMapper`，配置项 `flow-status-mapper-path` 改为 `status-mapper-path`。**落库编码改为小写英文**（实例 `draft` / `waiting` / `termination` / `invalid` / `cancel` / `finish` / `back` / `restart`，任务 `pending` / `pass` / `auto_pass` / `back` / `invalid` / `take_back` / `copy`），不再使用数字；2.1.0 未发布、无存量数据需迁移，但宿主按数字码写的查询 / 统计 SQL 与报表需同步调整。
 - 行为变更：流程结束时未办待办改为按「失效」归档进历史（此前静默删除），历史列表会多出失效记录；结束事件（终止结束 / 消息结束）另写一条 `task_id=0` 的留痕记录，按 `node_code` 可筛出异常终止的实例。
-- 行为变更：终止结束事件（`TERMINATE_END`）的实例状态由「已完成」改为「终止」（内置码 `4`），消息结束与普通完成不变；统计口径若需包含终止单请显式计入。
+- 行为变更：终止结束事件（`TERMINATE_END`）的实例状态由「已完成」改为「终止」（`termination`），消息结束与普通完成不变；统计口径若需包含终止单请显式计入。
 - 行为变更：普通完成链路现在会取消本实例的事件等待记录（此前只有终止 / 撤回 / 作废会清理），完成后不再残留僵尸等待。
 
 ## 2.0.1（2026-10-12）

@@ -167,7 +167,7 @@ final class EventArrivalDispatcher {
             .setTargetNodeCode(node.getNodeCode())
             .setTargetNodeName(node.getNodeName())
             .setApprover(FlowEngine.getFlowConfig().getSystemHandler())
-            .setCooperateType(CooperateType.APPROVAL.getKey())
+            .setCooperateType(CooperateType.NONE.getKey())
             .setSkipType(SkipType.NONE.getKey())
             .setFlowStatus(FlowStatusMachine.mapper().taskStatus(TaskStatus.PASS))
             .setMessage(terminate ? "流程由该终止结束事件终止" : "流程由该结束事件节点结束")

@@ -31,6 +31,7 @@ import org.dromara.warm.flow.core.utils.*;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -75,7 +76,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
      * @return 历史办理记录
      */
     @Override
-    public List<HisTask> listByTaskIdAndCooperateTypes(Long taskId, Integer... cooperateTypes) {
+    public List<HisTask> listByTaskIdAndCooperateTypes(Long taskId, String... cooperateTypes) {
         if (ArrayUtil.isEmpty(cooperateTypes)) {
             return listByTaskId(taskId);
         }
@@ -171,12 +172,52 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
      */
     @Override
     public HisTask setCooperateHis(Task task, WorkflowContext context, List<String> collaborators
-        , Integer cooperateType) {
+        , String cooperateType) {
+        String actionType = ObjectUtil.defaultNull(cooperateType, CooperateType.NONE.getKey());
+        return buildCooperateHis(task, context, collaborators, actionType
+            , FlowStatusMachine.cooperateStatus(actionType));
+    }
+
+    /**
+     * 构造抄送历史记录。
+     *
+     * <p>抄送只告知、不改任务归属，也不改变谁在办理：动作列记 {@code none}，结果列记「抄送」。</p>
+     *
+     * @param task          当前待办任务
+     * @param context       流程执行上下文
+     * @param collaborators 抄送人标识集合
+     * @return 尚未持久化的历史任务
+     */
+    @Override
+    public HisTask setCopyHisTask(Task task, WorkflowContext context, List<String> collaborators) {
+        HisTask hisTask = buildCooperateHis(task, context, collaborators, CooperateType.NONE.getKey()
+            , FlowStatusMachine.mapper().taskStatus(TaskStatus.COPY));
+        // 抄送时间是「抄送发生的那一刻」，不是待办创建时间：办理中追加抄送时两者可能相差很久，
+        // 沿用任务开始时间会让抄送列表的时间倒挂。
+        hisTask.setCreateTime(new Date());
+        // 抄送记录没有办理人：approver 留着触发抄送的操作人，会让他「已办」里凭空多出一条抄送记录。
+        // 谁触发的抄送看审计字段 createBy（保存时由 DataFillHandler 填充）。
+        hisTask.setApprover(null);
+        return hisTask;
+    }
+
+    /**
+     * 构造「不流转」类历史记录（协作动作 / 抄送）的公共骨架。
+     *
+     * @param task          当前待办任务
+     * @param context       流程执行上下文
+     * @param collaborators 协作人或抄送人
+     * @param cooperateType 动作列取值
+     * @param taskStatus    结果列取值
+     * @return 尚未持久化的历史任务
+     */
+    private HisTask buildCooperateHis(Task task, WorkflowContext context, List<String> collaborators
+        , String cooperateType, String taskStatus) {
         String flowStatus = customStatus(context);
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
-            .setCooperateType(ObjectUtil.defaultNull(cooperateType, CooperateType.APPROVAL.getKey()))
+            .setCooperateType(cooperateType)
             .setCollaborator(StreamUtils.join(collaborators, c -> c))
             .setNodeCode(task.getNodeCode())
             .setNodeName(task.getNodeName())
@@ -186,8 +227,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
             .setTargetNodeName(task.getNodeName())
             .setApprover(context.getHandler())
             .setSkipType(SkipType.NONE.getKey())
-            .setFlowStatus(FlowStatusMachine.defaultStatus(flowStatus
-                , FlowStatusMachine.cooperateStatus(cooperateType)))
+            .setFlowStatus(FlowStatusMachine.defaultStatus(flowStatus, taskStatus))
             .setFormCustom(task.getFormCustom())
             .setFormPath(task.getFormPath())
             .setMessage(context.getMessage())
@@ -214,7 +254,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
-            .setCooperateType(CooperateType.DEPUTE.getKey())
+            .setCooperateType(CooperateType.DELEGATE.getKey())
             .setNodeCode(task.getNodeCode())
             .setNodeName(task.getNodeName())
             .setNodeType(task.getNodeType())
@@ -239,6 +279,9 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
     /**
      * 构造会签或票签的单人办理历史。
      *
+     * <p>会签 / 票签是节点的多人审批模式（由 {@code node_ratio} 决定），不是某个人做过的协作动作，
+     * 因此动作列统一记 {@code none}；需要区分会签 / 票签时按节点配置判断。</p>
+     *
      * @param task      当前待办任务
      * @param context   流程执行上下文
      * @param nodeRatio 节点协作规则
@@ -251,8 +294,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
-            .setCooperateType(CooperateType.isCountersign(nodeRatio)
-                ? CooperateType.COUNTERSIGN.getKey() : CooperateType.VOTE.getKey())
+            .setCooperateType(CooperateType.NONE.getKey())
             .setNodeCode(task.getNodeCode())
             .setNodeName(task.getNodeName())
             .setNodeType(task.getNodeType())
@@ -289,7 +331,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
-            .setCooperateType(CooperateType.APPROVAL.getKey())
+            .setCooperateType(CooperateType.NONE.getKey())
             .setNodeCode(serviceNode.getNodeCode())
             .setNodeName(serviceNode.getNodeName())
             .setNodeType(serviceNode.getNodeType())
@@ -336,7 +378,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
-            .setCooperateType(CooperateType.APPROVAL.getKey())
+            .setCooperateType(CooperateType.NONE.getKey())
             .setNodeCode(task.getNodeCode())
             .setNodeName(task.getNodeName())
             .setNodeType(task.getNodeType())

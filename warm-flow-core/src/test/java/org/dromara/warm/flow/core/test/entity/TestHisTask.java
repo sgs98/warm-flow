@@ -24,7 +24,7 @@ public class TestHisTask implements HisTask {
     private String flowName;
     private Long instanceId;
     private Long taskId;
-    private Integer cooperateType;
+    private String cooperateType;
     private String businessId;
     private String nodeCode;
     private String nodeName;

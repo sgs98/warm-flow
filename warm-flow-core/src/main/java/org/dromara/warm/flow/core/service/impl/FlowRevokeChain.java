@@ -216,6 +216,8 @@ final class FlowRevokeChain {
         if (CollUtil.isNotEmpty(addTasks)) {
             taskService.saveBatch(addTasks);
         }
+        // 到达节点：按 node_config.copy 自动抄送
+        CopyAdvancer.copyOnArrival(addTasks, execution.instance, execution.intent);
         FlowEngine.insService().updateById(execution.instance);
         // 保存下一个待办任务的权限人
         FlowEngine.userService().saveBatch(users);

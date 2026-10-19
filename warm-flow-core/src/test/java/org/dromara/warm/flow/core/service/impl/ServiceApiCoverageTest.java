@@ -28,6 +28,7 @@ import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.PublishStatus;
 import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
@@ -148,14 +149,19 @@ class ServiceApiCoverageTest {
         HisTask depute = FlowEngine.hisTaskService().setDeputeHisTask(task, context,
             FlowEngine.newUser().setCreateBy("lisi"), SkipType.PASS.getKey());
         HisTask sign = FlowEngine.hisTaskService().setSignHisTask(task, context, "100", true);
+        HisTask copy = FlowEngine.hisTaskService().setCopyHisTask(task, context, List.of("lisi"));
         List<HisTask> list = FlowEngine.hisTaskService().setSkipHisList(List.of(task), List.of(next), context,
             SkipType.PASS.getKey());
 
         assertEquals("end", pass.getTargetNodeCode());
         assertEquals("end", single.getTargetNodeCode());
         assertEquals("lisi", cooperate.getCollaborator());
-        assertEquals(CooperateType.DEPUTE.getKey(), depute.getCooperateType());
-        assertEquals(CooperateType.COUNTERSIGN.getKey(), sign.getCooperateType());
+        assertEquals(CooperateType.DELEGATE.getKey(), depute.getCooperateType());
+        // 会签是节点模式，不是协作动作，签票历史的动作列记 none
+        assertEquals(CooperateType.NONE.getKey(), sign.getCooperateType());
+        // 抄送只改结果列：动作记 none、结果记 copy
+        assertEquals(CooperateType.NONE.getKey(), copy.getCooperateType());
+        assertEquals(TaskStatus.COPY.getKey(), copy.getFlowStatus());
         assertEquals(1, list.size());
         assertEquals("{\"x\":1}", pass.getVariable());
     }

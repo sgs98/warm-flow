@@ -1,10 +1,10 @@
 package org.dromara.warm.demo.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dromara.warm.demo.common.BizException;
 import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.dto.TaskActionRequest;
-import org.dromara.warm.demo.enums.TaskStatusEnum;
 import org.dromara.warm.demo.mapper.DemoTaskQueryMapper;
 import org.dromara.warm.demo.service.TaskAppService;
 import org.dromara.warm.demo.service.UserService;
@@ -30,6 +30,7 @@ import org.dromara.warm.flow.core.utils.ObjectUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.core.utils.page.Page;
 import org.dromara.warm.flow.core.workflow.command.AddSignerCommand;
+import org.dromara.warm.flow.core.workflow.command.CopyCommand;
 import org.dromara.warm.flow.core.workflow.command.CompleteCommand;
 import org.dromara.warm.flow.core.workflow.command.DelegateCommand;
 import org.dromara.warm.flow.core.workflow.command.JumpCommand;
@@ -43,6 +44,8 @@ import org.dromara.warm.flow.orm.entity.FlowHisTask;
 import org.dromara.warm.flow.orm.entity.FlowTask;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -61,13 +64,9 @@ import java.util.stream.Collectors;
  * @since 2026/10/17
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class TaskAppServiceImpl implements TaskAppService {
-
-    /**
-     * demo 抄送用户类型；1/2/3 已被引擎分别用于审批、转办、委派权限。
-     */
-    private static final String COPY_USER_TYPE = "4";
 
     private final DemoTaskQueryMapper taskQueryMapper;
     private final UserService userService;
@@ -127,11 +126,33 @@ public class TaskAppServiceImpl implements TaskAppService {
             return new PageVo<>(0, pageQuery.normalizedPageNum(), pageQuery.normalizedPageSize(), new ArrayList<>());
         }
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<FlowHisTask> page = pageQuery.build();
-        List<TaskVo> rows = taskQueryMapper.selectCopyPage(page, permissions).stream()
-            .map(support::toDoneVo)
+        List<FlowHisTask> hisTasks = taskQueryMapper.selectCopyPage(page, permissions);
+        Map<Long, Instance> instances = instancesOf(hisTasks);
+        List<TaskVo> rows = hisTasks.stream()
+            .map(hisTask -> support.toCopyVo(hisTask, instances.get(hisTask.getInstanceId())))
             .collect(Collectors.toList());
         return new PageVo<>(page.getTotal(),
             pageQuery.normalizedPageNum(), pageQuery.normalizedPageSize(), rows);
+    }
+
+    /**
+     * 批量查询抄送记录所属的流程实例，供状态列展示。
+     * <p>一次 {@code IN} 查询替代逐行回查，避免抄送列表成为 N+1。</p>
+     *
+     * @param hisTasks 抄送历史集合
+     * @return 实例主键 -> 流程实例
+     */
+    private Map<Long, Instance> instancesOf(List<FlowHisTask> hisTasks) {
+        List<Long> instanceIds = hisTasks.stream()
+            .map(HisTask::getInstanceId)
+            .filter(ObjectUtil::isNotNull)
+            .distinct()
+            .collect(Collectors.toList());
+        if (instanceIds.isEmpty()) {
+            return new HashMap<>();
+        }
+        return FlowEngine.insService().getByIds(instanceIds).stream()
+            .collect(Collectors.toMap(Instance::getId, instance -> instance, (left, right) -> left));
     }
 
     /**
@@ -391,7 +412,6 @@ public class TaskAppServiceImpl implements TaskAppService {
                 command.setMessage(req.getMessage());
                 command.setVariables(variables);
                 command.setNextHandlers(req.getNextHandlers());
-                command.setTaskStatus(TaskStatusEnum.BACK.getStatus());
                 result = FlowEngine.workflow().reject(command);
             } else if (StringUtils.isNotEmpty(req.getNodeCode())) {
                 JumpCommand command = new JumpCommand();
@@ -401,7 +421,6 @@ public class TaskAppServiceImpl implements TaskAppService {
                 command.setMessage(req.getMessage());
                 command.setVariables(variables);
                 command.setNextHandlers(req.getNextHandlers());
-                command.setTaskStatus(TaskStatusEnum.PASS.getStatus());
                 result = FlowEngine.workflow().jump(command);
             } else {
                 CompleteCommand command = new CompleteCommand();
@@ -410,7 +429,6 @@ public class TaskAppServiceImpl implements TaskAppService {
                 command.setMessage(req.getMessage());
                 command.setVariables(variables);
                 command.setNextHandlers(req.getNextHandlers());
-                command.setTaskStatus(TaskStatusEnum.PASS.getStatus());
                 result = FlowEngine.workflow().complete(command);
             }
             Instance instance = support.requireInstance(result.getInstanceId());
@@ -689,6 +707,8 @@ public class TaskAppServiceImpl implements TaskAppService {
 
     /**
      * 保存办理时指定的抄送人。
+     * <p>抄送是引擎内置能力：调用统一门面的 {@code copy} 即可，历史留痕和抄送人记录都由引擎写，
+     * 业务层不需要手动拼任务状态或写用户表。</p>
      *
      * @param task      当前待办任务
      * @param copyUsers 抄送人集合
@@ -699,26 +719,45 @@ public class TaskAppServiceImpl implements TaskAppService {
         if (users.isEmpty()) {
             return;
         }
-        Node node = FlowEngine.nodeService().getByDefIdAndNodeCode(task.getDefinitionId(), task.getNodeCode());
-        if (node == null) {
-            throw BizException.badRequest("抄送节点不存在: " + task.getNodeCode());
+        CopyCommand command = new CopyCommand();
+        command.setTaskId(task.getId());
+        command.setTargetHandlers(users);
+        command.setOperator(support.operator(user));
+        // 抄送是旁路动作：注册到事务提交之后执行。这样抄送自身失败（数据库异常、抄送人失效）
+        // 不会把已经落库的办理结果一起回滚；任务已办结也没关系，引擎会从归档历史还原节点信息。
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    doCopy(command);
+                }
+            });
+            return;
         }
-        WorkflowContext copyContext = new WorkflowContext();
-        copyContext.setHandler(user);
-        copyContext.setPermissions(userService.permissionFlags(user));
-        copyContext.setTaskStatus(TaskStatusEnum.COPY.getStatus());
-        FlowEngine.hisTaskService().save(FlowEngine.hisTaskService().setSkipHisTask(task, node, copyContext
-            , SkipType.NONE.getKey()));
-        List<User> flowUsers = users.stream().map(userName -> FlowEngine.newUser()
-                .setType(COPY_USER_TYPE)
-                .setProcessedBy(userName)
-                .setAssociated(task.getId()))
-            .collect(Collectors.toList());
-        FlowEngine.userService().saveBatch(flowUsers);
+        doCopy(command);
+    }
+
+    /**
+     * 执行抄送，失败只记日志。
+     *
+     * <p>抄送不参与办理结果：办理已经提交，这里再抛异常只会让调用方误以为办理失败。</p>
+     *
+     * @param command 抄送参数
+     */
+    private void doCopy(CopyCommand command) {
+        try {
+            FlowEngine.workflow().copy(command);
+        } catch (Exception e) {
+            log.warn("抄送失败，已跳过：taskId={}，{}", command.getTaskId(), e.getMessage());
+        }
     }
 
     /**
      * 校验并去重抄送人，抄送人必须是 Demo 已存在用户。
+     *
+     * <p>与节点抄送配置同构：裸用户名、{@code user:xxx}、{@code dept:xxx} 都先展开成具体用户，
+     * 展开不到人的标识直接拒绝——抄送是「发给谁」，不是「记下一个标识」。前端下拉框传的是裸用户名，
+     * 这里兼容带前缀的写法，避免同一份抄送人配置在节点上和办理时两套语义。</p>
      *
      * @param copyUsers 抄送人集合
      * @return 规范化后的抄送人集合
@@ -727,18 +766,19 @@ public class TaskAppServiceImpl implements TaskAppService {
         if (copyUsers == null || copyUsers.isEmpty()) {
             return new ArrayList<>();
         }
-        Set<String> memoryUsers = userService.listApprovers().stream()
-            .map(DemoUserVo::getUserName)
-            .collect(Collectors.toSet());
         Set<String> result = new LinkedHashSet<>();
         copyUsers.forEach(copyUser -> {
-            if (StringUtils.isNotEmpty(copyUser)) {
-                String userName = copyUser.trim();
-                if (!memoryUsers.contains(userName)) {
-                    throw BizException.badRequest("抄送人不存在: " + userName);
-                }
-                result.add(userName);
+            if (StringUtils.isEmpty(copyUser)) {
+                return;
             }
+            String flag = copyUser.trim();
+            List<String> resolved = userService.listByPermissionFlags(List.of(flag)).stream()
+                .map(DemoUserVo::getUserName)
+                .collect(Collectors.toList());
+            if (resolved.isEmpty()) {
+                throw BizException.badRequest("抄送人不存在: " + flag);
+            }
+            result.addAll(resolved);
         });
         return new ArrayList<>(result);
     }

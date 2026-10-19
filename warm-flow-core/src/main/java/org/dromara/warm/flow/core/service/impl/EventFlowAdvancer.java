@@ -93,6 +93,8 @@ final class EventFlowAdvancer {
             List<org.dromara.warm.flow.core.entity.User> users =
                 FlowEngine.userService().taskAddUsers(addTasks);
             FlowEngine.userService().saveBatch(users);
+            // 到达节点：按 node_config.copy 自动抄送
+            CopyAdvancer.copyOnArrival(addTasks, execution.instance, execution.intent);
             // 分派监听器：与人工节点收尾语义一致，事件节点无当前任务（task 为空合法）
             ListenerUtil.executeAssignment(execution.contextListener(null, eventNode
                 , nextNodes, addTasks));

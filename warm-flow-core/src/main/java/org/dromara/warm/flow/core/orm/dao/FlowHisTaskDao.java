@@ -69,5 +69,5 @@ public interface FlowHisTaskDao<T extends HisTask> extends WarmDao<T> {
      * @param cooperateTypes 协作类型集合
      * @return 历史任务列表
      */
-    List<T> listByTaskIdAndCooperateTypes(Long taskId, Integer[] cooperateTypes);
+    List<T> listByTaskIdAndCooperateTypes(Long taskId, String[] cooperateTypes);
 }

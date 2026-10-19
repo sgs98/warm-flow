@@ -252,7 +252,7 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
      */
     @Override
     public Instance updateHandlers(Long taskId, WorkflowContext context, List<String> addHandlers
-        , List<String> removeHandlers, Integer cooperateType) {
+        , List<String> removeHandlers, String cooperateType) {
         AssertUtil.isNull(taskId, ExceptionCons.NULL_TASK_ID);
         FlowExecution execution = getAndCheck(taskId, context, FlowOp.UPDATE_HANDLERS);
         return new FlowUpdateHandlersChain(this, taskId, addHandlers, removeHandlers, cooperateType)
@@ -500,9 +500,13 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         if (NodeType.isEnd(instance.getNodeType())) {
             List<Task> taskList = list(FlowEngine.newTask().setInstanceId(instance.getId()));
             if (CollUtil.isNotEmpty(taskList)) {
-                // 已归档的待办（本次办理 / 终止的那条）不再重复归档
-                List<Long> archivedTaskIds = StreamUtils.toList(FlowEngine.hisTaskService()
-                    .list(FlowEngine.newHisTask().setInstanceId(instance.getId())), HisTask::getTaskId);
+                // 已归档的待办（本次办理 / 终止的那条）不再重复归档；抄送记录也回填了 task_id，
+                // 但它不代表该待办已归档，混进来会让「失效」历史漏记
+                List<Long> archivedTaskIds = FlowEngine.hisTaskService()
+                    .list(FlowEngine.newHisTask().setInstanceId(instance.getId())).stream()
+                    .filter(hisTask -> !TaskStatus.COPY.getKey().equals(hisTask.getFlowStatus()))
+                    .map(HisTask::getTaskId)
+                    .collect(Collectors.toList());
                 List<Task> undone = StreamUtils.filter(taskList
                     , task -> !archivedTaskIds.contains(task.getId()));
                 if (CollUtil.isNotEmpty(undone)) {
@@ -533,7 +537,7 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
                 .setTargetNodeCode(task.getNodeCode())
                 .setTargetNodeName(task.getNodeName())
                 .setApprover(undoneApprover(task))
-                .setCooperateType(CooperateType.APPROVAL.getKey())
+                .setCooperateType(CooperateType.NONE.getKey())
                 .setSkipType(SkipType.NONE.getKey())
                 .setFlowStatus(invalid)
                 .setMessage(UNDONE_MESSAGE)
@@ -628,5 +632,54 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         flowDto.setData(hisTask.getVariableMap().get(FlowCons.FORM_DATA));
 
         return flowDto;
+    }
+    /**
+     * 对当前待办追加抄送。
+     *
+     * @param taskId   当前待办任务主键
+     * @param handlers 抄送人标识
+     * @param context  流程执行上下文
+     * @return 抄送历史；没有有效抄送人时返回 {@code null}
+     */
+    @Override
+    public HisTask copy(Long taskId, List<String> handlers, WorkflowContext context) {
+        AssertUtil.isNull(taskId, ExceptionCons.NULL_TASK_ID);
+        AssertUtil.isTrue(CollUtil.isEmpty(handlers), ExceptionCons.NULL_COPY_HANDLER);
+        Task task = getById(taskId);
+        if (task == null) {
+            // 待办已办结：办理完成后待办行会被删除，但「办完顺手抄送」是最常见的用法。
+            // 抄送只需要节点与实例信息，从归档历史里还原一份即可，不必要求待办还活着。
+            task = archivedTask(taskId);
+        }
+        AssertUtil.isNull(task, ExceptionCons.NOT_FOUNT_TASK);
+        // 抄送人一个都落不到人时由 CopyAdvancer 抛 FlowException：手动抄送是调用方明确要求的动作，
+        // 静默成功会让调用方以为已经通知出去了
+        return CopyAdvancer.copy(task, handlers, context);
+    }
+
+    /**
+     * 从归档历史还原一条已办结的待办。
+     *
+     * <p>取这条待办最近一条非抄送的历史记录：办理 / 退回 / 撤回等都会落一行，节点编码、节点名称、
+     * 节点类型、表单地址都在上面，足够构造抄送留痕。全都被清理掉时返回 {@code null}。</p>
+     *
+     * @param taskId 待办任务主键
+     * @return 还原出的待办；归档历史不存在时返回 {@code null}
+     */
+    private Task archivedTask(Long taskId) {
+        return FlowEngine.hisTaskService().list(FlowEngine.newHisTask().setTaskId(taskId)).stream()
+            .filter(hisTask -> !TaskStatus.COPY.getKey().equals(hisTask.getFlowStatus()))
+            .max(Comparator.comparing(HisTask::getId))
+            .map(hisTask -> FlowEngine.newTask()
+                .setId(hisTask.getTaskId())
+                .setInstanceId(hisTask.getInstanceId())
+                .setDefinitionId(hisTask.getDefinitionId())
+                .setNodeCode(hisTask.getNodeCode())
+                .setNodeName(hisTask.getNodeName())
+                .setNodeType(hisTask.getNodeType())
+                .setFormCustom(hisTask.getFormCustom())
+                .setFormPath(hisTask.getFormPath())
+                .setCreateTime(hisTask.getCreateTime()))
+            .orElse(null);
     }
 }

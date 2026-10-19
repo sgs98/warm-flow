@@ -63,7 +63,7 @@ public class FlowHisTaskDaoImpl extends WarmDaoImpl<FlowHisTask> implements Flow
     }
 
     @Override
-    public List<FlowHisTask> listByTaskIdAndCooperateTypes(Long taskId, Integer[] cooperateTypes) {
+    public List<FlowHisTask> listByTaskIdAndCooperateTypes(Long taskId, String[] cooperateTypes) {
         return getMapper().listByTaskIdAndCooperateTypes(cooperateTypes, TenantDeleteUtil.getEntity(newEntity()).setTaskId(taskId));
     }
 

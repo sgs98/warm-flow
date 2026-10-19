@@ -173,11 +173,11 @@ class QueryServiceCharacteristicTest {
     @Test
     void historyQueries_coverCooperateTypeBranchesAndDeleteByInstance() {
         HisTask pass = FlowEngine.newHisTask().setTaskId(800L).setInstanceId(900L)
-            .setNodeCode("apply").setCooperateType(CooperateType.APPROVAL.getKey()).setSkipType(SkipType.PASS.getKey());
+            .setNodeCode("apply").setCooperateType(CooperateType.NONE.getKey()).setSkipType(SkipType.PASS.getKey());
         HisTask sign = FlowEngine.newHisTask().setTaskId(800L).setInstanceId(900L)
-            .setNodeCode("apply").setCooperateType(CooperateType.COUNTERSIGN.getKey()).setSkipType(SkipType.PASS.getKey());
+            .setNodeCode("apply").setCooperateType(CooperateType.ADD_SIGNER.getKey()).setSkipType(SkipType.PASS.getKey());
         HisTask other = FlowEngine.newHisTask().setTaskId(801L).setInstanceId(901L)
-            .setNodeCode("audit").setCooperateType(CooperateType.APPROVAL.getKey()).setSkipType(SkipType.REJECT.getKey());
+            .setNodeCode("audit").setCooperateType(CooperateType.NONE.getKey()).setSkipType(SkipType.REJECT.getKey());
         harness.hisTaskDao.save(pass);
         harness.hisTaskDao.save(sign);
         harness.hisTaskDao.save(other);
@@ -185,9 +185,9 @@ class QueryServiceCharacteristicTest {
         assertEquals(2, FlowEngine.hisTaskService().listByTaskId(800L).size());
         assertEquals(2, FlowEngine.hisTaskService().listByTaskIdAndCooperateTypes(800L).size());
         assertEquals(1, FlowEngine.hisTaskService().listByTaskIdAndCooperateTypes(800L,
-            CooperateType.COUNTERSIGN.getKey()).size());
+            CooperateType.ADD_SIGNER.getKey()).size());
         assertEquals(2, FlowEngine.hisTaskService().listByTaskIdAndCooperateTypes(800L,
-            CooperateType.APPROVAL.getKey(), CooperateType.COUNTERSIGN.getKey()).size());
+            CooperateType.NONE.getKey(), CooperateType.ADD_SIGNER.getKey()).size());
         assertEquals(2, FlowEngine.hisTaskService().getByInsAndNodeCodes(900L, List.of("apply")).size());
         assertEquals(2, FlowEngine.hisTaskService().getByInsId(900L).size());
         assertTrue(FlowEngine.hisTaskService().deleteByInsIds(List.of(900L)));

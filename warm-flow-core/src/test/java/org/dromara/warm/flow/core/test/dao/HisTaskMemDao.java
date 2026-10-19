@@ -73,7 +73,7 @@ public class HisTaskMemDao<T extends HisTask> extends InMemoryDao<T> implements 
      * 按任务 ID 和协作类型集合筛选历史任务。
      */
     @Override
-    public List<T> listByTaskIdAndCooperateTypes(Long taskId, Integer[] cooperateTypes) {
+    public List<T> listByTaskIdAndCooperateTypes(Long taskId, String[] cooperateTypes) {
         log.add(name() + ".listByTaskIdAndCooperateTypes[taskId=" + taskId
                 + ",cooperateTypes=" + Arrays.toString(cooperateTypes) + "]");
         return store.values().stream()

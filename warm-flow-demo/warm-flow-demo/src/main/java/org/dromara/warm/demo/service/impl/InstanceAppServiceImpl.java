@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.BizException;
 import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.dto.StartInstanceRequest;
-import org.dromara.warm.demo.enums.TaskStatusEnum;
 import org.dromara.warm.demo.mapper.DemoInstanceDeleteMapper;
 import org.dromara.warm.demo.service.InstanceAppService;
 import org.dromara.warm.demo.service.support.WorkflowSupport;
@@ -63,7 +62,6 @@ public class InstanceAppServiceImpl implements InstanceAppService {
             command.setBusinessId(request.getBusinessId());
             command.setFlowCode(request.getFlowCode());
             command.setVariables(request.getVariables());
-            command.setTaskStatus(TaskStatusEnum.PASS.getStatus());
             WorkflowResult result = FlowEngine.workflow().start(command);
             Instance instance = support.requireInstance(result.getInstanceId());
             List<Task> tasks = FlowEngine.taskService().getByInsId(instance.getId());
@@ -128,12 +126,13 @@ public class InstanceAppServiceImpl implements InstanceAppService {
      */
     @Override
     public List<HistoryVo> history(Long instanceId) {
+        String instanceStatus = support.requireInstance(instanceId).getFlowStatus();
         List<HisTask> list = FlowEngine.hisTaskService()
             .list(FlowEngine.newHisTask().setInstanceId(instanceId));
         List<HistoryVo> result = list.stream().map(support::toHistoryVo).collect(Collectors.toList());
         FlowEngine.taskService().getByInsId(instanceId).stream()
             .filter(task -> !support.isClosedTaskStatus(task.getFlowStatus()))
-            .map(support::toCurrentHistoryVo)
+            .map(task -> support.toCurrentHistoryVo(task, instanceStatus))
             .forEach(result::add);
         Collections.reverse(result);
         return result;
@@ -203,7 +202,6 @@ public class InstanceAppServiceImpl implements InstanceAppService {
             RevokeCommand command = new RevokeCommand();
             command.setOperator(support.operator(user));
             command.setInstanceId(instanceId);
-            command.setTaskStatus(TaskStatusEnum.CANCEL.getStatus());
             FlowEngine.workflow().revoke(command);
         } catch (FlowException e) {
             throw BizException.badRequest(e.getMessage());
@@ -224,7 +222,6 @@ public class InstanceAppServiceImpl implements InstanceAppService {
             TerminateCommand command = new TerminateCommand();
             command.setOperator(support.operator(user));
             command.setInstanceId(instanceId);
-            command.setTaskStatus(TaskStatusEnum.TERMINATION.getStatus());
             FlowEngine.workflow().terminate(command);
         } catch (FlowException e) {
             throw BizException.badRequest(e.getMessage());

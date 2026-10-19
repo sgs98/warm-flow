@@ -20,6 +20,7 @@ import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.constant.EventCons;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.entity.EventWait;
+import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
@@ -253,6 +254,20 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
 
         if (CollUtil.isNotEmpty(taskIds)) {
             FlowEngine.userService().deleteByTaskIds(taskIds);
+        }
+
+        // 抄送人挂在抄送历史主键上（见 CopyAdvancer），删除待办不会带走它们；
+        // 这里按历史任务主键一并清理，避免实例删除后残留孤儿抄送人记录
+        List<Long> hisTaskIds = new ArrayList<>();
+        instanceIds.forEach(instanceId -> hisTaskIds.addAll(
+            FlowEngine.hisTaskService()
+                .list(FlowEngine.newHisTask().setInstanceId(instanceId))
+                .stream()
+                .map(HisTask::getId)
+                .toList()));
+
+        if (CollUtil.isNotEmpty(hisTaskIds)) {
+            FlowEngine.userService().deleteByTaskIds(hisTaskIds);
         }
 
         FlowEngine.taskService().deleteByInsIds(instanceIds);

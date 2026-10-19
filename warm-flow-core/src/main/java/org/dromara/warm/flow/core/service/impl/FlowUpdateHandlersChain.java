@@ -59,7 +59,7 @@ final class FlowUpdateHandlersChain {
     /**
      * 协作类型。
      */
-    private final Integer cooperateType;
+    private final String cooperateType;
 
     /**
      * @param taskService    任务服务
@@ -69,7 +69,7 @@ final class FlowUpdateHandlersChain {
      * @param cooperateType  协作类型
      */
     FlowUpdateHandlersChain(TaskServiceImpl taskService, Long taskId, List<String> addHandlers
-        , List<String> removeHandlers, Integer cooperateType) {
+        , List<String> removeHandlers, String cooperateType) {
         this.taskService = taskService;
         this.taskId = taskId;
         this.addHandlers = addHandlers;
@@ -107,17 +107,17 @@ final class FlowUpdateHandlersChain {
             AssertUtil.isEmpty(addHandlers, ExceptionCons.NULL_TRANSFER_HANDLER);
             AssertUtil.isNotEmpty(usersOfProcessedBy(taskUsers, addHandlers, UserType.TRANSFER.getKey())
                 , ExceptionCons.IS_ALREADY_TRANSFER);
-        } else if (CooperateType.DEPUTE.getKey().equals(cooperateType)) {
+        } else if (CooperateType.DELEGATE.getKey().equals(cooperateType)) {
             AssertUtil.isNull(execution.intent.getHandler(), ExceptionCons.HANDLER_NOT_EMPTY);
             AssertUtil.isEmpty(addHandlers, ExceptionCons.NULL_DEPUTE_HANDLER);
             AssertUtil.isNotEmpty(usersOfProcessedBy(taskUsers, addHandlers, UserType.DEPUTE.getKey())
                 , ExceptionCons.IS_ALREADY_DEPUTE);
-        } else if (CooperateType.ADD_SIGNATURE.getKey().equals(cooperateType)) {
+        } else if (CooperateType.ADD_SIGNER.getKey().equals(cooperateType)) {
             AssertUtil.isNull(execution.intent.getHandler(), ExceptionCons.HANDLER_NOT_EMPTY);
             AssertUtil.isEmpty(addHandlers, ExceptionCons.NULL_ADD_SIGNATURE_HANDLER);
             AssertUtil.isNotEmpty(usersOfProcessedBy(taskUsers, addHandlers, UserType.APPROVAL.getKey())
                 , ExceptionCons.IS_ALREADY_SIGN);
-        } else if (CooperateType.REDUCTION_SIGNATURE.getKey().equals(cooperateType)) {
+        } else if (CooperateType.REMOVE_SIGNER.getKey().equals(cooperateType)) {
             AssertUtil.isNull(execution.intent.getHandler(), ExceptionCons.HANDLER_NOT_EMPTY);
             AssertUtil.isEmpty(removeHandlers, ExceptionCons.NULL_REDUCTION_SIGNATURE_HANDLER);
             List<User> users = execution.usersOfTypes(UserType.APPROVAL.getKey(), UserType.TRANSFER.getKey());
@@ -185,7 +185,7 @@ final class FlowUpdateHandlersChain {
             String type;
             if (CooperateType.TRANSFER.getKey().equals(cooperateType)) {
                 type = UserType.TRANSFER.getKey();
-            } else if (CooperateType.DEPUTE.getKey().equals(cooperateType)) {
+            } else if (CooperateType.DELEGATE.getKey().equals(cooperateType)) {
                 type = UserType.DEPUTE.getKey();
             } else {
                 type = UserType.APPROVAL.getKey();

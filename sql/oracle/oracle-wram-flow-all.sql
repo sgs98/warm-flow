@@ -241,7 +241,7 @@ create table FLOW_HIS_TASK
     TARGET_NODE_CODE VARCHAR2(200),
     TARGET_NODE_NAME VARCHAR2(200),
     APPROVER         VARCHAR2(40),
-    COOPERATE_TYPE   NUMBER(1)   default 0,
+    COOPERATE_TYPE   VARCHAR2(20) default 'none',
     COLLABORATOR     VARCHAR2(500),
     SKIP_TYPE        VARCHAR2(10),
     FLOW_STATUS      VARCHAR2(20),
@@ -284,7 +284,7 @@ comment on column FLOW_HIS_TASK.UPDATE_TIME is '审批完成时间';
 comment on column FLOW_HIS_TASK.DEL_FLAG is '删除标志';
 comment on column FLOW_HIS_TASK.TENANT_ID is '租户id';
 comment on column FLOW_HIS_TASK.APPROVER is '审批者';
-comment on column FLOW_HIS_TASK.COOPERATE_TYPE is '协作方式（1无 2转办 3委派 4会签 5票签 6加签 7减签；行为维度，结果见 flow_status）';
+comment on column FLOW_HIS_TASK.COOPERATE_TYPE is '协作方式（none无 transfer转办 delegate委派 add_signer加签 remove_signer减签；行为维度，抄送/会签/票签不落此列，结果见 flow_status）';
 comment on column FLOW_HIS_TASK.COLLABORATOR is '协作人';
 
 create table FLOW_USER
@@ -306,9 +306,9 @@ alter table FLOW_USER
 
 comment on table FLOW_USER is '待办任务表';
 comment on column FLOW_USER.ID is '主键id';
-comment on column FLOW_USER.TYPE is '人员类型（1待办任务的审批人权限 2待办任务的转办人权限 3待办任务的委托人权限）';
+comment on column FLOW_USER.TYPE is '人员类型（1待办任务的审批人权限 2待办任务的转办人权限 3待办任务的委托人权限 4待办任务的抄送人）';
 comment on column FLOW_USER.PROCESSED_BY is '权限人)';
-comment on column FLOW_USER.ASSOCIATED is '任务表id';
+comment on column FLOW_USER.ASSOCIATED is '关联id（待办任务id；抄送人记录为 flow_his_task.id）';
 comment on column FLOW_USER.CREATE_TIME is '创建时间';
 comment on column FLOW_USER.CREATE_BY is '创建人';
 comment on column FLOW_USER.UPDATE_TIME is '更新时间';

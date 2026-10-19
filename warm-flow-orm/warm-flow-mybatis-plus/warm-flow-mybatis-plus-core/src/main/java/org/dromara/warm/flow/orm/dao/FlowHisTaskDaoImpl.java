@@ -67,7 +67,7 @@ public class FlowHisTaskDaoImpl extends WarmDaoImpl<FlowHisTask> implements Flow
     }
 
     @Override
-    public List<FlowHisTask> listByTaskIdAndCooperateTypes(Long taskId, Integer[] cooperateTypes) {
+    public List<FlowHisTask> listByTaskIdAndCooperateTypes(Long taskId, String[] cooperateTypes) {
         LambdaQueryWrapper<FlowHisTask> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(FlowHisTask::getTaskId, taskId).in(FlowHisTask::getCooperateType, List.of(cooperateTypes));
         return getMapper().selectList(queryWrapper);

@@ -49,16 +49,16 @@ class SignatureCharacteristicTest {
 
         FlowException empty = assertThrows(FlowException.class, () -> FlowEngine.taskService()
                 .updateHandlers(task.getId(), TestFlows.context(TestFlows.HANDLER), List.of(), List.of()
-                        , CooperateType.ADD_SIGNATURE.getKey()));
+                        , CooperateType.ADD_SIGNER.getKey()));
         assertEquals(ExceptionCons.NULL_ADD_SIGNATURE_HANDLER, empty.getMessage());
 
         FlowException dup = assertThrows(FlowException.class, () -> FlowEngine.taskService()
                 .updateHandlers(task.getId(), TestFlows.context(TestFlows.HANDLER)
-                        , List.of(TestFlows.HANDLER), List.of(), CooperateType.ADD_SIGNATURE.getKey()));
+                        , List.of(TestFlows.HANDLER), List.of(), CooperateType.ADD_SIGNER.getKey()));
         assertEquals(ExceptionCons.IS_ALREADY_SIGN, dup.getMessage());
 
         FlowEngine.taskService().updateHandlers(task.getId(), TestFlows.context(TestFlows.HANDLER)
-                , List.of("wangwu"), List.of(), CooperateType.ADD_SIGNATURE.getKey());
+                , List.of("wangwu"), List.of(), CooperateType.ADD_SIGNER.getKey());
 
         // 加签后：新办理人以 APPROVAL 持有任务，协作历史 ADD_SIGNATURE
         List<org.dromara.warm.flow.core.entity.User> users = harness.userDao.all();
@@ -67,7 +67,7 @@ class SignatureCharacteristicTest {
                 .filter(u -> "wangwu".equals(u.getProcessedBy())
                         && UserType.APPROVAL.getKey().equals(u.getType())).count());
         assertEquals(1, harness.hisTaskDao.all().stream()
-                .filter(h -> CooperateType.ADD_SIGNATURE.getKey().equals(h.getCooperateType())).count());
+                .filter(h -> CooperateType.ADD_SIGNER.getKey().equals(h.getCooperateType())).count());
         assertNotNull(harness.taskDao.raw(task.getId()), "加签不应改变待办");
     }
 
@@ -79,7 +79,7 @@ class SignatureCharacteristicTest {
         // 仅剩一名办理人时不可减签
         FlowException ex = assertThrows(FlowException.class, () -> FlowEngine.taskService()
                 .updateHandlers(task.getId(), TestFlows.context(TestFlows.HANDLER), List.of(), List.of("zhangsan")
-                        , CooperateType.REDUCTION_SIGNATURE.getKey()));
+                        , CooperateType.REMOVE_SIGNER.getKey()));
         assertEquals(ExceptionCons.REDUCTION_SIGN_ONE_ERROR, ex.getMessage());
         assertEquals(1, harness.userDao.size(), "失败路径不应清理办理人");
     }
@@ -89,16 +89,16 @@ class SignatureCharacteristicTest {
         Instance instance = TestFlows.start("sg3", "biz-g3");
         Task task = TestFlows.currentTask(instance.getId());
         FlowEngine.taskService().updateHandlers(task.getId(), TestFlows.context(TestFlows.HANDLER)
-                , List.of("wangwu"), List.of(), CooperateType.ADD_SIGNATURE.getKey());
+                , List.of("wangwu"), List.of(), CooperateType.ADD_SIGNER.getKey());
 
         FlowEngine.taskService().updateHandlers(task.getId(), TestFlows.context(TestFlows.HANDLER)
-                , List.of(), List.of("wangwu"), CooperateType.REDUCTION_SIGNATURE.getKey());
+                , List.of(), List.of("wangwu"), CooperateType.REMOVE_SIGNER.getKey());
 
         assertFalse(harness.userDao.all().stream()
                 .anyMatch(u -> "wangwu".equals(u.getProcessedBy())), "被减签人应移除");
         assertEquals(1, harness.userDao.size());
         assertEquals(1, harness.hisTaskDao.all().stream()
-                .filter(h -> CooperateType.REDUCTION_SIGNATURE.getKey().equals(h.getCooperateType())).count());
+                .filter(h -> CooperateType.REMOVE_SIGNER.getKey().equals(h.getCooperateType())).count());
         assertNotNull(harness.taskDao.raw(task.getId()), "减签不应改变待办");
     }
 

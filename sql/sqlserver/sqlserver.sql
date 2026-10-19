@@ -832,7 +832,7 @@ CREATE TABLE flow_his_task (
     target_node_code nvarchar(100) NULL,
     target_node_name nvarchar(100) NULL,
     approver nvarchar(40) NULL,
-    cooperate_type tinyint DEFAULT('0') NULL,
+    cooperate_type varchar(20) DEFAULT('none') NULL,
     collaborator nvarchar(500) NULL,
     skip_type nvarchar(10) NOT NULL,
     flow_status nvarchar(20) NOT NULL,
@@ -924,7 +924,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'协作方式（1无 2转办 3委派 4会签 5票签 6加签 7减签；行为维度，结果见 flow_status）',
+'MS_Description', N'协作方式（none无 transfer转办 delegate委派 add_signer加签 remove_signer减签；行为维度，抄送/会签/票签不落此列，结果见 flow_status）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_his_task',
 'COLUMN', N'cooperate_type'
@@ -1058,7 +1058,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'人员类型（1待办任务的审批人权限 2待办任务的转办人权限 3待办任务的委托人权限）',
+'MS_Description', N'人员类型（1待办任务的审批人权限 2待办任务的转办人权限 3待办任务的委托人权限 4待办任务的抄送人）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_user',
 'COLUMN', N'type'
@@ -1072,7 +1072,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'任务表id',
+'MS_Description', N'关联id（待办任务id；抄送人记录为 flow_his_task.id）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_user',
 'COLUMN', N'associated'

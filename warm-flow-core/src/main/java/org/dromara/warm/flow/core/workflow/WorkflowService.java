@@ -97,6 +97,19 @@ public interface WorkflowService {
     WorkflowResult removeSigner(RemoveSignerCommand command);
 
     /**
+     * 抄送当前待办：只留痕，不产生待办、不改任务与实例状态。
+     *
+     * <p>节点上配置的抄送（{@code node_config.copy}）由引擎在到达节点时自动执行，
+     * 本操作用于办理过程中临时追加抄送人。</p>
+     * <p>抄送人最终由 {@code PermissionHandler#resolveCopyHandlers} 展开成具体用户；
+     * 一个都落不到人时抛 {@link org.dromara.warm.flow.core.exception.FlowException}。</p>
+     *
+     * @param command 抄送参数
+     * @return 流程操作结果
+     */
+    WorkflowResult copy(CopyCommand command);
+
+    /**
      * 查询流程实例当前正在等待的事件，用于区分「无当前任务但等待事件」与「流程已完成」。
      *
      * @param instanceId 流程实例主键

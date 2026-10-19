@@ -3,6 +3,7 @@ package org.dromara.warm.flow.core.workflow;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.dto.EventWaitQuery;
 import org.dromara.warm.flow.core.entity.EventWait;
+import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.entity.User;
@@ -158,7 +159,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         WorkflowContext context = WorkflowContextMapper.toContext(command);
         Instance instance = FlowEngine.taskService().updateHandlers(command.getTaskId(), context
             , Collections.singletonList(command.getTargetHandler()), Collections.singletonList(context.getHandler())
-            , CooperateType.DEPUTE.getKey());
+            , CooperateType.DELEGATE.getKey());
         return result("delegate", instance, command.getTaskId());
     }
 
@@ -175,7 +176,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         AssertUtil.isTrue(CollUtil.isEmpty(command.getTargetHandlers()), "加签办理人不能为空");
         WorkflowContext context = WorkflowContextMapper.toContext(command);
         Instance instance = FlowEngine.taskService().updateHandlers(command.getTaskId(), context
-            , command.getTargetHandlers(), null, CooperateType.ADD_SIGNATURE.getKey());
+            , command.getTargetHandlers(), null, CooperateType.ADD_SIGNER.getKey());
         return result("addSigner", instance, command.getTaskId());
     }
 
@@ -192,8 +193,33 @@ public class WorkflowServiceImpl implements WorkflowService {
         AssertUtil.isTrue(CollUtil.isEmpty(command.getTargetHandlers()), "减签办理人不能为空");
         WorkflowContext context = WorkflowContextMapper.toContext(command);
         Instance instance = FlowEngine.taskService().updateHandlers(command.getTaskId(), context
-            , null, command.getTargetHandlers(), CooperateType.REDUCTION_SIGNATURE.getKey());
+            , null, command.getTargetHandlers(), CooperateType.REMOVE_SIGNER.getKey());
         return result("removeSigner", instance, command.getTaskId());
+    }
+
+    /**
+     * 抄送当前待办：只留痕，不产生待办、不改任务与实例状态。
+     *
+     * <p>这里不校验待办是否还存在：办理完成后待办行会被删除，「办完顺手抄送」是最常见的用法，
+     * 待办查找与归档还原统一交给 {@code TaskService#copy}，门面只负责把实例信息拼回结果。</p>
+     *
+     * @param command 抄送参数
+     * @return 流程操作结果
+     */
+    @Override
+    public WorkflowResult copy(CopyCommand command) {
+        check(command, "抄送参数不能为空");
+        AssertUtil.isNull(command.getTaskId(), "任务ID不能为空");
+        AssertUtil.isTrue(CollUtil.isEmpty(command.getTargetHandlers()), "抄送人不能为空");
+        WorkflowContext context = WorkflowContextMapper.toContext(command);
+        HisTask hisTask = FlowEngine.taskService().copy(command.getTaskId(), command.getTargetHandlers(), context);
+        // 抄送人全部已留痕时不会再写新记录，此时退回按待办回查实例（可能已办结，查不到就不带实例信息）
+        Long instanceId = hisTask == null ? null : hisTask.getInstanceId();
+        if (instanceId == null) {
+            Task task = FlowEngine.taskService().getById(command.getTaskId());
+            instanceId = task == null ? null : task.getInstanceId();
+        }
+        return result("copy", instanceId == null ? null : FlowEngine.insService().getById(instanceId), command.getTaskId());
     }
 
     /**

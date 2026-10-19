@@ -107,6 +107,12 @@ final class WorkflowContextMapper {
         return context;
     }
 
+    static WorkflowContext toContext(CopyCommand command) {
+        WorkflowContext context = baseContext(command);
+        context.setMessage(command.getMessage());
+        return context;
+    }
+
     private static WorkflowContext baseContext(WorkflowCommand command) {
         WorkflowContext context = new WorkflowContext();
         context.setExt(command.getExt());

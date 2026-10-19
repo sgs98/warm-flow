@@ -128,7 +128,7 @@ CREATE TABLE `flow_his_task`
     `target_node_code` varchar(200)                 DEFAULT NULL COMMENT '目标节点编码',
     `target_node_name` varchar(200)                 DEFAULT NULL COMMENT '结束节点名称',
     `approver`         varchar(40)                  DEFAULT NULL COMMENT '审批人',
-    `cooperate_type`   tinyint(1)                   NOT NULL DEFAULT '0' COMMENT '协作方式（1无 2转办 3委派 4会签 5票签 6加签 7减签；行为维度，结果见 flow_status）',
+    `cooperate_type`   varchar(20)                  NOT NULL DEFAULT 'none' COMMENT '协作方式（none无 transfer转办 delegate委派 add_signer加签 remove_signer减签；行为维度，抄送/会签/票签不落此列，结果见 flow_status）',
     `collaborator`     varchar(500)                  DEFAULT NULL COMMENT '协作人',
     `skip_type`        varchar(10)                  NOT NULL COMMENT '流转类型（PASS通过 REJECT退回 NONE无动作）',
     `flow_status`      varchar(20)                  NOT NULL COMMENT '任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送；任务结果，勿套用实例状态编码）',
@@ -149,9 +149,9 @@ CREATE TABLE `flow_his_task`
 CREATE TABLE `flow_user`
 (
     `id`           bigint      NOT NULL COMMENT '主键id',
-    `type`         char(1)         NOT NULL COMMENT '人员类型（1待办任务的审批人权限 2待办任务的转办人权限 3待办任务的委托人权限）',
+    `type`         char(1)         NOT NULL COMMENT '人员类型（1待办任务的审批人权限 2待办任务的转办人权限 3待办任务的委托人权限 4待办任务的抄送人）',
     `processed_by` varchar(80) DEFAULT NULL COMMENT '权限人',
-    `associated`   bigint          NOT NULL COMMENT '任务表id',
+    `associated`   bigint          NOT NULL COMMENT '关联id（待办任务id；抄送人记录为 flow_his_task.id）',
     `create_time`  datetime    DEFAULT NULL COMMENT '创建时间',
     `create_by`    varchar(80) DEFAULT NULL COMMENT '创建人',
     `update_time`  datetime    DEFAULT NULL COMMENT '更新时间',

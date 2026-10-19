@@ -51,8 +51,9 @@ class VoteCharacteristicTest {
         assertEquals(0, harness.taskDao.size());
         assertEquals(0, harness.userDao.size(), "wangwu 应随流转静默清退");
         assertEquals(FlowStatus.FINISHED.getKey(), harness.insDao.raw(instance.getId()).getFlowStatus());
-        assertEquals(1, harness.hisTaskDao.all().stream()
-                .filter(h -> CooperateType.VOTE.getKey().equals(h.getCooperateType())).count());
+        // 票签同样是节点模式，不落协作动作
+        assertEquals(0, harness.hisTaskDao.all().stream()
+                .filter(h -> !CooperateType.NONE.getKey().equals(h.getCooperateType())).count());
     }
 
     @Test

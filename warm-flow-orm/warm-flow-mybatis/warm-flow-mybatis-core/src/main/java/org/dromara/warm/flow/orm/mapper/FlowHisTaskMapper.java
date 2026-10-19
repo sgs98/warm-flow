@@ -71,6 +71,6 @@ public interface FlowHisTaskMapper extends WarmMapper<FlowHisTask> {
         , @Param("entity") FlowHisTask entity, @Param("logicDeleteValue") String logicDeleteValue
         , @Param("logicNotDeleteValue") String logicNotDeleteValue);
 
-    List<FlowHisTask> listByTaskIdAndCooperateTypes(@Param("cooperateTypes") Integer[] cooperateTypes
+    List<FlowHisTask> listByTaskIdAndCooperateTypes(@Param("cooperateTypes") String[] cooperateTypes
         , @Param("entity") FlowHisTask entity);
 }

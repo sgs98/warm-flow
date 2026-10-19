@@ -32,19 +32,26 @@ ALTER TABLE `flow_node`
     MODIFY COLUMN `node_config` text NULL COMMENT '节点配置（服务任务、事件等引擎节点配置json）';
 
 -- 状态编码重排：v2.1.0 把状态拆成「实例状态 / 任务状态 / 协作方式」三个独立维度（映射见 StatusMapper），
--- 并让两个维度各自连续编号、不留空洞。两张表是不同维度、各有独立编码空间，编号允许相同。
--- 2.1.0 为未发布版本，无存量数据需要迁移，此处只同步列注释。
+-- 三个维度各用一套小写英文编码，落库即自解释。不同表是不同维度、各有独立编码空间，同名编码互不影响。
+-- 2.1.0 为未发布版本，无存量数据需要迁移，此处同步列类型与注释。
 --   flow_instance.flow_status：draft待提交 waiting审批中 termination终止 invalid作废 cancel撤销 finish已完成 back已退回 restart重启
 --   flow_task / flow_his_task.flow_status：pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送
+--   flow_his_task.cooperate_type：none无 transfer转办 delegate委派 add_signer加签 remove_signer减签（只记协作动作；会签 / 票签由 node_ratio 决定，抄送由 flow_status=copy 表达，均不落此列）
 
--- 列注释同步为新编码
+-- 列类型 / 注释同步为新编码（cooperate_type 由 tinyint 改为 varchar，编码从数字换成英文）
 ALTER TABLE `flow_instance`
     MODIFY COLUMN `flow_status` varchar(20) NOT NULL COMMENT '实例状态（draft待提交 waiting审批中 termination终止 invalid作废 cancel撤销 finish已完成 back已退回 restart重启）';
 ALTER TABLE `flow_task`
     MODIFY COLUMN `flow_status` varchar(20) NOT NULL COMMENT '任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送）';
 ALTER TABLE `flow_his_task`
     MODIFY COLUMN `flow_status` varchar(20) NOT NULL COMMENT '任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送）',
-    MODIFY COLUMN `cooperate_type` tinyint(1) NOT NULL DEFAULT '0' COMMENT '协作方式（1无 2转办 3委派 4会签 5票签 6加签 7减签；行为维度，结果见 flow_status）';
+    MODIFY COLUMN `cooperate_type` varchar(20) NOT NULL DEFAULT 'none' COMMENT '协作方式（none无 transfer转办 delegate委派 add_signer加签 remove_signer减签；行为维度，抄送/会签/票签不落此列，结果见 flow_status）';
+
+-- flow_user 新增抄送人类型：type 增加 4，associated 语义扩展为「关联id」——
+-- 抄送人记录挂在抄送历史（flow_his_task.id）上，待办办理完被删除后抄送仍然留档。
+ALTER TABLE `flow_user`
+    MODIFY COLUMN `type` char(1) NOT NULL COMMENT '人员类型（1待办任务的审批人权限 2待办任务的转办人权限 3待办任务的委托人权限 4待办任务的抄送人）',
+    MODIFY COLUMN `associated` bigint NOT NULL COMMENT '关联id（待办任务id；抄送人记录为 flow_his_task.id）';
 
 -- 事件等待表：定时 / 消息等需要“等待”的事件统一落在此表，状态独立于 flow_status。
 -- 用途：承载定时启动、中间定时捕获、中间消息捕获、定时边界、消息边界等待；一次性成功后删除，DEAD / CANCELLED 按保留期清理。

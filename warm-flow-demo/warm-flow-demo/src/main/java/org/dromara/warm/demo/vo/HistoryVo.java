@@ -96,6 +96,11 @@ public class HistoryVo {
     private String message;
 
     /**
+     * 抄送人（仅抄送记录有值，逗号分隔）。
+     */
+    private String copyUsers;
+
+    /**
      * 创建时间。
      */
     private Date createTime;

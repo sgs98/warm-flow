@@ -187,6 +187,16 @@ public class ExceptionCons {
     public static final String NOT_FOUNT_TASK = "未找到待办任务!";
 
     /**
+     * 抄送人不能为空。
+     */
+    public static final String NULL_COPY_HANDLER = "抄送人不能为空!";
+
+    /**
+     * 抄送人无法解析为具体用户。
+     */
+    public static final String UNRESOLVED_COPY_HANDLER = "抄送人无法解析为具体用户!";
+
+    /**
      * 当前接口不支持一次处理多个待办任务。
      */
     public static final String TASK_NOT_ONE = "此接口不能同时跳转多个待办任务，请更换!";
