@@ -33,7 +33,8 @@ ALTER TABLE `flow_node`
 
 -- 状态编码重排：v2.1.0 把状态拆成「实例状态 / 任务状态 / 协作方式」三个独立维度（映射见 StatusMapper），
 -- 三个维度各用一套小写英文编码，落库即自解释。不同表是不同维度、各有独立编码空间，同名编码互不影响。
--- 2.1.0 为未发布版本，无存量数据需要迁移，此处同步列类型与注释。
+-- 已按 2.0.1 或更早落库的宿主，存量数字码在列类型改成 varchar 后会变成 '1' 这类字符串，
+-- 引擎按新编码查不到——本脚本末尾附了存量数据迁移段，按顺序执行即可，无需再跑其它脚本。
 --   flow_instance.flow_status：draft待提交 waiting审批中 termination终止 invalid作废 cancel撤销 finish已完成 back已退回 restart重启
 --   flow_task / flow_his_task.flow_status：pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送
 --   flow_his_task.cooperate_type：none无 transfer转办 delegate委派 add_signer加签 remove_signer减签（只记协作动作；会签 / 票签由 node_ratio 决定，抄送由 flow_status=copy 表达，均不落此列）
@@ -97,3 +98,64 @@ CREATE TABLE `flow_event_wait`
     KEY `event_wait_name_instance_status` (`event_name`, `instance_id`, `status`) USING BTREE,
     KEY `event_wait_def_node_status` (`definition_id`, `node_code`, `status`) USING BTREE
 ) ENGINE = InnoDB COMMENT ='事件等待表';
+
+-- ---- 2.1.0：状态编码存量数据迁移 ----
+-- 已按 2.0.1 或更早落库的宿主，把三列存量数字码迁到新编码；全新库 WHERE 一行不命中，重复执行无害。
+-- 前置：本文件上方的 ALTER 已把列改成 varchar，按顺序整篇执行即可，勿单独摘 UPDATE 到 ALTER 之前跑。
+
+-- 实例维度：0待提交→draft 1审批中→waiting 4终止→termination 5作废→invalid 6撤销→cancel
+--          8已完成→finish 9已退回→back 12重启→restart；已移除的 7取回→waiting（取回属任务维度）、13暂存→draft（与待提交合并）
+UPDATE flow_instance
+SET flow_status = CASE flow_status
+                      WHEN '0' THEN 'draft'
+                      WHEN '1' THEN 'waiting'
+                      WHEN '4' THEN 'termination'
+                      WHEN '5' THEN 'invalid'
+                      WHEN '6' THEN 'cancel'
+                      WHEN '7' THEN 'waiting'
+                      WHEN '8' THEN 'finish'
+                      WHEN '9' THEN 'back'
+                      WHEN '12' THEN 'restart'
+                      WHEN '13' THEN 'draft'
+    END
+WHERE flow_status IN ('0', '1', '4', '5', '6', '7', '8', '9', '12', '13');
+
+-- 任务维度（flow_task 与 flow_his_task 同套编码）：1待办理→pending 2通过→pass 9退回→back
+--          10失效→invalid 11拿回→take_back；已移除的 8结束→pass（结束留痕统一按通过归档，是否结束看实例状态）
+UPDATE flow_task
+SET flow_status = CASE flow_status
+                      WHEN '1' THEN 'pending'
+                      WHEN '2' THEN 'pass'
+                      WHEN '8' THEN 'pass'
+                      WHEN '9' THEN 'back'
+                      WHEN '10' THEN 'invalid'
+                      WHEN '11' THEN 'take_back'
+    END
+WHERE flow_status IN ('1', '2', '8', '9', '10', '11');
+
+UPDATE flow_his_task
+SET flow_status = CASE flow_status
+                      WHEN '1' THEN 'pending'
+                      WHEN '2' THEN 'pass'
+                      WHEN '8' THEN 'pass'
+                      WHEN '9' THEN 'back'
+                      WHEN '10' THEN 'invalid'
+                      WHEN '11' THEN 'take_back'
+    END
+WHERE flow_status IN ('1', '2', '8', '9', '10', '11');
+
+-- 协作维度：0/1无→none 2转办→transfer 3委派→delegate 6加签→add_signer 7减签→remove_signer；
+--          已移除的 4会签 / 5票签→none——会签票签改由 flow_node.node_ratio 表达、抄送由 flow_status=copy 表达。
+--          注意：迁移后「该历史当初按会签/票签写入」这一信息丢失，依赖 cooperate_type=4/5 的报表要改用 node_ratio 口径。
+UPDATE flow_his_task
+SET cooperate_type = CASE cooperate_type
+                         WHEN '0' THEN 'none'
+                         WHEN '1' THEN 'none'
+                         WHEN '2' THEN 'transfer'
+                         WHEN '3' THEN 'delegate'
+                         WHEN '4' THEN 'none'
+                         WHEN '5' THEN 'none'
+                         WHEN '6' THEN 'add_signer'
+                         WHEN '7' THEN 'remove_signer'
+    END
+WHERE cooperate_type IN ('0', '1', '2', '3', '4', '5', '6', '7');
