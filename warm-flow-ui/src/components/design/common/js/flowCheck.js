@@ -129,7 +129,12 @@ export const checkFlowNodes = (graphData) => {
     }
 
     // 不可同时通过 / 退回到多个中间节点，必须先流转到网关（后端 MUL_SKIP_BETWEEN）
-    const toBetween = out.filter(edge => nodeById.get(edge.targetNodeId)?.type === 'between')
+    // 与后端 FlowConfigUtil.checkSkipNode 严格对齐：只统计「中间节点 → 中间节点」的出线。
+    // 网关（互斥 serial / 并行 parallel / 包容 inclusive）扇出到多个中间节点是合法拓扑，
+    // 早先这里只判断了目标节点类型，把网关自身当成源也计入，导致任何多分支网关都误报、保存被挡。
+    const toBetween = node.type === 'between'
+      ? out.filter(edge => nodeById.get(edge.targetNodeId)?.type === 'between')
+      : []
     const passCount = toBetween.filter(edge => edge.properties?.skipType === SKIP_TYPE_PASS).length
     const rejectCount = toBetween.length - passCount
     if (passCount > 1 || rejectCount > 1) {

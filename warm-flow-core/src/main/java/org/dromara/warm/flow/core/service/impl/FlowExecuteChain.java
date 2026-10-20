@@ -314,7 +314,8 @@ final class FlowExecuteChain {
             }
         }
         if (CollUtil.isNotEmpty(noDoneTasks)) {
-            taskService.removeAndUser(noDoneTasks);
+            // 删除前按「失效」归档留痕，兄弟分支办理人可审计
+            taskService.archiveAndRemoveVetoed(noDoneTasks);
         }
     }
 }

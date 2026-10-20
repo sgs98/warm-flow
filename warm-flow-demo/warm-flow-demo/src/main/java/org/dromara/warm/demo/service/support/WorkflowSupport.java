@@ -159,7 +159,8 @@ public class WorkflowSupport {
     /**
      * 判断任务是否已结束，结束任务不再作为当前活动待办展示。
      * <p>
-     * 撤销 / 终止 / 已完成 / 失效都是终态，统一由引擎的 {@link FlowStatus#isTerminalKey(String)} 判定。
+     * 终止 / 已完成 / 失效是终态，统一由引擎的 {@link FlowStatus#isTerminalKey(String)} 判定；
+     * 撤销（cancel）不是终态——撤回重建的申请人待办仍需展示并提供重新提交。
      *
      * @param flowStatus 任务流程状态
      * @return 是否已结束

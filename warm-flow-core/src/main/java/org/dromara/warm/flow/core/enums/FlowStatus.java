@@ -33,8 +33,9 @@ import java.util.Set;
  * <ul>
  *   <li>进行中：{@link #DRAFT}、{@link #WAITING}</li>
  *   <li>终态（实例到此不再办理 / 流转 / 撤回）：{@link #TERMINATE}、{@link #INVALID}、
- *       {@link #CANCEL}、{@link #FINISHED}</li>
- *   <li>特殊流转：{@link #BACK}（退回后仍可继续办理）、{@link #RESTART}</li>
+ *       {@link #FINISHED}</li>
+ *   <li>特殊流转：{@link #BACK}（退回后仍可继续办理）、{@link #CANCEL}（撤销后可修改重新提交）、
+ *       {@link #RESTART}</li>
  * </ul>
  * key 持久化到实例，value 用于展示。
  *
@@ -66,7 +67,7 @@ public enum FlowStatus {
     INVALID("invalid", "作废"),
 
     /**
-     * 撤销：发起人撤回流程，终态。
+     * 撤销：发起人撤回流程，待办回到发起节点，可修改后重新提交（非终态）。
      */
     CANCEL("cancel", "撤销"),
 
@@ -90,9 +91,11 @@ public enum FlowStatus {
 
     /**
      * 内置终态编码：实例到此状态后不再允许办理、流转或撤回。
+     * <p>
+     * 撤销不在终态之列：撤回会把待办重建到发起节点，申请人可修改后重新提交。
      */
     private static final Set<String> TERMINAL_KEYS = Set.of(
-        FINISHED.key, TERMINATE.key, INVALID.key, CANCEL.key);
+        FINISHED.key, TERMINATE.key, INVALID.key);
 
     /**
      * 判断编码是否属于内置终态。
@@ -166,7 +169,7 @@ public enum FlowStatus {
      * <p>
      * 只认 {@link #FINISHED} 一个编码——已完成是流程正常走完，不含终止 / 作废 / 撤销。
      * 若需要判断「实例是否已终结」，请改用 {@link #isTerminalKey(String)}
-     * （含终止 / 作废 / 撤销 / 已完成）。
+     * （含终止 / 作废 / 已完成）。
      *
      * @param key 枚举 key
      * @return 是已完成状态时返回 {@code true}

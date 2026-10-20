@@ -108,11 +108,11 @@ class StatusMapperCharacteristicTest {
 
     @Test
     void cooperateStatus_hasBuiltInDefaults() {
-        // 内置默认：协作后任务仍等待办理，统一回落到「待审批」
+        // 内置默认：协作留痕写动作自身编码，NONE 兜底回落「待审批」
         StatusMapper defaults = new StatusMapper() {
         };
-        assertEquals(TaskStatus.PENDING.getKey(), defaults.cooperateStatus(CooperateType.TRANSFER));
-        assertEquals(TaskStatus.PENDING.getKey(), defaults.cooperateStatus(CooperateType.ADD_SIGNER));
+        assertEquals(CooperateType.TRANSFER.getKey(), defaults.cooperateStatus(CooperateType.TRANSFER));
+        assertEquals(CooperateType.ADD_SIGNER.getKey(), defaults.cooperateStatus(CooperateType.ADD_SIGNER));
         assertEquals(TaskStatus.PENDING.getKey(), defaults.cooperateStatus(CooperateType.NONE));
 
         // 宿主只覆写关心的动作，未覆写的回落到内置默认（默认再经宿主的 taskStatus 映射）

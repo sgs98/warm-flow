@@ -30,14 +30,20 @@
 - 状态默认值全部内置于引擎：发起 / 通过 / 退回 / 撤回 / 终止的状态由引擎按操作语义推导（提交或通过 → `pass`、退回 → `back`、撤回 → `cancel`、终止 → `termination`），业务层只调用 `start` / `complete` / `reject` / `revoke` / `terminate`，不必再 `setTaskStatus(...)`。抄送补齐为内置能力：新增 `HisTaskService#setCopyHisTask`，状态直接按 `StatusMapper.taskStatus(TaskStatus.COPY)` 取，业务层不必再手写 `copy`；协作动作仍在 `StatusMapper.cooperateStatus` 里统一回落 `pending`（待审批）。需要自有编码时只覆写 `StatusMapper` 对应方法即可覆盖内置默认，调用方无需改动。
 - `FlowStatus` 精简为实例状态（移除 `PASS` / `INVALID` / `TASK_BACK`，任务维度改用新增的 `TaskStatus`）；自动审批历史记 `auto_pass`（自动审批），服务任务历史记「通过」。
 - 结束收口语义补全：流程结束时仍存在的待办不再静默删除，改按「失效」（`TaskStatus.INVALID`）归档进 `flow_his_task`（保留节点、办理人、创建时间，便于审计）；已归档的待办（本次办理 / 终止的那条）自动去重，不重复归档。
+- 退回一票否决补失效留痕：退回目标节点之后仍存在的其他并行待办（如兄弟分支）此前被直接删除、不留任何历史，办理人的待办凭空消失且无法审计；现与流程结束收口同构，删除前先按「失效」（`TaskStatus.INVALID`，备注「退回一票否决，待办自动失效」）归档进 `flow_his_task`，节点、办理人、创建时间可查。特征测试 `RejectCharacteristicTest#oneVoteVeto_archivesSuffixSiblingTasksAsInvalid`、`ParallelRejectCharacteristicTest` 锁定三种并行退回形态。
+- 协作留痕状态改为动作自身编码（行为变更）：`StatusMapper#cooperateStatus` 内置默认不再把转办 / 委派 / 加签 / 减签的历史留痕统一写成「待审批」（`pending`）——伪待办会在宿主审批记录里渲染成一条不存在的待办（如加签留痕显示为「并行二 待审批」）。现默认写协作类型编码 `transfer` / `delegate` / `add_signer` / `remove_signer`，`NONE` 兜底仍为 `pending`；抄送不受影响（固定 `copy`）。宿主字典需能显示这四个编码。`StatusMapperCharacteristicTest#cooperateStatus_hasBuiltInDefaults` 同步更新。
 - 普通完成链路补齐事件等待清理：实例到达结束节点即取消本实例的 `flow_event_wait` 记录，避免流程已完成后仍有僵尸等待被外部消息或定时器唤醒；终止结束、显式终止路径行为不变（原本就会清理）。
 - 结束事件留痕：`TERMINATE_END` / `MESSAGE_END` 到达时在 `flow_his_task` 写一条结束事件记录（`task_id` 以 `0` 为哨兵、`flow_status` 按「通过」`pass` 归档），备注区分「流程由该终止结束事件终止」与「流程由该结束事件节点结束」，按 `node_code` 即可筛出「因严重异常终止」的单子。
 - 终止结束的实例状态修正：`TERMINATE_END` 到达后实例状态由「已完成」改为「终止」（`termination`，自定义映射取 `StatusMapper.instanceStatus(FlowStatus.TERMINATE)`），消息结束与普通完成仍为「已完成」；结构上仍收口到固定 `END` 节点，语义上不再与正常办结混淆。
 - 节点默认流程变量提到节点级并全节点开放：数据位置由 `node_config.event.variables` 改为 `node_config.variables`（旧格式仍兼容读取，存量 JSON 无需迁移），语义为「缺失时的兜底默认值」——流程走到该节点才补充，办理时传入的同名变量优先，随后写入实例变量；设计器在开始 / 中间 / 网关 / 服务任务 / 结束五类节点的「默认变量」中配，不再局限于事件节点。
 - 定时启动的实例状态修正：触发后实例直接处于「审批中」（此前为「待提交」）——定时启动没有发起人提交环节，首个待办即审批任务。
+- 撤回的实例状态修正（破坏性，行为变更）：`revoke` 后实例状态取调用意图（`FlowExecution.loadInstance` 预置的 `FlowStatus.CANCEL`），不再由落点待办推导成「审批中」。此前撤回把待办落回申请人后实例仍是 `waiting`，宿主监听器再按「唯一待办在申请人节点」把它覆盖成 `back`，于是同一次撤销在三个维度上给出三个词：归档 `cancel`、待办 `cancel`、实例「已退回」。撤回的语义是申请人把流程收回去，实例维度应与归档留痕同为 `cancel`；回到申请人节点只是位置信息。退回（`backProcess`）不受影响，仍是 `back`。
+- 撤销移出内置终态（行为变更）：`FlowStatus.TERMINAL_KEYS` 只保留 `finish` / `termination` / `invalid`，撤销后的实例不再被 `EXECUTE` / `TERMINATE` / `UPDATE_HANDLERS` / `LOAD` / `REVOKE` 的 `NOT_TERMINAL` 守卫拦截——撤回会在发起节点重建待办，申请人修改后可直接重新提交，不会再报「流程已完成！」。宿主若确实把撤销视为终态，仍可在 `StatusMapper#isTerminal` 中自行声明。`FlowStatusMachineCharacteristicTest#matrix_cancel_isNotTerminal` 锁定该语义。
+- 抄送留痕不再被调用方状态覆盖（修复）：`setCopyHisTask` 的结果列固定为 `copy`。此前它与转办 / 委派共用「手动状态优先」的取值，而办理链上的**节点到达自动抄送**与办理命令共享同一个上下文——调用方一旦指定 `taskStatus`，抄送历史就被标成 `pass`：审批记录把抄送显示成「通过」污染留档，宿主按 `copy` 查抄送历史也查不到，被抄送人点开待办详情直接 403。转办 / 委派等协作留痕的「手动状态优先」契约不变（由 `StatusMapperCharacteristicTest#manualStatusWins` 锁定），需要自定义编码仍走 `StatusMapper`；新增特征测试 `CopyCharacteristicTest#copy_ignoresCallerTaskStatus`（先复现为红，修复后 314 个测试全绿）。
 
 ### 设计器
 
+- 修复保存前检查误拦多分支网关（`flowCheck.js`）：「不可同时通过或退回到多个中间节点」这条原先只判断连线的**目标**节点类型，没判断**源**节点类型，于是互斥 / 并行 / 包容网关的正常扇出也被判成违规，弹窗只有「知道了」，任何带多分支网关的流程都保存不了。现与后端 `FlowConfigUtil.checkSkipNode` 严格对齐——只统计「中间节点 → 中间节点」的出线，网关扇出不再计数。
 - 经典与仿钉钉设计器开放 11 类事件配置（事件类型、消息名称、错误码、定时策略与时间值、附着任务节点、中断开关），保存后重新打开 JSON 保持一致。
 - 开始 / 中间 / 网关 / 服务任务 / 结束五类节点的基础信息区新增「默认变量」键值编辑器（数字 / 布尔自动类型推断），此前该能力只挂在启动事件上。
 - 办理人设置新增「发起人」快捷按钮（写入 `warmFlowInitiator` 标识），办理人名称回显对引擎无法解析的标识补充占位行。
@@ -57,16 +63,31 @@
 
 ### 数据库
 
-- 新增表 `flow_event_wait`；`flow_node` 新增 `event_type`、`event_name`、`attached_to_node_code`、`interrupting` 4 列；修正 `flow_node.node_config` 列注释（自定义扩展属性实际在 `node.ext`）。四套全量脚本（MySQL / Oracle / PostgreSQL / SQL Server）已同步，且经脚本逐表逐列比对结构一致；MySQL 增量升级脚本见 [sql/mysql/v1-upgrade/warm-flow_2.1.0.sql](./sql/mysql/v1-upgrade/warm-flow_2.1.0.sql)。
+- 新增表 `flow_event_wait`；`flow_node` 新增 `event_type`、`event_name`、`attached_to_node_code`、`interrupting` 4 列；修正 `flow_node.node_config` 列注释（自定义扩展属性实际在 `node.ext`）。四套全量脚本（MySQL / Oracle / PostgreSQL / SQL Server）已同步，并按 MySQL 基线逐表逐列比对（列名集合、列顺序、可空性、默认值、字符长度）确认无差异；MySQL 增量升级脚本见 [sql/mysql/v1-upgrade/warm-flow_2.1.0.sql](./sql/mysql/v1-upgrade/warm-flow_2.1.0.sql)。
+- 承上完成三方言的结构收口，共 38 处（只改全量脚本，存量库不受影响）。可空性 16 处：Oracle 11 处、SQL Server 4 处、PostgreSQL 1 处，为引擎必写列补 `NOT NULL`（`flow_his_task.{skip_type, flow_status, cooperate_type}`、`flow_instance.{node_code, node_type, flow_status, activity_status}`、`flow_task.{node_code, node_type, flow_status}`、`flow_definition.activity_status`，`flow_definition.is_publish` 仅 SQL Server 需补）。默认值 13 处：SQL Server 的 `flow_definition` / `flow_node` / `flow_skip` / `flow_instance` / `flow_task` 五表 `create_by` + `update_by` 与 `flow_user.update_by` 共 11 处补 `DEFAULT('')`，Oracle / PostgreSQL 的 `flow_user.create_by` 去掉 `DEFAULT ''` 以与 MySQL 一致。长度 9 处：Oracle `listener_path` 500 → 400（`flow_definition`、`flow_node`），SQL Server `flow_his_task` 的 `node_code` / `node_name` 与 `target_node_code` / `target_node_name` 长度互换纠正，三方言 `flow_user.create_by` 64 → 80。另有 PostgreSQL `flow_his_task` 列顺序按 MySQL 重排。列类型按各方言习惯映射（`bigint` / `NUMBER(20)` / `int8`、`varchar` / `VARCHAR2` / `nvarchar`、`text` / `CLOB` / `nvarchar(max)`），二级索引四方言等量（MySQL 以表内 `KEY` 声明，其余以 `CREATE INDEX` 声明，索引名沿用各自既有写法）。
 - 全量脚本修正两处存量问题：SQL Server 的 `flow_node` 补齐 `listener_type` / `listener_path` 两列（其余三方言已有）；Oracle 删除 `FLOW_NODE.HANDLER_TYPE` / `HANDLER_PATH` 两条孤儿注释（表无此两列，执行脚本会报 ORA-00904）。
-- 同步状态列注释到三维语义：四套全量脚本中 `flow_instance.flow_status` 改为「实例状态（draft待提交 waiting审批中 termination终止 invalid作废 cancel撤销 finish已完成 back已退回 restart重启）」，`flow_task` / `flow_his_task.flow_status` 改为「任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送；任务结果，勿套用实例状态编码）」，此前三处共用一套旧混合注释（含已移除的「2审批通过」），两个维度同号不同义，极易误读。`cooperate_type` 注释同步纠正为「1无」（此前写「1审批」）并注明是行为维度。MySQL 升级脚本给出对应的 `MODIFY COLUMN` 语句（仅改注释、不动类型与数据）。
+- 同步状态列注释到三维语义：四套全量脚本中 `flow_instance.flow_status` 改为「实例状态（draft待提交 waiting审批中 termination终止 invalid作废 cancel撤销 finish已完成 back已退回 restart重启）」，`flow_task.flow_status` 改为「任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送；任务结果，勿套用实例状态编码）」，`flow_his_task.flow_status` 用同一串并追加「唯一例外是撤回归档写 cancel」——撤回链 `FlowExecution.loadInstance` 会把上下文实例状态预置为 `FlowStatus.CANCEL`，历史状态经 `customStatus(taskStatus, flowStatus)` 回落取值、`skipStatus` 又只在自定义值为空时才推导 PASS/BACK，所以即使调用方不显式指定任务状态，被撤回归档的那条历史记录仍会落 `cancel`；它是任务维度唯一会出现的实例码，宿主字典必须为它留一行标签，否则审批记录显示裸码。此前三处共用一套旧混合注释（含已移除的「2审批通过」），两个维度同号不同义，极易误读。`cooperate_type` 注释同步纠正为「1无」（此前写「1审批」）并注明是行为维度。MySQL 升级脚本给出对应的 `MODIFY COLUMN` 语句（仅改注释、不动类型与数据）。
 
 ### 升级提示
 
 - 事件能力默认关闭：升级需执行对应数据库脚本，并显式配置 `warm-flow.timer-enabled=true` 才会启动定时扫描线程；未开启或未建表时既有流程行为不变。
 - 事务边界：事件到达会同时写任务、实例与等待记录，消息触发后的流程推进亦然，宿主必须用 ORM / JDBC 事务包裹相关调用；`MESSAGE_THROW` / `MESSAGE_END` 的发布器调用与流程状态更新在同一提交边界内，需要可靠投递时请在发布器实现中接入 Outbox。
 - 数据库方言：定时扫描的固定条数查询在 Oracle 下使用 `ROWNUM`（MyBatis）/ `OFFSET ... FETCH NEXT`（MyBatis-Plus）改写，Oracle 需 12c 及以上；MySQL、PostgreSQL、SQLServer 使用 `LIMIT`。
-- 状态枚举拆分（破坏性）：`FlowStatus` 只保留实例维度（移除 `PASS` / `TASK_BACK`），任务维度改用新增的 `TaskStatus`；扩展点 `FlowStatusMapper` 更名为 `StatusMapper`，配置项 `flow-status-mapper-path` 改为 `status-mapper-path`。**落库编码改为小写英文**（实例 `draft` / `waiting` / `termination` / `invalid` / `cancel` / `finish` / `back` / `restart`，任务 `pending` / `pass` / `auto_pass` / `back` / `invalid` / `take_back` / `copy`），不再使用数字；2.1.0 未发布、无存量数据需迁移，但宿主按数字码写的查询 / 统计 SQL 与报表需同步调整。
+- 状态枚举拆分（破坏性）：`FlowStatus` 只保留实例维度（移除 `PASS` / `TASK_BACK`），任务维度改用新增的 `TaskStatus`；扩展点 `FlowStatusMapper` 更名为 `StatusMapper`，配置项 `flow-status-mapper-path` 改为 `status-mapper-path`。**落库编码改为小写英文**（实例 `draft` / `waiting` / `termination` / `invalid` / `cancel` / `finish` / `back` / `restart`，任务 `pending` / `pass` / `auto_pass` / `back` / `invalid` / `take_back` / `copy`），不再使用数字；引擎的增量脚本 `sql/mysql/v1-upgrade/warm-flow_2.1.0.sql` 只同步列类型与注释、**不含任何数据迁移**（2.1.0 未发布，引擎视角无存量）。但已经按 2.0.1 落库的宿主（如 RuoYi-Vue-Plus）库里有数字码存量，`ALTER` 之后它们会变成字符串 `'1'`，引擎按新编码查不到，需自行 `UPDATE`：实例 `0→draft` `1→waiting` `4→termination` `5→invalid` `6→cancel` `8→finish` `9→back` `12→restart`，已移除的 `7 取回→waiting`（取回属任务维度）、`13 暂存→draft`；任务 `1→pending` `2→pass` `9→back` `10→invalid` `11→take_back`，已移除的 `8 结束→pass`（结束留痕统一按通过归档）；协作 `0/1→none` `2→transfer` `3→delegate` `6→add_signer` `7→remove_signer`，已移除的 `4 会签 / 5 票签→none`（两者改由 `node_ratio` 表达，迁移后该维度信息丢失）。宿主按数字码写的查询 / 统计 SQL 与报表需同步调整。**存量迁移脚本见 [sql/mysql/v1-upgrade/warm-flow_2.0.1_data_to_2.1.0.sql](./sql/mysql/v1-upgrade/warm-flow_2.0.1_data_to_2.1.0.sql)**（可选，仅已按 2.0.1 落库的宿主需要；含审计、备份、映射、复验与回滚，执行前须经数据负责人批准并在测试库先跑）。
+- 扩展点与契约包路径收口（破坏性，**无兼容层**）：2.0.1 的 `core.handler` / `core.listener` 两个包已不存在，宿主 `import` 与配置里的类路径需按下表改。判定规则是「真正的扩展点进 `spi`，引擎内部策略进 `strategy`，值对象进 `dto`」：
+
+  | 2.0.1 | 2.1.0 |
+  | --- | --- |
+  | `core.handler.PermissionHandler` | `core.spi.PermissionHandler` |
+  | `core.handler.DataFillHandler` | `core.spi.DataFillHandler` |
+  | `core.handler.TenantHandler` | `core.spi.TenantHandler` |
+  | `core.handler.DefaultHandlerStrategy` | `core.strategy.DefaultHandlerStrategy` |
+  | `core.listener.GlobalListener` | `core.spi.GlobalListener` |
+  | `core.listener.Listener` | `core.spi.Listener` |
+  | `core.listener.ListenerVariable` | `core.spi.ListenerVariable` |
+  | `core.listener.ValueHolder` | `core.dto.ValueHolder` |
+
+  另：`warm-flow.global-listener-path` 配置项已移除，全局监听器改由容器 Bean 获取（`FlowEngine.initGlobalListener()` → `FrameInvoker.getBean(GlobalListener.class)`），实现类注册为 Bean 即生效，**容器内只允许一个 `GlobalListener` Bean**。
 - 行为变更：流程结束时未办待办改为按「失效」归档进历史（此前静默删除），历史列表会多出失效记录；结束事件（终止结束 / 消息结束）另写一条 `task_id=0` 的留痕记录，按 `node_code` 可筛出异常终止的实例。
 - 行为变更：终止结束事件（`TERMINATE_END`）的实例状态由「已完成」改为「终止」（`termination`），消息结束与普通完成不变；统计口径若需包含终止单请显式计入。
 - 行为变更：普通完成链路现在会取消本实例的事件等待记录（此前只有终止 / 撤回 / 作废会清理），完成后不再残留僵尸等待。

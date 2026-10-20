@@ -190,8 +190,14 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
      */
     @Override
     public HisTask setCopyHisTask(Task task, WorkflowContext context, List<String> collaborators) {
-        HisTask hisTask = buildCooperateHis(task, context, collaborators, CooperateType.NONE.getKey()
-            , FlowStatusMachine.mapper().taskStatus(TaskStatus.COPY));
+        String copyStatus = FlowStatusMachine.mapper().taskStatus(TaskStatus.COPY);
+        HisTask hisTask = buildCooperateHis(task, context, collaborators, CooperateType.NONE.getKey(), copyStatus);
+        // 抄送留痕的结果列不被调用方在上下文里指定的 taskStatus 覆盖：本条方法对协作类留痕的
+        // 「手动状态优先」契约不适用（该契约由 StatusMapperCharacteristicTest#manualStatusWins 锁定，
+        // 面向转办 / 委派这类会改变任务归属的动作）。办理链上的自动抄送与办理命令共享同一个上下文，
+        // 若沿用调用方状态，抄送会被标成 pass——审批记录显示成「通过」污染留档，宿主按 copy
+        // 查抄送历史也会落空，被抄送人打不开详情。需要自定义编码请用 StatusMapper。
+        hisTask.setFlowStatus(copyStatus);
         // 抄送时间是「抄送发生的那一刻」，不是待办创建时间：办理中追加抄送时两者可能相差很久，
         // 沿用任务开始时间会让抄送列表的时间倒挂。
         hisTask.setCreateTime(new Date());

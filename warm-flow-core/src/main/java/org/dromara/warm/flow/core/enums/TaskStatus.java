@@ -61,7 +61,10 @@ public enum TaskStatus {
     /**
      * 抄送：办理时抄送给相关人，不参与流程流转。
      * <p>
-     * 引擎不内置抄送能力，本编码供宿主在办理时手动指定（{@code WorkflowContext#setTaskStatus}）。
+     * 引擎内置抄送：节点配置 {@code node_config.copy} 在到达节点时自动抄送，办理时也可经
+     * {@code TaskService#copy} / {@code WorkflowService#copy(CopyCommand)} 追加。抄送只写
+     * {@code flow_his_task}（本编码）与 {@code flow_user}（type=4）留痕，不产生待办、
+     * 不改实例与任务状态、不触发监听器。
      */
     COPY("copy", "抄送");
 

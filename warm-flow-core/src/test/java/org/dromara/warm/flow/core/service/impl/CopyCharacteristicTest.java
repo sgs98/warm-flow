@@ -13,6 +13,7 @@ import org.dromara.warm.flow.core.service.copy.CopyConfig;
 import org.dromara.warm.flow.core.spi.PermissionHandler;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
+import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 import org.dromara.warm.flow.core.workflow.command.CopyCommand;
 import org.dromara.warm.flow.core.workflow.context.OperatorContext;
 import org.dromara.warm.flow.core.workflow.result.WorkflowResult;
@@ -357,6 +358,26 @@ class CopyCharacteristicTest {
     private Instance startWithCopy(String flowCode, String config) {
         TestFlows.serialFlowWithApplyConfig(flowCode, config);
         return FlowEngine.insService().start("biz-" + flowCode, flowCode, TestFlows.context(TestFlows.HANDLER));
+    }
+
+    /**
+     * 抄送留痕的结果列固定为 copy，不受调用方上下文里的 taskStatus 影响：
+     * 办理链上的自动抄送与办理命令共享同一个上下文，若被它带走，抄送会被标成 pass，
+     * 审批记录显示成「通过」，宿主按 copy 查抄送历史也会落空（被抄送人打不开详情）。
+     */
+    @Test
+    void copy_ignoresCallerTaskStatus() {
+        TestFlows.serialFlow("cp14");
+        Instance instance = FlowEngine.insService().start("biz-cp14", "cp14", TestFlows.context(TestFlows.HANDLER));
+        Task task = TestFlows.currentTask(instance.getId());
+
+        WorkflowContext context = TestFlows.context(TestFlows.HANDLER);
+        context.setTaskStatus("biz_custom");
+        assertNotNull(FlowEngine.taskService().copy(task.getId(), List.of("lisi"), context));
+
+        List<HisTask> copies = copyHisTasks();
+        assertEquals(1, copies.size(), "调用方状态不应让抄送历史丢掉 copy 标识");
+        assertEquals(TaskStatus.COPY.getKey(), copies.get(0).getFlowStatus());
     }
 
     /** 全部抄送历史（flow_status = copy） */

@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * reject 驳回路径特征测试：锁定驳回线解析前置校验、一票否决对退回目标后置待办的
- * 清理语义（直接删除、不转历史）与驳回路径任务查询基线（oneVoteVeto ×1、
+ * 清理语义（先按「失效」归档留痕再删除）与驳回路径任务查询基线（oneVoteVeto ×1、
  * handUndoneTask 因实例未到 end 不触发）。
  *
  * @author warm
@@ -57,7 +57,7 @@ class RejectCharacteristicTest {
     }
 
     @Test
-    void oneVoteVeto_removesSuffixSiblingTasksWithoutHistory() {
+    void oneVoteVeto_archivesSuffixSiblingTasksAsInvalid() {
         Instance instance = TestFlows.startRejectFlow("rej1", "biz-r1");
         Task applyTask = TestFlows.currentTask(instance.getId());
         TestFlows.pass(applyTask.getId(), TestFlows.HANDLER);
@@ -87,14 +87,17 @@ class RejectCharacteristicTest {
         assertEquals("apply", persisted.getNodeCode());
         assertEquals(FlowStatus.BACK.getKey(), persisted.getFlowStatus());
 
-        // 一票否决现状：后置兄弟待办直接删除，不转历史（注释称转历史，实现是纯删除）
+        // 一票否决：后置兄弟待办先按「失效」归档留痕，再删除待办与办理人
         assertNull(harness.taskDao.raw(sibling.getId()), "后置兄弟待办应被一票否决删除");
         assertTrue(harness.userDao.all().stream()
                         .noneMatch(u -> Objects.equals(u.getAssociated(), sibling.getId())),
                 "兄弟待办办理人应一并清理");
         assertTrue(harness.hisTaskDao.all().stream()
-                        .noneMatch(h -> Objects.equals(h.getTaskId(), sibling.getId())),
-                "兄弟待办不应产生历史记录");
+                        .anyMatch(h -> Objects.equals(h.getTaskId(), sibling.getId())
+                                && TaskStatus.INVALID.getKey().equals(h.getFlowStatus())
+                                && "wangwu".equals(h.getApprover())
+                                && "退回一票否决，待办自动失效".equals(h.getMessage())),
+                "兄弟待办应留一条失效历史（含办理人与否决文案）: " + harness.hisTaskDao.all());
         // 驳回动作本身：当前任务转 REJECT 历史
         assertEquals(1, harness.hisTaskDao.all().stream()
                 .filter(h -> Objects.equals(h.getTaskId(), auditTask.getId()))

@@ -131,7 +131,7 @@ CREATE TABLE `flow_his_task`
     `cooperate_type`   varchar(20)                  NOT NULL DEFAULT 'none' COMMENT '协作方式（none无 transfer转办 delegate委派 add_signer加签 remove_signer减签；行为维度，抄送/会签/票签不落此列，结果见 flow_status）',
     `collaborator`     varchar(500)                  DEFAULT NULL COMMENT '协作人',
     `skip_type`        varchar(10)                  NOT NULL COMMENT '流转类型（PASS通过 REJECT退回 NONE无动作）',
-    `flow_status`      varchar(20)                  NOT NULL COMMENT '任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送；任务结果，勿套用实例状态编码）',
+    `flow_status`      varchar(20)                  NOT NULL COMMENT '任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送；任务结果，勿套用实例状态编码，唯一例外是撤回归档写 cancel）',
     `form_custom`      char(1)                      DEFAULT 'N' COMMENT '审批表单是否自定义（Y是 N否）',
     `form_path`        varchar(100)                 DEFAULT NULL COMMENT '审批表单路径',
     `message`          varchar(500)                 DEFAULT NULL COMMENT '审批意见',

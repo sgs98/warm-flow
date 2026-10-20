@@ -57,6 +57,8 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
      */
     private static final String UNDONE_MESSAGE = "流程结束时待办未办理，自动失效";
 
+    private static final String VETOED_MESSAGE = "退回一票否决，待办自动失效";
+
     /**
      * 委派、会签和票签处理。
      */
@@ -510,7 +512,7 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
                 List<Task> undone = StreamUtils.filter(taskList
                     , task -> !archivedTaskIds.contains(task.getId()));
                 if (CollUtil.isNotEmpty(undone)) {
-                    archiveUndone(undone);
+                    archiveUndone(undone, UNDONE_MESSAGE);
                 }
                 removeAndUser(taskList);
             }
@@ -518,11 +520,23 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
     }
 
     /**
+     * 一票否决删除兄弟待办前按「失效」归档留痕，保证审批记录能看到
+     * 「哪个节点的待办被退回否决、原本该谁办」，与流程结束收口同构。
+     *
+     * @param taskList 被否决的待办
+     */
+    void archiveAndRemoveVetoed(List<Task> taskList) {
+        archiveUndone(taskList, VETOED_MESSAGE);
+        removeAndUser(taskList);
+    }
+
+    /**
      * 把未办待办按「失效」写入历史任务。
      *
      * @param taskList 未办待办
+     * @param message  失效原因说明
      */
-    private void archiveUndone(List<Task> taskList) {
+    private void archiveUndone(List<Task> taskList, String message) {
         Date now = new Date();
         String invalid = FlowStatusMachine.mapper().taskStatus(TaskStatus.INVALID);
         List<HisTask> hisTasks = new ArrayList<>();
@@ -540,7 +554,7 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
                 .setCooperateType(CooperateType.NONE.getKey())
                 .setSkipType(SkipType.NONE.getKey())
                 .setFlowStatus(invalid)
-                .setMessage(UNDONE_MESSAGE)
+                .setMessage(message)
                 .setCreateTime(task.getCreateTime())
                 .setUpdateTime(now);
             FlowEngine.dataFillHandler().idFill(hisTask);

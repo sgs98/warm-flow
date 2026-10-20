@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -46,7 +47,7 @@ class FlowStatusMachineCharacteristicTest {
         FlowOp.EXECUTE, FlowOp.TERMINATE, FlowOp.UPDATE_HANDLERS, FlowOp.LOAD, FlowOp.REVOKE};
 
     private static final FlowStatus[] TERMINAL_STATUSES = {
-        FlowStatus.FINISHED, FlowStatus.TERMINATE, FlowStatus.INVALID, FlowStatus.CANCEL};
+        FlowStatus.FINISHED, FlowStatus.TERMINATE, FlowStatus.INVALID};
 
     private FlowTestHarness harness;
 
@@ -68,7 +69,7 @@ class FlowStatusMachineCharacteristicTest {
             assertGuard(op, suspendedDef(), runningIns(), ExceptionCons.NOT_ACTIVITY);
             assertGuard(op, activeDef(), runningIns().setActivityStatus(ActivityStatus.SUSPENDED.getKey())
                 , ExceptionCons.NOT_ACTIVITY);
-            // 五个终态逐一 → FLOW_FINISH
+            // 三个终态逐一 → FLOW_FINISH
             for (FlowStatus status : TERMINAL_STATUSES) {
                 assertGuard(op, activeDef(), runningIns().setFlowStatus(status.getKey())
                     , ExceptionCons.FLOW_FINISH);
@@ -78,6 +79,16 @@ class FlowStatusMachineCharacteristicTest {
                 , ExceptionCons.FLOW_FINISH);
             // 正向格：激活 ∧ 流转中 ∧ 中间节点 → 放行
             assertDoesNotThrow(() -> FlowStatusMachine.checkGuards(op, activeDef(), runningIns()));
+        }
+    }
+
+    @Test
+    void matrix_cancel_isNotTerminal() {
+        // 撤销后待办回到发起节点，实例允许继续办理 / 重新提交，不受 NOT_TERMINAL 拦截
+        assertFalse(FlowStatus.isTerminalKey(FlowStatus.CANCEL.getKey()));
+        for (FlowOp op : OPERABLE_OPS) {
+            assertDoesNotThrow(() -> FlowStatusMachine.checkGuards(op, activeDef()
+                , runningIns().setFlowStatus(FlowStatus.CANCEL.getKey())));
         }
     }
 

@@ -15,10 +15,11 @@
 - `entity`：`Definition`/`Node`/`Skip`/`Instance`/`Task`/`HisTask`/`User`/`Form` 等接口。
 - `service` + `service.impl`：`DefService`/`NodeService`/`SkipService`/`InsService`/`TaskService`/`HisTaskService`/
   `UserService`/`FormService`/`ChartService`。
-- `workflow`：v2.0.0 起对外的统一流程操作门面——`WorkflowService`（`start`/`complete`/`reject`/`jump`/`revoke`/`terminate`/`transfer`/`delegate`/`addSigner`/`removeSigner`，经 `FlowEngine.workflow()` 获取）、`command/`（`WorkflowCommand` 基类 + 各 `XxxCommand`）、`context/`（`WorkflowContext`/`OperatorContext`，字段为 `flowStatus`/`taskStatus`）、`result/`（`WorkflowResult`）、`WorkflowContextMapper`。**这是当前主推的对外写操作契约**，属 L2。
+- `workflow`：v2.0.0 起对外的统一流程操作门面——`WorkflowService`（`start`/`complete`/`reject`/`jump`/`revoke`/`terminate`/`transfer`/`delegate`/`addSigner`/`removeSigner`/`copy`，经 `FlowEngine.workflow()` 获取）、`command/`（`WorkflowCommand` 基类 + 各 `XxxCommand`）、`context/`（`WorkflowContext`/`OperatorContext`，字段为 `flowStatus`/`taskStatus`）、`result/`（`WorkflowResult`）、`WorkflowContextMapper`。**这是当前主推的对外写操作契约**，属 L2。
 - `orm`：抽象 `dao/WarmDao`、`agent/WarmQuery`、`service/WarmServiceImpl`（ORM 接缝，不含具体实现）。
-- `handler`：`DataFillHandler`/`TenantHandler`/`PermissionHandler`。
-- `listener`：`Listener`/`GlobalListener`/`ListenerVariable`（`Listener` 含 create/start/assignment/finish/formLoad 五种事件常量）。
+- `spi`：2.1.0 起对外扩展点统一收口于此（原 `handler` / `listener` 两包已删除）——`DataFillHandler`/`TenantHandler`/
+  `PermissionHandler`/`StatusMapper`/`Listener`/`GlobalListener`/`ListenerVariable`（`Listener` 含 create/start/assignment/finish/formLoad 五种事件常量）。
+  判定规则：真正的扩展点进 `spi`，引擎内部策略进 `strategy`，值对象进 `dto`（故 `DefaultHandlerStrategy` 在 `strategy`、`ValueHolder` 在 `dto`）。
 - `strategy`：策略接口——`ConditionStrategy`（条件）、`HandlerStrategy`（办理人）、`ListenerStrategy`（监听器）、`VoteSignStrategy`
   （票签）、`GatewayStrategy`（网关，实现见 `strategy/gateway/{Serial,Parallel,Inclusive}GatewayStrategy`）、`ExpressionStrategy`（表达式基类）；具体 SpEL 实现在 `plugin-modes`。
 - `strategy/condition`：条件比较运算的具体实现（`AbstractConditionStrategy` + `ConditionStrategyEq`/`Ne`/`Gt`/`Ge`/`Lt`/`Le`/`Like`/`NotLike`）。
@@ -30,7 +31,7 @@
 ## 改动前必读
 
 - 根 [`../AGENTS.md`](../AGENTS.md)「架构与扩展机制」「兼容性红线」。
-- 改服务 / 状态机前，先读对应 `service.impl` + 相关 `strategy` / `handler` / `listener` + 状态枚举（`FlowStatus`/
+- 改服务 / 状态机前，先读对应 `service.impl` + 相关 `strategy` / `spi` 扩展点 + 状态枚举（`FlowStatus`/
   `NodeType`/`SkipType`/`CooperateType` 等）。
 - `../.qoder/repowiki/zh/content/核心引擎架构/` 有服务层、实体模型、数据流的详细文档（本地参考）。
 

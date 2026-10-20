@@ -213,6 +213,10 @@ final class FlowRevokeChain {
 
         // 设置任务完成后的实例相关信息
         taskService.setInsFinishInfo(execution.instance, addTasks, execution.intent.getVariables());
+        // 撤回后的实例状态取调用意图：loadInstance 已把空的 flowStatus 预置为 CANCEL。
+        // setInsFinishInfo 按落点待办推导的是「流程还在不在审批中」，但撤回的语义是申请人
+        // 把这条流程收回去，实例维度应当与归档的 cancel 留痕一致，不能停在「审批中」。
+        execution.instance.setFlowStatus(execution.intent.getFlowStatus());
         if (CollUtil.isNotEmpty(addTasks)) {
             taskService.saveBatch(addTasks);
         }

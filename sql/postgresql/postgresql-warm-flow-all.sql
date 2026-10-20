@@ -234,14 +234,14 @@ CREATE TABLE flow_his_task
     approver         varchar(40)  NULL,
     cooperate_type   varchar(20)  NOT NULL DEFAULT 'none',
     collaborator     varchar(500)  NULL,
-    skip_type        varchar(10)  NULL,
+    skip_type        varchar(10)  NOT NULL,
     flow_status      varchar(20)  NOT NULL,
     form_custom      bpchar(1)    NULL     DEFAULT 'N':: character varying,
     form_path        varchar(100) NULL,
-    ext              text         NULL,
-    node_config      text         NULL,
     message          varchar(500) NULL,
     variable         text         NULL,
+    ext              text         NULL,
+    node_config      text         NULL,
     create_time      timestamp    NULL,
     update_time      timestamp    NULL,
     del_flag         bpchar(1)    NULL     DEFAULT '0':: character varying,
@@ -263,7 +263,7 @@ COMMENT ON COLUMN flow_his_task.approver IS '审批者';
 COMMENT ON COLUMN flow_his_task.cooperate_type IS '协作方式（none无 transfer转办 delegate委派 add_signer加签 remove_signer减签；行为维度，抄送/会签/票签不落此列，结果见 flow_status）';
 COMMENT ON COLUMN flow_his_task.collaborator IS '协作人';
 COMMENT ON COLUMN flow_his_task.skip_type IS '流转类型（PASS通过 REJECT退回 NONE无动作）';
-COMMENT ON COLUMN flow_his_task.flow_status IS '任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送；任务结果，勿套用实例状态编码）';
+COMMENT ON COLUMN flow_his_task.flow_status IS '任务状态（pending待审批 pass通过 auto_pass自动审批 back退回 invalid失效 take_back拿回 copy抄送；任务结果，勿套用实例状态编码，唯一例外是撤回归档写 cancel）';
 COMMENT ON COLUMN flow_his_task.form_custom IS '审批表单是否自定义（Y是 N否）';
 COMMENT ON COLUMN flow_his_task.form_path IS '审批表单路径';
 COMMENT ON COLUMN flow_his_task.message IS '审批意见';
@@ -282,7 +282,7 @@ CREATE TABLE flow_user
     processed_by varchar(80) NULL,
     associated   int8        NOT NULL,
     create_time  timestamp    NULL,
-    create_by    varchar(64)  NULL     DEFAULT '':: character varying,
+    create_by    varchar(80)  NULL,
     update_time  timestamp    NULL,
     update_by    varchar(64)  NULL     DEFAULT '':: character varying,
     del_flag     bpchar(1)   NULL DEFAULT '0':: character varying,

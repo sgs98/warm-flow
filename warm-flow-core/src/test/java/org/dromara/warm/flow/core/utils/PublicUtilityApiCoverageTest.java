@@ -137,6 +137,8 @@ class PublicUtilityApiCoverageTest {
         assertEquals("审批中", FlowStatus.getValueByKey(FlowStatus.WAITING.getKey()));
         assertTrue(FlowStatus.isTerminalKey(FlowStatus.FINISHED.getKey()));
         assertFalse(FlowStatus.isTerminalKey(FlowStatus.WAITING.getKey()));
+        // 撤销后仍可重新提交，不属于终态
+        assertFalse(FlowStatus.isTerminalKey(FlowStatus.CANCEL.getKey()));
         assertEquals(NodeType.PARALLEL, NodeType.getByKey(NodeType.PARALLEL.getKey()));
         assertTrue(NodeType.isGateWay(NodeType.INCLUSIVE.getKey()));
         assertTrue(NodeType.isGateWayParallel(NodeType.PARALLEL.getKey()));

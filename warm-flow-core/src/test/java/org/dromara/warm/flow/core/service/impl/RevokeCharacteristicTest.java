@@ -73,6 +73,8 @@ class RevokeCharacteristicTest {
         assertEquals("apply", revoked.getNodeCode());
         Instance persisted = harness.insDao.raw(instance.getId());
         assertEquals("apply", persisted.getNodeCode());
+        // 撤回的实例维度是「撤销」，与被撤回归档的 cancel 留痕同码；落回申请人只是位置信息
+        assertEquals("cancel", persisted.getFlowStatus(), "撤回后实例状态应为撤销，不应停在审批中");
         assertTrue(harness.userDao.size() >= 1, "撤回后应生成新待办办理人");
 
         // start 阶段 PASS 历史 + 撤回历史
@@ -89,6 +91,22 @@ class RevokeCharacteristicTest {
         // R3 后基线：复用监听器执行前的待办快照，仅 1 次任务列表查询（改造前为 2 次）
         assertEquals(1, harness.daoLog.stream().filter(l -> l.startsWith("TaskMemDao.selectList")).count(),
                 "revoke 任务列表查询基线（R3 改造后为 1 次）: " + harness.daoLog);
+    }
+
+    @Test
+    void resubmitAfterRevoke_isNotBlockedAsFinished() {
+        Instance instance = TestFlows.startRejectFlow("revoke6", "biz-r6");
+        // 先办到 audit，再从 audit 撤回，实例落回 apply 且状态为 cancel
+        TestFlows.pass(TestFlows.currentTask(instance.getId()).getId(), TestFlows.HANDLER);
+        FlowEngine.taskService().revoke(instance.getId(), TestFlows.context(TestFlows.HANDLER));
+
+        Task resubmit = TestFlows.currentTask(instance.getId());
+        assertEquals("apply", resubmit.getNodeCode());
+
+        // 撤销不是终态：申请人修改后重新提交应正常流转，不能再抛「流程已完成！」
+        Instance resumed = TestFlows.pass(resubmit.getId(), TestFlows.HANDLER);
+        assertEquals("waiting", resumed.getFlowStatus());
+        assertEquals("audit", TestFlows.currentTask(instance.getId()).getNodeCode());
     }
 
     @Test

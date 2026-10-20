@@ -47,8 +47,11 @@ public interface StatusMapper {
      * 协作动作转任务状态编码。
      * <p>
      * 协作类型（转办 / 委派 / 加签 / 减签）是引擎的行为维度，由引擎固定维护；
-     * 本方法只决定该动作在历史任务上留下的状态编码。默认回落 {@link TaskStatus#PENDING}（待审批）——
-     * 协作后任务仍等待新办理人处理。宿主若要区分「转办 / 委托 / 加签 / 减签」，可覆写本方法。
+     * 本方法只决定该动作在历史任务上留下的状态编码。默认写<b>动作自身的编码</b>
+     * （{@code transfer} / {@code delegate} / {@code add_signer} / {@code remove_signer}），
+     * 审批记录直接显示是什么协作动作，不再统一伪装成「待审批」；
+     * {@link CooperateType#NONE}（解析不到类型的兜底）仍回落 {@link TaskStatus#PENDING}。
+     * 宿主可用自己的编码覆写本方法。
      * <p>
      * 抄送不走本方法：它不改任务归属，由 {@code HisTaskService#setCopyHisTask} 直接按
      * {@link #taskStatus(TaskStatus)} 取 {@link TaskStatus#COPY}。
@@ -57,7 +60,7 @@ public interface StatusMapper {
      * @return 宿主任务状态编码
      */
     default String cooperateStatus(CooperateType type) {
-        return taskStatus(TaskStatus.PENDING);
+        return CooperateType.NONE == type ? taskStatus(TaskStatus.PENDING) : type.getKey();
     }
 
     /**
