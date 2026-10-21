@@ -57,6 +57,25 @@ public interface InsService extends IWarmService<Instance> {
         , Map<String, Object> payload, WorkflowContext context);
 
     /**
+     * 按定时启动事件手动发起一次实例
+     * <p>
+     * 语义与定时到期触发完全一致：校验定义已发布、激活，固定 START 的直接后继是指定编码的
+     * {@code TIMER_START} 事件节点，随后从事件出口创建实例。区别只在操作人与业务主键由调用方给出。
+     * <p>
+     * <b>不改动等待记录</b>：本方法不读取也不推进 {@code flow_event_wait}，定时任务的下次触发时间
+     * 保持原样。因此「每天 9 点的任务今天 8 点手动补发一次」不会吞掉当天 9 点的那次。
+     *
+     * @param businessId   业务主键（调用方指定，建议与定时触发的 {@code T{waitId}_{计划时间}} 区分）
+     * @param definitionId 流程定义主键
+     * @param nodeCode     定时启动事件节点编码
+     * @param payload      额外流程变量，合并到节点默认变量之后
+     * @param context      触发上下文（handler 为点击操作人）
+     * @return 已持久化的流程实例
+     */
+    Instance startByTimer(String businessId, Long definitionId, String nodeCode
+        , Map<String, Object> payload, WorkflowContext context);
+
+    /**
      * 按实例主键 + 消息名称触发等待中的消息事件。
      * <p>
      * 匹配 {@code MESSAGE_CATCH} / {@code MESSAGE_BOUNDARY} 且消息名称相等的

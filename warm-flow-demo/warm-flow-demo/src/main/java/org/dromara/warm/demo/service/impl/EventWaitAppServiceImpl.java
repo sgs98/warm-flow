@@ -1,6 +1,7 @@
 package org.dromara.warm.demo.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.dromara.warm.demo.common.BizException;
 import org.dromara.warm.demo.dto.EventWaitQueryRequest;
 import org.dromara.warm.demo.service.EventWaitAppService;
 import org.dromara.warm.demo.service.support.WorkflowSupport;
@@ -11,8 +12,12 @@ import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.EventCons;
 import org.dromara.warm.flow.core.dto.EventWaitQuery;
 import org.dromara.warm.flow.core.entity.EventWait;
+import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.enums.EventType;
+import org.dromara.warm.flow.core.exception.FlowException;
+import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.core.utils.page.Page;
+import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
@@ -108,6 +113,42 @@ public class EventWaitAppServiceImpl implements EventWaitAppService {
         EventWaitQuery query = request.toQuery();
         query.setStatuses(List.of(status));
         return FlowEngine.workflow().countEventWaits(query);
+    }
+
+    /**
+     * 按定时任务手动补发一次流程实例。
+     * <p>
+     * 只做「按定义 + 事件节点直接发起」，<b>不读写等待记录</b>：定时任务的下次触发时间保持原样，
+     * 提前补发不会吞掉当天的正常触发。业务主键优先取调用方传入值，留空时用
+     * {@code M{waitId}_{时间戳}} 与定时触发的 {@code T{waitId}_{计划时间}} 区分，避免撞号。
+     *
+     * @param waitId     事件等待记录主键
+     * @param user       点击操作的当前用户
+     * @param businessId 业务主键，可为空
+     * @param variables  额外流程变量，可为空
+     * @return 新建实例主键
+     */
+    @Override
+    public Long manualTrigger(Long waitId, String user, String businessId, Map<String, Object> variables) {
+        EventWait wait = FlowEngine.eventWaitService().getById(waitId);
+        if (wait == null) {
+            throw BizException.badRequest("事件等待记录不存在: " + waitId);
+        }
+        if (!EventType.TIMER_START.getValue().equals(wait.getEventType())) {
+            throw BizException.badRequest("只有定时启动任务支持手动触发，当前事件类型为 " + wait.getEventType());
+        }
+        String finalBusinessId = StringUtils.isNotEmpty(businessId)
+            ? businessId.trim()
+            : "M" + waitId + "_" + System.currentTimeMillis();
+        WorkflowContext context = new WorkflowContext();
+        context.setHandler(StringUtils.isNotEmpty(user) ? user : "admin");
+        try {
+            Instance instance = FlowEngine.insService().startByTimer(finalBusinessId, wait.getDefinitionId()
+                , wait.getNodeCode(), variables, context);
+            return instance.getId();
+        } catch (FlowException e) {
+            throw BizException.badRequest(e.getMessage());
+        }
     }
 
     /**

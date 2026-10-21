@@ -112,6 +112,7 @@
         <template #default="{ row }">
           <el-button link type="primary" @click="openDetail(row)">详情</el-button>
           <el-button link type="primary" :disabled="!row.instanceId" @click="viewInstance(row)">查看实例</el-button>
+          <el-button v-if="isTimerStart(row)" link type="success" @click="openTrigger(row)">立即触发</el-button>
           <el-button v-if="isMessageWait(row)" link type="warning" @click="openMessage(row)">触发消息</el-button>
           <el-button v-if="isErrorWait(row)" link type="danger" @click="openError(row)">抛错</el-button>
         </template>
@@ -165,6 +166,29 @@
       </div>
     </el-drawer>
 
+    <!-- 手动补发定时启动任务 -->
+    <el-dialog v-model="triggerVisible" title="立即触发一次" width="540px" :close-on-click-modal="false">
+      <el-form label-width="96px">
+        <el-form-item label="任务">
+          <span class="cell-sub">{{ triggerRow?.flowName || '-' }} / {{ triggerRow?.nodeCode || '-' }}</span>
+        </el-form-item>
+        <el-form-item label="下次触发">
+          <span>{{ triggerRow?.nextTriggerAt || '-' }}</span>
+        </el-form-item>
+        <el-form-item label="业务ID">
+          <el-input v-model="triggerForm.businessId" clearable placeholder="留空自动生成（M任务ID_时间戳）" />
+        </el-form-item>
+      </el-form>
+      <div class="dialog-tip">
+        只额外发起一次实例，操作人记为当前登录用户。定时任务本身不会变动，
+        <b>下次触发时间保持不变</b>，例如每天 9 点的任务提前补发后，当天 9 点仍会照常触发。
+      </div>
+      <template #footer>
+        <el-button @click="triggerVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="submitTrigger">确认触发</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 触发消息捕获 -->
     <el-dialog v-model="messageVisible" title="触发消息捕获" width="540px" :close-on-click-modal="false">
       <el-form label-width="90px">
@@ -207,7 +231,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getEventWaitSummary, pageEventWaits } from '../../api/eventWaits'
+import { getEventWaitSummary, pageEventWaits, triggerTimerStart } from '../../api/eventWaits'
 import { throwInstanceError, throwTaskError, triggerInstanceMessage } from '../../api/events'
 import { usePagedList } from '../../composables/usePagedList'
 import type { EventWaitRow, EventWaitSummary } from '../../types/workflow'
@@ -282,6 +306,10 @@ const messageForm = reactive({ eventName: '', payloadText: '' })
 const errorVisible = ref(false)
 const errorRow = ref<EventWaitRow | null>(null)
 const errorForm = reactive({ errorCode: '', message: '' })
+
+const triggerVisible = ref(false)
+const triggerRow = ref<EventWaitRow | null>(null)
+const triggerForm = reactive({ businessId: '' })
 
 const submitting = ref(false)
 
@@ -394,6 +422,11 @@ function isMessageWait(row: EventWaitRow) {
   return row.eventType === 'MESSAGE_CATCH' || row.eventType === 'MESSAGE_BOUNDARY'
 }
 
+/** 定时启动任务：只有它支持手动补发一次（补发不推进等待记录）。 */
+function isTimerStart(row: EventWaitRow) {
+  return row.eventType === 'TIMER_START'
+}
+
 function isErrorWait(row: EventWaitRow) {
   return row.eventType === 'ERROR_CATCH' || row.eventType === 'ERROR_BOUNDARY'
 }
@@ -420,6 +453,28 @@ function openDetail(row: EventWaitRow) {
 
 function viewInstance(row: EventWaitRow) {
   if (row.instanceId) router.push(`/instances/${row.instanceId}`)
+}
+
+function openTrigger(row: EventWaitRow) {
+  triggerRow.value = row
+  triggerForm.businessId = ''
+  triggerVisible.value = true
+}
+
+async function submitTrigger() {
+  const row = triggerRow.value
+  if (!row) return
+  submitting.value = true
+  try {
+    const instanceId = await triggerTimerStart(row.id, {
+      businessId: triggerForm.businessId.trim() || undefined,
+    })
+    ElMessage.success(`已发起一次实例 ${instanceId}`)
+    triggerVisible.value = false
+    refreshAll()
+  } finally {
+    submitting.value = false
+  }
 }
 
 function openMessage(row: EventWaitRow) {

@@ -25,6 +25,8 @@ import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
 import org.dromara.warm.flow.core.enums.EventType;
+import org.dromara.warm.flow.core.enums.FlowStatus;
+import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.orm.dao.FlowInstanceDao;
 import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.InsService;
@@ -107,6 +109,40 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
             context.setVariables(merged);
         }
         FlowExecution execution = FlowExecution.loadMessageStart(flowCode, eventName, context);
+        return new FlowStartChain(this, businessId).pipeline().run(execution);
+    }
+
+    /**
+     * 按定时启动事件手动发起一次实例
+     * <p>
+     * 复用 {@link FlowExecution#loadTimerStart}：与定时到期触发走同一套拓扑校验与发起链，
+     * 唯一的差别是操作人由调用方给出、业务主键由调用方指定。等待记录完全不参与，
+     * 定时任务的下次触发时间不受影响。
+     *
+     * @param businessId   业务主键
+     * @param definitionId 流程定义主键
+     * @param nodeCode     定时启动事件节点编码
+     * @param payload      额外流程变量
+     * @param context      触发上下文
+     * @return 已持久化的流程实例
+     */
+    @Override
+    public Instance startByTimer(String businessId, Long definitionId, String nodeCode
+        , Map<String, Object> payload, WorkflowContext context) {
+        AssertUtil.isNull(definitionId, ExceptionCons.NOT_DEFINITION_ID);
+        AssertUtil.isEmpty(businessId, ExceptionCons.NULL_BUSINESS_ID);
+        AssertUtil.isEmpty(nodeCode, ExceptionCons.LOST_CUR_NODE);
+        if (MapUtil.isNotEmpty(payload)) {
+            Map<String, Object> variables = context.getVariables();
+            Map<String, Object> merged = variables == null ? new HashMap<>() : variables;
+            merged.putAll(payload);
+            context.setVariables(merged);
+        }
+        // 与定时到期触发保持一致：定时启动没有「发起人提交」环节，实例直接进入审批中，
+        // 而不是落到开始节点的「待提交」——否则补发的件在待办列表里根本筛不出来
+        context.setFlowStatus(FlowStatusMachine.mapper().instanceStatus(FlowStatus.WAITING));
+        context.setTaskStatus(FlowStatusMachine.mapper().taskStatus(TaskStatus.PASS));
+        FlowExecution execution = FlowExecution.loadTimerStart(definitionId, nodeCode, context);
         return new FlowStartChain(this, businessId).pipeline().run(execution);
     }
 
