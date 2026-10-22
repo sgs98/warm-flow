@@ -8,16 +8,22 @@ import org.dromara.warm.flow.core.enums.ActivityStatus;
 import org.dromara.warm.flow.core.orm.dao.FlowEventWaitDao;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * 定时记录扫描器。
  * <p>
  * 扫描规则：{@code WAITING} 按 {@code next_trigger_at <= now}、{@code RETRY} 按
  * {@code retry_at <= now} 分别使用稳定的 {@code (dueAt, id)} 游标分页扫描，不用预扫描窗口；
- * 单轮受 {@code timerMaxScanPages} 页限制，达到上限后下一轮从上轮游标继续，扫描到末尾后重置游标。
- * 实例级记录跳过挂起实例后继续翻页，跳过不能结束本轮扫描。
+ * 单轮每个状态最多扫描 {@code timerMaxScanPages} 页（两状态预算独立），
+ * 达到上限后下一轮从上轮游标继续，扫描到末尾后重置游标。
+ * 实例级记录按页批量校验实例激活状态，跳过挂起实例后继续翻页，跳过不能结束本轮扫描。
  *
  * @author may
  */
@@ -58,6 +64,9 @@ public class TimerScanner {
      */
     private Long retryCursorId;
 
+    /** 两类记录持续积压时轮流获得首批名额。 */
+    private boolean retryFirst;
+
     public TimerScanner(FlowEventWaitDao<EventWait> dao, WarmFlow config) {
         this.dao = dao;
         this.batchSize = config != null && config.getTimerBatchSize() != null
@@ -69,18 +78,20 @@ public class TimerScanner {
     /**
      * 执行一轮扫描，取出一批到期记录。
      * <p>
-     * 先扫 {@code WAITING} 再扫 {@code RETRY}；方法线程安全由调用方保证单线程调度。
+     * 两种状态轮换扫描优先级，且各自独立消耗页数预算，
+     * 避免持续积压的一方占满批次导致另一方饥饿；
+     * 方法线程安全由调用方保证单线程调度。
      *
      * @param now 当前时间
      * @return 本轮取出的到期记录（最多 {@code batchSize} 条）
      */
     public synchronized List<EventWait> scanBatch(Date now) {
         List<EventWait> due = new ArrayList<>();
-        int pages = 0;
-
-        pages += scanState(now, true, due);
-        if (due.size() < batchSize && pages < maxScanPages) {
-            scanState(now, false, due);
+        boolean firstWaiting = !retryFirst;
+        retryFirst = !retryFirst;
+        scanState(now, firstWaiting, due);
+        if (due.size() < batchSize) {
+            scanState(now, !firstWaiting, due);
         }
         return due;
     }
@@ -99,8 +110,10 @@ public class TimerScanner {
                 break;
             }
             pages++;
+            // 本页实例状态一次批量取出，避免逐条 getById 的 N+1 查询
+            Map<Long, Instance> instanceMap = loadInstances(page);
             for (EventWait wait : page) {
-                boolean executable = isExecutable(wait);
+                boolean executable = isExecutable(wait, instanceMap);
                 if (executable) {
                     due.add(wait);
                 }
@@ -152,20 +165,45 @@ public class TimerScanner {
     /**
      * 判断记录本轮是否可抢占：定义级记录（如 TIMER_START，无实例）直接可执行；
      * 实例级记录须实例仍处于激活状态，挂起实例跳过（恢复后补发当前计划触发）。
+     * <p>
+     * 实例不在批量结果中（不存在或批量查询失败退化）时按可执行处理，
+     * 由执行器在推进前再次校验，与单条查询失败的兜底语义一致。
      */
-    private boolean isExecutable(EventWait wait) {
+    private boolean isExecutable(EventWait wait, Map<Long, Instance> instanceMap) {
         if (wait.getInstanceId() == null) {
             return true;
         }
-        try {
-            Instance instance = FlowEngine.insService().getById(wait.getInstanceId());
-            if (instance == null) {
-                return true;
-            }
-            return ActivityStatus.isActivity(instance.getActivityStatus());
-        } catch (Exception e) {
-            // 实例状态查询失败时按可执行处理，由执行器在推进前再次校验
+        Instance instance = instanceMap.get(wait.getInstanceId());
+        if (instance == null) {
             return true;
+        }
+        return ActivityStatus.isActivity(instance.getActivityStatus());
+    }
+
+    /**
+     * 批量加载本页记录涉及的流程实例（定义级记录无实例，不进入查询集合）。
+     *
+     * @param page 本页到期记录
+     * @return 实例主键到实例的索引；查询失败时返回空映射，由调用方按可执行兜底
+     */
+    private Map<Long, Instance> loadInstances(List<EventWait> page) {
+        Set<Long> instanceIds = new HashSet<>();
+        for (EventWait wait : page) {
+            if (wait.getInstanceId() != null) {
+                instanceIds.add(wait.getInstanceId());
+            }
+        }
+        if (instanceIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        try {
+            Map<Long, Instance> instanceMap = new HashMap<>();
+            for (Instance instance : FlowEngine.insService().getByIds(instanceIds)) {
+                instanceMap.put(instance.getId(), instance);
+            }
+            return instanceMap;
+        } catch (Exception e) {
+            return Collections.emptyMap();
         }
     }
 }

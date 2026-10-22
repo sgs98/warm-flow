@@ -21,6 +21,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -412,6 +414,112 @@ class TimerEngineCharacteristicTest {
             assertNull(eventWaitDao.raw(wait.getId()));
         } finally {
             TimerEngine.getInstance().shutdown();
+        }
+    }
+
+    @Test
+    void renewalWatchdogExtendsLeaseDuringLongHandling() throws Exception {
+        // 续租看门狗：执行超过一个续租周期时，lock_until 应被周期性推后，避免长流程被租约恢复误判
+        config.setTimerLeaseRenewInterval(50L);
+        CountDownLatch handlerStarted = new CountDownLatch(1);
+        CountDownLatch releaseHandler = new CountDownLatch(1);
+        handlers.put("TIMER_CATCH", w -> {
+            handlerStarted.countDown();
+            try {
+                releaseHandler.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        Date now = new Date();
+        TestEventWait wait = newWaitingWait(new Date(now.getTime() - 1000), "AFTER", "PT1H");
+        assertTrue(new TimerClaim(eventWaitDao).claim(wait, now));
+        Date leaseBefore = eventWaitDao.raw(wait.getId()).getLockUntil();
+
+        Thread worker = new Thread(() -> new TimerExecutor(eventWaitDao, config)
+            .execute(wait, EventCons.STATUS_WAITING, wait.getNextTriggerAt(), null));
+        worker.start();
+        try {
+            assertTrue(handlerStarted.await(2, TimeUnit.SECONDS), "处理器应开始执行");
+            Date leaseDuring = eventWaitDao.raw(wait.getId()).getLockUntil();
+            long deadline = System.currentTimeMillis() + 2_000L;
+            while (leaseDuring != null && !leaseDuring.after(leaseBefore)
+                && System.currentTimeMillis() < deadline) {
+                Thread.sleep(20L);
+                leaseDuring = eventWaitDao.raw(wait.getId()).getLockUntil();
+            }
+            assertTrue(leaseDuring != null && leaseDuring.after(leaseBefore)
+                , "看门狗应在执行期间延长租约: " + leaseDuring + " 应晚于 " + leaseBefore);
+        } finally {
+            releaseHandler.countDown();
+            worker.join(5_000L);
+            assertFalse(worker.isAlive(), "处理器应随释放信号正常返回");
+        }
+        assertNull(eventWaitDao.raw(wait.getId()), "正常完成后一次性记录删除");
+    }
+
+    @Test
+    void scannerAlternatesPriorityWhenBothStatusesFillBatch() {
+        Date now = new Date();
+        config.setTimerBatchSize(1);
+        newWaitingWait(new Date(now.getTime() - 1000), "AFTER", "PT1H");
+        newRetryWait(new Date(now.getTime() - 1000));
+        TimerScanner scanner = new TimerScanner(eventWaitDao, config);
+
+        assertEquals(EventCons.STATUS_WAITING, scanner.scanBatch(now).get(0).getStatus());
+        assertEquals(EventCons.STATUS_RETRY, scanner.scanBatch(now).get(0).getStatus());
+    }
+
+    @Test
+    void messageClaimWritesOnlyWinningPayload() {
+        Date now = new Date();
+        TestEventWait wait = newWaitingWait(now, "AFTER", "PT1H");
+        assertTrue(eventWaitDao.claimMessageWithPayload(wait.getId(), wait.getVersion(),
+            TimerWorkerId.get(), now, new Date(now.getTime() + LEASE_MILLIS), "{\"winner\":true}"));
+        assertFalse(eventWaitDao.claimMessageWithPayload(wait.getId(), wait.getVersion(),
+            TimerWorkerId.get(), now, new Date(now.getTime() + LEASE_MILLIS), "{\"winner\":false}"));
+        assertEquals("{\"winner\":true}", eventWaitDao.raw(wait.getId()).getPayload());
+    }
+
+    @Test
+    void queuedClaimKeepsLeaseUntilExecutionStarts() throws Exception {
+        config.setTimerPoolSize(1);
+        config.setTimerQueueCapacity(1);
+        config.setTimerLeaseSeconds(1L);
+        config.setTimerLeaseRenewInterval(50L);
+        CountDownLatch firstStarted = new CountDownLatch(1);
+        CountDownLatch releaseFirst = new CountDownLatch(1);
+        handlers.put("TIMER_CATCH", wait -> {
+            firstStarted.countDown();
+            try {
+                releaseFirst.await(3, TimeUnit.SECONDS);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        Date now = new Date();
+        TestEventWait first = newWaitingWait(new Date(now.getTime() - 1000), "AFTER", "PT1H");
+        TestEventWait queued = newWaitingWait(new Date(now.getTime() - 1000), "AFTER", "PT1H");
+        TimerClaim claim = new TimerClaim(eventWaitDao);
+        TimerExecutor executor = new TimerExecutor(eventWaitDao, config);
+        try {
+            assertTrue(claim.claim(first, now));
+            executor.submit(first, EventCons.STATUS_WAITING, first.getNextTriggerAt(), null);
+            assertTrue(firstStarted.await(2, TimeUnit.SECONDS));
+            assertTrue(claim.claim(queued, now));
+            Date originalLease = eventWaitDao.raw(queued.getId()).getLockUntil();
+            executor.submit(queued, EventCons.STATUS_WAITING, queued.getNextTriggerAt(), null);
+
+            long deadline = System.currentTimeMillis() + 2_000L;
+            while (!eventWaitDao.raw(queued.getId()).getLockUntil().after(originalLease)
+                && System.currentTimeMillis() < deadline) {
+                Thread.sleep(20L);
+            }
+            assertTrue(eventWaitDao.raw(queued.getId()).getLockUntil().after(originalLease));
+            assertEquals(EventCons.STATUS_RUNNING, eventWaitDao.raw(queued.getId()).getStatus());
+        } finally {
+            releaseFirst.countDown();
+            executor.shutdown();
         }
     }
 

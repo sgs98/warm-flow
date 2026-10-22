@@ -145,6 +145,13 @@ public class WarmFlow implements Serializable {
     private Integer timerPoolSize = 2;
 
     /**
+     * 定时器执行线程池队列容量：抢占后等待执行的最大积压条数，默认 1000。
+     * 队列满时新投递被拒绝并立即释放抢占（恢复等待状态），由后续扫描周期重投，
+     * 避免记录在队列中滞留超过租约被恢复后再次投递。
+     */
+    private Integer timerQueueCapacity = 1000;
+
+    /**
      * 定时器扫描间隔（毫秒），默认 5 秒
      */
     private Long timerScanInterval = 5000L;

@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
  * core 自建守护线程 + 显式 {@link #shutdown()}，不依赖 Spring 生命周期回调。
  * {@code timerEnabled} 默认关闭：只有显式开启才启动扫描线程，避免只升级 jar、
  * 未建表的宿主周期报错。扫描线程按 {@code timerScanInterval} 周期执行：
- * 分页扫描到期记录 → 逐条 CAS 抢占 → 投递 {@link TimerExecutor} 执行。
+ * 恢复租约过期的 RUNNING 记录 → 分页扫描到期记录 → 逐条 CAS 抢占 → 投递 {@link TimerExecutor} 执行。
  * 「表不存在」类异常只报一次错误日志后自动停用扫描（fail-soft），不周期刷屏。
  *
  * @author may
@@ -67,6 +67,11 @@ public class TimerEngine {
      * 抢占器。
      */
     private TimerClaim claim;
+
+    /**
+     * 租约过期恢复处理器（与执行器共用同一完成 / 重试语义）。
+     */
+    private EventWaitProcessor recoveryProcessor;
 
     /**
      * 当前扫描周期任务句柄（fail-soft 停用时取消）。
@@ -120,9 +125,9 @@ public class TimerEngine {
         }
         // DAO 此处尽力解析一次；未注册时由扫描周期内懒加载兜底
         dao = resolveDao();
-        scanner = new TimerScanner(dao, config);
-        executor = new TimerExecutor(dao, config);
-        claim = new TimerClaim(dao);
+        if (dao != null) {
+            buildComponents(config);
+        }
 
         long interval = config.getTimerScanInterval() != null
             ? config.getTimerScanInterval() : DEFAULT_SCAN_INTERVAL;
@@ -158,6 +163,8 @@ public class TimerEngine {
         }
         scanner = null;
         claim = null;
+        recoveryProcessor = null;
+        EventWaitProcessor.shutdownRenewalScheduler();
         started = false;
         log.info("Warm-Flow 内置定时器已关闭");
     }
@@ -172,7 +179,10 @@ public class TimerEngine {
     }
 
     /**
-     * 单个扫描周期：扫描 → 抢占 → 投递。
+     * 单个扫描周期：租约恢复 → 扫描 → 抢占 → 投递。
+     * <p>
+     * 先恢复租约过期的 {@code RUNNING} 记录（执行线程崩溃遗留），再扫描到期记录，
+     * 本轮恢复出的 {@code RETRY} 记录在下一轮按 {@code retry_at} 被重新拾起。
      */
     private void scanCycle() {
         try {
@@ -181,10 +191,15 @@ public class TimerEngine {
                 if (dao == null) {
                     return;
                 }
-                scanner = new TimerScanner(dao, FlowEngine.getFlowConfig());
-                claim = new TimerClaim(dao);
+                // DAO 晚于引擎启动注册：整套组件（含执行器与恢复处理器）按新 DAO 重建，
+                // 避免执行器停留在以 null DAO 构造的旧实例上
+                if (executor != null) {
+                    executor.shutdown();
+                }
+                buildComponents(FlowEngine.getFlowConfig());
             }
             Date now = new Date();
+            recoverExpiredLeases(now);
             List<EventWait> due = scanner.scanBatch(now);
             for (EventWait wait : due) {
                 try {
@@ -204,6 +219,45 @@ public class TimerEngine {
                 stopScan();
             } else {
                 log.warn("内置定时器扫描周期执行异常", t);
+            }
+        }
+    }
+
+    /**
+     * 按已解析的 DAO 构建扫描、执行、抢占与租约恢复组件。
+     * <p>
+     * 启动路径与扫描周期内的 DAO 懒加载路径共用，保证常规启动（启动时 DAO 已就绪）
+     * 同样初始化租约恢复处理器——否则崩溃遗留的 {@code RUNNING} 记录无人恢复、永久滞留。
+     *
+     * @param config 引擎配置
+     */
+    private void buildComponents(WarmFlow config) {
+        scanner = new TimerScanner(dao, config);
+        executor = new TimerExecutor(dao, config);
+        claim = new TimerClaim(dao);
+        recoveryProcessor = new EventWaitProcessor(dao, config);
+    }
+
+    /**
+     * 恢复租约过期的执行中记录。
+     * <p>
+     * 每轮最多处理一页（条数取 {@code timerBatchSize}）；剩余过期记录由后续周期
+     * 继续处理——恢复后即离开 {@code RUNNING} 态，不会长期滞留。逐条恢复互不影响，
+     * 单条失败只记日志，不中断本轮恢复与扫描。
+     */
+    private void recoverExpiredLeases(Date now) {
+        if (recoveryProcessor == null) {
+            return;
+        }
+        WarmFlow config = FlowEngine.getFlowConfig();
+        int limit = config != null && config.getTimerBatchSize() != null
+            ? config.getTimerBatchSize() : 100;
+        List<EventWait> expired = dao.selectExpired(now, limit);
+        for (EventWait wait : expired) {
+            try {
+                recoveryProcessor.recoverExpired(wait, now);
+            } catch (Exception ex) {
+                log.warn("租约过期记录恢复失败 id={}", wait.getId(), ex);
             }
         }
     }
