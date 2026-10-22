@@ -40,6 +40,19 @@
 - 撤回的实例状态修正（破坏性，行为变更）：`revoke` 后实例状态取调用意图（`FlowExecution.loadInstance` 预置的 `FlowStatus.CANCEL`），不再由落点待办推导成「审批中」。此前撤回把待办落回申请人后实例仍是 `waiting`，宿主监听器再按「唯一待办在申请人节点」把它覆盖成 `back`，于是同一次撤销在三个维度上给出三个词：归档 `cancel`、待办 `cancel`、实例「已退回」。撤回的语义是申请人把流程收回去，实例维度应与归档留痕同为 `cancel`；回到申请人节点只是位置信息。退回（`backProcess`）不受影响，仍是 `back`。
 - 撤销移出内置终态（行为变更）：`FlowStatus.TERMINAL_KEYS` 只保留 `finish` / `termination` / `invalid`，撤销后的实例不再被 `EXECUTE` / `TERMINATE` / `UPDATE_HANDLERS` / `LOAD` / `REVOKE` 的 `NOT_TERMINAL` 守卫拦截——撤回会在发起节点重建待办，申请人修改后可直接重新提交，不会再报「流程已完成！」。宿主若确实把撤销视为终态，仍可在 `StatusMapper#isTerminal` 中自行声明。`FlowStatusMachineCharacteristicTest#matrix_cancel_isNotTerminal` 锁定该语义。
 - 抄送留痕不再被调用方状态覆盖（修复）：`setCopyHisTask` 的结果列固定为 `copy`。此前它与转办 / 委派共用「手动状态优先」的取值，而办理链上的**节点到达自动抄送**与办理命令共享同一个上下文——调用方一旦指定 `taskStatus`，抄送历史就被标成 `pass`：审批记录把抄送显示成「通过」污染留档，宿主按 `copy` 查抄送历史也查不到，被抄送人点开待办详情直接 403。转办 / 委派等协作留痕的「手动状态优先」契约不变（由 `StatusMapperCharacteristicTest#manualStatusWins` 锁定），需要自定义编码仍走 `StatusMapper`；新增特征测试 `CopyCharacteristicTest#copy_ignoresCallerTaskStatus`（先复现为红，修复后 314 个测试全绿）。
+- 事件能力对照设计稿（`docs/workflow-event-design.md`）核对后的整批加固修复：
+  - 取消等待改为条件更新（行为变更）：三个取消路径（按实例 / 定义 / 附着任务）改走 `FlowEventWaitDao` 新增的 `cancelByInstanceId / cancelByDefinitionId / cancelByAttachedTaskId` 单语句条件更新——置 `CANCELLED`、递增 `version`、清空租约，覆盖 `WAITING / RETRY / RUNNING`（在途执行器随后按旧版本提交必然失配），终态记录不动；原「先查后内存过滤再批量 update」漏 `RUNNING`、无状态校验、不清租约。`cancelByDefinitionId` 仍只命中定义级记录（`instance_id` 为空），定义级定时启动等待的幂等取消同步受益。
+  - 租约过期恢复接入生产调用（设计 §6.5）：`TimerEngine` 每轮扫描前先 `recoverExpiredLeases`——按 `timerBatchSize` 取一页租约过期的 `RUNNING` 记录逐条恢复（记录级重试上限优先，退避转 `RETRY`、超限转 `DEAD`）；此前 `selectExpired / recoverExpired` 只有单测调用，执行器崩溃后的记录会永远停在 `RUNNING`。
+  - `timerLeaseRenewInterval` 落地消费者（设计 §6.5）：`EventWaitProcessor` 执行事件期间由看门狗线程按间隔续租，长执行不再因租约到期被其它节点误回收；`TimerEngine` 关闭时统一关闭续租线程池。
+  - 撤回启动事件实例不再抛拓扑错误（设计 §11.4）：撤回路由到固定 `START` 的后继时，若后继是启动事件节点则沿其事件出口再前进一步分发，事件节点不进撤回路径（已执行过、不重复触发）。
+  - 四 starter 的事件执行带事务边界：容器存在 `PlatformTransactionManager` 时默认 `EventRuntimeHandler` 由 `TransactionalEventTaskHandler` 包裹——「推进流程 + 更新等待记录」同一事务提交，CAS 抢占保持在事务外；不存在时不注册默认处理器。消息 / 错误触发在抢占前拒绝外围事务，避免失败记账随调用方事务回滚。
+  - 发布新版同时取消**已失效**旧版本的定义级等待：原实现只取消「退回未发布」的版本，漏掉「已使用→已失效」版本——其 `TIMER_START` 等待会继续到点给失效旧版本创建实例。
+  - 并行 / 包容网关扇出多个事件等待分支被拒绝（设计 §8.0 约定 5）：保存与导入校验新增 `checkGatewayEventBranches`——并行 / 包容网关的通过出口中捕获型事件节点最多一个；串行网关（同一时刻只激活一条分支）与「单事件分支 + 任务分支并存」不受限。
+  - 定时配置格式在保存期拦截：`checkEventNode` 对定时事件试算一次下次触发时间，非法 `timerValue`（非 ISO-8601 时长 / 非时间点集合）与非法 `timezone`（新增 `ILLEGAL_EVENT_TIMEZONE`，不再裸抛 `DateTimeException`）在保存 / 发布期报错，不再等到运行期建等待或办理中断才失败。
+  - `triggerMessage` 契约对齐：名称匹配但已是 `RUNNING / CANCELLED / DEAD` 的记录改为告警并返回当前实例（流程不变），不再误报「消息等待不存在」；实例内无该消息名称的等待记录仍抛异常。接口与实现 javadoc 同步修正。
+  - 退回一票否决删除兄弟待办时同步取消其边界等待：实例仍在运行（退回重走），残留的定时 / 消息边界等待会到点去推进一个已删除的任务。
+  - 扫描器加固：实例状态由逐条 `getById` 改为按页批量 `getByIds`（消除 N+1）；`WAITING` / `RETRY` 页数预算拆分为各自独立（原先共享预算，`WAITING` 积压会使 `RETRY` 饥饿，与 javadoc「每状态最多」矛盾）。
+  - 消息载荷与等待记录抢占合并为单条条件更新，避免并发投递覆盖获胜消息的重试载荷；空载荷仍保留已有载荷。扫描器轮换 `WAITING` / `RETRY` 优先级，防止一方持续占满批次。MyBatis-Plus 的 SQL Server 定时扫描使用 `OFFSET/FETCH` 分页。
 
 ### 设计器
 
@@ -51,6 +64,7 @@
 
 ### Demo
 
+- `EventController` 的消息启动接口使用 `@Transactional(rollbackFor = Exception.class)`；触发消息和错误事件由引擎处理器管理推进事务，入口不包外围事务。
 - 流程实例列表支持勾选多条批量物理删除（`DELETE /api/instances?ids=...`，返回实际删除数量），与单条删除一致清理流程用户、待办与历史任务。
 - Demo 前端分层重构：新增 `api/`（definitions / instances / tasks / events / users 五个领域模块）、`types/workflow.ts`（统一展示模型）、`composables/usePagedList`（分页列表逻辑复用），全部视图与组件不再直接拼 HTTP 调用；`X-User-Name` 由 axios 拦截器统一注入。
 - Demo 后端分层重构：1171 行的 `WorkflowServiceImpl` 拆分为 `WorkflowSupport`（共享缓存与 VO 组装）+ `InstanceAppService`（发起 / 查询 / 撤回 / 终止 / 删除）+ `TaskAppService`（待办已办抄送 / 按钮权限 / 通过退回转办委派加签减签），Controller 与对外 API 路径保持不变。
