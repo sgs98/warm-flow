@@ -522,11 +522,15 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
     /**
      * 一票否决删除兄弟待办前按「失效」归档留痕，保证审批记录能看到
      * 「哪个节点的待办被退回否决、原本该谁办」，与流程结束收口同构。
+     * <p>
+     * 兄弟待办被删除后，其上附着的边界事件等待一并取消：实例仍在运行（退回重走），
+     * 残留等待到点或消息到达时会去推进一个已删除的任务。
      *
      * @param taskList 被否决的待办
      */
     void archiveAndRemoveVetoed(List<Task> taskList) {
         archiveUndone(taskList, VETOED_MESSAGE);
+        FlowEngine.eventWaitService().cancelByTaskIds(StreamUtils.toList(taskList, Task::getId));
         removeAndUser(taskList);
     }
 

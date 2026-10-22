@@ -20,6 +20,7 @@ import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.dto.FlowCombine;
 import org.dromara.warm.flow.core.dto.PathWayData;
 import org.dromara.warm.flow.core.entity.*;
+import org.dromara.warm.flow.core.enums.EventType;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.utils.*;
@@ -156,6 +157,15 @@ final class FlowRevokeChain {
         execution.applyNodeDefaults(startNode);
         Node nextNode = FlowEngine.nodeService().getNextNode(startNode, null, SkipType.PASS.getKey()
             , null, execution.loadCombine());
+        // 开始节点后是启动事件时，沿该事件出口恢复首路径：不重新触发启动事件、
+        // 不重建定义级等待（启动事件只允许来自 START 的一条入线与一条普通出口，
+        // 实例级路由中遇到会按拓扑不匹配拒绝，见 EventArrivalDispatcher）
+        if (EventArrivalDispatcher.isEventBetweenNode(nextNode)
+            && EventType.isStart(nextNode.getEventType())) {
+            execution.applyNodeDefaults(nextNode);
+            nextNode = FlowEngine.nodeService().getNextNode(nextNode, null, SkipType.PASS.getKey()
+                , null, execution.loadCombine());
+        }
         execution.applyNodeDefaults(nextNode);
         nextNodes = FlowEngine.nodeService().getNextByCheckGateway(execution.intent.getVariables(), nextNode
             , pathWayData, execution.loadCombine());

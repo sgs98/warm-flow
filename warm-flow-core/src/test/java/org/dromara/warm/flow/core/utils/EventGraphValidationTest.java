@@ -223,6 +223,42 @@ class EventGraphValidationTest {
     }
 
     @Test
+    void catchEventNeedsOutgoing() {
+        // 导入脏数据形态：mc 名下挂着的连线不属于本节点（nowNodeCode 指向别处），
+        // 通用「非结束节点必须画跳转线」按 skipList 非空放行，事件校验按出线集合兜底拒绝
+        Definition def = def();
+        node(def, "start", NodeType.START.getKey());
+        eventNode(def, "mc", EventType.MESSAGE_CATCH.getValue()).setEventName("order.paid");
+        node(def, "end", NodeType.END.getKey());
+        skip(def, "start", "end", NodeType.START.getKey(), NodeType.END.getKey());
+        Skip alien = FlowEngine.newSkip()
+            .setDefinitionId(def.getId())
+            .setNowNodeCode("end")
+            .setNowNodeType(NodeType.END.getKey())
+            .setNextNodeCode("end")
+            .setNextNodeType(NodeType.END.getKey())
+            .setSkipName("alien")
+            .setSkipType(SkipType.PASS.getKey());
+        for (Node item : def.getNodeList()) {
+            if ("mc".equals(item.getNodeCode())) {
+                item.getSkipList().add(alien);
+            }
+        }
+        assertMessage(ExceptionCons.CATCH_EVENT_NO_OUTGOING, def);
+    }
+
+    @Test
+    void endEventNeedsIncoming() {
+        Definition def = def();
+        node(def, "start", NodeType.START.getKey());
+        node(def, "end", NodeType.END.getKey());
+        eventNode(def, "me", EventType.MESSAGE_END.getValue()).setEventName("order.done");
+        skip(def, "start", "end", NodeType.START.getKey(), NodeType.END.getKey());
+        skip(def, "me", "end", NodeType.BETWEEN.getKey(), NodeType.END.getKey());
+        assertMessage(ExceptionCons.END_EVENT_TOPOLOGY, def);
+    }
+
+    @Test
     void illegalEventTypeRejected() {
         Definition def = def();
         node(def, "start", NodeType.START.getKey());
@@ -231,6 +267,84 @@ class EventGraphValidationTest {
         skip(def, "start", "x", NodeType.START.getKey(), NodeType.BETWEEN.getKey());
         skip(def, "x", "end", NodeType.BETWEEN.getKey(), NodeType.END.getKey());
         assertMessage(ExceptionCons.ILLEGAL_EVENT_TYPE, def);
+    }
+
+    @Test
+    void parallelGatewayWithMultipleEventWaitBranchesRejected() {
+        // 并行网关同时扇出到两个事件等待分支（定时捕获 + 消息捕获），第一阶段拒绝该结构
+        Definition def = def();
+        node(def, "start", NodeType.START.getKey());
+        node(def, "gw", NodeType.PARALLEL.getKey());
+        eventNode(def, "tc", EventType.TIMER_CATCH.getValue()).setNodeConfig(TIMER_CONFIG);
+        eventNode(def, "mc", EventType.MESSAGE_CATCH.getValue()).setEventName("order.paid");
+        node(def, "end", NodeType.END.getKey());
+        skip(def, "start", "gw", NodeType.START.getKey(), NodeType.PARALLEL.getKey());
+        skip(def, "gw", "tc", NodeType.PARALLEL.getKey(), NodeType.BETWEEN.getKey());
+        skip(def, "gw", "mc", NodeType.PARALLEL.getKey(), NodeType.BETWEEN.getKey());
+        skip(def, "tc", "end", NodeType.BETWEEN.getKey(), NodeType.END.getKey());
+        skip(def, "mc", "end", NodeType.BETWEEN.getKey(), NodeType.END.getKey());
+        assertMessage(ExceptionCons.GATEWAY_MULTI_EVENT_WAIT_BRANCHES, def);
+    }
+
+    @Test
+    void singleEventWaitBranchBesideTaskBranchPasses() {
+        // 单个事件等待分支与普通任务分支并存不触发限制
+        Definition def = def();
+        node(def, "start", NodeType.START.getKey());
+        node(def, "gw", NodeType.PARALLEL.getKey());
+        eventNode(def, "mc", EventType.MESSAGE_CATCH.getValue()).setEventName("order.paid");
+        node(def, "n1", NodeType.BETWEEN.getKey());
+        node(def, "end", NodeType.END.getKey());
+        skip(def, "start", "gw", NodeType.START.getKey(), NodeType.PARALLEL.getKey());
+        skip(def, "gw", "mc", NodeType.PARALLEL.getKey(), NodeType.BETWEEN.getKey());
+        skip(def, "gw", "n1", NodeType.PARALLEL.getKey(), NodeType.BETWEEN.getKey());
+        skip(def, "mc", "end", NodeType.BETWEEN.getKey(), NodeType.END.getKey());
+        skip(def, "n1", "end", NodeType.BETWEEN.getKey(), NodeType.END.getKey());
+        assertDoesNotThrow(() -> FlowConfigUtil.validateGraph(combine(def)));
+    }
+
+    @Test
+    void serialGatewayEventWaitBranchesNotRestricted() {
+        // 串行网关同一时刻只激活一条分支，两个事件等待出口不受并行限制
+        Definition def = def();
+        node(def, "start", NodeType.START.getKey());
+        node(def, "gw", NodeType.SERIAL.getKey());
+        eventNode(def, "tc", EventType.TIMER_CATCH.getValue()).setNodeConfig(TIMER_CONFIG);
+        eventNode(def, "mc", EventType.MESSAGE_CATCH.getValue()).setEventName("order.paid");
+        node(def, "end", NodeType.END.getKey());
+        skip(def, "start", "gw", NodeType.START.getKey(), NodeType.SERIAL.getKey());
+        skip(def, "gw", "tc", NodeType.SERIAL.getKey(), NodeType.BETWEEN.getKey());
+        skip(def, "gw", "mc", NodeType.SERIAL.getKey(), NodeType.BETWEEN.getKey());
+        skip(def, "tc", "end", NodeType.BETWEEN.getKey(), NodeType.END.getKey());
+        skip(def, "mc", "end", NodeType.BETWEEN.getKey(), NodeType.END.getKey());
+        assertDoesNotThrow(() -> FlowConfigUtil.validateGraph(combine(def)));
+    }
+
+    @Test
+    void timerEventWithGarbageValueRejected() {
+        // timerValue 非 ISO-8601 时长：保存期试算下次触发时间即暴露，而不是运行到达时才失败
+        Definition def = def();
+        node(def, "start", NodeType.START.getKey());
+        eventNode(def, "tc", EventType.TIMER_CATCH.getValue())
+            .setNodeConfig("{\"event\":{\"timerType\":\"AFTER\",\"timerValue\":\"3天\"}}");
+        node(def, "end", NodeType.END.getKey());
+        skip(def, "start", "tc", NodeType.START.getKey(), NodeType.BETWEEN.getKey());
+        skip(def, "tc", "end", NodeType.BETWEEN.getKey(), NodeType.END.getKey());
+        assertMessage(ExceptionCons.ILLEGAL_EVENT_TIMER_DURATION, def);
+    }
+
+    @Test
+    void timerEventWithIllegalTimezoneRejected() {
+        // POINT_IN_TIME 带非法时区：试算解析时区即报错，统一为流程异常而非裸 DateTimeException
+        Definition def = def();
+        node(def, "start", NodeType.START.getKey());
+        eventNode(def, "tc", EventType.TIMER_CATCH.getValue())
+            .setNodeConfig("{\"event\":{\"timerType\":\"POINT_IN_TIME\""
+                + ",\"timerValue\":\"[\\\"09:00\\\"]\",\"timezone\":\"Mars/Olympus\"}}");
+        node(def, "end", NodeType.END.getKey());
+        skip(def, "start", "tc", NodeType.START.getKey(), NodeType.BETWEEN.getKey());
+        skip(def, "tc", "end", NodeType.BETWEEN.getKey(), NodeType.END.getKey());
+        assertMessage(ExceptionCons.ILLEGAL_EVENT_TIMEZONE, def);
     }
 
     @Test

@@ -181,12 +181,16 @@ public final class TimerScheduleStrategies {
     }
 
     /**
-     * 解析时区，空值回退系统默认时区。
+     * 解析时区，空值回退系统默认时区；非法时区统一转流程异常，保存期试算即可拦截。
      */
     private static ZoneId resolveZone(String timezone) {
         if (StringUtils.isEmpty(timezone)) {
             return ZoneId.systemDefault();
         }
-        return ZoneId.of(timezone.trim());
+        try {
+            return ZoneId.of(timezone.trim());
+        } catch (Exception e) {
+            throw new FlowException(ExceptionCons.ILLEGAL_EVENT_TIMEZONE);
+        }
     }
 }

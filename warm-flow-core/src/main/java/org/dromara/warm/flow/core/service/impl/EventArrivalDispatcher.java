@@ -18,6 +18,7 @@ import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.TaskStatus;
+import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.service.event.EventPublisher;
 import org.dromara.warm.flow.core.timer.TimerContext;
 import org.dromara.warm.flow.core.timer.TimerScheduleStrategies;
@@ -118,7 +119,7 @@ final class EventArrivalDispatcher {
         if (EventType.isThrow(eventType) || EventType.isEnd(eventType)) {
             // 抛出事件先发布消息；结束事件（MESSAGE_END / TERMINATE_END）同样先完成发布 / 清理
             if (EventType.isThrow(eventType) || EventType.MESSAGE_END.getValue().equals(eventType)) {
-                publishMessage(execution, node, null);
+                publishMessage(execution, node);
             }
             if (EventType.TERMINATE_END.getValue().equals(eventType)) {
                 // 终止结束事件：中断实例其它活动等待记录，并把实例终态定为「终止」——
@@ -292,14 +293,20 @@ final class EventArrivalDispatcher {
     }
 
     /**
-     * 发布消息（MESSAGE_THROW / MESSAGE_END）：宿主未注册发布器时告警跳过。
+     * 发布消息（MESSAGE_THROW / MESSAGE_END）：宿主未注册发布器时视为发布失败。
+     * <p>
+     * 抛出 / 结束路径本身没有等待记录，{@code eventWaitId} 为空；宿主去重可用自身业务幂等键
+     * （设计 §9.3：可靠投递由宿主 Outbox 承担，发布失败随调用方事务失败）。据此，已配置的
+     * 消息抛出 / 消息结束事件在发布器缺失时抛出异常，随调用方事务整体回滚，
+     * 不允许「流程照常推进、消息静默丢失」。
      */
-    private static void publishMessage(FlowExecution execution, Node node, EventWait wait) {
+    private static void publishMessage(FlowExecution execution, Node node) {
         EventPublisher publisher = FlowEngine.eventPublisher();
         if (publisher == null) {
-            log.warn("未注册 EventPublisher，消息事件 {}({}) 发布被跳过 node={}"
+            log.error("未注册 EventPublisher，消息事件 {}({}) 发布失败 node={}"
                 , node.getEventType(), node.getEventName(), node.getNodeCode());
-            return;
+            throw new FlowException("[" + node.getNodeCode() + "]"
+                + ExceptionCons.EVENT_PUBLISHER_MISSING);
         }
         EventMessage message = new EventMessage()
             .setEventType(node.getEventType())
@@ -310,9 +317,6 @@ final class EventArrivalDispatcher {
             .setTenantId(execution.instance != null ? execution.instance.getTenantId() : null)
             .setPayload(execution.intent != null ? execution.intent.getVariables() : null)
             .setTriggerTime(new Date());
-        if (wait != null) {
-            message.setEventWaitId(wait.getId());
-        }
         publisher.publish(message);
     }
 

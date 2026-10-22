@@ -347,6 +347,8 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
                 && PublishStatus.PUBLISHED.getKey().equals(item.getIsPublish()))
             .map(Definition::getId)
             .collect(Collectors.toList());
+        // 被本次发布取代的全部旧版本（含转已失效与退回未发布），其定义级等待均需取消
+        List<Long> supersededDefIds = new ArrayList<>(otherDefIds);
         if (CollUtil.isNotEmpty(otherDefIds)) {
             List<Instance> instanceList = FlowEngine.insService().listByDefIds(otherDefIds);
             if (CollUtil.isNotEmpty(instanceList)) {
@@ -370,11 +372,10 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
         flowDefinition.setIsPublish(PublishStatus.PUBLISHED.getKey());
         boolean updated = updateById(flowDefinition);
         if (updated) {
-            // 发布钩子：取消旧版本定义级等待，为本版本重建 TIMER_START 等待
-            if (CollUtil.isNotEmpty(otherDefIds)) {
-                for (Long otherDefId : otherDefIds) {
-                    FlowEngine.eventWaitService().cancelByDefinitionId(otherDefId);
-                }
+            // 发布钩子：取消被取代版本（已失效 / 退回未发布）的定义级等待，
+            // 防止已失效旧版本的定时启动等待继续创建实例；再为本版本重建 TIMER_START 等待
+            for (Long supersededDefId : supersededDefIds) {
+                FlowEngine.eventWaitService().cancelByDefinitionId(supersededDefId);
             }
             syncTimerStartWait(getById(id), combine);
         }

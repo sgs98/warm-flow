@@ -452,6 +452,11 @@ public class ExceptionCons {
     public static final String ILLEGAL_EVENT_MAX_COUNT = "事件定时配置 maxCount 只能是正整数";
 
     /**
+     * 事件定时配置的 timezone 不是合法的 IANA 时区标识（如 Asia/Shanghai）。
+     */
+    public static final String ILLEGAL_EVENT_TIMEZONE = "事件定时配置 timezone 非法";
+
+    /**
      * 未知或非法的事件类型，无法映射到 {@code EventType}。
      */
     public static final String ILLEGAL_EVENT_TYPE = "未知的事件类型";
@@ -527,6 +532,12 @@ public class ExceptionCons {
     public static final String EVENT_MIX_START_TYPE = "同一定义不能混用消息启动与定时启动事件";
 
     /**
+     * 并行 / 包容网关不允许同时激活多个无待办的事件等待分支。
+     */
+    public static final String GATEWAY_MULTI_EVENT_WAIT_BRANCHES
+        = "并行/包容网关的扇出分支中事件等待分支最多一个";
+
+    /**
      * 事件类型尚未开放运行时能力，只能保存为未发布草稿。
      */
     public static final String EVENT_NOT_PUBLISHABLE = "当前版本尚未开放该事件类型的运行时，只能保存为未发布草稿";
@@ -565,6 +576,11 @@ public class ExceptionCons {
      * 错误等待记录已被处理或不可触发。
      */
     public static final String EVENT_ERROR_ALREADY_PROCESSED = "错误等待记录已被处理或不可触发";
+
+    /**
+     * 消息抛出 / 消息结束事件未注册发布器：发布无法完成，随调用方事务失败。
+     */
+    public static final String EVENT_PUBLISHER_MISSING = "消息事件未注册 EventPublisher，发布失败";
 
     /**
      * 未找到结束节点。

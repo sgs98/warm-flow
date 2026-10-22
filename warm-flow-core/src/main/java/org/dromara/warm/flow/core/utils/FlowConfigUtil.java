@@ -24,8 +24,11 @@ import org.dromara.warm.flow.core.entity.Skip;
 import org.dromara.warm.flow.core.enums.EventType;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.service.event.EventConfig;
 import org.dromara.warm.flow.core.service.task.ServiceTaskConfig;
+import org.dromara.warm.flow.core.timer.TimerContext;
+import org.dromara.warm.flow.core.timer.TimerScheduleStrategies;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -106,6 +109,8 @@ public class FlowConfigUtil {
             checkServiceNode(node, skipGroup.get(node.getNodeCode()));
             checkEventNode(node, nodeMap, skipGroup.get(node.getNodeCode()), incomingGroup.get(node.getNodeCode()));
         }
+        // 并行 / 包容网关不允许产生多个无待办的事件等待分支
+        checkGatewayEventBranches(allNodes, nodeMap, skipGroup);
         // 同一定义不能混用消息启动与定时启动
         checkStartEventTypeConsistency(allNodes);
     }
@@ -187,8 +192,53 @@ public class FlowConfigUtil {
             AssertUtil.isEmpty(node.getEventName(), "[" + node.getNodeCode() + "]" + ExceptionCons.MESSAGE_EVENT_NO_NAME);
         }
         if (EventType.isTimer(eventType)) {
-            AssertUtil.isTrue(!EventConfig.parse(node.getNodeConfig()).hasTimer(),
+            EventConfig config = EventConfig.parse(node.getNodeConfig());
+            AssertUtil.isTrue(!config.hasTimer(),
                 "[" + node.getNodeCode() + "]" + ExceptionCons.TIMER_EVENT_NO_CONFIG);
+            // 试算一次下次触发时间：timerValue / timezone 格式错误在保存与发布期即暴露，
+            // 而不是等到定时启动建等待或运行到达捕获 / 边界节点时才失败
+            try {
+                TimerScheduleStrategies.nextTriggerAt(config.getTimerType(), new TimerContext()
+                    .setPreviousTriggerAt(null)
+                    .setCurrentTime(new Date())
+                    .setTriggerInterval(config.getTimerValue())
+                    .setTimezone(config.getTimezone())
+                    .setRepeatCount(0));
+            } catch (FlowException e) {
+                throw new FlowException("[" + node.getNodeCode() + "]" + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 并行 / 包容网关不允许同时激活多个无待办的事件等待分支。
+     *
+     * <p>等待分支不产生待办，多分支同时等待会与实例单节点位置字段和网关汇聚计数产生歧义
+     * （事件设计 §8.0 约定 5），保存与导入路径统一拒绝；串行网关同一时刻只激活一条分支，
+     * 单事件等待分支与普通任务分支并存不受限。</p>
+     *
+     * @param allNodes  定义内全部节点
+     * @param nodeMap   当前定义的节点索引（编码唯一，键为节点编码）
+     * @param skipGroup 按当前节点编码分组的连线
+     */
+    private static void checkGatewayEventBranches(List<Node> allNodes, Map<String, Node> nodeMap
+        , Map<String, List<Skip>> skipGroup) {
+        for (Node node : allNodes) {
+            if (!NodeType.isGateWayParallel(node.getNodeType()) && !NodeType.isGateWayInclusive(node.getNodeType())) {
+                continue;
+            }
+            List<Skip> outgoing = skipGroup.get(node.getNodeCode());
+            if (CollUtil.isEmpty(outgoing)) {
+                continue;
+            }
+            long waitBranches = outgoing.stream()
+                .filter(skip -> SkipType.isPass(skip.getSkipType()))
+                .map(skip -> nodeMap.get(skip.getNextNodeCode()))
+                .filter(target -> target != null && StringUtils.isNotEmpty(target.getEventType())
+                    && EventType.isCatch(target.getEventType()))
+                .count();
+            AssertUtil.isTrue(waitBranches > 1,
+                "[" + node.getNodeCode() + "]" + ExceptionCons.GATEWAY_MULTI_EVENT_WAIT_BRANCHES);
         }
     }
 
