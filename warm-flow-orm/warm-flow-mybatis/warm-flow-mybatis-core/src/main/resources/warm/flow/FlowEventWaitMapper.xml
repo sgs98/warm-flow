@@ -786,9 +786,42 @@
         </where>
     </update>
 
+    <update id="cancelClaimed">
+        update flow_event_wait
+        set status = 'CANCELLED',
+            last_error = #{error},
+            lock_owner = null,
+            lock_until = null,
+            version = version + 1,
+            update_time = #{now}
+        <where>
+            id = #{id}
+            and version = #{version}
+            and status = 'RUNNING'
+            and lock_owner = #{workerId}
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+
     <update id="claimMessage">
         update flow_event_wait
         set status = 'RUNNING',
+            lock_owner = #{workerId},
+            lock_until = #{lockUntil},
+            version = version + 1,
+            update_time = #{now}
+        <where>
+            id = #{id}
+            and version = #{version}
+            and status in ('WAITING', 'RETRY')
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+
+    <update id="claimMessageWithPayload">
+        update flow_event_wait
+        set status = 'RUNNING',
+            <if test="payload != null">payload = #{payload},</if>
             lock_owner = #{workerId},
             lock_until = #{lockUntil},
             version = version + 1,
@@ -808,6 +841,51 @@
             id = #{id}
             and version = #{version}
             and status in ('WAITING', 'RETRY')
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+
+    <update id="cancelByAttachedTaskId">
+        update flow_event_wait
+        set status = 'CANCELLED',
+            lock_owner = null,
+            lock_until = null,
+            version = version + 1,
+            update_time = #{now}
+        <where>
+            attached_task_id = #{attachedTaskId}
+            <if test="excludedWaitId != null">and id != #{excludedWaitId}</if>
+            and status in ('WAITING', 'RETRY', 'RUNNING')
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+
+    <update id="cancelByInstanceId">
+        update flow_event_wait
+        set status = 'CANCELLED',
+            lock_owner = null,
+            lock_until = null,
+            version = version + 1,
+            update_time = #{now}
+        <where>
+            instance_id = #{instanceId}
+            <if test="excludedWaitId != null">and id != #{excludedWaitId}</if>
+            and status in ('WAITING', 'RETRY', 'RUNNING')
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+
+    <update id="cancelByDefinitionId">
+        update flow_event_wait
+        set status = 'CANCELLED',
+            lock_owner = null,
+            lock_until = null,
+            version = version + 1,
+            update_time = #{now}
+        <where>
+            definition_id = #{definitionId}
+            and instance_id is null
+            and status in ('WAITING', 'RETRY', 'RUNNING')
             <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
         </where>
     </update>

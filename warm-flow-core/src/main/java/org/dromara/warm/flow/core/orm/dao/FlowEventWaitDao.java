@@ -11,8 +11,9 @@ import java.util.List;
  * 事件等待记录 DAO 接口。
  * <p>
  * 除通用 CRUD 外，定义定时器底座所需的到期扫描、CAS 抢占、租约续期与恢复、
- * 重试与终态、重排期等条件更新语义。所有条件更新必须校验
- * {@code id + version}（完成类更新还须校验 {@code status = RUNNING + lock_owner}），
+ * 重试与终态、重排期、范围取消等条件更新语义。单条条件更新必须校验
+ * {@code id + version}（完成类更新还须校验 {@code status = RUNNING + lock_owner}）；
+ * 范围取消更新按业务范围与状态集合过滤并递增版本号，不校验单条版本。
  * 由 MyBatis / MyBatis-Plus 适配层分别实现，core 不写 ORM 查询语法。
  * <p>
  * 逻辑删除与未删除值由引擎配置决定，实现不得写死 {@code del_flag = '0'}。
@@ -177,6 +178,22 @@ public interface FlowEventWaitDao<T extends EventWait> extends WarmDao<T> {
         Date nextTriggerAt, Date retryAt, Date now);
 
     /**
+     * 取消本节点持有的一条执行中记录（执行前发现等待已失效的遗留清理）。
+     * <p>
+     * 条件更新校验 {@code id + version + status = RUNNING + lock_owner}：置 {@code CANCELLED}、
+     * 写入取消原因、清空租约并递增版本号。未命中说明记录已被租约恢复流程或其它执行器接管，
+     * 调用方无需处理，保持记录当前状态。
+     *
+     * @param id       记录主键
+     * @param version  抢占后的版本号
+     * @param workerId 工作节点标识
+     * @param now      当前时间
+     * @param error    取消原因（写入 {@code last_error}）
+     * @return 取消成功返回 {@code true}
+     */
+    boolean cancelClaimed(Long id, Integer version, String workerId, Date now, String error);
+
+    /**
      * 按查询条件分页查询等待记录。
      * <p>
      * 条件语义与 {@link #selectListByQuery(EventWaitQuery)} 一致；
@@ -225,6 +242,15 @@ public interface FlowEventWaitDao<T extends EventWait> extends WarmDao<T> {
      */
     boolean claimMessage(Long id, Integer version, String workerId, Date now, Date lockUntil);
 
+    /** 抢占消息记录并原子写入本次载荷，避免并发投递覆盖获胜者的重试数据。 */
+    default boolean claimMessageWithPayload(Long id, Integer version, String workerId, Date now,
+        Date lockUntil, String payload) {
+        if (payload != null) {
+            throw new UnsupportedOperationException("当前 FlowEventWaitDao 未实现消息载荷原子抢占");
+        }
+        return claimMessage(id, version, workerId, now, lockUntil);
+    }
+
     /**
      * 绑定消息载荷：把外部消息的载荷写入等待记录的 {@code payload} 列，
      * 供执行链从记录读取并合并为流程变量（失败重试与租约恢复后仍可读取）。
@@ -240,4 +266,53 @@ public interface FlowEventWaitDao<T extends EventWait> extends WarmDao<T> {
      * @return 绑定成功返回 {@code true}
      */
     boolean bindPayload(Long id, Integer version, String payload);
+
+    /**
+     * 按边界事件附着的待办任务范围取消等待记录：置 {@code CANCELLED}、递增版本号并清空租约。
+     * <p>
+     * 条件：{@code attached_task_id = attachedTaskId and status in (WAITING, RETRY, RUNNING)}。
+     * 覆盖 {@code RUNNING} 使在途执行器随即失效（其按旧版本提交结果必然失配）；
+     * 已是 {@code CANCELLED} / {@code DEAD} 等终态的记录保持原状态，避免覆盖现场。
+     *
+     * @param attachedTaskId 边界事件附着的待办任务 ID
+     * @param now            当前时间
+     * @return 本次取消的记录数
+     */
+    default int cancelByAttachedTaskId(Long attachedTaskId, Date now) {
+        return cancelByAttachedTaskId(attachedTaskId, now, null);
+    }
+
+    /** 取消附着任务的等待记录，排除当前正在完成的事件记录。 */
+    int cancelByAttachedTaskId(Long attachedTaskId, Date now, Long excludedWaitId);
+
+    /**
+     * 按流程实例范围取消等待记录：置 {@code CANCELLED}、递增版本号并清空租约。
+     * <p>
+     * 条件：{@code instance_id = instanceId and status in (WAITING, RETRY, RUNNING)}，
+     * 状态覆盖与失效语义同 {@link #cancelByAttachedTaskId(Long, Date)}。
+     *
+     * @param instanceId 流程实例 ID
+     * @param now        当前时间
+     * @return 本次取消的记录数
+     */
+    default int cancelByInstanceId(Long instanceId, Date now) {
+        return cancelByInstanceId(instanceId, now, null);
+    }
+
+    /** 取消实例等待记录，排除当前正在完成的事件记录。 */
+    int cancelByInstanceId(Long instanceId, Date now, Long excludedWaitId);
+
+    /**
+     * 按流程定义范围取消定义级等待记录（如定时启动事件）：置 {@code CANCELLED}、
+     * 递增版本号并清空租约。
+     * <p>
+     * 条件：{@code definition_id = definitionId and instance_id is null
+     * and status in (WAITING, RETRY, RUNNING)}。仅命中定义级记录，
+     * 实例级等待由实例挂起 / 撤回 / 终止等操作单独清理。
+     *
+     * @param definitionId 流程定义 ID
+     * @param now          当前时间
+     * @return 本次取消的记录数
+     */
+    int cancelByDefinitionId(Long definitionId, Date now);
 }

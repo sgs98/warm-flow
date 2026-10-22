@@ -19,11 +19,14 @@ import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.constant.EventCons;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
+import org.dromara.warm.flow.core.dto.DefJson;
+import org.dromara.warm.flow.core.dto.NodeJson;
 import org.dromara.warm.flow.core.entity.EventWait;
 import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
+import org.dromara.warm.flow.core.enums.ChartStatus;
 import org.dromara.warm.flow.core.enums.EventType;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.TaskStatus;
@@ -148,12 +151,15 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
 
     /**
      * 按实例主键 + 消息名称触发等待中的消息事件。
+     * <p>
+     * 名称匹配但记录已是 {@code RUNNING / CANCELLED / DEAD} 或抢占失败时返回当前实例，流程不变；
+     * 实例内不存在该消息名称的等待记录时抛出异常。
      *
      * @param instanceId 流程实例主键
      * @param eventName  消息名称
-     * @param payload    消息载荷
+     * @param payload    消息载荷，合并为流程变量
      * @param context    触发上下文
-     * @return 触发后的流程实例
+     * @return 触发后的流程实例（记录已处理或抢占失败时为触发前的实例）
      */
     @Override
     public Instance triggerMessage(Long instanceId, String eventName
@@ -163,44 +169,71 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
         Instance instance = FlowEngine.insService().getById(instanceId);
         AssertUtil.isNull(instance, ExceptionCons.NOT_FOUNT_INSTANCE);
 
-        // 定位匹配的等待记录：实例内 MESSAGE_CATCH / MESSAGE_BOUNDARY 且消息名称相等
+        // 定位匹配的等待记录：实例内 MESSAGE_CATCH / MESSAGE_BOUNDARY 且消息名称相等；
+        // 名称匹配但已 RUNNING / CANCELLED / DEAD 的记录不强行覆盖，按契约返回当前实例
         EventWait target = null;
+        boolean seenProcessed = false;
         for (EventWait wait : FlowEngine.eventWaitService().list(FlowEngine.newEventWait()
             .setInstanceId(instanceId))) {
             boolean typeMatched = EventType.MESSAGE_CATCH.getValue().equals(wait.getEventType())
                 || EventType.MESSAGE_BOUNDARY.getValue().equals(wait.getEventType());
-            boolean statusMatched = EventCons.STATUS_WAITING.equals(wait.getStatus())
-                || EventCons.STATUS_RETRY.equals(wait.getStatus());
-            if (typeMatched && statusMatched && eventName.equals(wait.getEventName())) {
+            if (!typeMatched || !eventName.equals(wait.getEventName())) {
+                continue;
+            }
+            if (EventCons.STATUS_WAITING.equals(wait.getStatus())
+                || EventCons.STATUS_RETRY.equals(wait.getStatus())) {
                 target = wait;
                 break;
             }
+            seenProcessed = true;
         }
-        AssertUtil.isNull(target, ExceptionCons.NOT_FOUND_MESSAGE_WAIT);
-
-        // 消息载荷落库到等待记录：执行链从 wait.payload 读取并合并为流程变量，
-        // 失败重试与租约恢复后仍可读取；同时写入内存态供本次同步处理直接读取。
-        if (MapUtil.isNotEmpty(payload)) {
-            String payloadJson = FlowEngine.jsonConvert.objToStr(payload);
-            target.setPayload(payloadJson);
-            FlowEngine.eventWaitService().bindPayload(target.getId(), target.getVersion(), payloadJson);
+        if (target == null) {
+            if (seenProcessed || messageAlreadyCompleted(instance, eventName)) {
+                log.warn("消息等待记录已被处理或不可触发，流程不变 instanceId={} eventName={}"
+                    , instanceId, eventName);
+                return instance;
+            }
+            throw new FlowException(ExceptionCons.NOT_FOUND_MESSAGE_WAIT);
         }
 
-        // 条件更新抢占：记录已是 RUNNING / CANCELLED / DEAD 时不得强行覆盖
+        // 抢占与载荷写入使用同一条件更新，失败的并发投递不能覆盖获胜者的重试载荷。
+        String payloadJson = MapUtil.isNotEmpty(payload) ? FlowEngine.jsonConvert.objToStr(payload) : null;
         WarmFlow config = FlowEngine.getFlowConfig();
         long leaseMillis = config != null && config.getTimerLeaseSeconds() != null
             ? config.getTimerLeaseSeconds() * 1000L : 60_000L;
         Date now = new Date();
-        boolean claimed = FlowEngine.eventWaitService().claimMessage(target.getId()
-            , target.getVersion(), TimerWorkerId.get(), now, new Date(now.getTime() + leaseMillis));
+        boolean claimed = FlowEngine.eventWaitService().claimMessageWithPayload(target.getId()
+            , target.getVersion(), TimerWorkerId.get(), now, new Date(now.getTime() + leaseMillis), payloadJson);
         if (!claimed) {
             log.warn("消息等待记录已被抢占或不可触发，流程不变 instanceId={} eventName={}"
                 , instanceId, eventName);
             return instance;
         }
+        if (payloadJson != null) {
+            target.setPayload(payloadJson);
+        }
         // 同步处理已抢占记录（完成 / 失败重试语义与定时路径一致），透传调用方上下文
         FlowEngine.eventWaitService().processClaimedMessage(target, context);
         return FlowEngine.insService().getById(instanceId);
+    }
+
+    /** 一次性等待完成后会删除记录，重复消息通过实例图元快照确认是否已处理。 */
+    private boolean messageAlreadyCompleted(Instance instance, String eventName) {
+        if (StringUtils.isEmpty(instance.getDefJson())) {
+            return false;
+        }
+        DefJson snapshot = FlowEngine.jsonConvert.strToBean(instance.getDefJson(), DefJson.class);
+        if (snapshot == null || CollUtil.isEmpty(snapshot.getNodeList())) {
+            return false;
+        }
+        for (NodeJson node : snapshot.getNodeList()) {
+            if ((EventType.MESSAGE_CATCH.getValue().equals(node.getEventType())
+                || EventType.MESSAGE_BOUNDARY.getValue().equals(node.getEventType()))
+                && eventName.equals(node.getEventName()) && ChartStatus.isDone(node.getStatus())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

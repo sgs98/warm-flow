@@ -14,6 +14,8 @@ import org.dromara.warm.flow.core.orm.dao.FlowEventWaitDao;
 import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.EventWaitService;
 import org.dromara.warm.flow.core.timer.EventWaitProcessor;
+import org.dromara.warm.flow.core.timer.EventTaskHandler;
+import org.dromara.warm.flow.core.invoker.FrameInvoker;
 import org.dromara.warm.flow.core.timer.TimerWorkerId;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.CollUtil;
@@ -70,7 +72,9 @@ public class EventWaitServiceImpl extends WarmServiceImpl<FlowEventWaitDao<Event
     }
 
     /**
-     * 按流程实例 ID 集合批量取消等待记录。
+     * 按流程实例 ID 集合批量取消等待记录：条件更新置 {@code CANCELLED}、递增版本号并清空租约，
+     * 覆盖 {@code WAITING / RETRY / RUNNING}（在途执行器因版本失配无法提交结果）；
+     * {@code CANCELLED / DEAD} 等终态保持原状态。
      *
      * @param instanceIds 流程实例 ID 集合
      */
@@ -79,15 +83,15 @@ public class EventWaitServiceImpl extends WarmServiceImpl<FlowEventWaitDao<Event
         if (CollUtil.isEmpty(instanceIds)) {
             return;
         }
+        Date now = new Date();
         for (Long instanceId : instanceIds) {
-            cancel(list(FlowEngine.newEventWait().setInstanceId(instanceId)));
+            warmDao.cancelByInstanceId(instanceId, now, EventWaitProcessor.currentWaitId());
         }
     }
 
     /**
-     * 按流程定义 ID 取消定义级等待记录（如定时启动事件）。
-     * <p>
-     * 仅取消定义级记录（{@code instanceId} 为空），实例级等待不受定义级操作影响；
+     * 按流程定义 ID 取消定义级等待记录（如定时启动事件）：条件更新置 {@code CANCELLED}、
+     * 递增版本号并清空租约，仅命中定义级记录（{@code instanceId} 为空），
      * 实例级等待由实例挂起 / 撤回 / 终止等操作单独清理。
      *
      * @param definitionId 流程定义 ID
@@ -97,9 +101,7 @@ public class EventWaitServiceImpl extends WarmServiceImpl<FlowEventWaitDao<Event
         if (ObjectUtil.isNull(definitionId)) {
             return;
         }
-        cancel(list(FlowEngine.newEventWait().setDefinitionId(definitionId)).stream()
-            .filter(wait -> ObjectUtil.isNull(wait.getInstanceId()))
-            .collect(Collectors.toList()));
+        warmDao.cancelByDefinitionId(definitionId, new Date());
     }
 
     /**
@@ -120,7 +122,9 @@ public class EventWaitServiceImpl extends WarmServiceImpl<FlowEventWaitDao<Event
     }
 
     /**
-     * 按边界事件关联的待办任务 ID 取消等待记录。
+     * 按边界事件关联的待办任务 ID 取消等待记录：条件更新置 {@code CANCELLED}、递增版本号
+     * 并清空租约，覆盖 {@code WAITING / RETRY / RUNNING}（在途执行器因版本失配无法提交结果）；
+     * {@code CANCELLED / DEAD} 等终态保持原状态。
      *
      * @param taskId 待办任务 ID
      */
@@ -129,7 +133,22 @@ public class EventWaitServiceImpl extends WarmServiceImpl<FlowEventWaitDao<Event
         if (ObjectUtil.isNull(taskId)) {
             return;
         }
-        cancel(list(FlowEngine.newEventWait().setAttachedTaskId(taskId)));
+        warmDao.cancelByAttachedTaskId(taskId, new Date(), EventWaitProcessor.currentWaitId());
+    }
+
+    /**
+     * 取消本节点持有的一条执行中等待记录：条件更新校验 {@code id + version + RUNNING +
+     * lock_owner}，未命中说明记录已被租约恢复流程或其它执行器接管。
+     *
+     * @param id       记录主键
+     * @param version  抢占后的版本号
+     * @param workerId 工作节点标识
+     * @param error    取消原因（写入 {@code last_error}）
+     * @return 取消成功返回 {@code true}
+     */
+    @Override
+    public boolean cancelClaimed(Long id, Integer version, String workerId, String error) {
+        return warmDao.cancelClaimed(id, version, workerId, new Date(), error);
     }
 
     /**
@@ -270,6 +289,7 @@ public class EventWaitServiceImpl extends WarmServiceImpl<FlowEventWaitDao<Event
      */
     @Override
     public boolean triggerErrorWait(EventWait target, String errorCode, String errorMessage) {
+        checkTriggerTransaction();
         WarmFlow config = FlowEngine.getFlowConfig();
         long leaseMillis = config != null && config.getTimerLeaseSeconds() != null
             ? config.getTimerLeaseSeconds() * 1000L : 60_000L;
@@ -300,7 +320,23 @@ public class EventWaitServiceImpl extends WarmServiceImpl<FlowEventWaitDao<Event
     @Override
     public boolean claimMessage(Long id, Integer version, String workerId, Date now
         , Date lockUntil) {
+        checkTriggerTransaction();
         return warmDao.claimMessage(id, version, workerId, now, lockUntil);
+    }
+
+    @Override
+    public boolean claimMessageWithPayload(Long id, Integer version, String workerId, Date now,
+        Date lockUntil, String payload) {
+        checkTriggerTransaction();
+        return warmDao.claimMessageWithPayload(id, version, workerId, now, lockUntil, payload);
+    }
+
+    private void checkTriggerTransaction() {
+        EventTaskHandler handler = FrameInvoker.getBean(EventTaskHandler.class);
+        if (handler == null) {
+            throw new IllegalStateException("未注册 EventTaskHandler，无法触发消息或错误事件");
+        }
+        handler.checkTriggerTransaction();
     }
 
     /**
@@ -336,28 +372,5 @@ public class EventWaitServiceImpl extends WarmServiceImpl<FlowEventWaitDao<Event
     public void processClaimedMessage(EventWait wait, WorkflowContext context) {
         new EventWaitProcessor(warmDao, FlowEngine.getFlowConfig())
             .process(wait, wait.getStatus(), wait.getNextTriggerAt(), wait.getRetryAt(), context);
-    }
-
-    /**
-     * 将等待记录批量置为取消状态；仅取消仍在等待 / 重试中的记录，
-     * 已 DEAD 等终态记录保持原状态，避免覆盖失败现场。
-     *
-     * @param list 待取消记录
-     */
-    private void cancel(List<EventWait> list) {
-        if (CollUtil.isEmpty(list)) {
-            return;
-        }
-        List<EventWait> cancellable = list.stream()
-            .filter(wait -> EventCons.STATUS_WAITING.equals(wait.getStatus())
-                || EventCons.STATUS_RETRY.equals(wait.getStatus()))
-            .collect(Collectors.toList());
-        if (CollUtil.isEmpty(cancellable)) {
-            return;
-        }
-        for (EventWait wait : cancellable) {
-            wait.setStatus(EventCons.STATUS_CANCELLED);
-        }
-        updateBatch(cancellable);
     }
 }

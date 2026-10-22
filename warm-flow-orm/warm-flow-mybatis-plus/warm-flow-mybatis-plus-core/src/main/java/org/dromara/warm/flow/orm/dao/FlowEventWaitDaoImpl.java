@@ -180,10 +180,36 @@ public class FlowEventWaitDaoImpl extends WarmDaoImpl<FlowEventWait> implements 
     }
 
     @Override
+    public boolean cancelClaimed(Long id, Integer version, String workerId, Date now, String error) {
+        LambdaUpdateWrapper<FlowEventWait> wrapper = runningCondition(id, version, workerId)
+            .set(FlowEventWait::getStatus, EventCons.STATUS_CANCELLED)
+            .set(FlowEventWait::getLastError, error)
+            .set(FlowEventWait::getLockOwner, null)
+            .set(FlowEventWait::getLockUntil, null)
+            .set(FlowEventWait::getUpdateTime, now)
+            .setSql("version = version + 1");
+        return getMapper().update(null, wrapper) == 1;
+    }
+
+    @Override
     public boolean claimMessage(Long id, Integer version, String workerId, Date now, Date lockUntil) {
         LambdaUpdateWrapper<FlowEventWait> wrapper = dueCondition(id, version)
             .in(FlowEventWait::getStatus, EventCons.STATUS_WAITING, EventCons.STATUS_RETRY)
             .set(FlowEventWait::getStatus, EventCons.STATUS_RUNNING)
+            .set(FlowEventWait::getLockOwner, workerId)
+            .set(FlowEventWait::getLockUntil, lockUntil)
+            .set(FlowEventWait::getUpdateTime, now)
+            .setSql("version = version + 1");
+        return getMapper().update(null, wrapper) == 1;
+    }
+
+    @Override
+    public boolean claimMessageWithPayload(Long id, Integer version, String workerId, Date now,
+        Date lockUntil, String payload) {
+        LambdaUpdateWrapper<FlowEventWait> wrapper = dueCondition(id, version)
+            .in(FlowEventWait::getStatus, EventCons.STATUS_WAITING, EventCons.STATUS_RETRY)
+            .set(FlowEventWait::getStatus, EventCons.STATUS_RUNNING)
+            .set(payload != null, FlowEventWait::getPayload, payload)
             .set(FlowEventWait::getLockOwner, workerId)
             .set(FlowEventWait::getLockUntil, lockUntil)
             .set(FlowEventWait::getUpdateTime, now)
@@ -197,6 +223,34 @@ public class FlowEventWaitDaoImpl extends WarmDaoImpl<FlowEventWait> implements 
             .in(FlowEventWait::getStatus, EventCons.STATUS_WAITING, EventCons.STATUS_RETRY)
             .set(FlowEventWait::getPayload, payload);
         return getMapper().update(null, wrapper) == 1;
+    }
+
+    @Override
+    public int cancelByAttachedTaskId(Long attachedTaskId, Date now, Long excludedWaitId) {
+        LambdaUpdateWrapper<FlowEventWait> wrapper = cancelUpdate(now)
+            .eq(FlowEventWait::getAttachedTaskId, attachedTaskId);
+        if (excludedWaitId != null) {
+            wrapper.ne(FlowEventWait::getId, excludedWaitId);
+        }
+        return getMapper().update(null, wrapper);
+    }
+
+    @Override
+    public int cancelByInstanceId(Long instanceId, Date now, Long excludedWaitId) {
+        LambdaUpdateWrapper<FlowEventWait> wrapper = cancelUpdate(now)
+            .eq(FlowEventWait::getInstanceId, instanceId);
+        if (excludedWaitId != null) {
+            wrapper.ne(FlowEventWait::getId, excludedWaitId);
+        }
+        return getMapper().update(null, wrapper);
+    }
+
+    @Override
+    public int cancelByDefinitionId(Long definitionId, Date now) {
+        LambdaUpdateWrapper<FlowEventWait> wrapper = cancelUpdate(now)
+            .eq(FlowEventWait::getDefinitionId, definitionId)
+            .isNull(FlowEventWait::getInstanceId);
+        return getMapper().update(null, wrapper);
     }
 
     @Override
@@ -289,6 +343,21 @@ public class FlowEventWaitDaoImpl extends WarmDaoImpl<FlowEventWait> implements 
     }
 
     /**
+     * 范围取消的更新体：WAITING / RETRY / RUNNING 置 CANCELLED、递增版本号并清空租约
+     * （范围条件由调用方追加，del_flag 由 @TableLogic 统一附加）。
+     */
+    private LambdaUpdateWrapper<FlowEventWait> cancelUpdate(Date now) {
+        return new LambdaUpdateWrapper<FlowEventWait>()
+            .in(FlowEventWait::getStatus, EventCons.STATUS_WAITING, EventCons.STATUS_RETRY,
+                EventCons.STATUS_RUNNING)
+            .set(FlowEventWait::getStatus, EventCons.STATUS_CANCELLED)
+            .set(FlowEventWait::getLockOwner, null)
+            .set(FlowEventWait::getLockUntil, null)
+            .set(FlowEventWait::getUpdateTime, now)
+            .setSql("version = version + 1");
+    }
+
+    /**
      * 租约过期恢复的基础条件：主键 + 版本号 + RUNNING + 租约已过期。
      */
     private LambdaUpdateWrapper<FlowEventWait> expiredCondition(Long id, Integer version, Date now) {
@@ -328,10 +397,11 @@ public class FlowEventWaitDaoImpl extends WarmDaoImpl<FlowEventWait> implements 
     }
 
     /**
-     * 按数据源方言追加固定条数限制：Oracle 使用 OFFSET/FETCH，其余使用 LIMIT。
+     * 按数据源方言追加固定条数限制：Oracle / SQL Server 使用 OFFSET/FETCH。
      */
     private String limitSql(int limit) {
-        if ("oracle".equals(FlowEngine.dataSourceType())) {
+        if ("oracle".equals(FlowEngine.dataSourceType())
+            || "sqlserver".equals(FlowEngine.dataSourceType())) {
             return " OFFSET 0 ROWS FETCH NEXT " + limit + " ROWS ONLY";
         }
         return " LIMIT " + limit;

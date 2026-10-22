@@ -176,6 +176,9 @@ class EventRuntimeCharacteristicTest {
         assertEquals(FlowStatus.FINISHED.getKey(), finished.getFlowStatus());
         assertTrue(FlowEngine.eventWaitService().getWaitingByInstanceId(instance.getId()).isEmpty());
 
+        assertNull(FlowEngine.eventWaitService().getById(boundary.getId()),
+            "边界事件应完成当前等待记录，而不是在取消同任务其它等待时取消自身");
+
         // 流程图元数据：被中断的原节点补记为已办理，不残留「待办理」
         Map<String, Integer> chart = chartStatus(instance.getId());
         assertEquals(ChartStatus.DONE.getKey(), chart.get("apply")
@@ -280,9 +283,13 @@ class EventRuntimeCharacteristicTest {
         assertEquals("ok", harness.insDao.raw(instance.getId()).getVariableMap().get("result"));
         assertTrue(FlowEngine.eventWaitService().getWaitingByInstanceId(instance.getId()).isEmpty());
 
-        // 完成后再次触发同一消息：无匹配等待记录，报错
+        // 完成后再次触发同一消息：等待记录已处理，幂等返回实例而非报错（消息重投递场景）
+        Instance retried = FlowEngine.insService().triggerMessage(instance.getId()
+            , "kick", null, TestFlows.context(TestFlows.HANDLER));
+        assertEquals(FlowStatus.FINISHED.getKey(), retried.getFlowStatus());
+        // 触发实例中不存在的消息名称：无匹配等待记录，报错
         assertThrows(FlowException.class, () -> FlowEngine.insService().triggerMessage(instance.getId()
-            , "kick", null, TestFlows.context(TestFlows.HANDLER)));
+            , "no.such.event", null, TestFlows.context(TestFlows.HANDLER)));
     }
 
     @Test
@@ -470,6 +477,106 @@ class EventRuntimeCharacteristicTest {
         boolean hasWaiting = reactivated.stream()
             .anyMatch(wait -> EventCons.STATUS_WAITING.equals(wait.getStatus()));
         assertTrue(hasWaiting, "重新激活后应重建 WAITING 状态的定时启动等待");
+    }
+
+    @Test
+    void publishNewVersionCancelsUsedSupersededDefWaits() {
+        Definition v1 = timerStartFlow("evSupersede");
+        FlowEngine.defService().publish(v1.getId());
+        EventWait waitV1 = singleDefWait(v1.getId());
+        assertEquals(EventCons.STATUS_WAITING, waitV1.getStatus());
+
+        // 触发一次定时启动：v1 已被实例使用，新版本发布时走「已使用→已失效」分支
+        claimAndProcess(waitV1);
+        assertEquals(1, FlowEngine.insService().getByDefId(v1.getId()).size());
+        // 模拟重复定时器重排期残留的定义级等待（旧实现会把已失效版本剔出取消循环）
+        EventWait residue = FlowEngine.newEventWait()
+            .setDefinitionId(v1.getId()).setNodeCode("ts")
+            .setEventType(EventType.TIMER_START.getValue())
+            .setStatus(EventCons.STATUS_WAITING)
+            .setTriggerType(waitV1.getTriggerType()).setTriggerInterval(waitV1.getTriggerInterval())
+            .setNextTriggerAt(new Date(System.currentTimeMillis() + 3_600_000L))
+            .setRepeatCount(1).setRetryCount(0).setVersion(0);
+        harness.eventWaitDao.save(residue);
+        assertEquals(EventCons.STATUS_WAITING, singleDefWait(v1.getId()).getStatus());
+
+        // 同 flowCode 发布第二版
+        Definition v2 = FlowEngine.newDef()
+            .setFlowCode("evSupersede").setFlowName("evSupersede").setVersion("2")
+            .setIsPublish(PublishStatus.PUBLISHED.getKey())
+            .setActivityStatus(ActivityStatus.ACTIVITY.getKey());
+        FlowEngine.defService().save(v2);
+        node(v2, "start", NodeType.START.getKey(), null, null, null, null, null);
+        node(v2, "ts", NodeType.BETWEEN.getKey(), null, EventType.TIMER_START.getValue()
+            , null, null, TIMER_CONFIG);
+        node(v2, "apply", NodeType.BETWEEN.getKey(), TestFlows.HANDLER, null, null, null, null);
+        node(v2, "end", NodeType.END.getKey(), null, null, null, null, null);
+        skip(v2, "start", NodeType.START.getKey(), "ts", NodeType.BETWEEN.getKey());
+        skip(v2, "ts", NodeType.BETWEEN.getKey(), "apply", NodeType.BETWEEN.getKey());
+        skip(v2, "apply", NodeType.BETWEEN.getKey(), "end", NodeType.END.getKey());
+        FlowEngine.defService().publish(v2.getId());
+
+        // 已失效旧版本的定义级等待被条件取消，新版本建立自己的等待
+        assertEquals(EventCons.STATUS_CANCELLED, singleDefWait(v1.getId()).getStatus());
+        assertEquals(EventCons.STATUS_WAITING, singleDefWait(v2.getId()).getStatus());
+    }
+
+    @Test
+    void vetoCancelsSiblingBoundaryWaits() {
+        // start → sq → forkP ∥ [pa1（定时边界 tb 附着）] / [pb1] → joinP → end
+        Definition def = def("evVeto");
+        node(def, "start", NodeType.START.getKey(), null, null, null, null, null);
+        node(def, "sq", NodeType.BETWEEN.getKey(), TestFlows.HANDLER, null, null, null, null);
+        node(def, "forkP", NodeType.PARALLEL.getKey(), null, null, null, null, null);
+        node(def, "pa1", NodeType.BETWEEN.getKey(), TestFlows.HANDLER, null, null, null, null);
+        node(def, "pb1", NodeType.BETWEEN.getKey(), TestFlows.HANDLER, null, null, null, null);
+        node(def, "joinP", NodeType.PARALLEL.getKey(), null, null, null, null, null);
+        node(def, "end", NodeType.END.getKey(), null, null, null, null, null);
+        node(def, "tb", NodeType.BETWEEN.getKey(), null, EventType.TIMER_BOUNDARY.getValue()
+            , null, "pa1", TIMER_CONFIG);
+        skip(def, "start", NodeType.START.getKey(), "sq", NodeType.BETWEEN.getKey());
+        skip(def, "sq", NodeType.BETWEEN.getKey(), "forkP", NodeType.PARALLEL.getKey());
+        skip(def, "forkP", NodeType.PARALLEL.getKey(), "pa1", NodeType.BETWEEN.getKey());
+        skip(def, "forkP", NodeType.PARALLEL.getKey(), "pb1", NodeType.BETWEEN.getKey());
+        skip(def, "pa1", NodeType.BETWEEN.getKey(), "joinP", NodeType.PARALLEL.getKey());
+        skip(def, "pb1", NodeType.BETWEEN.getKey(), "joinP", NodeType.PARALLEL.getKey());
+        skip(def, "joinP", NodeType.PARALLEL.getKey(), "end", NodeType.END.getKey());
+        skip(def, "tb", NodeType.BETWEEN.getKey(), "end", NodeType.END.getKey());
+
+        Instance instance = FlowEngine.insService().start("biz-veto", "evVeto"
+            , TestFlows.context(TestFlows.HANDLER));
+        TestFlows.pass(TestFlows.currentTask(instance.getId()).getId(), TestFlows.HANDLER);
+        assertEquals(List.of("pa1", "pb1"), TestFlows.pendingTasks(instance.getId()).stream()
+            .map(Task::getNodeCode).sorted().toList());
+        Task pa1Task = taskAt(instance, "pa1");
+        EventWait boundary = singleWaiting(instance.getId());
+        assertEquals(pa1Task.getId(), boundary.getAttachedTaskId());
+
+        // pb1 跨分支退回 sq：一票否决删除 pa1 待办，其边界等待一并条件取消
+        WorkflowContext ctx = TestFlows.context(TestFlows.HANDLER);
+        ctx.setTargetNodeCode("sq");
+        FlowEngine.taskService().execute(taskAt(instance, "pb1").getId(), ctx, SkipType.REJECT.getKey());
+        assertEquals(List.of("sq"), TestFlows.pendingTasks(instance.getId()).stream()
+            .map(Task::getNodeCode).toList());
+        List<EventWait> waits = FlowEngine.eventWaitService()
+            .list(FlowEngine.newEventWait().setInstanceId(instance.getId()));
+        assertEquals(1, waits.size());
+        assertEquals(EventCons.STATUS_CANCELLED, waits.get(0).getStatus());
+
+        // 重走分叉后，边界等待随新待办重建
+        TestFlows.pass(taskAt(instance, "sq").getId(), TestFlows.HANDLER);
+        assertEquals(List.of("pa1", "pb1"), TestFlows.pendingTasks(instance.getId()).stream()
+            .map(Task::getNodeCode).sorted().toList());
+        assertEquals(EventCons.STATUS_WAITING, singleWaiting(instance.getId()).getStatus());
+    }
+
+    /**
+     * 取实例指定节点编码的当前待办。
+     */
+    private Task taskAt(Instance instance, String nodeCode) {
+        return TestFlows.pendingTasks(instance.getId()).stream()
+            .filter(task -> nodeCode.equals(task.getNodeCode())).findFirst()
+            .orElseThrow(() -> new AssertionError("缺少待办 " + nodeCode));
     }
 
     /**

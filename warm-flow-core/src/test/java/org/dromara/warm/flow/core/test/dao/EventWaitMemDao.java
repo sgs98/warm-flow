@@ -220,6 +220,22 @@ public class EventWaitMemDao extends InMemoryDao<EventWait> implements FlowEvent
     }
 
     @Override
+    public boolean cancelClaimed(Long id, Integer version, String workerId, Date now, String error) {
+        log.add(name() + ".cancelClaimed[" + id + ",v=" + version + "]");
+        EventWait row = store.get(id);
+        if (!runningByOwner(row, version, workerId)) {
+            return false;
+        }
+        row.setStatus(EventCons.STATUS_CANCELLED);
+        row.setLastError(error);
+        row.setLockOwner(null);
+        row.setLockUntil(null);
+        row.setVersion(row.getVersion() + 1);
+        row.setUpdateTime(now);
+        return true;
+    }
+
+    @Override
     public boolean claimMessage(Long id, Integer version, String workerId, Date now, Date lockUntil) {
         log.add(name() + ".claimMessage[" + id + ",v=" + version + "]");
         EventWait row = store.get(id);
@@ -247,6 +263,62 @@ public class EventWaitMemDao extends InMemoryDao<EventWait> implements FlowEvent
         }
         row.setPayload(payload);
         return true;
+    }
+
+    @Override
+    public synchronized boolean claimMessageWithPayload(Long id, Integer version, String workerId,
+        Date now, Date lockUntil, String payload) {
+        if (!claimMessage(id, version, workerId, now, lockUntil)) {
+            return false;
+        }
+        if (payload != null) {
+            store.get(id).setPayload(payload);
+        }
+        return true;
+    }
+
+    @Override
+    public int cancelByAttachedTaskId(Long attachedTaskId, Date now, Long excludedWaitId) {
+        log.add(name() + ".cancelByAttachedTaskId[" + attachedTaskId + "]");
+        return cancelRows(row -> attachedTaskId.equals(row.getAttachedTaskId())
+            && !row.getId().equals(excludedWaitId), now);
+    }
+
+    @Override
+    public int cancelByInstanceId(Long instanceId, Date now, Long excludedWaitId) {
+        log.add(name() + ".cancelByInstanceId[" + instanceId + "]");
+        return cancelRows(row -> instanceId.equals(row.getInstanceId())
+            && !row.getId().equals(excludedWaitId), now);
+    }
+
+    @Override
+    public int cancelByDefinitionId(Long definitionId, Date now) {
+        log.add(name() + ".cancelByDefinitionId[" + definitionId + "]");
+        return cancelRows(row -> definitionId.equals(row.getDefinitionId())
+            && row.getInstanceId() == null, now);
+    }
+
+    /**
+     * 范围取消：范围内 WAITING / RETRY / RUNNING 行置 CANCELLED、递增版本号并清空租约；
+     * 终态行保持原状态。
+     */
+    private int cancelRows(java.util.function.Predicate<EventWait> scope, Date now) {
+        int cancelled = 0;
+        for (EventWait row : store.values()) {
+            if (!scope.test(row)
+                || !(EventCons.STATUS_WAITING.equals(row.getStatus())
+                || EventCons.STATUS_RETRY.equals(row.getStatus())
+                || EventCons.STATUS_RUNNING.equals(row.getStatus()))) {
+                continue;
+            }
+            row.setStatus(EventCons.STATUS_CANCELLED);
+            row.setLockOwner(null);
+            row.setLockUntil(null);
+            row.setVersion(row.getVersion() + 1);
+            row.setUpdateTime(now);
+            cancelled++;
+        }
+        return cancelled;
     }
 
     @Override

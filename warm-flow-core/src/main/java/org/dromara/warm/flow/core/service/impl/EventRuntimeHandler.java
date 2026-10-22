@@ -4,7 +4,9 @@ import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.constant.EventCons;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
+import org.dromara.warm.flow.core.dto.DefJson;
 import org.dromara.warm.flow.core.dto.FlowCombine;
+import org.dromara.warm.flow.core.dto.NodeJson;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.EventWait;
 import org.dromara.warm.flow.core.entity.HisTask;
@@ -12,11 +14,13 @@ import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
+import org.dromara.warm.flow.core.enums.ChartStatus;
 import org.dromara.warm.flow.core.enums.EventType;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.PublishStatus;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.TaskStatus;
+import org.dromara.warm.flow.core.timer.EventCancelException;
 import org.dromara.warm.flow.core.timer.EventSkipException;
 import org.dromara.warm.flow.core.timer.EventTaskHandler;
 import org.dromara.warm.flow.core.utils.AssertUtil;
@@ -129,6 +133,11 @@ public class EventRuntimeHandler implements EventTaskHandler {
 
     /**
      * 中间捕获事件触发：实例激活校验后沿事件出口推进。
+     * <p>
+     * 调度底座是 at-least-once：推进已提交而等待记录的完成标记丢失（执行线程崩溃、
+     * 租约过期恢复）后会重放本方法。实例图元数据中事件节点已标「已办理」即重放
+     * （到达时标「待办」、推进后标「已办理」、退回重走会重置回「未完成」），取消遗留
+     * 记录而非二次推进。定时启动按确定性 businessId、边界事件按附着任务已归档各自幂等。
      */
     private void catchTrigger(EventWait wait, WorkflowContext caller) {
         Instance instance = FlowEngine.insService().getById(wait.getInstanceId());
@@ -139,6 +148,10 @@ public class EventRuntimeHandler implements EventTaskHandler {
         if (!ActivityStatus.isActivity(instance.getActivityStatus())) {
             // 挂起实例不触发：释放抢占恢复等待，实例恢复后由扫描器补发
             throw new EventSkipException("实例已挂起，暂停触发");
+        }
+        if (alreadyPassed(instance, wait.getNodeCode())) {
+            cancelStale(wait, "实例已越过事件节点，等待记录不再有效");
+            return;
         }
         WorkflowContext context = executionContext(wait, caller);
         FlowExecution execution = loadEventExecution(instance, wait.getNodeCode(), context);
@@ -176,7 +189,7 @@ public class EventRuntimeHandler implements EventTaskHandler {
         // 中断原任务：归档为 INVALID（不代表审批人同意），沿边界出口继续
         interruptAttachedTask(execution, task, eventNode, message);
 
-        // 取消同任务的其它边界事件等待（本记录为 RUNNING 不受影响）
+        // 取消同任务的其它边界事件等待；当前执行记录由调度器在完成阶段处理。
         FlowEngine.eventWaitService().cancelByAttachedTaskId(task.getId());
 
         ListenerUtil.executeStart(execution.contextListener(null, eventNode));
@@ -244,14 +257,37 @@ public class EventRuntimeHandler implements EventTaskHandler {
 
     /**
      * 取消遗留等待记录并记录原因，随后跳过本次执行（不计入失败重试）。
+     * <p>
+     * 抛出取消信号，让事件事务先回滚，再由调度器在事务外条件取消该记录。
      */
     private void cancelStale(EventWait wait, String reason) {
         log.warn("事件等待记录已失效，取消执行 id={} eventType={} reason={}"
             , wait.getId(), wait.getEventType(), reason);
-        wait.setStatus(EventCons.STATUS_CANCELLED);
-        wait.setLastError(reason);
-        wait.setUpdateTime(new java.util.Date());
-        FlowEngine.eventWaitService().updateById(wait);
-        throw new EventSkipException(reason);
+        throw new EventCancelException(reason);
+    }
+
+    /**
+     * 判断实例图元数据中事件节点是否已被标记为「已办理」。
+     * <p>
+     * 到达捕获事件节点时节点被标为「待办」，沿出口推进后标为「已办理」；退回重走会把
+     * 后续路径重置回「未完成」、再次到达时重新标为「待办」。因此「已办理」意味着实例
+     * 已越过该事件节点且未再到达。并行分支下实例位置字段指向任务分支，不能用位置等值
+     * 判断，图元数据才是各分支独立的完成事实。
+     *
+     * @param instance 流程实例
+     * @param nodeCode 事件节点编码
+     * @return 已办理返回 {@code true}；图元数据缺失或节点未找到返回 {@code false}（放行，由既有链路兜底）
+     */
+    private boolean alreadyPassed(Instance instance, String nodeCode) {
+        if (StringUtils.isEmpty(instance.getDefJson())) {
+            return false;
+        }
+        DefJson defJson = FlowEngine.jsonConvert.strToBean(instance.getDefJson(), DefJson.class);
+        if (defJson == null) {
+            return false;
+        }
+        NodeJson nodeJson = StreamUtils.filterOne(defJson.getNodeList()
+            , item -> nodeCode.equals(item.getNodeCode()));
+        return nodeJson != null && ChartStatus.isDone(nodeJson.getStatus());
     }
 }

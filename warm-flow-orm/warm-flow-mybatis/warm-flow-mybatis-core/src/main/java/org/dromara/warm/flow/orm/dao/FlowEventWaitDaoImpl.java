@@ -101,13 +101,40 @@ public class FlowEventWaitDaoImpl extends WarmDaoImpl<FlowEventWait> implements 
     }
 
     @Override
+    public boolean cancelClaimed(Long id, Integer version, String workerId, Date now, String error) {
+        return getMapper().cancelClaimed(id, version, workerId, now, error, notDeleteValue()) == 1;
+    }
+
+    @Override
     public boolean claimMessage(Long id, Integer version, String workerId, Date now, Date lockUntil) {
         return getMapper().claimMessage(id, version, workerId, now, lockUntil, notDeleteValue()) == 1;
     }
 
     @Override
+    public boolean claimMessageWithPayload(Long id, Integer version, String workerId, Date now,
+        Date lockUntil, String payload) {
+        return getMapper().claimMessageWithPayload(id, version, workerId, now, lockUntil,
+            payload, notDeleteValue()) == 1;
+    }
+
+    @Override
     public boolean bindPayload(Long id, Integer version, String payload) {
         return getMapper().bindPayload(id, version, payload, notDeleteValue()) == 1;
+    }
+
+    @Override
+    public int cancelByAttachedTaskId(Long attachedTaskId, Date now, Long excludedWaitId) {
+        return getMapper().cancelByAttachedTaskId(attachedTaskId, now, excludedWaitId, notDeleteValue());
+    }
+
+    @Override
+    public int cancelByInstanceId(Long instanceId, Date now, Long excludedWaitId) {
+        return getMapper().cancelByInstanceId(instanceId, now, excludedWaitId, notDeleteValue());
+    }
+
+    @Override
+    public int cancelByDefinitionId(Long definitionId, Date now) {
+        return getMapper().cancelByDefinitionId(definitionId, now, notDeleteValue());
     }
 
     @Override

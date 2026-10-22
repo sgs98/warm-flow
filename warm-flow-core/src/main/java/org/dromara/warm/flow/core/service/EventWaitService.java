@@ -17,21 +17,25 @@ import java.util.Date;
 public interface EventWaitService extends IWarmService<EventWait> {
 
     /**
-     * 按待办任务 ID 集合批量取消等待记录。
+     * 按待办任务 ID 集合批量取消等待记录，取消语义见 {@link #cancelByAttachedTaskId(Long)}。
      *
      * @param taskIds 待办任务 ID 集合
      */
     void cancelByTaskIds(List<Long> taskIds);
 
     /**
-     * 按流程实例 ID 集合批量取消等待记录。
+     * 按流程实例 ID 集合批量取消等待记录：条件更新置 {@code CANCELLED}、递增版本号并清空租约，
+     * 覆盖 {@code WAITING / RETRY / RUNNING}（在途执行器因版本失配无法提交结果）；
+     * {@code CANCELLED / DEAD} 等终态保持原状态。
      *
      * @param instanceIds 流程实例 ID 集合
      */
     void cancelByInstanceIds(List<Long> instanceIds);
 
     /**
-     * 按流程定义 ID 取消定义级等待记录（如定时启动事件）。
+     * 按流程定义 ID 取消定义级等待记录（如定时启动事件）：条件更新置 {@code CANCELLED}、
+     * 递增版本号并清空租约，仅命中定义级记录（{@code instanceId} 为空），
+     * 实例级等待由实例挂起 / 撤回 / 终止等操作单独清理。
      *
      * @param definitionId 流程定义 ID
      */
@@ -73,11 +77,26 @@ public interface EventWaitService extends IWarmService<EventWait> {
     long countEventWaits(EventWaitQuery query);
 
     /**
-     * 按边界事件关联的待办任务 ID 取消等待记录。
+     * 按边界事件关联的待办任务 ID 取消等待记录：条件更新置 {@code CANCELLED}、递增版本号
+     * 并清空租约，覆盖 {@code WAITING / RETRY / RUNNING}（在途执行器因版本失配无法提交结果）；
+     * {@code CANCELLED / DEAD} 等终态保持原状态。
      *
      * @param taskId 待办任务 ID
      */
     void cancelByAttachedTaskId(Long taskId);
+
+    /**
+     * 取消本节点持有的一条执行中等待记录（执行前发现等待已失效的遗留清理）：
+     * 条件更新校验 {@code id + version + status = RUNNING + lock_owner} 后置 {@code CANCELLED}、
+     * 写入原因、清空租约并递增版本号；未命中说明记录已被租约恢复流程或其它执行器接管。
+     *
+     * @param id       记录主键
+     * @param version  抢占后的版本号
+     * @param workerId 工作节点标识
+     * @param error    取消原因（写入 {@code last_error}）
+     * @return 取消成功返回 {@code true}
+     */
+    boolean cancelClaimed(Long id, Integer version, String workerId, String error);
 
     /**
      * 匹配错误等待记录：任务级匹配附着该任务的 {@code ERROR_BOUNDARY} 等待，
@@ -113,6 +132,12 @@ public interface EventWaitService extends IWarmService<EventWait> {
      */
     boolean claimMessage(Long id, Integer version, String workerId, Date now
         , Date lockUntil);
+
+    /** 抢占消息记录并原子保存载荷；载荷为 {@code null} 时保留旧载荷。 */
+    default boolean claimMessageWithPayload(Long id, Integer version, String workerId, Date now,
+        Date lockUntil, String payload) {
+        throw new UnsupportedOperationException("当前 EventWaitService 未实现消息载荷原子抢占");
+    }
 
     /**
      * 绑定消息载荷到等待记录：按 {@code id + version} 且状态为 {@code WAITING / RETRY}

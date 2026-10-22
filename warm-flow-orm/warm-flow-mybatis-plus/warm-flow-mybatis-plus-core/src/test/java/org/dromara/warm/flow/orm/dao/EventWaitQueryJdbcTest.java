@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -163,6 +164,28 @@ class EventWaitQueryJdbcTest {
         assertEquals(List.of(14L), ids(page2.getList()));
         assertEquals(2, page2.getPageNum());
         assertEquals(3, page2.getPageSize());
+    }
+
+    @Test
+    void messageClaimKeepsWinningPayload() {
+        insertRow(31L, 100L, 1000L, "confirm", "MESSAGE_CATCH", "WAITING", "0", null);
+        Date now = new Date();
+        Date lockUntil = new Date(now.getTime() + 60_000L);
+        assertTrue(dao.claimMessageWithPayload(31L, 0, "worker", now, lockUntil, "{\"id\":1}"));
+        assertFalse(dao.claimMessageWithPayload(31L, 0, "worker", now, lockUntil, "{\"id\":2}"));
+        assertEquals("{\"id\":1}", dao.selectById(31L).getPayload());
+    }
+
+    @Test
+    void sqlServerStyleTimerLimitRuns() {
+        insertRow(41L, 100L, 1000L, "timer", "TIMER_CATCH", "WAITING", "0", "2026-01-01 01:00:00");
+        insertRow(42L, 100L, 1000L, "timer", "TIMER_CATCH", "WAITING", "0", "2026-01-01 02:00:00");
+        FlowEngine.getFlowConfig().setDataSourceType("sqlserver");
+        try {
+            assertEquals(List.of(41L), ids(dao.selectWaitingDue(new Date(), null, null, 1)));
+        } finally {
+            FlowEngine.getFlowConfig().setDataSourceType(null);
+        }
     }
 
     @Test

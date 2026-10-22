@@ -208,6 +208,22 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
         @Param("now") Date now, @Param("delFlag") String delFlag);
 
     /**
+     * 取消本节点持有的一条执行中记录：RUNNING + lock_owner + version 匹配时置 CANCELLED、
+     * 写入取消原因、清空租约并递增版本号；未命中不更新。
+     *
+     * @param id       记录主键
+     * @param version  抢占后的版本号
+     * @param workerId 工作节点标识
+     * @param now      当前时间
+     * @param error    取消原因（写入 last_error）
+     * @param delFlag  未删除值
+     * @return 受影响行数
+     */
+    int cancelClaimed(@Param("id") Long id, @Param("version") Integer version,
+        @Param("workerId") String workerId, @Param("now") Date now, @Param("error") String error,
+        @Param("delFlag") String delFlag);
+
+    /**
      * 消息记录抢占：WAITING / RETRY 置为 RUNNING 并写入租约，不校验到期时间字段。
      *
      * @param id       记录主键
@@ -221,6 +237,11 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
         @Param("workerId") String workerId, @Param("now") Date now,
         @Param("lockUntil") Date lockUntil, @Param("delFlag") String delFlag);
 
+    int claimMessageWithPayload(@Param("id") Long id, @Param("version") Integer version,
+        @Param("workerId") String workerId, @Param("now") Date now,
+        @Param("lockUntil") Date lockUntil, @Param("payload") String payload,
+        @Param("delFlag") String delFlag);
+
     /**
      * 绑定消息载荷：WAITING / RETRY 条件下按 id + version 写入 payload，不递增版本号。
      *
@@ -232,4 +253,42 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      */
     int bindPayload(@Param("id") Long id, @Param("version") Integer version,
         @Param("payload") String payload, @Param("delFlag") String delFlag);
+
+    /**
+     * 按边界事件附着的待办任务范围取消：WAITING / RETRY / RUNNING 置 CANCELLED，
+     * 递增版本号并清空租约；终态记录不受影响。
+     *
+     * @param attachedTaskId 待办任务 ID
+     * @param now            当前时间
+     * @param delFlag        未删除值
+     * @return 取消的记录数
+     */
+    int cancelByAttachedTaskId(@Param("attachedTaskId") Long attachedTaskId, @Param("now") Date now,
+        @Param("excludedWaitId") Long excludedWaitId,
+        @Param("delFlag") String delFlag);
+
+    /**
+     * 按流程实例范围取消：WAITING / RETRY / RUNNING 置 CANCELLED，
+     * 递增版本号并清空租约；终态记录不受影响。
+     *
+     * @param instanceId 流程实例 ID
+     * @param now        当前时间
+     * @param delFlag    未删除值
+     * @return 取消的记录数
+     */
+    int cancelByInstanceId(@Param("instanceId") Long instanceId, @Param("now") Date now,
+        @Param("excludedWaitId") Long excludedWaitId,
+        @Param("delFlag") String delFlag);
+
+    /**
+     * 按流程定义范围取消定义级记录（instance_id 为空）：WAITING / RETRY / RUNNING 置 CANCELLED，
+     * 递增版本号并清空租约；终态记录不受影响。
+     *
+     * @param definitionId 流程定义 ID
+     * @param now          当前时间
+     * @param delFlag      未删除值
+     * @return 取消的记录数
+     */
+    int cancelByDefinitionId(@Param("definitionId") Long definitionId, @Param("now") Date now,
+        @Param("delFlag") String delFlag);
 }

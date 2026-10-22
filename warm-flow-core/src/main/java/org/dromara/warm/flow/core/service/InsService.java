@@ -80,13 +80,14 @@ public interface InsService extends IWarmService<Instance> {
      * <p>
      * 匹配 {@code MESSAGE_CATCH} / {@code MESSAGE_BOUNDARY} 且消息名称相等的
      * {@code WAITING / RETRY} 等待记录；通过条件更新抢占，记录已是
-     * {@code RUNNING / CANCELLED / DEAD} 时不强行覆盖（返回当前实例，流程不变）。
+     * {@code RUNNING / CANCELLED / DEAD} 时不强行覆盖（返回当前实例，流程不变）；
+     * 实例内不存在该消息名称的等待记录时抛出异常。
      *
      * @param instanceId 流程实例主键
      * @param eventName  消息名称
      * @param payload    消息载荷，合并为流程变量
      * @param context    触发上下文
-     * @return 触发后的流程实例（无匹配或抢占失败时为触发前的实例）
+     * @return 触发后的流程实例（记录已处理或抢占失败时为触发前的实例）
      */
     Instance triggerMessage(Long instanceId, String eventName
         , Map<String, Object> payload, WorkflowContext context);
