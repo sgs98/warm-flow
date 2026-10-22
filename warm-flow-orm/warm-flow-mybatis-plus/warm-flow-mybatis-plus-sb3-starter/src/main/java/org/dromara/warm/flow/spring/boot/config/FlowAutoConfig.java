@@ -32,9 +32,14 @@ import org.dromara.warm.flow.orm.keygen.MybatisPlusIdGen;
 import org.dromara.warm.plugin.modes.sb.config.BeanConfig;
 import com.baomidou.mybatisplus.core.handlers.PostInitTableInfoHandler;
 import org.mybatis.spring.annotation.MapperScan;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Spring Boot 3 MyBatis-Plus 工作流自动配置。
@@ -157,14 +162,25 @@ public class FlowAutoConfig extends BeanConfig {
     }
 
     /**
-     * 注册事件运行时默认处理器：定时 / 消息触发后的真实流程推进；
-     * 宿主需要事务边界时可定义同类型 Bean 覆盖。
+     * 注册事件运行时默认处理器：定时 / 消息触发后的真实流程推进。
+     * <p>
+     * 容器存在 {@code PlatformTransactionManager} 时注册带事务边界的处理器
+     * （一次事件推进 = 一个事务，CAS 抢占在事务外）；否则不注册默认处理器。
+     * 宿主可定义同类型 Bean 覆盖默认实现。
      *
+     * @param transactionManager 事务管理器（可选注入）
      * @return 事件任务处理器
      */
     @Bean
-    public EventTaskHandler eventTaskHandler() {
-        return new EventRuntimeHandler();
+    @ConditionalOnBean(PlatformTransactionManager.class)
+    @ConditionalOnMissingBean(EventTaskHandler.class)
+    public EventTaskHandler eventTaskHandler(ObjectProvider<PlatformTransactionManager> transactionManager) {
+        EventRuntimeHandler handler = new EventRuntimeHandler();
+        PlatformTransactionManager tm = transactionManager.getIfAvailable();
+        if (tm != null) {
+            return new TransactionalEventTaskHandler(handler, new TransactionTemplate(tm));
+        }
+        throw new IllegalStateException("事件处理器需要 PlatformTransactionManager");
     }
 
     @Override

@@ -13,6 +13,7 @@ import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 import org.dromara.warm.flow.core.workflow.result.EventView;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,6 +59,7 @@ public class EventController {
      * @param request 消息启动请求
      * @return 新实例主键
      */
+    @Transactional(rollbackFor = Exception.class)
     @PostMapping("/instances/message")
     public ApiResponse<Long> startByMessage(@RequestHeader(value = "X-User-Name", defaultValue = "admin") String user
         , @Valid @RequestBody MessageStartRequest request) {
