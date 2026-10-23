@@ -175,16 +175,37 @@ final class FlowExecution {
      */
     static FlowExecution loadTimerStart(Long definitionId, String nodeCode, WorkflowContext intent) {
         Definition definition = FlowEngine.defService().getById(definitionId);
-        AssertUtil.isNull(definition, ExceptionCons.NOT_FOUNT_DEF);
+        if (definition == null) {
+            throw new TimerStartTopologyException(ExceptionCons.NOT_FOUNT_DEF);
+        }
         FlowCombine combine = FlowEngine.defService().getFlowCombine(definition);
         Node startNode = StreamUtils.filterOne(combine.getAllNodes(), node -> NodeType.isStart(node.getNodeType()));
-        AssertUtil.isNull(startNode, ExceptionCons.LOST_START_NODE);
-        Node eventNode = eventStartSuccessor(startNode, combine, nodeCode, EventType.TIMER_START.getValue());
-        AssertUtil.isTrue(definition.getActivityStatus().equals(ActivityStatus.SUSPENDED.getKey())
-            , ExceptionCons.NOT_DEFINITION_ACTIVITY);
+        if (startNode == null) {
+            throw new TimerStartTopologyException(ExceptionCons.LOST_START_NODE);
+        }
+        List<Node> successors = FlowEngine.nodeService().getNextNodeList(startNode, null
+            , SkipType.PASS.getKey(), null, new PathWayData(), combine);
+        if (CollUtil.isEmpty(successors)) {
+            throw new TimerStartTopologyException(ExceptionCons.LOST_CUR_NODE);
+        }
+        Node eventNode = successors.get(0);
+        if (!EventType.TIMER_START.getValue().equals(eventNode.getEventType())
+            || nodeCode == null || !nodeCode.equals(eventNode.getNodeCode())) {
+            throw new TimerStartTopologyException(ExceptionCons.EVENT_START_TOPOLOGY_MISMATCH);
+        }
+        if (definition.getActivityStatus().equals(ActivityStatus.SUSPENDED.getKey())) {
+            throw new TimerStartTopologyException(ExceptionCons.NOT_DEFINITION_ACTIVITY);
+        }
         FlowExecution execution = new FlowExecution(null, null, definition, eventNode, intent);
         execution.combine = combine;
         return execution;
+    }
+
+    /** 仅标记已确认的定时启动拓扑失效；查询和解析异常交由调度器重试。 */
+    static final class TimerStartTopologyException extends RuntimeException {
+        TimerStartTopologyException(String message) {
+            super(message);
+        }
     }
 
     /**
