@@ -10,7 +10,6 @@ import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.EventType;
 import org.dromara.warm.flow.core.enums.NodeType;
-import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.service.event.EventConfig;
 import org.dromara.warm.flow.core.service.event.EventMessage;
 import org.dromara.warm.flow.core.entity.HisTask;
@@ -20,6 +19,7 @@ import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.service.event.EventPublisher;
+import org.dromara.warm.flow.core.timer.EventWaitProcessor;
 import org.dromara.warm.flow.core.timer.TimerContext;
 import org.dromara.warm.flow.core.timer.TimerScheduleStrategies;
 import org.dromara.warm.flow.core.utils.AssertUtil;
@@ -35,6 +35,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Collections;
+import java.util.Objects;
 
 /**
  * 统一事件到达分派器：到达某节点后的处理收敛为一个分派函数，
@@ -188,8 +189,10 @@ final class EventArrivalDispatcher {
     private static void arriveCatch(FlowExecution execution, Node node, String skipType) {
         Instance instance = execution.instance;
         // 幂等：该实例该节点已有活动等待记录时跳过
-        boolean exists = StreamUtils.toList(FlowEngine.eventWaitService()
-            .getActiveByInstanceId(instance.getId()), EventWait::getNodeCode).contains(node.getNodeCode());
+        Long currentWaitId = EventWaitProcessor.currentWaitId();
+        boolean exists = FlowEngine.eventWaitService().getActiveByInstanceId(instance.getId()).stream()
+            .anyMatch(wait -> node.getNodeCode().equals(wait.getNodeCode())
+                && !Objects.equals(currentWaitId, wait.getId()));
         if (exists) {
             log.info("实例 {} 节点 {} 已存在等待记录，跳过重复到达", instance.getId(), node.getNodeCode());
             return;

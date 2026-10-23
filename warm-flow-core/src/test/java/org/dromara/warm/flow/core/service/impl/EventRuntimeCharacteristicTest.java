@@ -38,6 +38,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -487,6 +488,29 @@ class EventRuntimeCharacteristicTest {
 
         assertEquals(FlowStatus.TERMINATE.getKey(), terminated.getFlowStatus());
         assertEquals(EventCons.STATUS_CANCELLED, harness.eventWaitDao.raw(wait.getId()).getStatus());
+    }
+
+    @Test
+    void catchEventReturningToItselfCreatesNextWait() {
+        Definition def = def("evCatchLoop");
+        node(def, "start", NodeType.START.getKey(), null, null, null, null, null);
+        node(def, "apply", NodeType.BETWEEN.getKey(), TestFlows.HANDLER, null, null, null, null);
+        node(def, "tc", NodeType.BETWEEN.getKey(), null, EventType.TIMER_CATCH.getValue()
+            , null, null, TIMER_CONFIG);
+        node(def, "end", NodeType.END.getKey(), null, null, null, null, null);
+        skip(def, "start", NodeType.START.getKey(), "apply", NodeType.BETWEEN.getKey());
+        skip(def, "apply", NodeType.BETWEEN.getKey(), "tc", NodeType.BETWEEN.getKey());
+        skip(def, "tc", NodeType.BETWEEN.getKey(), "tc", NodeType.BETWEEN.getKey());
+
+        Instance instance = FlowEngine.insService().start("biz-loop", "evCatchLoop"
+            , TestFlows.context(TestFlows.HANDLER));
+        TestFlows.pass(TestFlows.currentTask(instance.getId()).getId(), TestFlows.HANDLER);
+        EventWait first = singleWaiting(instance.getId());
+
+        claimAndProcess(first);
+
+        EventWait next = singleWaiting(instance.getId());
+        assertNotEquals(first.getId(), next.getId());
     }
 
     @Test
