@@ -128,7 +128,7 @@
 
 ## 2.0.0（2026-10-03）
 
-首个以 `io.github.sgs98` 坐标对外发布的版本，基于 [dromara/warm-flow](https://gitee.com/dromara/warm-flow) 二次开发维护。
+2.0.0 使用 `io.github.sgs98` 发布坐标。
 
 ### 构建与生态
 

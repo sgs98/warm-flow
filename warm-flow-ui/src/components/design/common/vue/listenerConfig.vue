@@ -43,7 +43,7 @@
     <el-button v-if="!disabled" size="small" class="add-row-btn" @click="addRow">增加行</el-button>
     <div class="listener-scope-tip">
       <el-icon><InfoFilled /></el-icon>
-      <span>节点监听器仅在该节点触发对应事件时执行；跨流程通用逻辑（统一办理人映射、通知、日志）请实现全局监听器 GlobalListener，经 warm-flow.global-listener-path 注册</span>
+      <span>节点监听器仅在该节点触发对应事件时执行；跨流程通用逻辑（统一办理人映射、通知、日志）请实现全局监听器 GlobalListener，并注册为容器 Bean</span>
     </div>
   </div>
 </template>

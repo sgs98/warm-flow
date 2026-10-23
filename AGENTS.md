@@ -5,19 +5,19 @@
 它综合了：
 
 - 当前 `warm-flow` 仓库的真实模块结构、技术基线与扩展机制。
-- dromara 开源协作约定与 Apache 2.0 开源协议要求。
+- 上游 dromara/warm-flow 的协作经验与 Apache 2.0 开源协议要求。
 - 工作流引擎作为「公共依赖库（SDK）」对外契约稳定与多生态兼容的长期规则。
 - Karpathy 风格 coding-agent 规则：澄清不确定性、保持简单、避免顺手改无关代码、用可验证结果证明行为。
 
 ## 项目概览
 
-`warm-flow` 是 [Dromara](https://dromara.org/) 社区的国产轻量级工作流引擎，当前 Maven 发布坐标为 `groupId=io.github.sgs98`，发布到 Maven 中央仓库供他人依赖。它**是一个被集成的类库 / SDK，不是业务应用**：简洁轻量（核心仅 7 张表）、五脏俱全、扩展性强，可通过 jar 包快速集成流程设计器，原生支持经典与仿钉钉双模式。
+`warm-flow` 是基于上游 [dromara/warm-flow](https://gitee.com/dromara/warm-flow) 二次开发的国产轻量级工作流引擎，**不是 [Dromara](https://dromara.org/) 社区的官方项目**。当前 Maven 发布坐标为 `groupId=io.github.sgs98`，发布到 Maven 中央仓库供他人依赖。它**是一个被集成的类库 / SDK，不是业务应用**：简洁轻量（核心仅 8 张表，事件能力默认关闭）、五脏俱全、扩展性强，可通过 jar 包快速集成流程设计器，原生支持经典与仿钉钉双模式。
 
 核心定位决定了最高优先约束：**对外公共 API、实体字段、数据库表结构、配置项都是契约，向后兼容是红线**；**核心引擎与具体框架 / ORM / JSON 库解耦**。
 
 顶层结构（Maven 反应堆模块 + 前端 + 脚本）：
 
-- `warm-flow-core`：流程引擎核心，**框架无关、ORM 无关、JSON 库无关**。流程定义 / 节点 / 跳转 / 实例 / 任务 / 历史任务 / 用户 / 表单的实体、服务、抽象 DAO、处理器、监听器、条件与办理人表达式策略、ID 生成、SPI 入口。
+- `warm-flow-core`：流程引擎核心，**框架无关、ORM 无关、JSON 库无关**。流程定义 / 节点 / 跳转 / 实例 / 任务 / 历史任务 / 用户 / 表单 / 事件等待的实体、服务、抽象 DAO、处理器、监听器、条件与办理人表达式策略、内置定时器、ID 生成、SPI 入口。
 - `warm-flow-orm`：ORM 适配层，实现 core 的 `WarmDao` 与实体。按「ORM × 框架」矩阵展开：
   - `warm-flow-mybatis`：`*-core` + `*-sb3-starter`(SpringBoot3) + `*-sb4-starter`(SpringBoot4)。
   - `warm-flow-mybatis-plus`：同上三件套。
@@ -27,7 +27,7 @@
   - `warm-flow-plugin-ui`：设计器 / 流程图后端（`*-ui-core`、`*-ui-sb-web`、`*-vue3-ui`）。
 - `warm-flow-ui`：流程设计器**前端工程（Vue3 + yarn）**，独立于 Maven 反应堆，不被父 `pom.xml` 的 `<modules>` 纳入。
 - `sql/`：建表与升级脚本，按数据库分目录：`mysql/`、`oracle/`、`postgresql/`、`sqlserver/`；每库一份全量建表脚本（文件名各库略有差异，如 `warm-flow-all.sql` / `oracle-wram-flow-all.sql` / `sqlserver.sql`），MySQL 另有 `v1-upgrade/` 版本升级脚本。
-- 测试分两处：`warm-flow-core/src/test` 有随仓库维护的单元 / 特性测试（JUnit 5，59 个类）；跨库、跨生态的集成测试在独立仓库 `warm-flow-test`（gitee）。
+- 测试分两处：仓库内 `warm-flow-core/src/test`（54 个）与 `warm-flow-orm/**/src/test`（5 个）维护单元 / 特性 / H2 SQL 测试（JUnit 5）；跨库、跨生态的集成测试在独立仓库 `warm-flow-test`（gitee）。
 
 ## 技术基线
 
@@ -44,7 +44,7 @@
 
 - `FlowEngine`：静态门面，持有各 `XxxService`、实体 `Supplier`、`handler` / `listener`、`jsonConvert`。业务方与内部统一通过 `FlowEngine.xxxService()` / `FlowEngine.newXxx()` 取服务和新建实体，不要绕过它直接 new 实现类。
 - `FrameInvoker`：框架桥接点，通过 `setBeanFunction` / `setCfgFunction` 注入「取 Bean」「取配置」的能力。**core 因此不依赖任何容器**；Spring 适配模块在启动时注入这两个 Function。
-- `WarmFlow`（config）：引擎配置载体（`enabled`、`framework`、`banner`、`logicDelete`、租户 / 数据填充 / 权限 / 全局监听器的类路径、`dataSourceType`、`ui`、`tokenName`、流程图三原色等），`init()` 负责装配 handler、打印 banner、SPI 加载。
+- `WarmFlow`（config）：引擎配置载体（`enabled`、`framework`、`banner`、`logicDelete`、租户 / 数据填充 / 权限 / 状态映射的类路径、`dataSourceType`、`ui`、`tokenName`、流程图三原色、`timer*` 事件调度参数等），`init()` 负责装配 SPI / handler、打印 banner、加载 JSON 策略并按需启动定时器。
 - **Java SPI**：`ServiceLoaderUtil.loadFirst(...)` + `META-INF/services/`（如 `org.dromara.warm.flow.core.json.JsonConvert`）用于可替换实现（典型：JSON 转换策略）。
 - **自动装配注册**统一使用 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`（Spring Boot 3 / 4 标准方式）。
 - **ORM 抽象**：core 定义 `WarmDao<T>`、`WarmQuery`、`WarmServiceImpl` 与各实体接口；每个 ORM 模块提供实体实现（如 `FlowDefinition`）、Mapper / Dao 实现（如 `WarmDaoImpl`）、ID 生成器适配，并通过 starter 把实现接入 `FlowEngine`。
@@ -88,8 +88,8 @@
 
 ## 品牌与版权保护
 
-- 不要移除、替换或弱化 `warm-flow`、`Warm-Flow`、`dromara`、`org.dromara.warm` 包名、模块名、启动 banner、作者信息（`warm` / `290631660@qq.com` 等 `developers`）、README 中的 Star/Fork/License 徽章与文档链接，除非用户明确要求。
-- **每个 Java 文件保留 Apache 2.0 license header**（`Copyright 2024-2025, Warm-Flow (290631660@qq.com).` 开头的注释块）。新增 Java 文件必须照抄现有 header、`package`、Lombok 与注释风格。
+- 不要移除、替换或弱化 `warm-flow`、`Warm-Flow`、`dromara`、`org.dromara.warm` 包名、模块名、启动 banner、作者信息（`may` / `1742057357@qq.com` 等 `developers`）、README 中的 Star/Fork/License 徽章与文档链接，除非用户明确要求。
+- **每个 Java 文件保留 Apache 2.0 license header**（`Copyright 2026, may (1742057357@qq.com).` 开头的注释块）。新增 Java 文件必须照抄现有 header、`package`、Lombok 与注释风格。
 - 保留现有中文 README、中文注释、类注释中的 `@author warm` 与 `@since`，不要批量改成英文或通用模板。
 - 不改动 `LICENSE`，不弱化「永久开源免费、无商业版」的项目声明。
 
@@ -99,7 +99,7 @@
 
 - **L0**：单文件小修、注释、文档、单库 SQL 注释类改动。读相关代码，改，跑聚焦编译。
 - **L1**：模块内多文件改动、服务逻辑、工具类、单个 starter 适配、单库 SQL 增改。收集上下文，简短规划，小步编辑，编译受影响模块。
-- **L2**：core 公共 API / 实体 / 抽象 DAO 改动、扩展机制（`FlowEngine` / `FrameInvoker` / SPI / 自动装配）改动、跨生态（SB3/4）行为、跨 ORM 行为、多数据库表结构 / 升级脚本、版本发布、流程状态机语义。必要时在 `.codex/` 或 `docs/` 记录关键决策与验证细节。
+- **L2**：core 公共 API / 实体 / 抽象 DAO 改动、扩展机制（`FlowEngine` / `FrameInvoker` / SPI / 自动装配）改动、跨生态（SB3/4）行为、跨 ORM 行为、多数据库表结构 / 升级脚本、版本发布、流程状态机语义、事件运行时与定时器一致性语义。必要时在 `.codex/` 或 `docs/` 记录关键决策与验证细节。
 
 ## 兼容性红线（warm-flow 最关键的约束）
 
@@ -129,15 +129,18 @@
 
 ## 实体、DAO、服务与状态机
 
-- 实体（`Definition`/`Node`/`Skip`/`Instance`/`Task`/`HisTask`/`User`/`Form`）通过 `FlowEngine.newXxx()` 创建；新增实体字段要同时考虑各 ORM 实体实现、JSON 序列化、SQL 表结构与升级脚本。
+- 实体（`Definition`/`Node`/`Skip`/`Instance`/`Task`/`HisTask`/`User`/`Form`/`EventWait`）通过 `FlowEngine.newXxx()` 创建；新增实体字段要同时考虑各 ORM 实体实现、JSON 序列化、SQL 表结构与升级脚本。
 - 单表 CRUD 走 `WarmDao` 抽象与各 ORM 实现，不在 core 写死某 ORM 的查询 API。
 - 流程状态、跳转、转办、加签 / 减签、终止、撤回、票签 / 会签、互斥 / 并行网关都有业务副作用与状态机约束，改动前先读对应 `service.impl`、`strategy`、`handler`、`listener` 与状态枚举，确认现有流转后再改，不要凭文件名猜行为。
+- 事件节点用 `NodeType.BETWEEN` 承载但不产生人工待办，必须显式按 `eventType` 判定，不能复用 `isBetween` 当审批节点；事件等待状态独立于 `FlowStatus` / `TaskStatus`，不要混入状态机。
+- 事件执行采用至少一次语义：CAS 抢占在事件事务外，一次流程推进与等待记录完成在同一事务内；租约恢复、续租和完成提交必须遵守 `id + status + lock_owner + version` 条件，旧执行器不得提交结果。
 
 ## SQL 与数据库
 
 - 表结构改动必须**同步四套脚本**：`sql/mysql`、`sql/oracle`、`sql/postgresql`、`sql/sqlserver` 的全量脚本，并在 `sql/mysql/v1-upgrade/` 新增对应版本升级脚本（命名沿用 `warm-flow_x.x.x.sql`）。
 - 注意各库方言差异（类型、自增 / 序列、分页、大小写、关键字）；破坏性或迁移脚本必须写明用途、影响范围、回滚方式与各库兼容性，执行需用户明确批准。
 - 引擎自身维护**多租户与逻辑删除**（见 `WarmFlow.logicDelete` 等）；改动相关字段 / 行为要兼顾「引擎自带实现」与「复用 ORM 框架实现」两条路径。
+- 事件能力由 `WarmFlow.timerEnabled` 控制且默认关闭；新增事件表 / 字段必须同步四套全量脚本、MySQL 升级脚本与 `flow_event_wait` 的扫描、取消、租约索引，不能只改 ORM 实体或单一数据库。
 
 ## 扩展开发指引（新增生态 / ORM / JSON / DB）
 
@@ -149,7 +152,7 @@
 
 ## 验证规则
 
-`warm-flow-core` 自带单元 / 特性测试（`warm-flow-core/src/test`），其余模块以**分模块编译**为主，跨库 / 跨生态集成测试在独立仓库 `warm-flow-test`。按风险选择范围：
+仓库内 `warm-flow-core/src/test` 与 `warm-flow-orm/**/src/test` 有单元 / 特性 / H2 SQL 测试，其余模块以**分模块编译**为主，跨库 / 跨生态集成测试在独立仓库 `warm-flow-test`。按风险选择范围：
 
 ```bash
 # 全量安装到本地仓库（最稳，先装核心再装下游）
@@ -157,6 +160,10 @@ mvn clean install -DskipTests
 
 # 跑 core 自带测试（改 core 逻辑时优先）
 mvn -pl warm-flow-core test
+
+# 跑 ORM 的 H2 / DAO 测试（改 FlowEventWaitDao、条件更新或方言 SQL 时优先）
+mvn -pl warm-flow-orm/warm-flow-mybatis/warm-flow-mybatis-core test
+mvn -pl warm-flow-orm/warm-flow-mybatis-plus/warm-flow-mybatis-plus-core test
 
 # 聚焦编译单个模块（按改动模块替换 -pl 路径或 -f 指定 pom）
 mvn -pl warm-flow-core -am -DskipTests compile
@@ -166,6 +173,7 @@ mvn -f warm-flow-orm/warm-flow-mybatis/warm-flow-mybatis-core/pom.xml -DskipTest
 - 文档 / 注释改动：`git diff --check` 即可。
 - core 改动：编译 core，并至少编译一个依赖它的 orm / plugin 模块。
 - 某 starter / 适配改动：编译该模块，必要时编译同一 ORM 的其它 starter 确认生态一致。
+- 事件 DAO / 条件更新 / 定时扫描改动：运行对应 ORM 的 H2 DAO 测试，并核对另一 ORM 与 SB3 / SB4 的同名实现保持一致。
 - SPI / 自动装配改动：确认注册文件与实现类一致，编译相关模块。
 - SQL / 表结构改动：核对四套脚本与升级脚本一致性，说明各库兼容性。
 

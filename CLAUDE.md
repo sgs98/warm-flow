@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-本仓库（`warm-flow`，Dromara 开源轻量级工作流引擎 / SDK）的编码与协作规则，**以 [AGENTS.md](./AGENTS.md) 为唯一来源**。开始任何任务前先读根 `AGENTS.md`；若改动所在顶层模块下还有模块级 `AGENTS.md`，再读模块级。本文件只是核心红线摘要，**与 `AGENTS.md` 冲突时以 `AGENTS.md` 为准**。
+本仓库（基于上游 Dromara `dromara/warm-flow` 二次开发的开源工作流引擎 / SDK）的编码与协作规则，**以 [AGENTS.md](./AGENTS.md) 为唯一来源**。开始任何任务前先读根 `AGENTS.md`；若改动所在顶层模块下还有模块级 `AGENTS.md`，再读模块级。本文件只是核心红线摘要，**与 `AGENTS.md` 冲突时以 `AGENTS.md` 为准**。
 
 ## 规则优先级
 
@@ -22,7 +22,7 @@
 
 ## 模块速览
 
-- `warm-flow-core`：框架 / ORM / JSON 无关的引擎核心（实体、服务、抽象 `WarmDao`、`FlowEngine`、`FrameInvoker`、SPI、表达式 / 监听器策略）。
+- `warm-flow-core`：框架 / ORM / JSON 无关的引擎核心（实体、服务、抽象 `WarmDao`、`FlowEngine`、`FrameInvoker`、SPI、表达式 / 监听器策略、事件等待与内置定时器）。
 - `warm-flow-orm`：ORM 适配，按「ORM × (sb3/sb4)」矩阵实现 `WarmDao`。
 - `warm-flow-plugin`：可插拔扩展（`modes` 表达式、`json` 序列化、`ui` 设计器后端）。
 - `warm-flow-ui`：Vue3 前端设计器，独立于 Maven 反应堆。
@@ -39,15 +39,16 @@
 7. **多租户 / 逻辑删除**：引擎自带实现，相关字段 / 行为改动兼顾「引擎自带」与「ORM 框架」两条路径。
 8. **扩展机制**：新增 JSON 走 `JsonConvert` + `META-INF/services`；新增 ORM / 框架走三件套矩阵（`core` + `sb3`/`sb4` starter）+ `AutoConfiguration.imports` 自动装配。
 9. **状态机**：通过 / 退回 / 跳转 / 转办 / 加减签 / 终止 / 撤回 / 票签 / 网关有副作用，改动前读对应 `service.impl` / `strategy` / `listener` 与状态枚举。
-10. **品牌与协议**：保留每个 Java 文件 Apache 2.0 license header、`@author warm`、`org.dromara.warm` 包名、banner、README 链接与 `LICENSE`，不弱化「永久开源免费」声明。
+10. **事件运行时**：事件节点是 `NodeType.BETWEEN` 但无人工待办，必须按 `eventType` 分流；等待状态独立于 `FlowStatus` / `TaskStatus`。CAS 抢占在事务外，推进与等待记录完成同事务；租约恢复 / 续租 / 完成提交校验 `id + status + lock_owner + version`，保持至少一次语义；core 不引入事务实现。
+11. **品牌与协议**：保留每个 Java 文件 Apache 2.0 license header、`@author warm`、`org.dromara.warm` 包名、banner、README 链接与 `LICENSE`，不弱化「永久开源免费」声明。
 
 ## 高风险（按 L2 处理，先读调用链）
 
-core 公共 API / 实体 / 抽象 DAO、扩展机制（`FlowEngine` / `FrameInvoker` / SPI / 自动装配）、跨生态行为、跨 ORM 行为、多数据库表结构 / 升级脚本、版本发布、流程状态机语义。
+core 公共 API / 实体 / 抽象 DAO、扩展机制（`FlowEngine` / `FrameInvoker` / SPI / 自动装配）、跨生态行为、跨 ORM 行为、多数据库表结构 / 升级脚本、版本发布、流程状态机语义、事件运行时与定时器一致性语义。
 
 ## 验证与安全边界
 
-- `warm-flow-core` 自带单元 / 特性测试（JUnit 5），改 core 逻辑优先跑 `mvn -pl warm-flow-core test`；其余模块用**分模块编译**验证：`mvn -pl <module> -am -DskipTests compile` 或 `mvn clean install -DskipTests`；跨库 / 跨生态集成测试在独立仓库 `warm-flow-test`。无法验证时如实报告命令、现象、风险与下一步。
+- `warm-flow-core` 与 `warm-flow-orm/**` 均有单元 / 特性 / H2 SQL 测试（JUnit 5），改 core 优先跑 `mvn -pl warm-flow-core test`，改事件 DAO / 方言 SQL 时跑对应 ORM 的 `test`；其余模块用**分模块编译**验证：`mvn -pl <module> -am -DskipTests compile` 或 `mvn clean install -DskipTests`；跨库 / 跨生态集成测试在独立仓库 `warm-flow-test`。无法验证时如实报告命令、现象、风险与下一步。
 - 未经用户明确批准：不 `git commit` / `git push`、不 `mvn deploy` / 改版本推送、不改写历史、不执行 `DROP` / 批量 `DELETE`、不变更 JDK 基线 / 删编译插件、不输出真实发布凭证。
 
 完整规则见 **[AGENTS.md](./AGENTS.md)**。

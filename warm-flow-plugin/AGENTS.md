@@ -17,7 +17,7 @@
 ## 改动前必读
 
 - 根 [`../AGENTS.md`](../AGENTS.md)「架构与扩展机制」「兼容性红线」「扩展开发指引」。
-- core 的 `condition` / `strategy` / `listener` / `json.JsonConvert` 接口；改表达式策略前先读 core 默认实现与 Spring 实现。
+- core 的 `strategy`（含 `strategy/condition`） / `spi.Listener` / `json.JsonConvert` 接口，以及 `service/event.EventPublisher`；改表达式策略前先读 core 默认实现与 Spring 实现。
 
 ## 高风险点（按 L2）
 
@@ -27,6 +27,7 @@
   类型调用**，避免表达式注入风险。
 - **双模式 UI**：经典模式与仿钉钉模式都要兼顾，前端资源放 `*-vue3-ui`。
 - **JSON 兼容**：不同 JSON 库对日期 / null / 泛型 / 多态序列化差异要与引擎实体约定一致，避免下游切换 JSON 库后行为变化。
+- **消息发布扩展**：`EventPublisher` 由 core 在事件事务内同步调用；投递失败必须抛异常让事件进入重试，可靠投递 / 去重由宿主在实现里接 Outbox，不要在插件内静默吞异常。
 
 ## 聚焦验证
 

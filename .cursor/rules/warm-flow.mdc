@@ -1,12 +1,12 @@
 ---
-description: warm-flow 工程编码与协作规则；以根 AGENTS.md 为唯一来源，约束 JDK17 基线、框架解耦、对外契约与多生态/多ORM/多DB
+description: sgs98/warm-flow 工程编码与协作规则；以根 AGENTS.md 为唯一来源，约束 JDK17 基线、框架解耦、对外契约与多生态/多ORM/多DB
 globs: *
 alwaysApply: true
 ---
 
 # warm-flow 工程规则（Cursor）
 
-本规则是 `warm-flow`（Dromara 开源轻量级工作流引擎 / SDK）的编码与协作约束摘要，**以根 [AGENTS.md](mdc:AGENTS.md) 为唯一来源**。开始任务前先读根 `AGENTS.md`；改动所在顶层模块下若有模块级 `AGENTS.md`（`warm-flow-core`/`warm-flow-orm`/`warm-flow-plugin`/`warm-flow-ui`），再读模块级。本文件与 `AGENTS.md` 冲突时以 `AGENTS.md` 为准。
+本规则是 Warm-Flow 工作流引擎 / SDK（基于上游 Dromara `dromara/warm-flow` 二次开发）的编码与协作约束摘要，**以根 [AGENTS.md](mdc:AGENTS.md) 为唯一来源**。开始任务前先读根 `AGENTS.md`；改动所在顶层模块下若有模块级 `AGENTS.md`（`warm-flow-core`/`warm-flow-orm`/`warm-flow-plugin`/`warm-flow-ui`），再读模块级。本文件与 `AGENTS.md` 冲突时以 `AGENTS.md` 为准。
 
 ## 规则优先级
 
@@ -22,8 +22,8 @@ alwaysApply: true
 
 ## 模块速览
 
-- `warm-flow-core`：框架 / ORM / JSON 无关的引擎核心（实体、服务、抽象 `WarmDao`、`FlowEngine`、`FrameInvoker`、SPI、表达式 / 监听器策略）。
-- `warm-flow-orm`：ORM 适配，按「ORM(mybatis / mybatis-plus / easy-query) × (sb3/sb4)」矩阵实现 `WarmDao`。
+- `warm-flow-core`：框架 / ORM / JSON 无关的引擎核心（实体、服务、抽象 `WarmDao`、`FlowEngine`、`FrameInvoker`、SPI、表达式 / 监听器策略、事件等待与内置定时器）。
+- `warm-flow-orm`：ORM 适配，按「ORM(mybatis / mybatis-plus) × (sb3/sb4)」矩阵实现 `WarmDao`。
 - `warm-flow-plugin`：可插拔扩展（`modes` 表达式、`json` 序列化、`ui` 设计器后端）。
 - `warm-flow-ui`：Vue3 + Vite 前端设计器，独立于 Maven 反应堆，许可证 MIT。
 - `sql/`：mysql / oracle / postgresql / sqlserver 四套脚本 + MySQL `v1-upgrade/`。
@@ -38,11 +38,12 @@ alwaysApply: true
 6. **SQL 四套同步**：表结构改动同步四库全量脚本 + 新增 `v1-upgrade/warm-flow_x.x.x.sql`，写明各库方言兼容与回滚。
 7. **扩展机制**：新增 JSON 走 `JsonConvert` + `META-INF/services`；新增 ORM / 框架走三件套矩阵（`core` + `sb3`/`sb4` starter）+ `AutoConfiguration.imports` 自动装配。
 8. **状态机**：通过 / 退回 / 跳转 / 转办 / 加减签 / 终止 / 撤回 / 票签 / 网关有副作用，改动前读对应 `service.impl` / `strategy` / `listener` 与状态枚举。
-9. **品牌与协议**：保留每个 Java 文件 Apache 2.0 license header、`@author warm`、`org.dromara.warm` 包名、banner、README 链接与 `LICENSE`，不弱化「永久开源免费」声明。
+9. **事件运行时**：事件节点是 `NodeType.BETWEEN` 但无人工待办，必须按 `eventType` 分流；等待状态独立于 `FlowStatus` / `TaskStatus`。CAS 抢占在事务外，推进与等待记录完成同事务；租约恢复 / 续租 / 完成提交校验 `id + status + lock_owner + version`，保持至少一次语义；core 不引入事务实现。
+10. **品牌与协议**：保留每个 Java 文件 Apache 2.0 license header、`@author warm`、`org.dromara.warm` 包名、banner、README 链接与 `LICENSE`，不弱化「永久开源免费」声明。
 
 ## 验证与安全边界
 
-- 本仓库无 `src/test`（测试在独立仓库 `warm-flow-test`），用**分模块编译**验证：`mvn -pl <module> -am -DskipTests compile` 或 `mvn clean install -DskipTests`；core 改动至少编译一个下游 orm/plugin 模块。前端用 `yarn dev` / `yarn build:prod`。无法验证时如实报告命令、现象、风险与下一步。
+- `warm-flow-core` 与 `warm-flow-orm/**` 均有单元 / 特性 / H2 SQL 测试（JUnit 5）；改 core 跑 `mvn -pl warm-flow-core test`，改事件 DAO / 方言 SQL 跑对应 ORM 的 `test`。其余模块用**分模块编译**验证：`mvn -pl <module> -am -DskipTests compile` 或 `mvn clean install -DskipTests`；跨库 / 跨生态集成测试在独立仓库 `warm-flow-test`；前端用 `yarn dev` / `yarn build:prod`。无法验证时如实报告命令、现象、风险与下一步。
 - 未经用户明确批准：不 `git commit` / `git push`、不 `mvn deploy` / 改版本推送、不改写历史、不执行 `DROP` / 批量 `DELETE`、不变更 JDK 基线 / 删编译插件、不输出真实发布凭证。
 
 完整规则见根 [AGENTS.md](mdc:AGENTS.md)。

@@ -28,13 +28,14 @@ yarn preview                                      # 预览构建产物
 
 ## 改动前必读
 
-- 与后端契约：设计器读写的流程定义 JSON、节点属性、办理人 / 条件 / 监听器结构需与 `warm-flow-plugin-ui` 后端 `dto` / `vo` 及 core 实体对齐，改字段先看后端契约。
+- 与后端契约：设计器读写的流程定义 JSON、节点属性、办理人 / 条件 / 监听器 / 事件（`eventType`、`eventName`、`attachedToNodeCode`、`interrupting`、`nodeConfig.event`）结构需与 `warm-flow-plugin-ui` 后端 `dto` / `vo` 及 core 实体对齐，改字段先看后端契约。
 - 现有组件、路由、Pinia store、axios 封装与公共样式，复用既有模式，不要在局部页面另起一套风格。
 
 ## 高风险点
 
 - **双模式一致**：经典模式与仿钉钉模式都要兼顾，节点状态颜色等沿用后端 `chartStatusColor*` 配置语义。
 - **前后端契约**：流程定义 JSON 结构是与后端共享的契约，改动要前后端同步，避免设计器导出的 json 后端解析不了。
+- **事件节点契约**：事件节点在画布上仍是 `between`，以 `eventType` 区分且不产生人工待办；经典 / 仿钉钉转换、嵌入模式、复制粘贴与导入导出都必须保留四个事件字段及 `node_config.event`，不能只改单侧映射。
 - **LogicFlow / form-create 版本**：图引擎与表单设计器升级可能破坏既有流程图 / 表单，升级按高风险处理并实际验证。
 - **依赖版本**：锁定版本不随意升级；新增依赖先评估必要性与体积。
 

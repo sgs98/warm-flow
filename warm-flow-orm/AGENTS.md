@@ -26,6 +26,8 @@ ORM 适配层，实现 `warm-flow-core` 的 `WarmDao` 抽象与各实体。按�
 - **自动装配注册一致**：SB3/4 统一用
   `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`。新增 / 改 `FlowAutoConfig`
   时同步对应注册文件，并确保把实现接入 `FlowEngine` / 注入 `FrameInvoker`。
+- **事件治理一致**：`FlowEventWaitDao` 的扫描、CAS 抢占、续租、租约恢复与取消必须保持两种 ORM、SB3 / SB4 行为一致；
+  默认 `EventTaskHandler` 只在存在 `PlatformTransactionManager` 时注册，CAS 抢占在事务外，推进与等待记录完成同事务。
 - **WarmDao 契约**：各 ORM 实现要满足 core `WarmDao<T>` 的语义（分页、批量、软删除、租户），不要让不同 ORM 行为漂移。
 - **ID 生成 / 分页 / 方言**：ORM 原生 ID 生成器优先，core 内置算法兜底；`dataSourceType` 影响分页 SQL，跨数据库时确认方言差异。
 - **多租户与逻辑删除**：区分「引擎自带实现」与「复用 ORM 框架实现」两条路径，改动时两者都要自洽。
