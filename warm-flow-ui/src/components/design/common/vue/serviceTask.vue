@@ -27,7 +27,7 @@
             <el-form-item label="节点名称：" prop="nodeName">
               <el-input v-model="form.nodeName" :disabled="disabled"></el-input>
             </el-form-item>
-            <el-form-item label="默认变量：">
+            <el-form-item label="默认变量：" class="default-variables-item">
               <node-variables v-model="form.nodeConfig" :disabled="disabled"></node-variables>
             </el-form-item>
             <el-form-item label="执行方式：" prop="serviceType">

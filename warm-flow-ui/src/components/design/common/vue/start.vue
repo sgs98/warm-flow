@@ -31,7 +31,7 @@
                 <el-input v-model="form.nodeName" ref="nodeInput" :disabled="disabled" @change="nodeNameChange"></el-input>
               </el-form-item>
             </slot>
-            <el-form-item label="默认变量：">
+            <el-form-item label="默认变量：" class="default-variables-item">
               <node-variables v-model="form.nodeConfig" :disabled="disabled"></node-variables>
             </el-form-item>
           </div>

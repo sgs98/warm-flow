@@ -142,7 +142,7 @@ function parseServiceTaskConfig(nodeConfig) {
   }
 }
 
-// 解析节点配置（nodeConfig 为 JSON 字符串，容错转对象）：顶层键为引擎配置（serviceTask）与自定义扩展属性（KV）
+// 解析节点配置（nodeConfig 为 JSON 字符串，容错转对象）：顶层键包含引擎配置、自定义扩展属性（KV）与说明元数据
 function parseNodeConfig(nodeConfig) {
   if (!nodeConfig) {
     return {}
@@ -358,8 +358,11 @@ watch(() => [form.value.serviceType, form.value.serviceHandler, form.value.servi
   syncServiceNodeConfig()
 })
 
-// 服务任务的默认变量变化同样要落回节点：只盯 variables 段，避免与其它字段写回互相覆盖
-watch(() => JSON.stringify(form.value.nodeConfig?.variables || {}), () => {
+// 服务任务的默认变量及其说明变化同样要落回节点：只盯这两个段，避免与其它字段写回互相覆盖
+watch(() => JSON.stringify({
+  variables: form.value.nodeConfig?.variables || {},
+  meta: form.value.nodeConfig?.__variableMeta || {}
+}), () => {
   syncServiceNodeConfig()
 })
 

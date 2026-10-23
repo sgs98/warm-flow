@@ -166,6 +166,17 @@
     background: transparent;
     html.dark & { background: transparent; }
   }
+  /* 默认变量是多行编辑区：标签贴齐首行，避免被整块内容垂直居中 */
+  .default-variables-item {
+    align-items: flex-start;
+    :deep(.el-form-item__label) {
+      height: 24px;
+      line-height: 24px;
+    }
+    :deep(.el-form-item__content) {
+      min-width: 0;
+    }
+  }
 }
 
 /* ========== 监听器/办理人 通用卡片 ========== */

@@ -35,7 +35,7 @@
         <el-form-item label="节点名称：" prop="nodeName">
           <el-input v-model="form.nodeName" :disabled="disabled"></el-input>
         </el-form-item>
-        <el-form-item label="默认变量：">
+        <el-form-item label="默认变量：" class="default-variables-item">
           <node-variables v-model="form.nodeConfig" :disabled="disabled"></node-variables>
         </el-form-item>
         </form-section>
@@ -285,24 +285,30 @@
         </div>
         </form-section>
 
-        <!-- 扩展属性（KV，存 nodeConfig 顶层键，serviceTask 为引擎保留键） -->
+        <!-- 扩展属性（KV + 说明，存 nodeConfig 顶层键；variables 等为引擎保留键） -->
         <form-section title="扩展属性" :summary="kvExtSummary" :default-open="false">
           <div class="section-card section-blue">
             <div class="section-card-body">
-              <el-table :data="kvRows" style="width: 100%" empty-text="暂无扩展属性">
-                <el-table-column prop="code" :width="isMobile ? 80 : 128" label="属性名">
+              <el-table :data="kvRows" class="kv-table" style="width: 100%" empty-text="暂无扩展属性">
+                <el-table-column prop="code" :width="isMobile ? 64 : 112" label="属性名">
                   <template #default="scope">
                     <el-input v-model="scope.row.code" :disabled="disabled" placeholder="请输入属性名" maxlength="50" @input="syncNodeConfig" />
                   </template>
                 </el-table-column>
-                <el-table-column prop="value" label="属性值" min-width="120">
+                <el-table-column prop="value" label="属性值" :min-width="isMobile ? 80 : 120">
                   <template #default="scope">
                     <el-input v-model="scope.row.value" :disabled="disabled" placeholder="请输入属性值" maxlength="500" @input="syncNodeConfig" />
                   </template>
                 </el-table-column>
-                <el-table-column label="操作" width="60" align="center" v-if="!disabled">
+                <el-table-column prop="description" label="说明" :min-width="isMobile ? 90 : 120">
                   <template #default="scope">
-                    <el-button link size="small" type="danger" :icon="Delete" @click="handleDeleteKvRow(scope.$index)" />
+                    <el-input v-model="scope.row.description" :disabled="disabled" placeholder="补充说明（选填）" maxlength="200" @input="syncNodeConfig" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" :width="isMobile ? 38 : 56" align="center" v-if="!disabled">
+                  <template #default="scope">
+                    <el-button link size="small" type="danger" :icon="Delete" aria-label="删除扩展属性"
+                               @click="handleDeleteKvRow(scope.$index)" />
                   </template>
                 </el-table-column>
               </el-table>
@@ -520,47 +526,68 @@ const baseExtSummary = computed(() => {
   return filled.length > 1 ? `${text}　等 ${filled.length} 项` : text;
 });
 
-/** 引擎保留的节点配置键：服务任务配置、事件配置与抄送配置，不参与自定义 KV 行 */
-const NODE_CONFIG_RESERVED_KEYS = ['serviceTask', 'event', 'copy'];
+/** 扩展属性说明的元数据键：与属性值分开存，保持 nodeConfig[code] 仍是原始标量值 */
+const EXT_META_KEY = '__extMeta';
+
+/** 引擎保留的节点配置键：默认变量、服务任务、事件、抄送与说明元数据，不参与自定义 KV 行 */
+const NODE_CONFIG_RESERVED_KEYS = ['variables', '__variableMeta', 'serviceTask', 'event', 'copy', EXT_META_KEY];
+
+/** 最近一次与表格同步的 nodeConfig 序列化结果，用于区分外部回显与自身写回 */
+let lastNodeConfigSnapshot = '';
+
+/** 读取扩展属性说明元数据，兼容缺失、非对象与旧数据 */
+function getExtMeta(config) {
+  const meta = config && config[EXT_META_KEY];
+  return meta && typeof meta === 'object' && !Array.isArray(meta) ? meta : {};
+}
 
 /** 初始化 KV 行：从 form.nodeConfig 读取非保留键 */
 function initKvRows() {
   const config = form.value.nodeConfig && typeof form.value.nodeConfig === 'object'
     ? form.value.nodeConfig : {};
+  const extMeta = getExtMeta(config);
   kvRows.value = Object.keys(config)
     .filter(code => !NODE_CONFIG_RESERVED_KEYS.includes(code))
-    .map(code => ({ code, value: config[code] }));
+    .map(code => ({
+      code,
+      value: config[code],
+      description: extMeta[code] === undefined || extMeta[code] === null ? '' : String(extMeta[code])
+    }));
+  lastNodeConfigSnapshot = JSON.stringify(config);
 }
 
-/** KV 行变化时重建 nodeConfig：保留 serviceTask 引擎配置，剔除空属性名 */
+/** KV 行变化时重建 nodeConfig：保留引擎配置，剔除空属性名，并同步说明元数据 */
 function syncNodeConfig() {
+  const previous = form.value.nodeConfig && typeof form.value.nodeConfig === 'object'
+    ? form.value.nodeConfig : {};
   const config = {};
+  const extMeta = {};
   kvRows.value.forEach(row => {
-    const code = (row.code || '').trim();
+    const code = String(row.code || '').trim();
     if (code && !NODE_CONFIG_RESERVED_KEYS.includes(code)) {
       config[code] = row.value;
+      const description = String(row.description || '').trim();
+      if (description) {
+        extMeta[code] = description;
+      }
     }
   });
-  if (form.value.nodeConfig && typeof form.value.nodeConfig === 'object'
-      && form.value.nodeConfig.serviceTask !== undefined) {
-    config.serviceTask = form.value.nodeConfig.serviceTask;
-  }
-  // 事件配置：事件节点保留 node_config.event 段，避免 KV 行编辑时丢失定时配置
-  if (form.value.nodeConfig && typeof form.value.nodeConfig === 'object'
-      && form.value.nodeConfig.event !== undefined) {
-    config.event = form.value.nodeConfig.event;
-  }
-  // 抄送配置：node_config.copy 段由抄送面板维护，KV 行编辑时同样要保留
-  if (form.value.nodeConfig && typeof form.value.nodeConfig === 'object'
-      && form.value.nodeConfig.copy !== undefined) {
-    config.copy = form.value.nodeConfig.copy;
+  // 这些段由其它面板维护，编辑扩展属性时只透传，避免互相覆盖
+  ['variables', '__variableMeta', 'serviceTask', 'event', 'copy'].forEach(key => {
+    if (previous[key] !== undefined) {
+      config[key] = previous[key];
+    }
+  });
+  if (Object.keys(extMeta).length > 0) {
+    config[EXT_META_KEY] = extMeta;
   }
   form.value.nodeConfig = config;
+  lastNodeConfigSnapshot = JSON.stringify(config);
 }
 
 // 增加扩展属性行
 function handleAddKvRow() {
-  kvRows.value.push({ code: "", value: "" });
+  kvRows.value.push({ code: "", value: "", description: "" });
 }
 
 // 删除扩展属性行
@@ -1376,6 +1403,12 @@ getPermissionFlag();
 getNodeExt();
 // 扩展属性（KV）行初始化
 initKvRows();
+// 外部 nodeConfig 变化（切换节点 / 默认变量写回）时同步 KV 行；自身写回通过快照跳过
+watch(() => form.value.nodeConfig, () => {
+  if (JSON.stringify(form.value.nodeConfig || {}) !== lastNodeConfigSnapshot) {
+    initKvRows();
+  }
+}, { deep: true });
 // 抄送人名称回显：没有配置抄送人时不会发请求。
 // 必须监听节点切换：属性面板复用同一个 form 对象（propertySetting 原地改写），
 // 不监听的话切到另一个节点时还显示上一个节点的抄送人，
@@ -1537,6 +1570,16 @@ defineExpose({
   font-size: 12px;
   line-height: 1.4;
   width: 100%;
+}
+
+/* 扩展属性：三列输入在窄侧栏内保持可用，操作列不参与挤压 */
+.kv-table {
+  :deep(.el-table__cell) {
+    padding: 6px 0;
+  }
+  :deep(.cell) {
+    padding: 0 6px;
+  }
 }
 
 /* 定时时长选择器：数值 + 单位 + 高级切换 */
