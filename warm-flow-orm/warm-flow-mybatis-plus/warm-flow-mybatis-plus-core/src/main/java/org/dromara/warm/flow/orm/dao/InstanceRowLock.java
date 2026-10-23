@@ -34,8 +34,12 @@ public final class InstanceRowLock {
         if (instanceId == null) {
             return;
         }
+        lock(FrameInvoker.getBean(FlowInstanceMapper.class), instanceId);
+    }
+
+    static void lock(FlowInstanceMapper mapper, Long instanceId) {
         // 条件 UPDATE 在各支持数据库中取得实例行写锁；不依赖 SELECT FOR UPDATE 方言。
-        FrameInvoker.getBean(FlowInstanceMapper.class).update(null,
+        mapper.update(null,
             new LambdaUpdateWrapper<FlowInstance>()
                 .eq(FlowInstance::getId, instanceId)
                 .setSql("update_time = update_time"));

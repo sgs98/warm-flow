@@ -16,8 +16,10 @@
 package org.dromara.warm.flow.spring.boot.config;
 
 import org.dromara.warm.flow.core.entity.Instance;
+import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.service.impl.TaskServiceImpl;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
+import org.dromara.warm.flow.orm.dao.InstanceRowLock;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -35,21 +37,40 @@ class TransactionalTaskService extends TaskServiceImpl {
 
     @Override
     public Instance execute(Long taskId, WorkflowContext context, String skipType) {
-        return transactionTemplate.execute(status -> super.execute(taskId, context, skipType));
+        Long instanceId = instanceIdOf(taskId);
+        return transactionTemplate.execute(status -> {
+            InstanceRowLock.lock(instanceId);
+            return super.execute(taskId, context, skipType);
+        });
     }
 
     @Override
     public Instance revoke(Long instanceId, WorkflowContext context) {
-        return transactionTemplate.execute(status -> super.revoke(instanceId, context));
+        return transactionTemplate.execute(status -> {
+            InstanceRowLock.lock(instanceId);
+            return super.revoke(instanceId, context);
+        });
     }
 
     @Override
     public Instance terminateByInstanceId(Long instanceId, WorkflowContext context) {
-        return transactionTemplate.execute(status -> super.terminateByInstanceId(instanceId, context));
+        return transactionTemplate.execute(status -> {
+            InstanceRowLock.lock(instanceId);
+            return super.terminateByInstanceId(instanceId, context);
+        });
     }
 
     @Override
     public Instance terminateByTaskId(Long taskId, WorkflowContext context) {
-        return transactionTemplate.execute(status -> super.terminateByTaskId(taskId, context));
+        Long instanceId = instanceIdOf(taskId);
+        return transactionTemplate.execute(status -> {
+            InstanceRowLock.lock(instanceId);
+            return super.terminateByTaskId(taskId, context);
+        });
+    }
+
+    private Long instanceIdOf(Long taskId) {
+        Task task = taskId == null ? null : super.getById(taskId);
+        return task == null ? null : task.getInstanceId();
     }
 }
