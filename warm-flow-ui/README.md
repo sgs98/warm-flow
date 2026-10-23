@@ -1,7 +1,7 @@
 <p align="center">
 	<img alt="logo" src="https://foruda.gitee.com/images/1726820610127990120/c8c5f3a4_2218307.png" width="100">
 </p>
-<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">Warm-Flow工作流 v1.8.2</h1>
+<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">Warm-Flow工作流 v2.1.0</h1>
 <p align="center">
 	<a href="https://gitee.com/sgs98/warm-flow/stargazers"><img src="https://gitee.com/sgs98/warm-flow/badge/star.svg?theme=dark"></a>
 </p>
@@ -10,7 +10,7 @@
 
 Warm-Flow国产工作流引擎🎉，其特点简洁轻量，五脏俱全，灵活扩展性强，是一个可通过jar引入设计器的工作流。
 
-1. 简洁易用：只有7张表，代码量少，可快速上手和集成
+1. 简洁易用：核心 8 张表（事件能力默认关闭），代码量少，可快速上手和集成
 2. 审批功能：支持通过、退回、任意跳转、转办、终止、会签、票签、委派和加减签、互斥和并行网关
 3. 监听器与流程变量：支持五种监听器，可应对不同场景，灵活可扩展，参数传递，动态权限
 4. 流程图：流程引擎自带流程图，可在不集成流程设计器情况下使用

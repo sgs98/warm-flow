@@ -56,14 +56,14 @@
 <dependency>
     <groupId>io.github.sgs98</groupId>
     <artifactId>warm-flow-mybatis-plus-sb3-starter</artifactId>
-    <version>2.0.1</version>
+    <version>2.1.0</version>
 </dependency>
 
 
 <dependency>
     <groupId>io.github.sgs98</groupId>
     <artifactId>warm-flow-plugin-ui-sb-web</artifactId>
-    <version>2.0.1</version>
+    <version>2.1.0</version>
 </dependency>
 ```
 
@@ -75,7 +75,7 @@
 仓库内 `warm-flow-demo` 提供 Spring Boot 3.5 + Vue 3 的全栈演示工程，可直接体验流程定义、审批与双模式设计器：
 
 ```bash
-# 1) 准备数据库：引擎 7 张核心表 + demo 业务表 + 初始数据
+# 1) 准备数据库：引擎 8 张核心表（事件能力默认关闭）+ demo 业务表 + 初始数据
 mysql -uroot -p warm-flow < sql/mysql/warm-flow-all.sql
 mysql -uroot -p warm-flow < warm-flow-demo/warm-flow-demo/src/main/resources/sql/schema.sql
 mysql -uroot -p warm-flow < warm-flow-demo/warm-flow-demo/src/main/resources/sql/data.sql

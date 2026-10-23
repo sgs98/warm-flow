@@ -21,7 +21,7 @@ warm-flow-demo/
 按顺序执行 SQL：
 
 ```bash
-# 1) Warm-Flow 引擎 7 张核心表（官方规范脚本，本 demo 不复制）
+# 1) Warm-Flow 引擎 8 张核心表（事件能力默认关闭，本 demo 不复制）
 mysql -uroot -p warm-flow < <repo>/sql/mysql/warm-flow-all.sql
 
 # 2) demo 业务表
@@ -37,7 +37,7 @@ mysql -uroot -p warm-flow < warm-flow-demo/src/main/resources/sql/data.sql
 
 ```bash
 cd warm-flow-demo
-mvn spring-boot:run            # 或打包 java -jar target/warm-flow-demo-2.0.0.jar
+mvn spring-boot:run            # 或打包 java -jar target/warm-flow-demo-2.1.0.jar
 ```
 
 前端：

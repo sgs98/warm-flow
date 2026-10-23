@@ -87,7 +87,7 @@
         </el-menu-item-group>
       </el-menu>
 
-      <div class="aside-foot">Warm-Flow v2.0 · 本地演示</div>
+      <div class="aside-foot">Warm-Flow v2.1 · 本地演示</div>
     </el-aside>
 
     <button
