@@ -116,7 +116,7 @@ final class FlowRevokeChain {
         // 撤回前先取消实例所有活动等待记录，避免旧等待在撤回后继续推进流程；
         // 取消前记录「是否存在等待事件」：等待事件实例没有普通待办也允许撤回
         waitingEventInstance = CollUtil.isNotEmpty(
-            FlowEngine.eventWaitService().getWaitingByInstanceId(instanceId));
+            FlowEngine.eventWaitService().getActiveByInstanceId(instanceId));
         FlowEngine.eventWaitService().cancelByInstanceIds(Collections.singletonList(instanceId));
         FlowCombine flowCombine = execution.loadCombine();
         nodeMap = StreamUtils.toMap(flowCombine.getAllNodes(), Node::getNodeCode, node -> node);

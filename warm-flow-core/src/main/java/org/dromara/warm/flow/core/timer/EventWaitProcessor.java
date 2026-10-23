@@ -1,5 +1,6 @@
 package org.dromara.warm.flow.core.timer;
 
+import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.constant.EventCons;
 import org.dromara.warm.flow.core.entity.EventWait;
@@ -247,7 +248,10 @@ public class EventWaitProcessor {
      */
     private static synchronized ScheduledExecutorService renewalScheduler() {
         if (renewalScheduler == null || renewalScheduler.isShutdown()) {
-            renewalScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            WarmFlow config = FlowEngine.getFlowConfig();
+            int poolSize = config != null && config.getTimerPoolSize() != null
+                ? config.getTimerPoolSize() : 2;
+            renewalScheduler = Executors.newScheduledThreadPool(Math.max(2, Math.min(poolSize, 8)), r -> {
                 Thread thread = new Thread(r, "warm-flow-lease-renewal");
                 thread.setDaemon(true);
                 return thread;

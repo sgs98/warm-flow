@@ -18,6 +18,7 @@ package org.dromara.warm.flow.spring.boot.config;
 import org.dromara.warm.flow.core.entity.EventWait;
 import org.dromara.warm.flow.core.timer.EventTaskHandler;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
+import org.dromara.warm.flow.orm.dao.InstanceRowLock;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -61,17 +62,24 @@ public class TransactionalEventTaskHandler implements EventTaskHandler {
 
     @Override
     public void handle(EventWait wait) {
-        transactionTemplate.executeWithoutResult(status -> delegate.handle(wait));
+        transactionTemplate.executeWithoutResult(status -> {
+            InstanceRowLock.lock(wait.getInstanceId());
+            delegate.handle(wait);
+        });
     }
 
     @Override
     public void handle(EventWait wait, WorkflowContext context) {
-        transactionTemplate.executeWithoutResult(status -> delegate.handle(wait, context));
+        transactionTemplate.executeWithoutResult(status -> {
+            InstanceRowLock.lock(wait.getInstanceId());
+            delegate.handle(wait, context);
+        });
     }
 
     @Override
     public void handle(EventWait wait, WorkflowContext context, Runnable completion) {
         transactionTemplate.executeWithoutResult(status -> {
+            InstanceRowLock.lock(wait.getInstanceId());
             delegate.handle(wait, context);
             completion.run();
         });

@@ -3,6 +3,7 @@ package org.dromara.warm.flow.core.service.impl;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.constant.EventCons;
+import org.dromara.warm.flow.core.dto.FlowCombine;
 import org.dromara.warm.flow.core.dto.DefJson;
 import org.dromara.warm.flow.core.dto.NodeJson;
 import org.dromara.warm.flow.core.entity.Definition;
@@ -21,6 +22,7 @@ import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.service.TaskService;
+import org.dromara.warm.flow.core.service.DefService;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
 import org.dromara.warm.flow.core.test.listener.RecordingServiceTaskHandler;
@@ -38,6 +40,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -440,6 +443,81 @@ class EventRuntimeCharacteristicTest {
     }
 
     @Test
+    void transientTimerStartGraphFailureRetriesInsteadOfCancelling() {
+        Definition def = timerStartFlow("evStartRetry");
+        FlowEngine.defService().publish(def.getId());
+        EventWait wait = FlowEngine.eventWaitService()
+            .list(FlowEngine.newEventWait().setDefinitionId(def.getId())).get(0);
+
+        DefServiceImpl intermittent = new DefServiceImpl() {
+            private boolean failed;
+
+            @Override
+            public FlowCombine getFlowCombine(Definition definition) {
+                if (!failed) {
+                    failed = true;
+                    throw new IllegalStateException("temporary graph query failure");
+                }
+                return super.getFlowCombine(definition);
+            }
+        };
+        intermittent.setDao(harness.defDao);
+        harness.register(DefService.class, intermittent);
+
+        EventWaitProcessor processor = new EventWaitProcessor(harness.eventWaitDao, FlowEngine.getFlowConfig());
+        assertTrue(new TimerClaim(harness.eventWaitDao).claim(wait,
+            new Date(wait.getNextTriggerAt().getTime() + 1000L)));
+        processor.process(wait, wait.getStatus(), wait.getNextTriggerAt(), wait.getRetryAt());
+
+        EventWait retry = harness.eventWaitDao.selectById(wait.getId());
+        assertEquals(EventCons.STATUS_RETRY, retry.getStatus());
+        assertEquals(1, retry.getRetryCount());
+        assertTrue(FlowEngine.insService().getByDefId(def.getId()).isEmpty());
+
+        assertTrue(new TimerClaim(harness.eventWaitDao).claim(retry,
+            new Date(retry.getRetryAt().getTime() + 1000L)));
+        processor.process(retry, retry.getStatus(), retry.getNextTriggerAt(), retry.getRetryAt());
+        assertEquals(1, FlowEngine.insService().getByDefId(def.getId()).size());
+        assertNull(harness.eventWaitDao.selectById(wait.getId()));
+    }
+
+    @Test
+    void staleTimerStartTopologyIsCancelled() {
+        Definition def = timerStartFlow("evStartStale");
+        FlowEngine.defService().publish(def.getId());
+        EventWait wait = FlowEngine.eventWaitService()
+            .list(FlowEngine.newEventWait().setDefinitionId(def.getId())).get(0);
+        wait.setNodeCode("removed-start-event");
+
+        assertThrows(FlowException.class, () -> FlowEngine.insService().startByTimer(
+            "manual-stale", def.getId(), wait.getNodeCode(), null,
+            TestFlows.context(TestFlows.HANDLER)));
+
+        assertTrue(new TimerClaim(harness.eventWaitDao).claim(wait,
+            new Date(wait.getNextTriggerAt().getTime() + 1000L)));
+        new EventWaitProcessor(harness.eventWaitDao, FlowEngine.getFlowConfig())
+            .process(wait, wait.getStatus(), wait.getNextTriggerAt(), wait.getRetryAt());
+
+        assertEquals(EventCons.STATUS_CANCELLED, harness.eventWaitDao.selectById(wait.getId()).getStatus());
+        assertTrue(FlowEngine.insService().getByDefId(def.getId()).isEmpty());
+    }
+
+    @Test
+    void revokeClaimedWaitingInstance() {
+        timerCatchFlow("evRevokeRunning");
+        Instance instance = FlowEngine.insService().start("biz-rvr", "evRevokeRunning"
+            , TestFlows.context(TestFlows.HANDLER));
+        TestFlows.pass(TestFlows.currentTask(instance.getId()).getId(), TestFlows.HANDLER);
+        EventWait wait = singleWaiting(instance.getId());
+        harness.eventWaitDao.raw(wait.getId()).setStatus(EventCons.STATUS_RUNNING);
+
+        FlowEngine.taskService().revoke(instance.getId(), TestFlows.context(TestFlows.HANDLER));
+
+        assertEquals("apply", TestFlows.currentTask(instance.getId()).getNodeCode());
+        assertEquals(EventCons.STATUS_CANCELLED, harness.eventWaitDao.raw(wait.getId()).getStatus());
+    }
+
+    @Test
     void terminateWaitingInstanceWithoutTask() {
         timerCatchFlow("evTerm");
         Instance instance = FlowEngine.insService().start("biz-tm", "evTerm"
@@ -456,6 +534,45 @@ class EventRuntimeCharacteristicTest {
             .list(FlowEngine.newEventWait().setInstanceId(instance.getId()));
         assertEquals(1, waits.size());
         assertEquals(EventCons.STATUS_CANCELLED, waits.get(0).getStatus());
+    }
+
+    @Test
+    void terminateClaimedWaitingInstanceWithoutTask() {
+        timerCatchFlow("evTermRunning");
+        Instance instance = FlowEngine.insService().start("biz-tmr", "evTermRunning"
+            , TestFlows.context(TestFlows.HANDLER));
+        TestFlows.pass(TestFlows.currentTask(instance.getId()).getId(), TestFlows.HANDLER);
+        EventWait wait = singleWaiting(instance.getId());
+        harness.eventWaitDao.raw(wait.getId()).setStatus(EventCons.STATUS_RUNNING);
+
+        Instance terminated = FlowEngine.taskService().terminateByInstanceId(instance.getId()
+            , TestFlows.context(TestFlows.HANDLER));
+
+        assertEquals(FlowStatus.TERMINATE.getKey(), terminated.getFlowStatus());
+        assertEquals(EventCons.STATUS_CANCELLED, harness.eventWaitDao.raw(wait.getId()).getStatus());
+    }
+
+    @Test
+    void catchEventReturningToItselfCreatesNextWait() {
+        Definition def = def("evCatchLoop");
+        node(def, "start", NodeType.START.getKey(), null, null, null, null, null);
+        node(def, "apply", NodeType.BETWEEN.getKey(), TestFlows.HANDLER, null, null, null, null);
+        node(def, "tc", NodeType.BETWEEN.getKey(), null, EventType.TIMER_CATCH.getValue()
+            , null, null, TIMER_CONFIG);
+        node(def, "end", NodeType.END.getKey(), null, null, null, null, null);
+        skip(def, "start", NodeType.START.getKey(), "apply", NodeType.BETWEEN.getKey());
+        skip(def, "apply", NodeType.BETWEEN.getKey(), "tc", NodeType.BETWEEN.getKey());
+        skip(def, "tc", NodeType.BETWEEN.getKey(), "tc", NodeType.BETWEEN.getKey());
+
+        Instance instance = FlowEngine.insService().start("biz-loop", "evCatchLoop"
+            , TestFlows.context(TestFlows.HANDLER));
+        TestFlows.pass(TestFlows.currentTask(instance.getId()).getId(), TestFlows.HANDLER);
+        EventWait first = singleWaiting(instance.getId());
+
+        claimAndProcess(first);
+
+        EventWait next = singleWaiting(instance.getId());
+        assertNotEquals(first.getId(), next.getId());
     }
 
     @Test

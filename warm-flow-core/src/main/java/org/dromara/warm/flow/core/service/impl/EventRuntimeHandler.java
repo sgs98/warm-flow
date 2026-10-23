@@ -112,7 +112,7 @@ public class EventRuntimeHandler implements EventTaskHandler {
         FlowExecution execution;
         try {
             execution = FlowExecution.loadTimerStart(wait.getDefinitionId(), wait.getNodeCode(), context);
-        } catch (Exception ex) {
+        } catch (FlowExecution.TimerStartTopologyException ex) {
             // 拓扑与等待记录不匹配：取消记录并记录原因，不计入失败重试
             cancelStale(wait, "启动事件拓扑校验失败: " + ex.getMessage());
             return;

@@ -87,8 +87,9 @@ public class FlowAutoConfig extends BeanConfig {
     }
 
     @Bean
-    public InsService instanceService(FlowInstanceDao dao) {
-        return new InsServiceImpl().setDao(dao);
+    public InsService instanceService(FlowInstanceDao dao, ObjectProvider<PlatformTransactionManager> transactionManager) {
+        PlatformTransactionManager tm = transactionManager.getIfAvailable();
+        return (tm == null ? new InsServiceImpl() : new TransactionalInsService(new TransactionTemplate(tm))).setDao(dao);
     }
 
     @Bean
@@ -97,8 +98,9 @@ public class FlowAutoConfig extends BeanConfig {
     }
 
     @Bean
-    public TaskService taskService(FlowTaskDao dao) {
-        return new TaskServiceImpl().setDao(dao);
+    public TaskService taskService(FlowTaskDao dao, ObjectProvider<PlatformTransactionManager> transactionManager) {
+        PlatformTransactionManager tm = transactionManager.getIfAvailable();
+        return (tm == null ? new TaskServiceImpl() : new TransactionalTaskService(new TransactionTemplate(tm))).setDao(dao);
     }
 
     /**

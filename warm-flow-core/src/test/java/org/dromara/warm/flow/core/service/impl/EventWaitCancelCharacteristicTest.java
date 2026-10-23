@@ -37,6 +37,18 @@ class EventWaitCancelCharacteristicTest {
     }
 
     @Test
+    void activeWaitsIncludeRunningWithoutChangingWaitingQuery() {
+        EventWait waiting = wait(9001L, 100L, null, EventCons.STATUS_WAITING, 0);
+        EventWait running = wait(9002L, 100L, null, EventCons.STATUS_RUNNING, 1);
+        wait(9003L, 100L, null, EventCons.STATUS_CANCELLED, 2);
+
+        assertEquals(List.of(waiting.getId()), FlowEngine.eventWaitService()
+            .getWaitingByInstanceId(100L).stream().map(EventWait::getId).toList());
+        assertEquals(List.of(waiting.getId(), running.getId()), FlowEngine.eventWaitService()
+            .getActiveByInstanceId(100L).stream().map(EventWait::getId).toList());
+    }
+
+    @Test
     void cancelByInstanceIdCoversWaitingRetryRunningOnly() {
         EventWait waiting = wait(9001L, 100L, null, EventCons.STATUS_WAITING, 3);
         EventWait retry = wait(9002L, 100L, null, EventCons.STATUS_RETRY, 2);

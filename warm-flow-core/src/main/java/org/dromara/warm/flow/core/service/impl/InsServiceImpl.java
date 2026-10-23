@@ -145,7 +145,12 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
         // 而不是落到开始节点的「待提交」——否则补发的件在待办列表里根本筛不出来
         context.setFlowStatus(FlowStatusMachine.mapper().instanceStatus(FlowStatus.WAITING));
         context.setTaskStatus(FlowStatusMachine.mapper().taskStatus(TaskStatus.PASS));
-        FlowExecution execution = FlowExecution.loadTimerStart(definitionId, nodeCode, context);
+        FlowExecution execution;
+        try {
+            execution = FlowExecution.loadTimerStart(definitionId, nodeCode, context);
+        } catch (FlowExecution.TimerStartTopologyException ex) {
+            throw new FlowException(ex.getMessage());
+        }
         return new FlowStartChain(this, businessId).pipeline().run(execution);
     }
 

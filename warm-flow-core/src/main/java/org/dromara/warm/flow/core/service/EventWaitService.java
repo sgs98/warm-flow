@@ -1,13 +1,17 @@
 package org.dromara.warm.flow.core.service;
 
+import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.constant.EventCons;
 import org.dromara.warm.flow.core.dto.EventWaitQuery;
 import org.dromara.warm.flow.core.entity.EventWait;
 import org.dromara.warm.flow.core.orm.service.IWarmService;
 import org.dromara.warm.flow.core.utils.page.Page;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
-import java.util.List;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 事件等待记录服务。
@@ -48,6 +52,23 @@ public interface EventWaitService extends IWarmService<EventWait> {
      * @return 等待中的事件记录列表
      */
     List<EventWait> getWaitingByInstanceId(Long instanceId);
+
+    /**
+     * 查询实例的活动等待记录，包含已抢占但尚未完成的 {@code RUNNING} 记录。
+     *
+     * @param instanceId 流程实例 ID
+     * @return 活动等待记录列表
+     */
+    default List<EventWait> getActiveByInstanceId(Long instanceId) {
+        if (instanceId == null) {
+            return Collections.emptyList();
+        }
+        return list(FlowEngine.newEventWait().setInstanceId(instanceId)).stream()
+            .filter(wait -> EventCons.STATUS_WAITING.equals(wait.getStatus())
+                || EventCons.STATUS_RETRY.equals(wait.getStatus())
+                || EventCons.STATUS_RUNNING.equals(wait.getStatus()))
+            .collect(Collectors.toList());
+    }
 
     /**
      * 按查询条件分页查询等待记录（定时任务）。
