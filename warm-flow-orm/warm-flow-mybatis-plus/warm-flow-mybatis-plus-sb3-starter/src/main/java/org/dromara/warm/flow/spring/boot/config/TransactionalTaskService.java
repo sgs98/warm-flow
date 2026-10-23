@@ -22,6 +22,8 @@ import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 import org.dromara.warm.flow.orm.dao.InstanceRowLock;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.List;
+
 /**
  * 为人工任务流转和实例生命周期操作提供数据库事务。
  *
@@ -66,6 +68,16 @@ class TransactionalTaskService extends TaskServiceImpl {
         return transactionTemplate.execute(status -> {
             InstanceRowLock.lock(instanceId);
             return super.terminateByTaskId(taskId, context);
+        });
+    }
+
+    @Override
+    public Instance updateHandlers(Long taskId, WorkflowContext context, List<String> addHandlers,
+        List<String> removeHandlers, String cooperateType) {
+        Long instanceId = instanceIdOf(taskId);
+        return transactionTemplate.execute(status -> {
+            InstanceRowLock.lock(instanceId);
+            return super.updateHandlers(taskId, context, addHandlers, removeHandlers, cooperateType);
         });
     }
 
