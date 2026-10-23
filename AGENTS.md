@@ -11,7 +11,7 @@
 
 ## 项目概览
 
-`warm-flow` 是基于上游 [dromara/warm-flow](https://gitee.com/dromara/warm-flow) 二次开发的国产轻量级工作流引擎，**不是 [Dromara](https://dromara.org/) 社区的官方项目**。当前 Maven 发布坐标为 `groupId=io.github.sgs98`，发布到 Maven 中央仓库供他人依赖。它**是一个被集成的类库 / SDK，不是业务应用**：简洁轻量（核心仅 8 张表，事件能力默认关闭）、五脏俱全、扩展性强，可通过 jar 包快速集成流程设计器，原生支持经典与仿钉钉双模式。
+`warm-flow` 是基于上游 [dromara/warm-flow](https://gitee.com/dromara/warm-flow) 二次开发的国产轻量级工作流引擎，**不是 [Dromara](https://dromara.org/) 社区的官方项目**，由 Warm-Flow 社区共同维护。当前 Maven 发布坐标为 `groupId=io.github.sgs98`，发布到 Maven 中央仓库供他人依赖。它**是一个被集成的类库 / SDK，不是业务应用**：简洁轻量（核心仅 8 张表，事件能力默认关闭）、五脏俱全、扩展性强，可通过 jar 包快速集成流程设计器，原生支持经典与仿钉钉双模式。
 
 核心定位决定了最高优先约束：**对外公共 API、实体字段、数据库表结构、配置项都是契约，向后兼容是红线**；**核心引擎与具体框架 / ORM / JSON 库解耦**。
 
@@ -181,7 +181,7 @@ mvn -f warm-flow-orm/warm-flow-mybatis/warm-flow-mybatis-core/pom.xml -DskipTest
 
 ## 文档与 AI 产物归档
 
-- 面向用户的正式文档以 README 与官方文档站（`https://sgs98.github.io/warm-flow-doc/`）为准；引擎细节可参考本地 `.qoder/repowiki`（未纳入仓库，仅本地可选）。
+- 面向用户的正式文档以 README 与文档站（`https://sgs98.github.io/warm-flow-doc/`）为准；引擎细节可参考本地 `.qoder/repowiki`（未纳入仓库，仅本地可选）。
 - AI / agent 的一次性调研、决策记录、临时计划放 `.codex/` 或 `docs/`，不要塞进源码包，也不要当作长期必读入口。
 - 临时 / 备份代码、注释掉的旧实现、压测入口不留在源码树，确认无引用后删除（git 历史可追溯）。
 

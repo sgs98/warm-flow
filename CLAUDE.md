@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-本仓库（基于上游 Dromara `dromara/warm-flow` 二次开发的开源工作流引擎 / SDK）的编码与协作规则，**以 [AGENTS.md](./AGENTS.md) 为唯一来源**。开始任何任务前先读根 `AGENTS.md`；若改动所在顶层模块下还有模块级 `AGENTS.md`，再读模块级。本文件只是核心红线摘要，**与 `AGENTS.md` 冲突时以 `AGENTS.md` 为准**。
+本仓库（基于上游 `dromara/warm-flow` 二次开发、由 Warm-Flow 社区共同维护的开源工作流引擎 / SDK，不是 Dromara 官方项目）的编码与协作规则，**以 [AGENTS.md](./AGENTS.md) 为唯一来源**。开始任何任务前先读根 `AGENTS.md`；若改动所在顶层模块下还有模块级 `AGENTS.md`，再读模块级。本文件只是核心红线摘要，**与 `AGENTS.md` 冲突时以 `AGENTS.md` 为准**。
 
 ## 规则优先级
 

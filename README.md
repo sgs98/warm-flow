@@ -9,7 +9,7 @@
     <a href="https://sgs98.github.io/warm-flow-doc/"><img src="https://img.shields.io/badge/JDK-17%2B-blue" alt="JDK 17+"></a>  
 </p>
 
-**本项目是基于 [dromara/warm-flow](https://gitee.com/dromara/warm-flow) 的二次开发版本**
+**本项目是基于 [dromara/warm-flow](https://gitee.com/dromara/warm-flow) 的二次开发版本，不是 Dromara 官方项目，由 Warm-Flow 社区共同维护**
 
 **项目代码、文档 均开源免费可商用 遵循开源协议即可**
 
@@ -17,7 +17,7 @@
 
 ## 介绍
 
-> Warm-Flow 是国产的工作流引擎，以其简洁轻量、五脏俱全、灵活扩展性强的特点，成为了众多开发者的首选。本项目基于上游 Dromara Warm-Flow 二次开发。它不仅可以通过 **jar 包快速集成设计器**，同时原生支持**经典和仿钉钉双模式**，还具备以下显著优势：
+> Warm-Flow 是国产的工作流引擎，以其简洁轻量、五脏俱全、灵活扩展性强的特点，成为了众多开发者的首选。本项目基于上游 [dromara/warm-flow](https://gitee.com/dromara/warm-flow) 二次开发，不是 Dromara 官方项目，由 Warm-Flow 社区共同维护。它不仅可以通过 **jar 包快速集成设计器**，同时原生支持**经典和仿钉钉双模式**，还具备以下显著优势：
 
 - **简洁易用**：核心包含 8 张表（事件能力默认关闭），代码量少，上手和集成速度快。
 - **设计器双模式**：通过 jar 包集成设计器，支持节点属性扩展，原生支持经典与仿钉钉两种模式，并支持画布内一键互转。
@@ -29,7 +29,7 @@
 - **监听器**：节点、流程、全局三类作用范围，支持创建、开始、分派、完成及内置表单加载等监听时机，支持 SpEL 表达式与动态权限，可通过监听器扩展超时自动审批、远程请求、脚本执行等业务增强。
 - **流程变量**：贯穿流程办理过程，可用于办理人表达式、条件表达式等动态计算。
 - **扩展性强**：权限处理器、数据填充处理器、租户处理器、全局监听器、JSON 序列化实现均可自定义替换。
-- **ORM 框架支持**：官方支持 MyBatis、MyBatis-Plus，均提供 SpringBoot3 / SpringBoot4 starter；Jpa、BeetlSql 等由社区扩展。
+- **ORM 框架支持**：当前仓库维护 MyBatis、MyBatis-Plus，均提供 SpringBoot3 / SpringBoot4 starter；Jpa、BeetlSql 等由社区扩展。
 - **数据库支持**：支持 MySQL、Oracle、PostgreSQL 和 SQL Server，其他数据库只需要转换表结构即可支持。
 - **多租户与逻辑删除**：引擎自身维护多租户和逻辑删除实现，也可复用对应 ORM 框架的实现方式；逻辑删除默认开启，可切换为物理删除。
 - **兼容性**：支持 SpringBoot 3.5 / 4.0，JDK 17 起步，兼容 Java 17、Java 21。
@@ -106,7 +106,7 @@ cd warm-flow-demo/warm-flow-demo-web && pnpm install && pnpm dev
 
 | **工作流**      | **Activiti**                  | **Flowable**                          | **Warm-Flow**                                                                                                 |
 | ------------ | ----------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **项目背景**     | Apache 基金会。                   | 由 Activiti 原团队创建，功能更优化。               | 基于国产工作流引擎 [dromara/warm-flow](https://gitee.com/dromara/warm-flow) 二次开发，与 Dromara 官方版本区分 |
+| **项目背景**     | Apache 基金会。                   | 由 Activiti 原团队创建，功能更优化。               | 基于国产工作流引擎 [dromara/warm-flow](https://gitee.com/dromara/warm-flow) 二次开发，与 Dromara 上游项目区分 |
 | **社区活跃度**    | 社区规模大，但近年活跃度下降。               | 社区活跃，迭代快                              | 文档和 RuoYi-Vue-Plus 实战案例**较完善，社区活跃，更新快**。                                                                      |
 | **数据库表结构**   | 约 25 张表，分类简单。                 | 约 40 张表（部分版本达 79 张），分类更细。             | **核心 8 张表**（事件能力默认关闭），结构极简，维护成本低。                                                                                        |
 | **功能与扩展性**   | 基础 BPMN 支持，插件机制有限。            | 支持动态流程修改、REST API、多实例任务优化。            | **审批功能全面**，基于json定义，支持办理人表达式、监听器、变量表达式、动态权限。                                                                  |
@@ -145,8 +145,8 @@ Warm-Flow 作为一个国产的工作流引擎，其设计简洁轻量但功能�
 
 - [x] mybatis
 - [x] mybatis-plus
-- [ ] jpa（社区扩展包，非官方维护）
-- [ ] BeetlSql（社区扩展包，非官方维护）
+- [ ] jpa（社区扩展包，非当前仓库维护）
+- [ ] BeetlSql（社区扩展包，非当前仓库维护）
 - [ ] ......
 
 ## 项目结构

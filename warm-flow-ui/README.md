@@ -16,13 +16,13 @@ Warm-Flow国产工作流引擎🎉，其特点简洁轻量，五脏俱全，灵�
 4. 流程图：流程引擎自带流程图，可在不集成流程设计器情况下使用
 5. 条件表达式：内置常见的和spel条件表达式，并且支持自定义扩展
 6. 办理人表达式：内置${handler}和spel格式的表达式，可满足不同场景，灵活可扩展
-7. orm框架扩展：官方支持 MyBatis、Mybatis-Plus，Mybatis-Flex、Jpa、BeetlSql 等由社区扩展提供，扩展方便
+7. orm框架扩展：当前仓库维护 MyBatis、MyBatis-Plus，Mybatis-Flex、Jpa、BeetlSql 等由社区扩展提供，扩展方便
 8. 数据库支持：目前支持MySQL、Oracle、PostgreSQL 和 SQL Server，后续会继续支持其他数据库或者国产数据库
 9. 多租户与软删除：流程引擎自身维护多租户和软删除实现，也可使用对应orm框架的实现方式
 10. 支持角色、部门和用户等权限配置
 11. 支持spring
 12. jdk17起步,兼容java17和java21
-13. 官方提供基于ruoyi-vue封装实战项目，很实用
+13. 提供基于 RuoYi-Vue-Plus 封装的实战项目，很实用
 
 ```shell
 希望一键三连，你的⭐️ Star ⭐️是我持续开发的动力，项目也活的更长
