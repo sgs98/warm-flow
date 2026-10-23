@@ -129,7 +129,7 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         if (CollUtil.isEmpty(taskList)) {
             // 实例无普通待办但正在等待事件：走实例级终止分支；
             // 既无待办也无等待事件时保留原有 NOT_FOUNT_TASK 契约
-            AssertUtil.isEmpty(FlowEngine.eventWaitService().getWaitingByInstanceId(instanceId)
+            AssertUtil.isEmpty(FlowEngine.eventWaitService().getActiveByInstanceId(instanceId)
                 , ExceptionCons.NOT_FOUNT_TASK);
             return terminateWaitingInstance(instanceId, context);
         }

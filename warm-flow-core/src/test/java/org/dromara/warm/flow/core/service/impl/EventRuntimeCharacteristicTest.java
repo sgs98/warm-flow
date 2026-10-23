@@ -440,6 +440,21 @@ class EventRuntimeCharacteristicTest {
     }
 
     @Test
+    void revokeClaimedWaitingInstance() {
+        timerCatchFlow("evRevokeRunning");
+        Instance instance = FlowEngine.insService().start("biz-rvr", "evRevokeRunning"
+            , TestFlows.context(TestFlows.HANDLER));
+        TestFlows.pass(TestFlows.currentTask(instance.getId()).getId(), TestFlows.HANDLER);
+        EventWait wait = singleWaiting(instance.getId());
+        harness.eventWaitDao.raw(wait.getId()).setStatus(EventCons.STATUS_RUNNING);
+
+        FlowEngine.taskService().revoke(instance.getId(), TestFlows.context(TestFlows.HANDLER));
+
+        assertEquals("apply", TestFlows.currentTask(instance.getId()).getNodeCode());
+        assertEquals(EventCons.STATUS_CANCELLED, harness.eventWaitDao.raw(wait.getId()).getStatus());
+    }
+
+    @Test
     void terminateWaitingInstanceWithoutTask() {
         timerCatchFlow("evTerm");
         Instance instance = FlowEngine.insService().start("biz-tm", "evTerm"
@@ -456,6 +471,22 @@ class EventRuntimeCharacteristicTest {
             .list(FlowEngine.newEventWait().setInstanceId(instance.getId()));
         assertEquals(1, waits.size());
         assertEquals(EventCons.STATUS_CANCELLED, waits.get(0).getStatus());
+    }
+
+    @Test
+    void terminateClaimedWaitingInstanceWithoutTask() {
+        timerCatchFlow("evTermRunning");
+        Instance instance = FlowEngine.insService().start("biz-tmr", "evTermRunning"
+            , TestFlows.context(TestFlows.HANDLER));
+        TestFlows.pass(TestFlows.currentTask(instance.getId()).getId(), TestFlows.HANDLER);
+        EventWait wait = singleWaiting(instance.getId());
+        harness.eventWaitDao.raw(wait.getId()).setStatus(EventCons.STATUS_RUNNING);
+
+        Instance terminated = FlowEngine.taskService().terminateByInstanceId(instance.getId()
+            , TestFlows.context(TestFlows.HANDLER));
+
+        assertEquals(FlowStatus.TERMINATE.getKey(), terminated.getFlowStatus());
+        assertEquals(EventCons.STATUS_CANCELLED, harness.eventWaitDao.raw(wait.getId()).getStatus());
     }
 
     @Test

@@ -189,7 +189,7 @@ final class EventArrivalDispatcher {
         Instance instance = execution.instance;
         // 幂等：该实例该节点已有活动等待记录时跳过
         boolean exists = StreamUtils.toList(FlowEngine.eventWaitService()
-            .getWaitingByInstanceId(instance.getId()), EventWait::getNodeCode).contains(node.getNodeCode());
+            .getActiveByInstanceId(instance.getId()), EventWait::getNodeCode).contains(node.getNodeCode());
         if (exists) {
             log.info("实例 {} 节点 {} 已存在等待记录，跳过重复到达", instance.getId(), node.getNodeCode());
             return;
