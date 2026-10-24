@@ -7,6 +7,7 @@ import org.dromara.warm.flow.core.entity.EventWait;
 import org.dromara.warm.flow.core.invoker.FrameInvoker;
 import org.dromara.warm.flow.core.orm.dao.FlowEventWaitDao;
 import org.dromara.warm.flow.core.service.event.EventConfig;
+import org.dromara.warm.flow.core.service.impl.EventRuntimeHandler;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -119,10 +120,9 @@ public class EventWaitProcessor {
 
         EventTaskHandler handler = FrameInvoker.getBean(EventTaskHandler.class);
         if (handler == null) {
-            log.warn("未注册 EventTaskHandler，释放抢占并恢复等待记录 id={}", id);
-            dao.releaseClaim(id, version, TimerWorkerId.get(), preClaimStatus,
-                preClaimNext, preClaimRetry, now);
-            return;
+            // 引擎内置默认处理器：定时启动 / 事件节点触发（覆盖非 Spring 宿主与未注册场景）
+            handler = new EventRuntimeHandler();
+            log.info("未注册自定义 EventTaskHandler，使用引擎内置默认处理器");
         }
 
         try {

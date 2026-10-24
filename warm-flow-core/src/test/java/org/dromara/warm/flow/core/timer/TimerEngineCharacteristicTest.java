@@ -360,10 +360,12 @@ class TimerEngineCharacteristicTest {
     }
 
     @Test
-    void missingHandlerReleasesClaim() {
+    void missingHandlerFallsBackToBuiltInHandler() {
         Date now = new Date();
         TestEventWait wait = newWaitingWait(new Date(now.getTime() - 1000), "AFTER", "PT1H");
-        // 以空注册表替换 Bean 查找，模拟宿主未注册 EventTaskHandler
+        // 以空注册表替换 Bean 查找，模拟宿主未注册 EventTaskHandler：
+        // 引擎内置 EventRuntimeHandler 兜底接管（TIMER_CATCH 且实例缺失 → 记录取消），
+        // 不再"释放抢占恢复等待"导致告警循环
         org.dromara.warm.flow.core.invoker.FrameInvoker.setBeanFunction(
             clazz -> new java.util.HashMap<Class<?>, Object>().get(clazz));
 
@@ -371,9 +373,10 @@ class TimerEngineCharacteristicTest {
         new TimerExecutor(eventWaitDao, config).execute(wait, EventCons.STATUS_WAITING,
             wait.getNextTriggerAt(), null);
 
+        // 内置处理器接管后按失败语义处理（fixture 无实例 → 校验异常）：
+        // 进入 RETRY 退避而非无限"释放恢复"告警循环
         EventWait row = eventWaitDao.raw(wait.getId());
-        assertEquals(EventCons.STATUS_WAITING, row.getStatus());
-        assertEquals(0, row.getRetryCount());
+        assertEquals(EventCons.STATUS_RETRY, row.getStatus());
     }
 
     @Test

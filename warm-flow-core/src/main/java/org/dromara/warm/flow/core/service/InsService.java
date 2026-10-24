@@ -62,6 +62,11 @@ public interface InsService extends IWarmService<Instance> {
      * 语义与定时到期触发完全一致：校验定义已发布、激活，固定 START 的直接后继是指定编码的
      * {@code TIMER_START} 事件节点，随后从事件出口创建实例。区别只在操作人与业务主键由调用方给出。
      * <p>
+     * 本方法同时是<b>定时到期自动路径的实现原语</b>：到期后引擎抢占等待记录并交由
+     * {@link org.dromara.warm.flow.core.timer.EventTaskHandler} 处理，其默认实现
+     * （EventRuntimeHandler）即通过本方法完成发起——使用方自定义 handler 绑定业务时
+     * 也应复用它（见官方文档「逻辑删除/事件」页的自定义示例）。
+     * <p>
      * <b>不改动等待记录</b>：本方法不读取也不推进 {@code flow_event_wait}，定时任务的下次触发时间
      * 保持原样。因此「每天 9 点的任务今天 8 点手动补发一次」不会吞掉当天 9 点的那次。
      *

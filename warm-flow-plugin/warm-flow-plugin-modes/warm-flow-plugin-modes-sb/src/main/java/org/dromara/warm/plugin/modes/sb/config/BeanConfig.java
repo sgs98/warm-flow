@@ -21,12 +21,15 @@ import org.dromara.warm.flow.core.enums.FrameworkType;
 import org.dromara.warm.flow.core.invoker.FrameInvoker;
 import org.dromara.warm.flow.core.service.ChartService;
 import org.dromara.warm.flow.core.service.impl.ChartServiceImpl;
+import org.dromara.warm.flow.core.service.impl.EventRuntimeHandler;
+import org.dromara.warm.flow.core.timer.EventTaskHandler;
 import org.dromara.warm.flow.core.utils.ExpressionUtil;
 import org.dromara.warm.plugin.modes.sb.expression.*;
 import org.dromara.warm.plugin.modes.sb.helper.SpelHelper;
 import org.dromara.warm.plugin.modes.sb.utils.SpringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -48,6 +51,16 @@ import java.util.Objects;
 public class BeanConfig {
 
     private static final Logger log = LoggerFactory.getLogger(BeanConfig.class);
+
+    /**
+     * 引擎内置事件处理器：定时启动 / 事件节点触发的默认实现。
+     * 使用方自定义 EventTaskHandler bean 时本 bean 自动让位。
+     */
+    @Bean
+    @ConditionalOnMissingBean(EventTaskHandler.class)
+    public EventTaskHandler eventRuntimeHandler() {
+        return new EventRuntimeHandler();
+    }
 
     @Bean
     public ChartService chartService() {
