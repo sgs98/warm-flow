@@ -42,43 +42,43 @@
       <div class="design-toolbar">
         <div>
           <span class="toolbar-group">
-            <el-tooltip content="缩小" placement="bottom"><el-button size="small" icon="ZoomOut" @click="zoomViewport(false)"></el-button></el-tooltip>
+            <el-tooltip content="缩小" placement="bottom"><el-button size="small" icon="ZoomOut" aria-label="缩小" @click="zoomViewport(false)"></el-button></el-tooltip>
             <!-- 自适应：所有端均 fitView 显示全部节点 -->
-            <el-tooltip content="自适应" placement="bottom"><el-button size="small" icon="Rank" @click="zoomViewport('fit')"></el-button></el-tooltip>
-            <el-tooltip content="放大" placement="bottom"><el-button size="small" icon="ZoomIn" @click="zoomViewport(true)"></el-button></el-tooltip>
+            <el-tooltip content="自适应" placement="bottom"><el-button size="small" icon="Rank" aria-label="自适应画布" @click="zoomViewport('fit')"></el-button></el-tooltip>
+            <el-tooltip content="放大" placement="bottom"><el-button size="small" icon="ZoomIn" aria-label="放大" @click="zoomViewport(true)"></el-button></el-tooltip>
           </span>
           <span class="toolbar-group">
-            <el-tooltip content="上一步（⌘ / Ctrl + Z）" placement="bottom"><el-button size="small" icon="DArrowLeft" :disabled="!canUndo" @click="undoOrRedo(true)"></el-button></el-tooltip>
-            <el-tooltip content="下一步（⌘ / Ctrl + Shift + Z）" placement="bottom"><el-button size="small" icon="DArrowRight" :disabled="!canRedo" @click="undoOrRedo(false)"></el-button></el-tooltip>
-            <el-tooltip content="清空画布" placement="bottom"><el-button size="small" icon="Delete" @click="clear()"></el-button></el-tooltip>
+            <el-tooltip content="上一步（⌘ / Ctrl + Z）" placement="bottom"><el-button size="small" icon="DArrowLeft" aria-label="撤销上一步" :disabled="!canUndo" @click="undoOrRedo(true)"></el-button></el-tooltip>
+            <el-tooltip content="下一步（⌘ / Ctrl + Shift + Z）" placement="bottom"><el-button size="small" icon="DArrowRight" aria-label="重做下一步" :disabled="!canRedo" @click="undoOrRedo(false)"></el-button></el-tooltip>
+            <el-tooltip content="清空画布" placement="bottom"><el-button size="small" icon="Delete" aria-label="清空画布" @click="clear()"></el-button></el-tooltip>
           </span>
           <span class="toolbar-group">
-            <el-tooltip content="下载流程图" placement="bottom"><el-button size="small" icon="Picture" @click="downLoad"></el-button></el-tooltip>
-            <el-tooltip content="下载JSON" placement="bottom"><el-button size="small" icon="Download" @click="downJson"></el-button></el-tooltip>
+            <el-tooltip content="下载流程图" placement="bottom"><el-button size="small" icon="Picture" aria-label="下载流程图" @click="downLoad"></el-button></el-tooltip>
+            <el-tooltip content="下载JSON" placement="bottom"><el-button size="small" icon="Download" aria-label="下载 JSON" @click="downJson"></el-button></el-tooltip>
           </span>
           <!-- 画布辅助：框选多选 / 小地图导航 / 一键整理（经典模式） -->
           <span class="toolbar-group">
             <el-tooltip :content="selectionMode ? '退出框选' : '框选：拖拽拉框多选'" placement="bottom">
               <el-button size="small" icon="Crop" :class="{ 'is-active': selectionMode }" :disabled="disabled"
-                         @click="toggleSelectionMode"></el-button>
+                         aria-label="框选" :aria-pressed="selectionMode" @click="toggleSelectionMode"></el-button>
             </el-tooltip>
             <el-tooltip :content="minimapVisible ? '关闭小地图' : '小地图：整体导航'" placement="bottom">
               <el-button size="small" icon="MapLocation" :class="{ 'is-active': minimapVisible }"
-                         @click="toggleMiniMap"></el-button>
+                         aria-label="小地图" :aria-pressed="minimapVisible" @click="toggleMiniMap"></el-button>
             </el-tooltip>
             <el-tooltip v-if="isClassicsModel && !disabled" content="一键整理：按分层重新排版" placement="bottom">
-              <el-button size="small" icon="MagicStick" @click="autoLayoutCanvas"></el-button>
+              <el-button size="small" icon="MagicStick" aria-label="一键整理" @click="autoLayoutCanvas"></el-button>
             </el-tooltip>
           </span>
           <!-- 设计器模型切换已统一收进「流程配置」面板的单选（已有流程切换前会确认），工具栏不再保留入口 -->
           <!-- 流程配置：点画布空白同样会切到它；嵌入模式的定义元数据由宿主管理，不提供入口 -->
           <span class="toolbar-group" v-if="!onlyDesignShow && !disabled">
             <el-tooltip content="流程配置" placement="bottom">
-              <el-button size="small" icon="Setting" @click="openBaseInfo()"></el-button>
+              <el-button size="small" icon="Setting" aria-label="流程配置" @click="openBaseInfo()"></el-button>
             </el-tooltip>
           </span>
           <span class="toolbar-group" v-if="onlyDesignShow && !disabled">
-            <el-tooltip content="保存" placement="bottom"><el-button size="small" class="toolbar-save-btn" @click="saveJsonModel">
+            <el-tooltip content="保存" placement="bottom"><el-button size="small" class="toolbar-save-btn" aria-label="保存" @click="saveJsonModel">
               <svg-icon icon-class="save" style="width: 14px; height: 14px;"/>
             </el-button></el-tooltip>
           </span>
@@ -86,7 +86,7 @@
           <span class="toolbar-group">
             <el-popover placement="bottom-start" :width="320" trigger="click" popper-class="design-help-popover">
               <template #reference>
-                <el-button size="small" icon="QuestionFilled"></el-button>
+                <el-button size="small" icon="QuestionFilled" aria-label="操作帮助"></el-button>
               </template>
               <div class="design-help">
                 <div class="design-help-title">快捷键</div>

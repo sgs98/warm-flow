@@ -587,6 +587,11 @@ defineExpose({
     margin: 0 -2px 12px;
     overflow-x: auto;
     scrollbar-width: none;
+    /* 属性面板滚动时保持页签可见，切换「基础设置 / 办理人设置」不用先滚回顶部 */
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--wf-bg-white, #fff);
     &::-webkit-scrollbar { display: none; }
   }
 
@@ -710,6 +715,10 @@ html.dark {
 
     .property-panel-subtitle {
       color: var(--wf-text-secondary, #888888) !important;
+    }
+
+    .modern-tabs-wrapper {
+      background: var(--wf-bg-color, #141414);
     }
 
     /* iOS 填充式输入框：暗黑覆盖 */

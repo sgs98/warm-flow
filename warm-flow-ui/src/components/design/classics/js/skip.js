@@ -27,9 +27,10 @@ class SkipModel extends CurvedEdgeModel {
     const style = super.getArrowStyle();
     const inDesigner = typeof window !== 'undefined' && window.__WF_FLOW_DESIGN_MODE__;
     const isRuntime = this.properties.chartStatusColor && this.properties.chartStatusColor.length > 0;
-    // 实心大箭头（对齐钉钉风格）：默认 10×5 太小，放大到 16×8，颜色跟随连线
-    style.offset = 16;
-    style.verticalLength = 8;
+    // 箭头尺寸必须小于折线端部留白（this.offset），否则实心三角会伸进圆形结束节点。
+    // 默认 10×5 与箭头留白 20 匹配，既清楚又不压节点描边。
+    style.offset = 10;
+    style.verticalLength = 5;
     if (inDesigner && !isRuntime) {
       // 设计态箭头用实色品牌蓝：跟随连线的半透明样式会让小箭头几乎不可见
       style.stroke = '#409eff';

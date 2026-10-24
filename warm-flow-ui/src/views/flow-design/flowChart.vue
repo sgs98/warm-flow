@@ -16,10 +16,10 @@
 
         <!-- 右侧：工具栏（仅图标，tooltip悬浮显示） -->
         <div class="toolbar-right">
-          <el-tooltip content="放大" placement="bottom"><el-button size="small" icon="ZoomIn" @click="zoomViewport(true)"/></el-tooltip>
-          <el-tooltip content="自适应" placement="bottom"><el-button size="small" icon="Rank" @click="zoomViewport('fit')"/></el-tooltip>
-          <el-tooltip content="缩小" placement="bottom"><el-button size="small" icon="ZoomOut" @click="zoomViewport(false)"/></el-tooltip>
-          <el-tooltip content="下载流程图" placement="bottom"><el-button size="small" icon="Download" @click="downLoad"/></el-tooltip>
+          <el-tooltip content="放大" placement="bottom"><el-button size="small" icon="ZoomIn" aria-label="放大" @click="zoomViewport(true)"/></el-tooltip>
+          <el-tooltip content="自适应" placement="bottom"><el-button size="small" icon="Rank" aria-label="自适应画布" @click="zoomViewport('fit')"/></el-tooltip>
+          <el-tooltip content="缩小" placement="bottom"><el-button size="small" icon="ZoomOut" aria-label="缩小" @click="zoomViewport(false)"/></el-tooltip>
+          <el-tooltip content="下载流程图" placement="bottom"><el-button size="small" icon="Download" aria-label="下载流程图" @click="downLoad"/></el-tooltip>
         </div>
       </div>
 
