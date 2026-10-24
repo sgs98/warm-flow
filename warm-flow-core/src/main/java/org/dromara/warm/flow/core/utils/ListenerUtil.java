@@ -26,6 +26,8 @@ import org.dromara.warm.flow.core.spi.Listener;
 import org.dromara.warm.flow.core.spi.ListenerVariable;
 import org.dromara.warm.flow.core.dto.ValueHolder;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,7 @@ import java.util.regex.Matcher;
  *
  * @author warm
  */
+@Slf4j
 public class ListenerUtil {
 
     private ListenerUtil() {
@@ -99,11 +102,21 @@ public class ListenerUtil {
         listenerVariable.setEventType(type);
         if (StringUtils.isNotEmpty(listenerTypes)) {
             String[] listenerTypeArr = listenerTypes.split(",");
+            String[] listenerPathArr = StringUtils.isNotEmpty(listenerPaths)
+                ? listenerPaths.split(FlowCons.SPLIT_AT) : new String[0];
+            // 类型与路径按下标配对，数量不一致时对不齐的部分跳过并告警，避免数组越界
+            if (listenerPathArr.length != listenerTypeArr.length) {
+                log.warn("监听器类型数({})与路径数({})不匹配: types=[{}], paths=[{}]，未配对的监听器将被忽略",
+                    listenerTypeArr.length, listenerPathArr.length, listenerTypes, listenerPaths);
+            }
             for (int i = 0; i < listenerTypeArr.length; i++) {
                 String listenerType = listenerTypeArr[i].trim();
                 if (listenerType.equals(type)) {
                     if (StringUtils.isNotEmpty(listenerPaths)) {
-                        String[] listenerPathArr = listenerPaths.split(FlowCons.SPLIT_AT);
+                        if (i >= listenerPathArr.length) {
+                            log.warn("监听器路径缺失，忽略该监听器: types=[{}], paths=[{}]", listenerTypes, listenerPaths);
+                            continue;
+                        }
                         String listenerPath = listenerPathArr[i].trim();
                         listenerVariable.setEventType(type);
                         ValueHolder valueHolder = new ValueHolder();
