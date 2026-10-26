@@ -282,8 +282,8 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
             .setNodeCode(node.getNodeCode())
             .setNodeName(node.getNodeName())
             .setNodeType(node.getNodeType())
-            .setFlowStatus(StringUtils.emptyDefault(context.getFlowStatus(),
-                FlowStatusMachine.taskStatus(node.getNodeType(), skipType)))
+            // 任务状态只按任务维度生成；context.flowStatus 是实例状态，不能覆盖待办状态
+            .setFlowStatus(FlowStatusMachine.taskStatus(node.getNodeType(), skipType))
             .setCreateTime(now)
             .setPermissionList(resolvePermissions(StringUtils.str2List(node.getPermissionFlag()
                 , FlowCons.SPLIT_AT), instance));

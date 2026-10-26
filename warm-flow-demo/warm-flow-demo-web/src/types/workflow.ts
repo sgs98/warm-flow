@@ -9,8 +9,7 @@ export interface WorkflowInstance {
   nodeName: string
   taskId?: string
   flowStatusName: string
-  businessStatus?: string
-  businessStatusName: string
+  flowStatusKey?: string
   createBy: string
   createTime?: string
 }
@@ -25,10 +24,9 @@ export interface WorkflowHistoryItem {
   targetNodeName: string
   approver: string
   skipType?: string
-  flowStatusName: string
-  businessStatus?: string
-  businessStatusName: string
   current: boolean
+  /** 任务状态编码（pending / pass / back / invalid / copy 等）。 */
+  taskStatus?: string
   taskStatusName: string
   message: string
   /** 抄送人（仅抄送记录有值，逗号分隔）。 */
@@ -138,8 +136,6 @@ export interface InstanceRow {
   nodeType?: number
   flowStatusKey?: string
   flowStatusName: string
-  businessStatus: string
-  businessStatusName: string
   createBy: string
   activityStatus?: number
   createTime: string
@@ -156,10 +152,9 @@ export interface TaskRow {
   nodeName: string
   businessId: string
   assignees?: string[]
-  flowStatusName?: string
-  flowStatusKey?: string
-  businessStatus?: string
-  businessStatusName?: string
+  /** 任务状态编码；抄送行展示所属流程实例状态。 */
+  taskStatus?: string
+  taskStatusName?: string
   createTime: string
   message?: string
 }

@@ -17,8 +17,8 @@
       </el-table-column>
       <el-table-column label="结果" width="110">
         <template #default="{ row }">
-          <el-tag size="small" :type="statusTagType(row.businessStatus, row.businessStatusName || row.flowStatusName)">
-            {{ row.businessStatusName || row.flowStatusName }}
+          <el-tag size="small" :type="statusTagType(row.taskStatus, row.taskStatusName)">
+            {{ row.taskStatusName }}
           </el-tag>
         </template>
       </el-table-column>

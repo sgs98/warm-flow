@@ -248,7 +248,7 @@ public class WorkflowSupport {
     }
 
     /**
-     * 转换流程实例，并补充流程名称与业务状态展示字段。
+     * 转换流程实例，并补充流程名称与实例状态展示字段。
      *
      * @param instance 流程实例
      * @return 流程实例信息
@@ -261,8 +261,6 @@ public class WorkflowSupport {
         vo.setVariables(instance.getVariableMap());
         vo.setFlowStatusKey(instance.getFlowStatus());
         vo.setFlowStatusName(displayInstanceStatus(instance.getFlowStatus()));
-        vo.setBusinessStatus(instance.getFlowStatus());
-        vo.setBusinessStatusName(vo.getFlowStatusName());
         FlowEngine.taskService().getByInsId(instance.getId()).stream()
             .min(Comparator.comparing(Task::getId))
             .ifPresent(task -> {
@@ -283,7 +281,7 @@ public class WorkflowSupport {
     }
 
     /**
-     * 转换待办任务，并补充流程名称、业务主键、状态与办理人。
+     * 转换待办任务，并补充流程名称、业务主键、任务状态与办理人。
      *
      * @param task 待办任务
      * @return 待办任务信息
@@ -295,18 +293,16 @@ public class WorkflowSupport {
             ? task.getFlowName() : flowNameOf(task.getDefinitionId()));
         vo.setBusinessId(StringUtils.isNotEmpty(task.getBusinessId())
             ? task.getBusinessId() : businessIdOf(task.getInstanceId()));
-        vo.setFlowStatusKey(task.getFlowStatus());
         String todoStatusName = displayTaskStatus(task.getFlowStatus());
-        vo.setFlowStatusName(StringUtils.isEmpty(todoStatusName) ? task.getFlowStatus() : todoStatusName);
-        vo.setBusinessStatus(task.getFlowStatus());
-        vo.setBusinessStatusName(vo.getFlowStatusName());
+        vo.setTaskStatus(task.getFlowStatus());
+        vo.setTaskStatusName(StringUtils.isEmpty(todoStatusName) ? task.getFlowStatus() : todoStatusName);
         vo.setAssignees(FlowEngine.userService().getPermission(task.getId(),
             UserType.APPROVAL.getKey(), UserType.TRANSFER.getKey(), UserType.DEPUTE.getKey()));
         return vo;
     }
 
     /**
-     * 转换已办或抄送历史任务，并补充流程名称、业务主键与状态。
+     * 转换已办或抄送历史任务，并补充流程名称、业务主键与任务状态。
      *
      * @param hisTask 历史任务
      * @return 已办或抄送任务信息
@@ -318,11 +314,9 @@ public class WorkflowSupport {
             ? hisTask.getFlowName() : flowNameOf(hisTask.getDefinitionId()));
         vo.setBusinessId(StringUtils.isNotEmpty(hisTask.getBusinessId())
             ? hisTask.getBusinessId() : businessIdOf(hisTask.getInstanceId()));
-        vo.setFlowStatusKey(hisTask.getFlowStatus());
         String statusName = displayTaskStatus(hisTask.getFlowStatus());
-        vo.setFlowStatusName(StringUtils.isEmpty(statusName) ? hisTask.getFlowStatus() : statusName);
-        vo.setBusinessStatus(hisTask.getFlowStatus());
-        vo.setBusinessStatusName(StringUtils.isEmpty(statusName) ? hisTask.getFlowStatus() : statusName);
+        vo.setTaskStatus(hisTask.getFlowStatus());
+        vo.setTaskStatusName(StringUtils.isEmpty(statusName) ? hisTask.getFlowStatus() : statusName);
         return vo;
     }
 
@@ -340,11 +334,9 @@ public class WorkflowSupport {
     public TaskVo toCopyVo(HisTask hisTask, Instance instance) {
         TaskVo vo = toDoneVo(hisTask);
         if (instance != null) {
-            vo.setFlowStatusKey(instance.getFlowStatus());
+            vo.setTaskStatus(instance.getFlowStatus());
             String statusName = displayInstanceStatus(instance.getFlowStatus());
-            vo.setFlowStatusName(StringUtils.isEmpty(statusName) ? instance.getFlowStatus() : statusName);
-            vo.setBusinessStatus(instance.getFlowStatus());
-            vo.setBusinessStatusName(vo.getFlowStatusName());
+            vo.setTaskStatusName(StringUtils.isEmpty(statusName) ? instance.getFlowStatus() : statusName);
         }
         return vo;
     }
@@ -358,12 +350,9 @@ public class WorkflowSupport {
     public HistoryVo toHistoryVo(HisTask hisTask) {
         HistoryVo vo = new HistoryVo();
         BeanUtils.copyProperties(hisTask, vo);
-        vo.setFlowStatusKey(hisTask.getFlowStatus());
+        vo.setTaskStatus(hisTask.getFlowStatus());
         String statusName = displayTaskStatus(hisTask.getFlowStatus());
-        vo.setFlowStatusName(StringUtils.isEmpty(statusName) ? hisTask.getFlowStatus() : statusName);
-        vo.setTaskStatusName(vo.getFlowStatusName());
-        vo.setBusinessStatus(hisTask.getFlowStatus());
-        vo.setBusinessStatusName(StringUtils.isEmpty(statusName) ? hisTask.getFlowStatus() : statusName);
+        vo.setTaskStatusName(StringUtils.isEmpty(statusName) ? hisTask.getFlowStatus() : statusName);
         // 抄送行没有办理人，时间线上要显示「抄送给谁」，否则只剩一个「办理人：-」
         if (TaskStatus.COPY.getKey().equals(hisTask.getFlowStatus())) {
             vo.setCopyUsers(hisTask.getCollaborator());
@@ -375,10 +364,9 @@ public class WorkflowSupport {
      * 将当前活动任务转换为历史时间线中的待办节点，便于退回或撤回后继续办理。
      *
      * @param task           当前活动任务
-     * @param instanceStatus 流程实例状态，用于区分「待提交」与「待审核」
      * @return 当前待办历史信息
      */
-    public HistoryVo toCurrentHistoryVo(Task task, String instanceStatus) {
+    public HistoryVo toCurrentHistoryVo(Task task) {
         HistoryVo vo = new HistoryVo();
         vo.setId(-task.getId());
         vo.setInstanceId(task.getInstanceId());
@@ -389,26 +377,12 @@ public class WorkflowSupport {
                 UserType.DEPUTE.getKey()).stream()
             .map(User::getProcessedBy)
             .collect(Collectors.joining(",")));
-        vo.setFlowStatusKey(task.getFlowStatus());
-        vo.setFlowStatusName(isResubmittableStatus(instanceStatus) ? "待提交" : "待审核");
-        vo.setTaskStatusName(vo.getFlowStatusName());
-        vo.setBusinessStatus(task.getFlowStatus());
-        vo.setBusinessStatusName(vo.getFlowStatusName());
+        vo.setTaskStatus(task.getFlowStatus());
+        String statusName = displayTaskStatus(task.getFlowStatus());
+        vo.setTaskStatusName(statusName);
         vo.setCurrent(true);
         vo.setCreateTime(task.getCreateTime());
         return vo;
     }
 
-    /**
-     * 判断流程实例是否停在申请节点、需要由发起人重新提交。
-     * <p>入参是<b>实例维度</b>状态编码（{@link FlowStatus}），不要传入任务状态编码。
-     *
-     * @param instanceStatus 流程实例状态
-     * @return 是否可重新提交
-     */
-    public boolean isResubmittableStatus(String instanceStatus) {
-        return FlowStatus.DRAFT.getKey().equals(instanceStatus)
-            || FlowStatus.BACK.getKey().equals(instanceStatus)
-            || FlowStatus.CANCEL.getKey().equals(instanceStatus);
-    }
 }

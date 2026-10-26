@@ -11,11 +11,11 @@
         <div class="tl-row">
           <b>{{ h.nodeName || h.nodeCode }}</b>
           <el-tag
-            v-if="h.current ? h.taskStatusName : (h.businessStatusName || h.flowStatusName)"
+            v-if="h.taskStatusName"
             size="small"
-            :type="h.current ? 'warning' : statusTagType(h.businessStatus, h.businessStatusName || h.flowStatusName)"
+            :type="h.current ? 'warning' : statusTagType(h.taskStatus, h.taskStatusName)"
           >
-            {{ h.current ? h.taskStatusName : (h.businessStatusName || h.flowStatusName) }}
+            {{ h.taskStatusName }}
           </el-tag>
         </div>
         <div v-if="h.targetNodeName" class="tl-line">→ {{ h.targetNodeName }}</div>

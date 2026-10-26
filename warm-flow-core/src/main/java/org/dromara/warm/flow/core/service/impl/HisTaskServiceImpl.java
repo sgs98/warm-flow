@@ -120,7 +120,9 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
      */
     @Override
     public HisTask setSkipInsHis(Task task, List<Node> nextNodes, WorkflowContext context, String skipType) {
-        return setSkipHis(task, nextNodes, context, skipType, customStatus(context));
+        // 普通流转是任务办理动作，留痕只应记任务结果；context.flowStatus 是实例状态维度，
+        // 透传会把 waiting 这类实例状态污染到 flow_his_task。
+        return setSkipHis(task, nextNodes, context, skipType, context.getTaskStatus());
     }
 
     /**
@@ -135,7 +137,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
     @Override
     public List<HisTask> setSkipHisList(List<Task> taskList, List<Node> nextNodes, WorkflowContext context
         , String skipType) {
-        String flowStatus = customStatus(context);
+        String flowStatus = context.getTaskStatus();
         List<HisTask> hisTasks = new ArrayList<>();
         for (Task task : taskList) {
             HisTask hisTask = setSkipHis(task, nextNodes, context, skipType, flowStatus);
@@ -155,7 +157,7 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
      */
     @Override
     public HisTask setSkipHisTask(Task task, Node nextNode, WorkflowContext context, String skipType) {
-        return setSkipHis(task, CollUtil.toList(nextNode), context, skipType, customStatus(context));
+        return setSkipHis(task, CollUtil.toList(nextNode), context, skipType, context.getTaskStatus());
     }
 
 
@@ -219,7 +221,9 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
      */
     private HisTask buildCooperateHis(Task task, WorkflowContext context, List<String> collaborators
         , String cooperateType, String taskStatus) {
-        String flowStatus = customStatus(context);
+        // 协作留痕也是任务结果；context.flowStatus 是实例状态维度，透传会把 waiting
+        // 这类实例状态污染到 flow_his_task。
+        String flowStatus = context.getTaskStatus();
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
@@ -256,7 +260,8 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
      */
     @Override
     public HisTask setDeputeHisTask(Task task, WorkflowContext context, User entrustedUser, String skipType) {
-        String flowStatus = customStatus(context);
+        // 委派留痕同样是任务结果，不再回退到实例状态
+        String flowStatus = context.getTaskStatus();
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
@@ -296,7 +301,8 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
      */
     @Override
     public HisTask setSignHisTask(Task task, WorkflowContext context, String nodeRatio, boolean isPass) {
-        String flowStatus = customStatus(context);
+        // 会签 / 票签留痕同样是任务结果，不再回退到实例状态
+        String flowStatus = context.getTaskStatus();
         HisTask hisTask = FlowEngine.newHisTask()
             .setTaskId(task.getId())
             .setInstanceId(task.getInstanceId())
@@ -411,10 +417,6 @@ public class HisTaskServiceImpl extends WarmServiceImpl<FlowHisTaskDao<HisTask>,
      * @param context 流程执行上下文
      * @return 自定义状态，未指定时返回空值
      */
-    private String customStatus(WorkflowContext context) {
-        return FlowStatusMachine.customStatus(context.getTaskStatus(), context.getFlowStatus());
-    }
-
     /**
      * 将本次提交变量序列化为历史快照，避免后续实例变量变化影响审计记录。
      *

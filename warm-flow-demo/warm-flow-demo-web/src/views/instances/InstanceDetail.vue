@@ -24,8 +24,8 @@
         </div>
         <div>
           <span class="meta-label">状态</span>
-          <el-tag size="small" :type="statusTagType(instance.businessStatus, instance.businessStatusName || instance.flowStatusName)">
-            {{ instance.businessStatusName || instance.flowStatusName || '-' }}
+          <el-tag size="small" :type="statusTagType(instance.flowStatusKey, instance.flowStatusName)">
+            {{ instance.flowStatusName || '-' }}
           </el-tag>
         </div>
         <div>

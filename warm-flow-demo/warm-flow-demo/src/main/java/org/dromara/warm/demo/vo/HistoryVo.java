@@ -61,34 +61,19 @@ public class HistoryVo {
     private String skipType;
 
     /**
-     * 流程状态编码。
+     * 任务状态编码（pending / pass / back / invalid / copy 等）。
      */
-    private String flowStatusKey;
+    private String taskStatus;
 
     /**
-     * 流程状态名称。
+     * 任务状态名称。
      */
-    private String flowStatusName;
-
-    /**
-     * 业务状态编码。
-     */
-    private String businessStatus;
-
-    /**
-     * 业务状态名称。
-     */
-    private String businessStatusName;
+    private String taskStatusName;
 
     /**
      * 是否为当前活动待办。
      */
     private boolean current;
-
-    /**
-     * 任务操作状态名称。
-     */
-    private String taskStatusName;
 
     /**
      * 办理意见。

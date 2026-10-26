@@ -25,14 +25,18 @@
                 <el-radio-group v-if="!item.multiple" v-model="form[item.code]" placeholder="请输入">
                     <div class="ext-option-grid">
                         <el-radio v-for="(dItem, dIndex) in item.dict" :key="dIndex" :label="String(dItem.value)">
+                            <span class="ext-option-label" :title="dItem.label">
                             {{ dItem.label }}
+                            </span>
                         </el-radio>
                     </div>
                 </el-radio-group>
                 <el-checkbox-group v-else v-model="form[item.code]" :placeholder="item.desc">
                     <div class="ext-option-grid">
                         <el-checkbox v-for="(dItem, dIndex) in item.dict" :key="dIndex" :label="String(dItem.value)">
+                            <span class="ext-option-label" :title="dItem.label">
                             {{ dItem.label }}
+                            </span>
                         </el-checkbox>
                     </div>
                 </el-checkbox-group>
@@ -287,6 +291,7 @@ html.dark .nodeExtForm .nodeExtForm :deep(.el-textarea__inner.is-disabled) {
 .nodeExtForm :deep(.el-radio) {
   display: flex;
   align-items: center;
+  overflow: hidden;
   border: 1.5px solid var(--wf-border-color, #dcdfe6);
   border-radius: var(--wf-radius, 8px);
   padding: 4px 8px;
@@ -297,10 +302,24 @@ html.dark .nodeExtForm .nodeExtForm :deep(.el-textarea__inner.is-disabled) {
   width: 100%;
   box-sizing: border-box;
 
+  .el-radio__input {
+    flex-shrink: 0;
+  }
+
   .el-radio__label {
     padding-left: 6px;
     font-size: 12px;
     line-height: 1.2;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+
+    .ext-option-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   }
 
   &:hover {
@@ -323,6 +342,7 @@ html.dark .nodeExtForm .nodeExtForm :deep(.el-textarea__inner.is-disabled) {
 .nodeExtForm :deep(.el-checkbox) {
   display: flex;
   align-items: center;
+  overflow: hidden;
   border: 1.5px solid var(--wf-border-color, #dcdfe6);
   border-radius: var(--wf-radius, 8px);
   padding: 4px 8px;
@@ -333,10 +353,24 @@ html.dark .nodeExtForm .nodeExtForm :deep(.el-textarea__inner.is-disabled) {
   width: 100%;
   box-sizing: border-box;
 
+  .el-checkbox__input {
+    flex-shrink: 0;
+  }
+
   .el-checkbox__label {
     padding-left: 6px;
     font-size: 12px;
     line-height: 1.2;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+
+    .ext-option-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   }
 
   &:hover {

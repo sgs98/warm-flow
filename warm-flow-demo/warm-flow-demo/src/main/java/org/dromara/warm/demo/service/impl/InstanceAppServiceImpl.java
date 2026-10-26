@@ -126,13 +126,12 @@ public class InstanceAppServiceImpl implements InstanceAppService {
      */
     @Override
     public List<HistoryVo> history(Long instanceId) {
-        String instanceStatus = support.requireInstance(instanceId).getFlowStatus();
         List<HisTask> list = FlowEngine.hisTaskService()
             .list(FlowEngine.newHisTask().setInstanceId(instanceId));
         List<HistoryVo> result = list.stream().map(support::toHistoryVo).collect(Collectors.toList());
         FlowEngine.taskService().getByInsId(instanceId).stream()
             .filter(task -> !support.isClosedTaskStatus(task.getFlowStatus()))
-            .map(task -> support.toCurrentHistoryVo(task, instanceStatus))
+            .map(task -> support.toCurrentHistoryVo(task))
             .forEach(result::add);
         Collections.reverse(result);
         return result;
