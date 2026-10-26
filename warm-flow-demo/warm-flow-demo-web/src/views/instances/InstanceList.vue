@@ -25,8 +25,8 @@
       <el-table-column prop="nodeName" label="当前节点" min-width="120" />
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
-          <el-tag size="small" :type="statusTagType(row.businessStatus, row.businessStatusName || row.flowStatusName)">
-            {{ row.businessStatusName || row.flowStatusName }}
+          <el-tag size="small" :type="statusTagType(row.flowStatusKey, row.flowStatusName)">
+            {{ row.flowStatusName }}
           </el-tag>
         </template>
       </el-table-column>
@@ -183,7 +183,7 @@ function continueDraft(row: InstanceRow) {
  */
 function canContinue(row: InstanceRow) {
   if (!row.taskId) return false
-  return ['draft', 'back', 'cancel'].includes(row.businessStatus)
+  return ['draft', 'back', 'cancel'].includes(row.flowStatusKey || '')
 }
 
 /** 将变量编辑行转换为引擎需要的 Map。 */

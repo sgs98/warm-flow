@@ -135,7 +135,7 @@ final class FlowTerminateChain {
      */
     private Optional<Instance> persist(FlowExecution execution) {
         // 待办任务转历史（顺序与办理链的 updateFlowInfo 不同，不合并）
-        execution.intent.setFlowStatus(execution.instance.getFlowStatus());
+        execution.intent.setTaskStatus(execution.instance.getFlowStatus());
         HisTask insHis = FlowEngine.hisTaskService().setSkipInsHis(execution.task
             , Collections.singletonList(endNode), execution.intent, SkipType.PASS.getKey());
         FlowEngine.hisTaskService().save(insHis);
@@ -158,6 +158,8 @@ final class FlowTerminateChain {
         // 清理实例下所有等待事件（终止后旧等待记录不再推进流程）
         FlowEngine.eventWaitService().cancelByInstanceIds(
             java.util.Collections.singletonList(execution.instance.getId()));
+        // 兼容既有契约：调用方需要从上下文读回本次终止后的实例状态
+        execution.intent.setFlowStatus(execution.instance.getFlowStatus());
         // 最后判断是否存在节点监听器，存在执行节点监听器
         ListenerUtil.executeFinish(execution.contextListener(execution.task, execution.nowNode));
         return Optional.empty();

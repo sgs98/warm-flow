@@ -77,16 +77,6 @@ public class InstanceVo {
     private String flowStatusName;
 
     /**
-     * 业务状态编码。
-     */
-    private String businessStatus;
-
-    /**
-     * 业务状态名称。
-     */
-    private String businessStatusName;
-
-    /**
      * 创建人。
      */
     private String createBy;

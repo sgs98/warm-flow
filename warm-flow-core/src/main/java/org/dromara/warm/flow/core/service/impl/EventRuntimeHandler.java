@@ -204,12 +204,12 @@ public class EventRuntimeHandler implements EventTaskHandler {
         , String message) {
         WorkflowContext intent = execution.intent;
         intent.setMessage(message);
-        intent.setFlowStatus(FlowStatusMachine.mapper().taskStatus(TaskStatus.INVALID));
+        intent.setTaskStatus(FlowStatusMachine.mapper().taskStatus(TaskStatus.INVALID));
         HisTask hisTask = FlowEngine.hisTaskService().setSkipInsHis(task
             , Collections.singletonList(eventNode), intent, SkipType.PASS.getKey());
         FlowEngine.hisTaskService().save(hisTask);
         // 复位上下文状态：后续沿边界出口的推进由状态机按目标节点决定
-        intent.setFlowStatus(null);
+        intent.setTaskStatus(null);
         TaskServiceImpl taskService = (TaskServiceImpl) FlowEngine.taskService();
         taskService.removeAndUserInternal(Collections.singletonList(task));
     }

@@ -42,8 +42,8 @@
         <el-table-column prop="nodeName" label="当前节点" min-width="120" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag size="small" :type="statusTagType(row.businessStatus, row.businessStatusName || row.flowStatusName)">
-              {{ row.businessStatusName || row.flowStatusName }}
+            <el-tag size="small" :type="statusTagType(row.flowStatusKey, row.flowStatusName)">
+              {{ row.flowStatusName }}
             </el-tag>
           </template>
         </el-table-column>

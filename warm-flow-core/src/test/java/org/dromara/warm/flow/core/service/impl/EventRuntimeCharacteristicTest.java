@@ -103,6 +103,9 @@ class EventRuntimeCharacteristicTest {
         assertEquals("apply", TestFlows.currentTask(instance.getId()).getNodeCode());
         // 定时启动没有发起人提交环节：实例直接处于审批中，而非待提交
         assertEquals(FlowStatus.WAITING.getKey(), instance.getFlowStatus());
+        // 实例状态只写入 flow_instance；发起留痕历史按任务维度记「通过」，不落 waiting
+        HisTask startHis = hisOf(instance.getId(), "ts");
+        assertEquals(TaskStatus.PASS.getKey(), startHis.getFlowStatus());
         // 一次性事件成功后删除等待记录
         assertTrue(FlowEngine.eventWaitService().list(FlowEngine.newEventWait()
             .setDefinitionId(def.getId())).isEmpty());

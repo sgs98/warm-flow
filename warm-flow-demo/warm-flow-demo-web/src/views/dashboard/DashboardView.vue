@@ -136,8 +136,8 @@
                 <strong>{{ inst.flowName || '-' }}</strong>
                 <small>{{ inst.businessId || '-' }} · {{ inst.nodeName || '-' }}</small>
               </span>
-              <el-tag size="small" :type="statusTagType(inst.businessStatus, inst.businessStatusName || inst.flowStatusName)">
-                {{ inst.businessStatusName || inst.flowStatusName }}
+              <el-tag size="small" :type="statusTagType(inst.flowStatusKey, inst.flowStatusName)">
+                {{ inst.flowStatusName }}
               </el-tag>
               <span class="recent-time">{{ shortTime(inst.createTime) }}</span>
             </button>
@@ -340,7 +340,7 @@ function goDetail(id: string) {
 }
 
 function dotClass(row: InstanceRow) {
-  const type = statusTagType(row.businessStatus, row.businessStatusName || row.flowStatusName)
+  const type = statusTagType(row.flowStatusKey, row.flowStatusName)
   return `is-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : type === 'danger' ? 'danger' : 'info'}`
 }
 

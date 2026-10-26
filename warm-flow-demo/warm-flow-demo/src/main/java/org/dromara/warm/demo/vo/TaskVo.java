@@ -57,24 +57,14 @@ public class TaskVo {
     private Integer nodeType;
 
     /**
-     * 流程状态编码。
+     * 任务状态编码（pending 待审批 / pass 通过 / back 退回 / copy 抄送等）。
      */
-    private String flowStatusKey;
+    private String taskStatus;
 
     /**
-     * 流程状态名称。
+     * 任务状态名称；抄送列表按页面语义展示所属流程实例状态。
      */
-    private String flowStatusName;
-
-    /**
-     * 业务状态编码。
-     */
-    private String businessStatus;
-
-    /**
-     * 业务状态名称。
-     */
-    private String businessStatusName;
+    private String taskStatusName;
 
     /**
      * 当前办理人集合。
