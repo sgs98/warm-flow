@@ -4,13 +4,15 @@
         <el-form-item :label="`${item.label}：`" :prop="item.code" v-for="(item, index) in formList" :key="index"
                       :rules="[{ required: item.must, message: `${item.label}不能为空`, trigger: ['blur', 'change'] }]">
             <template #label>
-                <span>{{ item.label }}</span>
-                <el-tooltip v-if="[4, 5].includes(item.type)" effect="dark" :content="item.desc">
-                    <el-icon :size="14" style="margin-left: 2px;margin-top: 4px;">
-                        <WarningFilled/>
-                    </el-icon>
-                </el-tooltip>
-                <span>：</span>
+                <span class="el-form-item-label-content">
+                    <span class="el-form-item-label-text">{{ item.label }}</span>
+                    <el-tooltip v-if="[4, 5].includes(item.type)" effect="dark" :content="item.desc">
+                        <el-icon :size="14" style="margin-left: 2px;vertical-align: -2px;">
+                            <WarningFilled/>
+                        </el-icon>
+                    </el-tooltip>
+                    <span>：</span>
+                </span>
             </template>
             <el-input v-if="item.type === 1" v-model="form[item.code]" :placeholder="item.desc"></el-input>
             <el-input v-else-if="item.type === 2" v-model="form[item.code]" :rows="2" type="textarea"
@@ -222,15 +224,34 @@ defineExpose({
 }
 
 .nodeExtForm :deep(.el-form-item__label) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
   font-weight: 600;
   color: var(--wf-text-primary, #303133);
   letter-spacing: 0.3px;
-  padding-right: 8px;
-  /* 固定宽度，统一对齐，长标签不换行 */
-  width: 120px !important;
-  min-width: 120px !important;
-  max-width: 120px !important;
-  white-space: nowrap;
+  width: 140px !important;
+  min-width: 140px !important;
+  max-width: 140px !important;
+  height: auto !important;
+  min-height: 24px;
+  padding: 0 10px 0 0;
+  box-sizing: border-box;
+  white-space: normal !important;
+  line-height: 1.35;
+}
+
+.nodeExtForm :deep(.el-form-item__label .el-form-item-label-content) {
+  display: block;
+  width: 100%;
+  text-align: right;
+  white-space: normal;
+}
+
+.nodeExtForm :deep(.el-form-item__label .el-form-item-label-text) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* ========== 3. 输入框 / 文本域 (type 1, 2) ========== */
@@ -560,11 +581,10 @@ html.dark .nodeExtForm :deep(.el-input-number__increase.is-disabled) {
   }
 
   .nodeExtForm :deep(.el-form-item__label) {
-    min-width: 100px !important;
+    width: 120px !important;
+    min-width: 120px !important;
     max-width: 120px !important;
     font-size: 12px !important;
-    word-break: break-word !important;
-    white-space: normal !important;
   }
 
   /* 下拉/数字输入框100%宽度 */
@@ -593,9 +613,10 @@ html.dark .nodeExtForm :deep(.el-input-number__increase.is-disabled) {
 
 @media (max-width: 480px) {
   .nodeExtForm :deep(.el-form-item__label) {
-    min-width: 90px !important;
+    width: 100px !important;
+    min-width: 100px !important;
+    max-width: 100px !important;
     font-size: 11px !important;
-    white-space: normal !important;
   }
   .nodeExtForm :deep(.el-radio),
   .nodeExtForm :deep(.el-checkbox) {
