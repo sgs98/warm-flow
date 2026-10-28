@@ -2,7 +2,39 @@
 
 本文件记录 warm-flow（sgs98 二次开发版）的重要版本变更。使用文档、在线更新日志与升级指南见 [sgs98.github.io/warm-flow-doc](https://sgs98.github.io/warm-flow-doc/)。
 
-## 2.1.0（未发布）
+## 2.1.1（2026-10-28）
+
+### 引擎
+
+- 修复待办任务状态被实例状态污染：`TaskServiceImpl#addTask` 原先优先取上下文里的 `flowStatus`（实例维度）作为新建待办的 `flow_task.flow_status`，定时启动等「实例已进入 `waiting`、同时创建首个待办」的链路会把 `waiting` 这个实例码直接写进待办行。现待办状态只按任务维度推导（`FlowStatusMachine.taskStatus(nodeType, skipType)`，普通审批节点即 `pending`），实例状态仍由 `flow_instance.flow_status` 表达，两个维度不再互相覆盖。
+- 修复历史留痕状态混入实例编码：`HisTaskServiceImpl` 的流转留痕（普通办理 / 转办 / 委派 / 加签减签 / 会签票签 / 协作抄送）原先经 `customStatus(taskStatus, flowStatus)` 回落取实例状态，任务状态缺位时 `flow_his_task.flow_status` 会落进 `waiting` 这类实例码，审批记录把「正在进行的任务」显示成「实例在审批中」。现统一只取 `context.getTaskStatus()`（任务维度），`customStatus` 私有回落随之删除。
+- 修复事件作废与终止归档的状态维度：`EventRuntimeHandler#interruptAttachedTask` 中断附着待办时把 `invalid` 写进了上下文的实例状态字段（应为任务状态字段），现改回 `intent.setTaskStatus(...)`，复位同理；`FlowTerminateChain#persist` 归档终止待办前改按任务维度取终态编码（`intent.setTaskStatus(instance.getFlowStatus())`），并在链尾补写 `intent.setFlowStatus(...)` 以保持「调用方可从上下文读回实例终态」的既有契约。
+- 特征测试 `EventRuntimeCharacteristicTest` 补充定时启动场景断言：实例落 `waiting`、发起留痕落 `pass`，锁定任务与实例两个维度不再串列。
+- 撤回归档留痕改记任务维度编码（行为变更）：留痕不再回落实例状态后，被撤回归档的 `flow_his_task.flow_status` 由 2.1.0 的 `cancel`（实例码）变为按退回语义推导的 `back`；实例维度仍是 `cancel`，「回到申请人节点」这一位置信息由任务维度的 `back` 表达。终止链仍把实例终态码 `termination` 写入归档留痕（`FlowTerminateChain#persist`），这是任务维度目前唯一会出现实例码的位置，宿主字典需为它保留标签。
+
+### 设计器
+
+- 修复节点扩展属性长标签被裁切：标签列原先固定 `120px` 且 `white-space: nowrap`，「是否显示审批按钮」这类长标签在 flex 空间不足时向左溢出，被面板 `overflow: hidden` 切掉左半截。现标签列固定 `140px`、改 `display: block` + `height: auto` + `white-space: normal`，文本按 `overflow-wrap: anywhere` 折行且保持右对齐，警告图标与冒号跟随文本换行；窄屏（≤768px / ≤480px）按 120px / 100px 同步降档。
+- 修复扩展属性单选项与权限按钮溢出：单选 / 多选的选项文本改为可收缩容器（`min-width: 0` + `text-overflow: ellipsis` + `white-space: nowrap`）并带 `title` 悬浮显示全文，图标不再被长文本挤走、选项也不再压到相邻控件上。
+- 设计器产物已重新构建并同步到 `warm-flow-plugin-vue3-ui` 静态资源（`index-CL32EgQB.js` / `index-3AF-POKR.css`）。
+
+### Demo
+
+- 审批历史与任务列表的状态字段收口为任务维度：`HistoryVo` / `TaskVo` 移除 `flowStatusKey`、`flowStatusName`、`businessStatus`、`businessStatusName` 四个混用字段，统一改为 `taskStatus` + `taskStatusName`；`WorkflowSupport` 的待办 / 已办 / 抄送 / 历史组装不再把实例状态塞进任务字段（抄送列表仍按页面语义显示所属实例状态，并在 javadoc 注明）。
+- `InstanceVo` 移除与 `flowStatusKey` 同值的 `businessStatus` / `businessStatusName`，实例状态只保留 `flowStatusKey` / `flowStatusName` 一对字段；前端 `types/workflow.ts` 与实例列表、详情、待办、已办、抄送、仪表盘、事件测试等页面同步改引用，状态标签颜色新增 `pending`（待审批）档。
+- 移除 `WorkflowSupport#isResubmittableStatus`：实例是否停在申请节点由前端按实例状态（`draft` / `back` / `cancel`）判断，后端不再按任务状态推导实例语义。
+
+### 数据库
+
+- 无表结构变更，不需要执行升级脚本。已按 2.1.0 落库的宿主若存在被污染的存量数据（`flow_task.flow_status` 落成 `waiting` 等实例码），可自行按实例状态回填修正；新发起的流程不再产生。
+- 四套全量脚本中 `flow_his_task.flow_status` 的列注释仍写着 2.1.0 的「唯一例外是撤回归档写 cancel」，本版语义调整后该例外已不成立（撤回归档为 `back`，实际例外是终止归档的 `termination`）；因仅涉及注释文案，未随本版改动脚本，留待下一版一并纠正。
+
+### 升级提示
+
+- 行为变更（任务状态维度）：新建待办的 `flow_task.flow_status` 不再跟随实例状态，定时启动等自动发起链路的首个待办由 `waiting` 变为 `pending`；`flow_his_task.flow_status` 只记任务维度编码（`pass` / `back` / `invalid` / `take_back` / `copy` / 协作动作码），唯一例外是终止归档仍写实例终态码 `termination`。宿主若曾按 `waiting` 查待办或按 `cancel` 查撤回归档，请分别改查 `pending` 与 `back`，实例进展一律读 `flow_instance.flow_status`。
+- 兼容性：本版本无公共 API 签名、实体字段与表结构变更，2.1.0 用户直接改版本号即可升级。
+
+## 2.1.0（2026-10-24）
 
 ### 引擎
 

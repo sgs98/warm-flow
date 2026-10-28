@@ -56,14 +56,14 @@
 <dependency>
     <groupId>io.github.sgs98</groupId>
     <artifactId>warm-flow-mybatis-plus-sb3-starter</artifactId>
-    <version>2.1.0</version>
+    <version>2.1.1</version>
 </dependency>
 
 
 <dependency>
     <groupId>io.github.sgs98</groupId>
     <artifactId>warm-flow-plugin-ui-sb-web</artifactId>
-    <version>2.1.0</version>
+    <version>2.1.1</version>
 </dependency>
 ```
 
