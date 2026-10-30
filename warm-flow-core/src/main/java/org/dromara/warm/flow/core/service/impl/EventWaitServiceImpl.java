@@ -8,13 +8,17 @@ import org.dromara.warm.flow.core.dto.EventWaitQuery;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.EventWait;
 import org.dromara.warm.flow.core.entity.Instance;
+import org.dromara.warm.flow.core.enums.ActivityStatus;
 import org.dromara.warm.flow.core.enums.EventType;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.orm.dao.FlowEventWaitDao;
 import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.EventWaitService;
+import org.dromara.warm.flow.core.service.event.EventConfig;
 import org.dromara.warm.flow.core.timer.EventWaitProcessor;
 import org.dromara.warm.flow.core.timer.EventTaskHandler;
+import org.dromara.warm.flow.core.timer.TimerContext;
+import org.dromara.warm.flow.core.timer.TimerScheduleStrategies;
 import org.dromara.warm.flow.core.invoker.FrameInvoker;
 import org.dromara.warm.flow.core.timer.TimerWorkerId;
 import org.dromara.warm.flow.core.utils.AssertUtil;
@@ -149,6 +153,75 @@ public class EventWaitServiceImpl extends WarmServiceImpl<FlowEventWaitDao<Event
     @Override
     public boolean cancelClaimed(Long id, Integer version, String workerId, String error) {
         return warmDao.cancelClaimed(id, version, workerId, new Date(), error);
+    }
+
+    /**
+     * 复活一条已死（{@code DEAD}）的等待记录：条件更新置回 {@code WAITING}、重试计数归零，
+     * 定时类事件按触发器重新计算下次触发时间；复活前校验记录所属实例 / 附着待办仍然有效。
+     *
+     * @param id 等待记录主键
+     * @return 复活成功返回 {@code true}；主键为空返回 {@code false}
+     */
+    @Override
+    public boolean revive(Long id) {
+        if (ObjectUtil.isNull(id)) {
+            return false;
+        }
+        EventWait wait = getById(id);
+        AssertUtil.isNull(wait, ExceptionCons.NOT_FOUND_EVENT_WAIT);
+        AssertUtil.isTrue(!EventCons.STATUS_DEAD.equals(wait.getStatus()),
+            ExceptionCons.EVENT_WAIT_REVIVE_NOT_DEAD);
+        checkRevivable(wait);
+        Date now = new Date();
+        Date nextTriggerAt = reviveNextTriggerAt(wait, now);
+        boolean revived = warmDao.revive(wait.getId(), wait.getVersion(), now, nextTriggerAt);
+        AssertUtil.isTrue(!revived, ExceptionCons.EVENT_WAIT_REVIVE_CONFLICT);
+        log.info("事件等待记录已复活 id={} eventType={} nodeCode={} nextTriggerAt={}"
+            , wait.getId(), wait.getEventType(), wait.getNodeCode(), nextTriggerAt);
+        return true;
+    }
+
+    /**
+     * 复活前的有效性校验：定时启动交给重新发布 / 激活处理，实例与边界事件要求目标仍在。
+     *
+     * @param wait 待复活的等待记录
+     */
+    private void checkRevivable(EventWait wait) {
+        AssertUtil.isTrue(EventType.TIMER_START.getValue().equals(wait.getEventType()),
+            ExceptionCons.EVENT_WAIT_REVIVE_TIMER_START);
+        if (ObjectUtil.isNotNull(wait.getAttachedTaskId())) {
+            AssertUtil.isNull(FlowEngine.taskService().getById(wait.getAttachedTaskId()),
+                ExceptionCons.EVENT_WAIT_REVIVE_TASK_MISSING);
+        }
+        Instance instance = ObjectUtil.isNull(wait.getInstanceId()) ? null
+            : FlowEngine.insService().getById(wait.getInstanceId());
+        AssertUtil.isTrue(instance == null || !ActivityStatus.isActivity(instance.getActivityStatus()),
+            ExceptionCons.EVENT_WAIT_REVIVE_INSTANCE_UNAVAILABLE);
+        AssertUtil.isTrue(EventRuntimeHandler.alreadyPassed(instance, wait.getNodeCode()),
+            ExceptionCons.EVENT_WAIT_REVIVE_NODE_PASSED);
+    }
+
+    /**
+     * 计算复活后的下次触发时间：定时类事件从当前时间重算，消息 / 错误类事件不参与扫描，保持为空。
+     *
+     * @param wait 待复活的等待记录
+     * @param now  当前时间
+     * @return 下次触发时间；非定时类事件返回 {@code null}
+     */
+    private Date reviveNextTriggerAt(EventWait wait, Date now) {
+        String triggerType = wait.getTriggerType();
+        boolean timerTrigger = EventConfig.TIMER_AFTER.equals(triggerType)
+            || EventConfig.TIMER_FIXED.equals(triggerType)
+            || EventConfig.TIMER_POINT_IN_TIME.equals(triggerType);
+        if (!timerTrigger) {
+            return null;
+        }
+        return TimerScheduleStrategies.nextTriggerAt(triggerType, new TimerContext()
+            .setPreviousTriggerAt(null)
+            .setCurrentTime(now)
+            .setTriggerInterval(wait.getTriggerInterval())
+            .setTimezone(wait.getTimezone())
+            .setRepeatCount(0));
     }
 
     /**

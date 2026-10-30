@@ -2,7 +2,7 @@
 
 本文件记录 warm-flow（sgs98 二次开发版）的重要版本变更。使用文档、在线更新日志与升级指南见 [sgs98.github.io/warm-flow-doc](https://sgs98.github.io/warm-flow-doc/)。
 
-## 2.1.1（2026-10-28）
+## 2.1.1（2026-10-28，未发布）
 
 ### 引擎
 
@@ -11,6 +11,11 @@
 - 修复事件作废与终止归档的状态维度：`EventRuntimeHandler#interruptAttachedTask` 中断附着待办时把 `invalid` 写进了上下文的实例状态字段（应为任务状态字段），现改回 `intent.setTaskStatus(...)`，复位同理；`FlowTerminateChain#persist` 归档终止待办前改按任务维度取终态编码（`intent.setTaskStatus(instance.getFlowStatus())`），并在链尾补写 `intent.setFlowStatus(...)` 以保持「调用方可从上下文读回实例终态」的既有契约。
 - 特征测试 `EventRuntimeCharacteristicTest` 补充定时启动场景断言：实例落 `waiting`、发起留痕落 `pass`，锁定任务与实例两个维度不再串列。
 - 撤回归档留痕改记任务维度编码（行为变更）：留痕不再回落实例状态后，被撤回归档的 `flow_his_task.flow_status` 由 2.1.0 的 `cancel`（实例码）变为按退回语义推导的 `back`；实例维度仍是 `cancel`，「回到申请人节点」这一位置信息由任务维度的 `back` 表达。终止链仍把实例终态码 `termination` 写入归档留痕（`FlowTerminateChain#persist`），这是任务维度目前唯一会出现实例码的位置，宿主字典需为它保留标签。
+- 新增事件等待记录复活能力：`EventWaitService#revive(Long id)` 与门面 `WorkflowService#reviveEvent(ReviveEventCommand)`，把重试耗尽的 `DEAD` 记录置回 `WAITING`。复活时重试计数归零、清空 `retry_at` 与租约，`last_error` 保留死亡原因；定时类事件按 `triggerType` 从当前时间重算 `next_trigger_at`，消息 / 错误类事件保持为空、由外部调用驱动。
+- 复活前做有效性校验，避免救活一条会去推进已走远流程的记录：`TIMER_START` 直接拒绝（定义可能已被取代或失效，重新发布 / 挂起后激活会按当前定义重建记录）；边界事件要求附着待办仍存在；实例事件要求实例存在且激活、未越过该事件节点；`CANCELLED` 是刻意取消，不开放复活。
+- 条件更新按 `id + version + status = DEAD` 生效并递增版本号，并发复活只有一条成功，未命中抛「记录状态已变化，请刷新后重试」。
+- `FlowEventWaitDao#revive` 以默认方法提供：未适配的自实现 ORM 仅在调用复活时抛「未适配事件等待复活」，其它定时 / 消息 / 错误事件功能不受影响；MyBatis 与 MyBatis-Plus 两套适配均已实现，并补 H2 真实 SQL 验证。
+- 特征测试 `EventWaitReviveCharacteristicTest` 锁定：复活清理重试状态并重算排期、非 `DEAD` 各状态拒绝、`TIMER_START` 拒绝、边界任务缺失 / 实例挂起 / 节点已办理拒绝、版本号失配不命中、复活后重新被扫描器扫到。
 
 ### 设计器
 
@@ -20,6 +25,7 @@
 
 ### Demo
 
+- 定时任务页对 `DEAD` 记录新增「复活」操作，接口 `POST /api/event-waits/{id}/revive`，二次确认后刷新列表。
 - 审批历史与任务列表的状态字段收口为任务维度：`HistoryVo` / `TaskVo` 移除 `flowStatusKey`、`flowStatusName`、`businessStatus`、`businessStatusName` 四个混用字段，统一改为 `taskStatus` + `taskStatusName`；`WorkflowSupport` 的待办 / 已办 / 抄送 / 历史组装不再把实例状态塞进任务字段（抄送列表仍按页面语义显示所属实例状态，并在 javadoc 注明）。
 - `InstanceVo` 移除与 `flowStatusKey` 同值的 `businessStatus` / `businessStatusName`，实例状态只保留 `flowStatusKey` / `flowStatusName` 一对字段；前端 `types/workflow.ts` 与实例列表、详情、待办、已办、抄送、仪表盘、事件测试等页面同步改引用，状态标签颜色新增 `pending`（待审批）档。
 - 移除 `WorkflowSupport#isResubmittableStatus`：实例是否停在申请节点由前端按实例状态（`draft` / `back` / `cancel`）判断，后端不再按任务状态推导实例语义。
@@ -32,6 +38,7 @@
 ### 升级提示
 
 - 行为变更（任务状态维度）：新建待办的 `flow_task.flow_status` 不再跟随实例状态，定时启动等自动发起链路的首个待办由 `waiting` 变为 `pending`；`flow_his_task.flow_status` 只记任务维度编码（`pass` / `back` / `invalid` / `take_back` / `copy` / 协作动作码），唯一例外是终止归档仍写实例终态码 `termination`。宿主若曾按 `waiting` 查待办或按 `cancel` 查撤回归档，请分别改查 `pending` 与 `back`，实例进展一律读 `flow_instance.flow_status`。
+- 新增能力：事件等待记录支持手工复活，只允许 `DEAD → WAITING`，自实现 `FlowEventWaitDao` 的宿主不实现 `revive` 时仅调用复活会抛「未适配事件等待复活」，其余功能不受影响。
 - 兼容性：本版本无公共 API 签名、实体字段与表结构变更，2.1.0 用户直接改版本号即可升级。
 
 ## 2.1.0（2026-10-24）

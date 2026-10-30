@@ -803,6 +803,24 @@
         </where>
     </update>
 
+    <update id="revive">
+        update flow_event_wait
+        set status = 'WAITING',
+            retry_count = 0,
+            retry_at = null,
+            next_trigger_at = #{nextTriggerAt, jdbcType=TIMESTAMP},
+            lock_owner = null,
+            lock_until = null,
+            version = version + 1,
+            update_time = #{now}
+        <where>
+            id = #{id}
+            and version = #{version}
+            and status = 'DEAD'
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+    </update>
+
     <update id="claimMessage">
         update flow_event_wait
         set status = 'RUNNING',

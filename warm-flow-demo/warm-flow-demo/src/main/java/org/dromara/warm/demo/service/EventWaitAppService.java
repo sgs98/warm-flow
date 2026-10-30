@@ -46,4 +46,16 @@ public interface EventWaitAppService {
      * @return 新建实例主键
      */
     Long manualTrigger(Long waitId, String user, String businessId, Map<String, Object> variables);
+
+    /**
+     * 复活一条已死（{@code DEAD}）的事件等待记录。
+     * <p>
+     * 只允许 {@code DEAD → WAITING}：重试计数归零、定时类事件重算下次触发时间，
+     * 由下一轮扫描或外部消息重新触发。定时启动任务的记录不支持复活，
+     * 请改用重新发布 / 挂起后激活定义。
+     *
+     * @param waitId 事件等待记录主键
+     * @return 复活成功返回 {@code true}
+     */
+    Boolean revive(Long waitId);
 }

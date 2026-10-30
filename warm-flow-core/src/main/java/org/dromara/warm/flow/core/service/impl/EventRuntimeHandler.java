@@ -276,9 +276,12 @@ public class EventRuntimeHandler implements EventTaskHandler {
      *
      * @param instance 流程实例
      * @param nodeCode 事件节点编码
+     * <p>
+     * 包内共享：等待记录复活前也用同一判定，避免复活后去推进一个已经办结的节点。
+     *
      * @return 已办理返回 {@code true}；图元数据缺失或节点未找到返回 {@code false}（放行，由既有链路兜底）
      */
-    private boolean alreadyPassed(Instance instance, String nodeCode) {
+    static boolean alreadyPassed(Instance instance, String nodeCode) {
         if (StringUtils.isEmpty(instance.getDefJson())) {
             return false;
         }

@@ -194,6 +194,27 @@ public interface FlowEventWaitDao<T extends EventWait> extends WarmDao<T> {
     boolean cancelClaimed(Long id, Integer version, String workerId, Date now, String error);
 
     /**
+     * 复活一条已死记录：条件更新校验 {@code id + version + status = DEAD} 后置 {@code WAITING}，
+     * 重试计数归零、清空重试时间与租约、写入新的下次触发时间并递增版本号。
+     * <p>
+     * {@code last_error} 保留最后一次死亡原因，由下一次失败覆盖；{@code repeat_count} 保持不变，
+     * 周期性事件继续按原计划推进。记录已不是 {@code DEAD}（被并发复活 / 已取消 / 已删除）时
+     * 返回 {@code false}，调用方不得强行覆盖其状态。
+     * <p>
+     * 该能力为 2.1.1 新增：默认实现抛出异常，未适配自实现 ORM 的宿主仅在调用复活时报错，
+     * 其它事件功能不受影响。
+     *
+     * @param id            记录主键
+     * @param version       复活前版本号
+     * @param now           当前时间
+     * @param nextTriggerAt 复活后的下次触发时间（定时类事件必填，消息 / 错误类事件为 {@code null}）
+     * @return 复活成功返回 {@code true}
+     */
+    default boolean revive(Long id, Integer version, Date now, Date nextTriggerAt) {
+        throw new UnsupportedOperationException("当前 FlowEventWaitDao 实现未适配事件等待复活");
+    }
+
+    /**
      * 按查询条件分页查询等待记录。
      * <p>
      * 条件语义与 {@link #selectListByQuery(EventWaitQuery)} 一致；

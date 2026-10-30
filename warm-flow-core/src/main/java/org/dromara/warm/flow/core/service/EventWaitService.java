@@ -120,6 +120,25 @@ public interface EventWaitService extends IWarmService<EventWait> {
     boolean cancelClaimed(Long id, Integer version, String workerId, String error);
 
     /**
+     * 复活一条已死（{@code DEAD}）的等待记录：置回 {@code WAITING}、重试计数归零，
+     * 定时类事件按触发器重新计算下次触发时间，等待下一轮扫描或外部消息重新触发。
+     * <p>
+     * 复活前做有效性校验，避免复活后去推进一个已经走远的流程：
+     * <ul>
+     *     <li>{@code TIMER_START} 直接拒绝——定义可能已被取代或失效，重新发布 / 挂起后激活
+     *     会按当前定义重建记录；</li>
+     *     <li>边界事件要求附着待办仍存在；</li>
+     *     <li>实例事件要求实例存在且激活、未越过该事件节点。</li>
+     * </ul>
+     * 只有 {@code DEAD} 可以复活：{@code CANCELLED} 是刻意取消，{@code WAITING / RETRY / RUNNING}
+     * 本来就还能触发。条件更新按 {@code id + version + status = DEAD} 生效，并发复活只有一条成功。
+     *
+     * @param id 等待记录主键
+     * @return 复活成功返回 {@code true}；主键为空返回 {@code false}
+     */
+    boolean revive(Long id);
+
+    /**
      * 匹配错误等待记录：任务级匹配附着该任务的 {@code ERROR_BOUNDARY} 等待，
      * 实例级匹配该实例的 {@code ERROR_CATCH} 等待；精确错误码优先于通配（错误码为空表示通配）。
      *

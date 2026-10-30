@@ -110,6 +110,22 @@ public interface WorkflowService {
     WorkflowResult copy(CopyCommand command);
 
     /**
+     * 复活一条已死（{@code DEAD}）的事件等待记录，供运维把「重试耗尽」的单子重新拉起。
+     *
+     * <p>只允许 {@code DEAD → WAITING}：{@code CANCELLED} 是刻意取消不开放；
+     * 定时启动（{@code TIMER_START}）的等待记录同样不支持复活——定义可能已被取代或失效，
+     * 请重新发布或挂起后激活定义，引擎会按当前定义重建记录。</p>
+     *
+     * <p>复活前会校验目标仍然有效：边界事件要求附着待办仍存在，实例事件要求实例存在且激活、
+     * 未越过该事件节点。复活后重试计数归零，定时类事件从当前时间重算下次触发时间，
+     * 等待下一轮扫描或外部消息重新触发。</p>
+     *
+     * @param command 复活参数
+     * @return 流程操作结果
+     */
+    WorkflowResult reviveEvent(ReviveEventCommand command);
+
+    /**
      * 查询流程实例当前正在等待的事件，用于区分「无当前任务但等待事件」与「流程已完成」。
      *
      * @param instanceId 流程实例主键

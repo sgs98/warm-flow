@@ -108,13 +108,14 @@
       <el-table-column label="创建时间" width="165">
         <template #default="{ row }">{{ row.createTime || '-' }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="210" fixed="right">
+      <el-table-column label="操作" width="260" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="openDetail(row)">详情</el-button>
           <el-button link type="primary" :disabled="!row.instanceId" @click="viewInstance(row)">查看实例</el-button>
           <el-button v-if="isTimerStart(row)" link type="success" @click="openTrigger(row)">立即触发</el-button>
           <el-button v-if="isMessageWait(row)" link type="warning" @click="openMessage(row)">触发消息</el-button>
           <el-button v-if="isErrorWait(row)" link type="danger" @click="openError(row)">抛错</el-button>
+          <el-button v-if="row.status === 'DEAD'" link type="info" @click="submitRevive(row)">复活</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -230,8 +231,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { getEventWaitSummary, pageEventWaits, triggerTimerStart } from '../../api/eventWaits'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getEventWaitSummary, pageEventWaits, reviveEventWait, triggerTimerStart } from '../../api/eventWaits'
 import { throwInstanceError, throwTaskError, triggerInstanceMessage } from '../../api/events'
 import { usePagedList } from '../../composables/usePagedList'
 import type { EventWaitRow, EventWaitSummary } from '../../types/workflow'
@@ -475,6 +476,25 @@ async function submitTrigger() {
   } finally {
     submitting.value = false
   }
+}
+
+/**
+ * 复活一条已死（DEAD）的等待记录：重试计数归零，定时类事件由引擎按触发器重新排期。
+ */
+async function submitRevive(row: EventWaitRow) {
+  try {
+    await ElMessageBox.confirm(
+      `确认复活「${row.flowName || row.nodeCode || row.id}」这条等待记录？`
+        + '复活后重试计数归零，定时类事件会从当前时间重新排期。',
+      '复活等待记录',
+      { type: 'warning', confirmButtonText: '复活', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  await reviveEventWait(row.id)
+  ElMessage.success('已复活，等待下一轮扫描或外部消息触发')
+  refreshAll()
 }
 
 function openMessage(row: EventWaitRow) {

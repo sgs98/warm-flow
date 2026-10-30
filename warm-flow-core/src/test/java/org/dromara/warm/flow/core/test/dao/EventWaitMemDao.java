@@ -236,6 +236,25 @@ public class EventWaitMemDao extends InMemoryDao<EventWait> implements FlowEvent
     }
 
     @Override
+    public boolean revive(Long id, Integer version, Date now, Date nextTriggerAt) {
+        log.add(name() + ".revive[" + id + ",v=" + version + "]");
+        EventWait row = store.get(id);
+        if (row == null || row.getVersion() == null || !row.getVersion().equals(version)
+            || !EventCons.STATUS_DEAD.equals(row.getStatus())) {
+            return false;
+        }
+        row.setStatus(EventCons.STATUS_WAITING);
+        row.setRetryCount(0);
+        row.setRetryAt(null);
+        row.setNextTriggerAt(nextTriggerAt);
+        row.setLockOwner(null);
+        row.setLockUntil(null);
+        row.setVersion(row.getVersion() + 1);
+        row.setUpdateTime(now);
+        return true;
+    }
+
+    @Override
     public boolean claimMessage(Long id, Integer version, String workerId, Date now, Date lockUntil) {
         log.add(name() + ".claimMessage[" + id + ",v=" + version + "]");
         EventWait row = store.get(id);

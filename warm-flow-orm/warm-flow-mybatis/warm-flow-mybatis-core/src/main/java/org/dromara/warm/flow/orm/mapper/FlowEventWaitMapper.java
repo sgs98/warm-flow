@@ -224,6 +224,20 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
         @Param("delFlag") String delFlag);
 
     /**
+     * 复活已死记录：DEAD 置回 WAITING，重试计数归零、清空重试时间与租约，写入新的下次触发时间。
+     *
+     * @param id            记录主键
+     * @param version       复活前版本号
+     * @param now           当前时间
+     * @param nextTriggerAt 复活后的下次触发时间（消息 / 错误类事件为 {@code null}）
+     * @param delFlag       未删除值
+     * @return 受影响行数
+     */
+    int revive(@Param("id") Long id, @Param("version") Integer version,
+        @Param("now") Date now, @Param("nextTriggerAt") Date nextTriggerAt,
+        @Param("delFlag") String delFlag);
+
+    /**
      * 消息记录抢占：WAITING / RETRY 置为 RUNNING 并写入租约，不校验到期时间字段。
      *
      * @param id       记录主键

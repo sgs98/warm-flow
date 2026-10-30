@@ -72,4 +72,17 @@ public class EventWaitController {
         return ApiResponse.ok(eventWaitAppService.manualTrigger(id, user, body.getBusinessId()
             , body.getVariables()));
     }
+
+    /**
+     * 复活一条已死（{@code DEAD}）的等待记录（运维应急）。
+     * <p>复活后重试计数归零、定时类事件重算下次触发时间，由下一轮扫描或外部消息重新触发；
+     * 定时启动任务的记录不支持复活，请改用重新发布或挂起后激活定义。</p>
+     *
+     * @param id 事件等待记录主键
+     * @return 复活成功返回 {@code true}
+     */
+    @PostMapping("/{id}/revive")
+    public ApiResponse<Boolean> revive(@PathVariable("id") Long id) {
+        return ApiResponse.ok(eventWaitAppService.revive(id));
+    }
 }

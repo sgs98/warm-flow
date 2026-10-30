@@ -1,6 +1,7 @@
 package org.dromara.warm.flow.core.workflow;
 
 import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.dto.EventWaitQuery;
 import org.dromara.warm.flow.core.entity.EventWait;
 import org.dromara.warm.flow.core.entity.HisTask;
@@ -220,6 +221,23 @@ public class WorkflowServiceImpl implements WorkflowService {
             instanceId = task == null ? null : task.getInstanceId();
         }
         return result("copy", instanceId == null ? null : FlowEngine.insService().getById(instanceId), command.getTaskId());
+    }
+
+    /**
+     * 复活一条已死（{@code DEAD}）的事件等待记录。
+     *
+     * @param command 复活参数
+     * @return 流程操作结果
+     */
+    @Override
+    public WorkflowResult reviveEvent(ReviveEventCommand command) {
+        check(command, "事件等待复活参数不能为空");
+        AssertUtil.isNull(command.getEventWaitId(), "事件等待记录ID不能为空");
+        EventWait wait = FlowEngine.eventWaitService().getById(command.getEventWaitId());
+        AssertUtil.isNull(wait, ExceptionCons.NOT_FOUND_EVENT_WAIT);
+        FlowEngine.eventWaitService().revive(command.getEventWaitId());
+        Long instanceId = wait.getInstanceId();
+        return result("reviveEvent", instanceId == null ? null : FlowEngine.insService().getById(instanceId), null);
     }
 
     /**

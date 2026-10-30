@@ -23,3 +23,11 @@ export function triggerTimerStart(
 ): Promise<string> {
   return httpPost<string>(`/event-waits/${id}/trigger`, payload ?? {})
 }
+
+/**
+ * 复活一条已死（DEAD）的等待记录：重试计数归零，定时类事件按触发器重算下次触发时间。
+ * 定时启动任务的记录引擎侧不支持复活，需要重新发布或挂起后激活定义。
+ */
+export function reviveEventWait(id: string | number): Promise<boolean> {
+  return httpPost<boolean>(`/event-waits/${id}/revive`)
+}

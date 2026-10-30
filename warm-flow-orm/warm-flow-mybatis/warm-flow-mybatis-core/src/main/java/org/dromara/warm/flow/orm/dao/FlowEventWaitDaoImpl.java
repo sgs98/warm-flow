@@ -106,6 +106,11 @@ public class FlowEventWaitDaoImpl extends WarmDaoImpl<FlowEventWait> implements 
     }
 
     @Override
+    public boolean revive(Long id, Integer version, Date now, Date nextTriggerAt) {
+        return getMapper().revive(id, version, now, nextTriggerAt, notDeleteValue()) == 1;
+    }
+
+    @Override
     public boolean claimMessage(Long id, Integer version, String workerId, Date now, Date lockUntil) {
         return getMapper().claimMessage(id, version, workerId, now, lockUntil, notDeleteValue()) == 1;
     }

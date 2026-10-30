@@ -587,4 +587,40 @@ public class ExceptionCons {
      */
     public static final String NOT_FOUND_END_NODE = "未找到流程结束节点";
 
+    /**
+     * 未找到事件等待记录。
+     */
+    public static final String NOT_FOUND_EVENT_WAIT = "事件等待记录不存在";
+
+    /**
+     * 只有已死（{@code DEAD}）的等待记录可以复活。
+     */
+    public static final String EVENT_WAIT_REVIVE_NOT_DEAD = "只有已死（DEAD）的等待记录可以复活";
+
+    /**
+     * 定时启动事件的等待记录不支持复活：重新发布或挂起后激活定义会按当前定义重建记录。
+     */
+    public static final String EVENT_WAIT_REVIVE_TIMER_START
+        = "定时启动事件的等待记录不支持复活，请重新发布或挂起后激活流程定义";
+
+    /**
+     * 等待记录所属实例不存在或已不可用，复活后也无法推进。
+     */
+    public static final String EVENT_WAIT_REVIVE_INSTANCE_UNAVAILABLE = "流程实例不存在或已不可用，等待记录不能复活";
+
+    /**
+     * 实例已越过该事件节点，复活的等待记录会去推进一个已办结节点。
+     */
+    public static final String EVENT_WAIT_REVIVE_NODE_PASSED = "实例已越过该事件节点，等待记录不能复活";
+
+    /**
+     * 边界事件附着的待办已不存在，复活后也无法中断。
+     */
+    public static final String EVENT_WAIT_REVIVE_TASK_MISSING = "边界事件附着的待办已不存在，等待记录不能复活";
+
+    /**
+     * 复活时按主键与版本号条件更新未命中：记录已被并发修改，需重新读取。
+     */
+    public static final String EVENT_WAIT_REVIVE_CONFLICT = "等待记录状态已变化，请刷新后重试";
+
 }

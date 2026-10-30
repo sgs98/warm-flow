@@ -192,6 +192,21 @@ public class FlowEventWaitDaoImpl extends WarmDaoImpl<FlowEventWait> implements 
     }
 
     @Override
+    public boolean revive(Long id, Integer version, Date now, Date nextTriggerAt) {
+        LambdaUpdateWrapper<FlowEventWait> wrapper = dueCondition(id, version)
+            .eq(FlowEventWait::getStatus, EventCons.STATUS_DEAD)
+            .set(FlowEventWait::getStatus, EventCons.STATUS_WAITING)
+            .set(FlowEventWait::getRetryCount, 0)
+            .set(FlowEventWait::getRetryAt, null)
+            .set(FlowEventWait::getNextTriggerAt, nextTriggerAt)
+            .set(FlowEventWait::getLockOwner, null)
+            .set(FlowEventWait::getLockUntil, null)
+            .set(FlowEventWait::getUpdateTime, now)
+            .setSql("version = version + 1");
+        return getMapper().update(null, wrapper) == 1;
+    }
+
+    @Override
     public boolean claimMessage(Long id, Integer version, String workerId, Date now, Date lockUntil) {
         LambdaUpdateWrapper<FlowEventWait> wrapper = dueCondition(id, version)
             .in(FlowEventWait::getStatus, EventCons.STATUS_WAITING, EventCons.STATUS_RETRY)

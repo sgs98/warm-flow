@@ -48,6 +48,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -164,6 +165,35 @@ class EventWaitQueryJdbcTest {
         assertEquals(List.of(14L), ids(page2.getList()));
         assertEquals(2, page2.getPageNum());
         assertEquals(3, page2.getPageSize());
+    }
+
+    @Test
+    void reviveOnlyHitsDeadRowsAndResetsRetryState() throws Exception {
+        insertRow(51L, 100L, 1000L, "cooldown", "TIMER_CATCH", "DEAD", "0", "2026-01-01 01:00:00");
+        try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {
+            st.execute("UPDATE flow_event_wait SET retry_count = 3,"
+                + " retry_at = TIMESTAMP '2026-01-01 02:00:00', lock_owner = 'w1',"
+                + " lock_until = TIMESTAMP '2026-01-01 02:01:00', last_error = 'boom' WHERE id = 51");
+        }
+        session.clearCache();
+        Date now = date("2026-01-02 09:00:00");
+        Date next = date("2026-01-02 10:00:00");
+
+        // 版本号失配不命中，记录保持原状
+        assertFalse(dao.revive(51L, 9, now, next));
+        assertTrue(dao.revive(51L, 0, now, next));
+
+        EventWait row = dao.selectById(51L);
+        assertEquals(EventCons.STATUS_WAITING, row.getStatus());
+        assertEquals(0, row.getRetryCount().intValue());
+        assertNull(row.getRetryAt());
+        assertNull(row.getLockOwner());
+        assertNull(row.getLockUntil());
+        assertEquals("boom", row.getLastError());
+        assertEquals(next, row.getNextTriggerAt());
+        assertEquals(1, row.getVersion().intValue());
+        // 已不是 DEAD：同一版本再复活一次不命中
+        assertFalse(dao.revive(51L, 1, now, next));
     }
 
     @Test

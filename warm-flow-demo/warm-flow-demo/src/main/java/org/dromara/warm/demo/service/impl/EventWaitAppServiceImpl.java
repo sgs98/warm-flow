@@ -17,6 +17,7 @@ import org.dromara.warm.flow.core.enums.EventType;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.core.utils.page.Page;
+import org.dromara.warm.flow.core.workflow.command.ReviveEventCommand;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -149,6 +150,28 @@ public class EventWaitAppServiceImpl implements EventWaitAppService {
         } catch (FlowException e) {
             throw BizException.badRequest(e.getMessage());
         }
+    }
+
+    /**
+     * 复活一条已死（{@code DEAD}）的等待记录：门面统一做状态与有效性校验，失败按业务异常返回。
+     *
+     * @param waitId 事件等待记录主键
+     * @return 复活成功返回 {@code true}
+     */
+    @Override
+    public Boolean revive(Long waitId) {
+        EventWait wait = FlowEngine.eventWaitService().getById(waitId);
+        if (wait == null) {
+            throw BizException.badRequest("事件等待记录不存在: " + waitId);
+        }
+        ReviveEventCommand command = new ReviveEventCommand();
+        command.setEventWaitId(waitId);
+        try {
+            FlowEngine.workflow().reviveEvent(command);
+        } catch (FlowException e) {
+            throw BizException.badRequest(e.getMessage());
+        }
+        return Boolean.TRUE;
     }
 
     /**
