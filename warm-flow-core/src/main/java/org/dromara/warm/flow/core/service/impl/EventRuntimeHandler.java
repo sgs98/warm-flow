@@ -226,12 +226,7 @@ public class EventRuntimeHandler implements EventTaskHandler {
      * 系统兜底（{@code systemHandler} / 等待记录租户）；payload 合并为流程变量。
      */
     private WorkflowContext executionContext(EventWait wait, WorkflowContext caller) {
-        WorkflowContext context = new WorkflowContext();
-        WarmFlow config = FlowEngine.getFlowConfig();
-        String systemHandler = config != null && StringUtils.isNotEmpty(config.getSystemHandler())
-            ? config.getSystemHandler() : "system";
-        context.setHandler(caller != null && StringUtils.isNotEmpty(caller.getHandler())
-            ? caller.getHandler() : systemHandler);
+        WorkflowContext context = WorkflowContext.create(caller.getHandler());
         context.setTenantId(caller != null && StringUtils.isNotEmpty(caller.getTenantId())
             ? caller.getTenantId() : wait.getTenantId());
         context.setIgnore(true);

@@ -2,7 +2,11 @@ package org.dromara.warm.flow.core.workflow.context;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.utils.StringUtils;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -82,4 +86,43 @@ public class WorkflowContext {
      * 调用方传入的扩展信息。
      */
     private String ext;
+
+    /**
+     * 使用配置中的系统操作人创建流程上下文
+     *
+     * @return 系统操作人流程上下文
+     */
+    public static WorkflowContext create() {
+        return create(null);
+    }
+
+    /**
+     * 使用指定操作人创建流程上下文
+     *
+     * @param handler 操作人标识
+     * @return 初始化操作人的流程上下文
+     */
+    public static WorkflowContext create(String handler) {
+        WorkflowContext context = new WorkflowContext();
+        if (StringUtils.isEmpty(handler)) {
+            context.setHandler(FlowEngine.getFlowConfig().getSystemHandler());
+        } else {
+            context.setHandler(handler);
+        }
+        return context;
+    }
+
+    /**
+     * 构造自动节点解析后继用的上下文：忽略调用方指定的目标节点与后续办理人，仅携带最新变量。
+     *
+     * @param variables 最新流程变量
+     * @return 解析后继用的流程上下文
+     */
+    public static WorkflowContext buildAutoSuccessorContext(Map<String, Object> variables) {
+        WorkflowContext context = new WorkflowContext();
+        Map<String, Object> safeVars = variables == null ? Collections.emptyMap() : new HashMap<>(variables);
+        context.setVariables(safeVars);
+        return context;
+    }
+
 }
