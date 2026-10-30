@@ -89,7 +89,7 @@ final class AutoNodeAdvancer {
 
             // 3) 解析后继：临时待办此时仍活动，汇聚判断可见本分支（必须先于删除临时待办）
             PathWayData pathWayData = pathResolver.resolve(temp, serviceNode, execution.instance
-                , autoIntent(variables), SkipType.PASS.getKey(), execution.loadCombineNoDef());
+                , WorkflowContext.buildAutoSuccessorContext(variables), SkipType.PASS.getKey(), execution.loadCombineNoDef());
             List<Node> afterNodes = pathWayData.getTargetNodes();
 
             // 4) 流程图元数据：本跳途经节点与连线置完成、后继置待办；与办理链 route() 语义一致，
@@ -201,18 +201,6 @@ final class AutoNodeAdvancer {
             }
         }
         return null;
-    }
-
-    /**
-     * 构造自动节点解析后继用的上下文：忽略调用方指定的目标节点与后续办理人，仅携带最新变量。
-     *
-     * @param variables 最新流程变量
-     * @return 解析后继用的流程上下文
-     */
-    private WorkflowContext autoIntent(Map<String, Object> variables) {
-        WorkflowContext context = new WorkflowContext();
-        context.setVariables(variables);
-        return context;
     }
 
     /**

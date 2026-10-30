@@ -5,7 +5,6 @@ import org.dromara.warm.flow.core.constant.FlowCons;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
-import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.TaskStatus;
@@ -162,8 +161,7 @@ final class AutoPassAdvancer {
      * @return 自动审批办理上下文
      */
     private WorkflowContext autoPassContext(String handler) {
-        WorkflowContext context = new WorkflowContext();
-        context.setHandler(handler);
+        WorkflowContext context = WorkflowContext.create(handler);
         context.setPermissions(List.of(handler));
         context.setMessage(AUTO_PASS_MESSAGE);
         context.setTaskStatus(FlowStatusMachine.mapper().taskStatus(TaskStatus.AUTO_PASS));
