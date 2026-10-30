@@ -39,6 +39,7 @@
 
 - 行为变更（任务状态维度）：新建待办的 `flow_task.flow_status` 不再跟随实例状态，定时启动等自动发起链路的首个待办由 `waiting` 变为 `pending`；`flow_his_task.flow_status` 只记任务维度编码（`pass` / `back` / `invalid` / `take_back` / `copy` / 协作动作码），唯一例外是终止归档仍写实例终态码 `termination`。宿主若曾按 `waiting` 查待办或按 `cancel` 查撤回归档，请分别改查 `pending` 与 `back`，实例进展一律读 `flow_instance.flow_status`。
 - 新增能力：事件等待记录支持手工复活，只允许 `DEAD → WAITING`，自实现 `FlowEventWaitDao` 的宿主不实现 `revive` 时仅调用复活会抛「未适配事件等待复活」，其余功能不受影响。
+- 提醒（定时任务 `DEAD`）：判定口径为同一条等待记录的失败次数超过 `timer-max-retry-count`（默认 3，即第 4 次失败），`RUNNING` 租约过期（进程宕机 / 卡死）同样按一次失败计入；重复型事件成功重排期**不清零** `retry_count`，属累计失败而非连续失败。耗尽后可经本版新增的 `reviveEvent` / `revive` 恢复，`TIMER_START` 走重新发布或挂起后激活。
 - 兼容性：本版本无公共 API 签名、实体字段与表结构变更，2.1.0 用户直接改版本号即可升级。
 
 ## 2.1.0（2026-10-24）
