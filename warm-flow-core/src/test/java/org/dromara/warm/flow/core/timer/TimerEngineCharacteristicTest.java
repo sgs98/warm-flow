@@ -287,6 +287,61 @@ class TimerEngineCharacteristicTest {
     }
 
     @Test
+    void rescheduleResetsRetryCount() {
+        Date now = new Date();
+        TestEventWait wait = newWaitingWait(new Date(now.getTime() - 1000), "FIXED", "PT1M");
+        TimerExecutor executor = new TimerExecutor(eventWaitDao, config);
+
+        // 成功一次：重复型事件重排期
+        executeOnce(executor, wait.getId(), EventCons.STATUS_WAITING);
+        assertEquals(0, eventWaitDao.raw(wait.getId()).getRetryCount().intValue());
+
+        // 连续失败两次，计数累到 2
+        handlers.put("TIMER_CATCH", w -> {
+            throw new IllegalStateException("boom");
+        });
+        executeOnce(executor, wait.getId(), EventCons.STATUS_WAITING);
+        executeOnce(executor, wait.getId(), EventCons.STATUS_RETRY);
+        EventWait failed = eventWaitDao.raw(wait.getId());
+        assertEquals(EventCons.STATUS_RETRY, failed.getStatus());
+        assertEquals(2, failed.getRetryCount().intValue());
+
+        // 再成功一次：重排期的同时清零重试计数
+        handlers.remove("TIMER_CATCH");
+        executeOnce(executor, wait.getId(), EventCons.STATUS_RETRY);
+        EventWait recovered = eventWaitDao.raw(wait.getId());
+        assertEquals(EventCons.STATUS_WAITING, recovered.getStatus());
+        assertEquals(0, recovered.getRetryCount().intValue(),
+            "重排期应清零 retry_count，否则重复型事件会累计历史失败直接转入 DEAD");
+
+        // 清零后再失败一次仍是 RETRY，不会因为历史失败直接 DEAD
+        handlers.put("TIMER_CATCH", w -> {
+            throw new IllegalStateException("boom");
+        });
+        executeOnce(executor, wait.getId(), EventCons.STATUS_WAITING);
+        EventWait retried = eventWaitDao.raw(wait.getId());
+        assertEquals(EventCons.STATUS_RETRY, retried.getStatus());
+        assertEquals(1, retried.getRetryCount().intValue());
+    }
+
+    /**
+     * 让记录到期后抢占并执行一次，便于连续驱动同一记录的多个生命周期。
+     *
+     * @param executor  定时执行器
+     * @param id        等待记录主键
+     * @param preStatus 抢占前状态（WAITING / RETRY）
+     */
+    private void executeOnce(TimerExecutor executor, Long id, String preStatus) {
+        EventWait live = eventWaitDao.raw(id);
+        Date past = new Date(System.currentTimeMillis() - 1000);
+        live.setNextTriggerAt(past);
+        live.setRetryAt(past);
+        EventWait snapshot = eventWaitDao.selectById(id);
+        assertTrue(new TimerClaim(eventWaitDao).claim(snapshot, new Date()));
+        executor.execute(snapshot, preStatus, snapshot.getNextTriggerAt(), snapshot.getRetryAt());
+    }
+
+    @Test
     void recordLevelMaxRetryCountWinsOverConfig() {
         Date now = new Date();
         TestEventWait wait = newWaitingWait(new Date(now.getTime() - 1000), "AFTER", "PT1H", 1);

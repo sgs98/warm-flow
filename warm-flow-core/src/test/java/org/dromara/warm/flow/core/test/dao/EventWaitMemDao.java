@@ -193,6 +193,7 @@ public class EventWaitMemDao extends InMemoryDao<EventWait> implements FlowEvent
         row.setStatus(EventCons.STATUS_WAITING);
         row.setNextTriggerAt(nextTriggerAt);
         row.setRepeatCount(repeatCount);
+        row.setRetryCount(0);
         row.setRetryAt(null);
         row.setLockOwner(null);
         row.setLockUntil(null);

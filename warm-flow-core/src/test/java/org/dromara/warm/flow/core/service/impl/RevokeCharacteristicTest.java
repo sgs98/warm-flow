@@ -50,6 +50,19 @@ class RevokeCharacteristicTest {
     }
 
     @Test
+    void nonPromoterWithIgnore_canRevoke() {
+        Instance instance = TestFlows.start("revokeIgnore", "biz-r-ignore");
+
+        // ignore 表示忽略权限与协作规则：非发起人（如超管代撤销）也应放行
+        WorkflowContext context = new WorkflowContext();
+        context.setHandler("lisi");
+        context.setIgnore(true);
+        Instance revoked = FlowEngine.taskService().revoke(instance.getId(), context);
+
+        assertEquals("cancel", revoked.getFlowStatus(), "ignore=true 时撤回应跳过发起人校验");
+    }
+
+    @Test
     void finishedFlow_throwsFlowFinish() {
         Instance instance = TestFlows.start("revoke2", "biz-r2");
         Task task = TestFlows.currentTask(instance.getId());

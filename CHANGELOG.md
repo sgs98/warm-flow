@@ -16,6 +16,9 @@
 - 条件更新按 `id + version + status = DEAD` 生效并递增版本号，并发复活只有一条成功，未命中抛「记录状态已变化，请刷新后重试」。
 - `FlowEventWaitDao#revive` 以默认方法提供：未适配的自实现 ORM 仅在调用复活时抛「未适配事件等待复活」，其它定时 / 消息 / 错误事件功能不受影响；MyBatis 与 MyBatis-Plus 两套适配均已实现，并补 H2 真实 SQL 验证。
 - 特征测试 `EventWaitReviveCharacteristicTest` 锁定：复活清理重试状态并重算排期、非 `DEAD` 各状态拒绝、`TIMER_START` 拒绝、边界任务缺失 / 实例挂起 / 节点已办理拒绝、版本号失配不命中、复活后重新被扫描器扫到。
+- 修复撤回发起人校验漏判 `ignore`：`FlowRevokeChain` 原先只认 `ignorePermission`，用 `ignore`（系统内部调用 / 超管代撤销）时仍会因 `handler != createBy` 抛「非发起人不能撤回」；现与 `checkAuth` / `authGate` 口径一致，`ignorePermission` 或 `ignore` 均跳过发起人校验。
+- 修复跳过权限仍强制访问 `PermissionHandler`：门面上下文（`WorkflowContextMapper`）原先无论是否忽略权限都会调用 `getHandler()` / `permissions()`，导致定时任务、任务补偿等无登录态的系统调用即便设了 `ignorePermission` 也会被宿主的未登录异常阻断。现 `ignore=true` 完全不接触 `PermissionHandler`、`ignorePermission=true` 只跳过权限集合；两种情况下 `handler` 为空都回落 `warm-flow.system-handler`（默认 `system`，新增常量 `FlowCons.DEFAULT_SYSTEM_HANDLER`），修复系统调用历史 `approver` / 实例 `createBy` 为空；`WorkflowContext.create(...)` 也补齐引擎未初始化时的空指针兜底。
+- 修复重复型定时事件「累计失败」被误判死亡：`reschedule`（MyBatis / MyBatis-Plus / 测试内存 DAO 三处）在成功重排期时清零 `retry_count`，避免 `FIXED` / `POINT_IN_TIME` 事件把历史上的零散失败累加，够 4 次就永久转 `DEAD`；已 `DEAD` 的记录仍需 `reviveEvent` 手动恢复。
 
 ### 设计器
 

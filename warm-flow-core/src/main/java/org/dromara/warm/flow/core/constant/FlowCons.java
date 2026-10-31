@@ -47,6 +47,11 @@ public class FlowCons {
     public static final String SPEL = "spel";
 
     /**
+     * 默认系统操作人：未配置 {@code warm-flow.system-handler}，或系统调用（ignore）未传操作人时使用。
+     */
+    public static final String DEFAULT_SYSTEM_HANDLER = "system";
+
+    /**
      * 监听器路径解析正则，拆分监听器类路径与参数片段。
      */
     public static final Pattern LISTENER_PATTERN = Pattern.compile("^([^()]*)(.*)$");

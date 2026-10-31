@@ -2,6 +2,7 @@ package org.dromara.warm.demo.event;
 
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.constant.FlowCons;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.service.event.EventMessage;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
@@ -81,7 +82,7 @@ public class DemoMessageSubscriber {
     private void startDownstreamFlow(EventMessage message) {
         WorkflowContext context = new WorkflowContext();
         // 无人值守的系统动作，操作人兜底为 system（下游流程的创建人 / 历史任务办理人）
-        context.setHandler("system");
+        context.setHandler(FlowCons.DEFAULT_SYSTEM_HANDLER);
         try {
             Instance downstream = FlowEngine.insService().startByMessage("notify-" + message.getInstanceId()
                 , DOWNSTREAM_FLOW_CODE, message.getEventName(), message.getPayload(), context);

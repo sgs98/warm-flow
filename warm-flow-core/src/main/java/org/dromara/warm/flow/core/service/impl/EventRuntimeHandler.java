@@ -1,7 +1,6 @@
 package org.dromara.warm.flow.core.service.impl;
 
 import org.dromara.warm.flow.core.FlowEngine;
-import org.dromara.warm.flow.core.config.WarmFlow;
 import org.dromara.warm.flow.core.constant.EventCons;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.dto.DefJson;
@@ -226,13 +225,9 @@ public class EventRuntimeHandler implements EventTaskHandler {
      * 系统兜底（{@code systemHandler} / 等待记录租户）；payload 合并为流程变量。
      */
     private WorkflowContext executionContext(EventWait wait, WorkflowContext caller) {
-        // 定时调度路径 caller 为空：先回落到 systemHandler，再由 create 用配置兜底（不配合法时取 "system"）
-        WarmFlow config = FlowEngine.getFlowConfig();
-        String systemHandler = config != null && StringUtils.isNotEmpty(config.getSystemHandler())
-            ? config.getSystemHandler() : "system";
-        String handler = caller != null && StringUtils.isNotEmpty(caller.getHandler())
-            ? caller.getHandler() : systemHandler;
-        WorkflowContext context = WorkflowContext.create(handler);
+        // 定时调度路径 caller 为空：由 create 统一回落到配置的系统操作人（配置缺失时取默认值）
+        WorkflowContext context = WorkflowContext.create(
+            caller != null && StringUtils.isNotEmpty(caller.getHandler()) ? caller.getHandler() : null);
         context.setTenantId(caller != null && StringUtils.isNotEmpty(caller.getTenantId())
             ? caller.getTenantId() : wait.getTenantId());
         context.setIgnore(true);

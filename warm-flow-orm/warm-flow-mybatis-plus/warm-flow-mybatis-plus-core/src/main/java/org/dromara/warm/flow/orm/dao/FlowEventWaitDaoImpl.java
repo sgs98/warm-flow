@@ -157,6 +157,7 @@ public class FlowEventWaitDaoImpl extends WarmDaoImpl<FlowEventWait> implements 
             .set(FlowEventWait::getStatus, EventCons.STATUS_WAITING)
             .set(FlowEventWait::getNextTriggerAt, nextTriggerAt)
             .set(FlowEventWait::getRepeatCount, repeatCount)
+            .set(FlowEventWait::getRetryCount, 0)
             .set(FlowEventWait::getRetryAt, null)
             .set(FlowEventWait::getLockOwner, null)
             .set(FlowEventWait::getLockUntil, null)

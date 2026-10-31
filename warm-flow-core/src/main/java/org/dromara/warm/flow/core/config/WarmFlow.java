@@ -18,6 +18,7 @@ package org.dromara.warm.flow.core.config;
 import lombok.Getter;
 import lombok.Setter;
 import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.constant.FlowCons;
 import org.dromara.warm.flow.core.enums.ChartStatus;
 import org.dromara.warm.flow.core.enums.FrameworkType;
 import org.dromara.warm.flow.core.json.JsonConvert;
@@ -135,9 +136,10 @@ public class WarmFlow implements Serializable {
     private boolean timerEnabled = false;
 
     /**
-     * 定时 / 消息触发时的系统操作人（实例 / 历史的 createBy 兜底身份）
+     * 系统操作人：定时 / 消息触发，以及 ignore 系统调用未传操作人时的兜底身份
+     * （写入实例 createBy、历史 approver）
      */
-    private String systemHandler = "system";
+    private String systemHandler = FlowCons.DEFAULT_SYSTEM_HANDLER;
 
     /**
      * 定时器执行线程池大小（不超过 2 个线程）

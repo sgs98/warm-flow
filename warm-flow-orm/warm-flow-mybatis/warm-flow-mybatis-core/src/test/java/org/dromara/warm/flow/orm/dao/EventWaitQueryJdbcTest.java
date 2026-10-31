@@ -165,6 +165,24 @@ class EventWaitQueryJdbcTest {
     }
 
     @Test
+    void rescheduleResetsRetryCount() throws Exception {
+        insertRow(71L, 100L, 1000L, "cooldown", "TIMER_CATCH", "RUNNING", "0", "2026-01-01 01:00:00");
+        try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {
+            st.execute("UPDATE flow_event_wait SET retry_count = 2, lock_owner = 'w1' WHERE id = 71");
+        }
+        session.clearCache();
+
+        assertTrue(dao.reschedule(71L, 0, "w1", date("2026-01-02 09:00:00")
+            , date("2026-01-02 10:00:00"), 1));
+
+        EventWait row = dao.selectById(71L);
+        assertEquals(EventCons.STATUS_WAITING, row.getStatus());
+        assertEquals(0, row.getRetryCount().intValue(), "重排期应清零 retry_count");
+        assertEquals(1, row.getRepeatCount().intValue());
+        assertNull(row.getRetryAt());
+    }
+
+    @Test
     void reviveOnlyHitsDeadRowsAndResetsRetryState() throws Exception {
         insertRow(31L, 100L, 1000L, "cooldown", "TIMER_CATCH", "DEAD", "0", "2026-01-01 01:00:00");
         try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {

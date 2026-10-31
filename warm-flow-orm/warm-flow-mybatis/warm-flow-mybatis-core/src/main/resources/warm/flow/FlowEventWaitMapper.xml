@@ -754,6 +754,7 @@
         set status = 'WAITING',
             next_trigger_at = #{nextTriggerAt},
             repeat_count = #{repeatCount},
+            retry_count = 0,
             retry_at = null,
             lock_owner = null,
             lock_until = null,

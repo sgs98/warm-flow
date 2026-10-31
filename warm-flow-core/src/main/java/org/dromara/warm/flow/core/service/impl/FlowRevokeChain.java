@@ -133,8 +133,8 @@ final class FlowRevokeChain {
      * @return 空表示继续执行后续步骤
      */
     private Optional<Instance> promoterGate(FlowExecution execution) {
-        // 验证权限是不是当前任务的发起人
-        if (!execution.intent.isIgnorePermission()) {
+        // 验证权限是不是当前任务的发起人；ignorePermission / ignore 都表示调用方已放开校验
+        if (!execution.intent.isIgnorePermission() && !execution.intent.isIgnore()) {
             AssertUtil.isFalse(execution.instance.getCreateBy().equals(execution.intent.getHandler())
                 , ExceptionCons.NOT_DEF_PROMOTER_NOT_CANCEL);
         }

@@ -3,6 +3,8 @@ package org.dromara.warm.flow.core.workflow.context;
 import lombok.Getter;
 import lombok.Setter;
 import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.config.WarmFlow;
+import org.dromara.warm.flow.core.constant.FlowCons;
 import org.dromara.warm.flow.core.utils.StringUtils;
 
 import java.util.Collections;
@@ -104,11 +106,15 @@ public class WorkflowContext {
      */
     public static WorkflowContext create(String handler) {
         WorkflowContext context = new WorkflowContext();
-        if (StringUtils.isEmpty(handler)) {
-            context.setHandler(FlowEngine.getFlowConfig().getSystemHandler());
-        } else {
+        if (StringUtils.isNotEmpty(handler)) {
             context.setHandler(handler);
+            return context;
         }
+        // 引擎未初始化（getFlowConfig 为空）或配置的系统操作人为空时，兜底 system，
+        // 避免系统调用拿不到操作人后历史 approver / 实例 createBy 为空
+        WarmFlow config = FlowEngine.getFlowConfig();
+        String systemHandler = config == null ? null : config.getSystemHandler();
+        context.setHandler(StringUtils.isNotEmpty(systemHandler) ? systemHandler : FlowCons.DEFAULT_SYSTEM_HANDLER);
         return context;
     }
 
