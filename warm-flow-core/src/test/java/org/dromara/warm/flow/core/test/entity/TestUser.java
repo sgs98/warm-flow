@@ -24,4 +24,5 @@ public class TestUser implements User {
     private String type;
     private String processedBy;
     private Long associated;
+    private Integer seqNo;
 }

@@ -158,6 +158,44 @@ curl -X POST http://localhost:8080/api/instances -H "Content-Type: application/j
 - **包容网关**：条件出口与无条件出口**独立判断**——`day=4` 时同时进入「包容day大于三」「包容3」「包容4」，条件不命中时仍进入「包容3」「包容4」。两条条件出口 `gt` / `lt` 互斥，因此该定义可验证「条件出口 + 无条件出口同时命中」，**不能**证明「多个条件同时命中」，详见 `.codex/skills/warm-flow-demo-testing/references/regression-cases.md`。
 - 两个定义的节点编码一致，可用于比对两种设计器模式导出的 `nodeCode`、节点坐标与连线格式能否互相导入。
 
+## 顺序会签示例
+
+`demo_sequence_sign.json`（流程名「顺序会签示例」）演示顺序会签：
+
+```text
+开始 → 申请人(admin)
+ → 顺序会签(approver1 → approver2 → approver3，nodeRatio=100，cooperateType=sequence)
+ → 结束
+```
+
+`nodeRatio` 只表达完成规则，`cooperateType=sequence` 表示按办理人书写顺序逐个办理；办理人表达式里的书写顺序就是办理顺序。顺序模式同样支持票签，例如 `nodeRatio=50` 表示依次投票、通过率达到 50% 后清退尚未轮到的办理人并继续流转。
+
+准备：
+
+- **引擎版本**：Demo 依赖 `~/.m2` 中的同版本引擎包。需先在仓库根执行 `mvn clean install -DskipTests` 安装包含顺序会签的当前反应堆；旧引擎不识别独立的 `cooperateType` 字段。
+- **数据库需含 `flow_user.seq_no` 与 `flow_node.cooperate_type` 列**。旧库执行 `sql/mysql/v1-upgrade/warm-flow_2.1.2.sql`；全新库直接用最新 `sql/mysql/warm-flow-all.sql`。升级脚本不回填存量数据，旧 `@@sequence` 定义由运行时兼容。
+- 导入 `demo_sequence_sign.json` 后**发布**该版本（导入始终生成未发布的新版本）。
+- 用 Demo 用户 `approver1` / `approver2` / `approver3` 依次办理，请求头必须带 `X-User-Name`。
+
+发起：
+
+```bash
+curl -X POST http://localhost:8080/api/instances -H "Content-Type: application/json" -H "X-User-Name: admin" \
+  -d '{"flowCode":"demo_sequence_sign","businessId":"seq-demo-1"}'
+```
+
+验证要点：
+
+1. **仅当前位可见**：发起并办理「申请人」后，待办只出现在 `approver1` 的列表；`approver2` / `approver3` 查询待办为空。
+2. **越序不可办**：直接用 `X-User-Name: approver2` 办理该任务返回无权限（`NOT_AUTHORITY`），任务与办理人不变。
+3. **逐个交接**：`approver1` 办理后任务仍在「顺序会签」节点，本人从待办消失、`approver2` 待办出现，依此类推；`approver3` 办理后流程流转到「结束」。
+4. **完成规则**：示例的 `nodeRatio=100` 保持驳回一票否决；改成比例、人数或表达式票签后，仍只允许当前位投票，规则提前达标即清退剩余顺序位。
+5. **转办**：
+   - 当前位可转办 / 委托自己（例如 `approver1` 转给不在当前顺签队列中的 `zhaoliu`），接手人保留原记录的 `id` / `seq_no`；
+   - 未轮到的办理人也可以提前转办 / 委托**自己**，顺序位置不变，但接手人在轮到前仍不可见、不可办理；
+   - 转办 / 委托 / 加签目标已在审批、转办或委托队列中时会被拒绝，避免同一办理人占有多个顺位；
+   - 未轮到的办理人不能移除他人记录（越权转办返回无权限）。
+
 ## 自动审批示例
 
 流程定义配置（`flow_definition.def_config`，JSON 对象）中 `autoPass` 为 `true` 时开启自动审批：

@@ -88,6 +88,12 @@ const props = defineProps({
       return ''
     }
   },
+  cooperateType: {
+    type: String,
+    default () {
+      return ''
+    }
+  },
   // 服务任务节点配置（JSON 字符串），仅 service 节点使用
   nodeConfig: {
     type: String,
@@ -162,17 +168,20 @@ const isRuntime = computed(() => (props.status !== null && props.status !== unde
   || (Array.isArray(props.chartStatusColor) && props.chartStatusColor.length === 3));
 const showHandler = computed(() => !isRuntime.value || Number(props.status) === 2);
 
-// 协作方式徽标：仅票签 / 会签显示，避免默认或签造成视觉噪音；
-// collaborativeWay 缺失时按 nodeRatio 推导（0→或签、100→会签、其余→票签），
-// 与 propertySetting 打开抽屉时的推导规则保持一致
+// 协作方式徽标：顺序字段优先，字段缺失时兼容旧 nodeRatio 后缀。
 const collaborativeBadge = computed(() => {
   let way = props.collaborativeWay;
   if (!way) {
     const ratio = props.nodeRatio || '0';
-    way = parseFloat(ratio) === 0 ? '1' : parseFloat(ratio) === 100 ? '3' : (ratio ? '2' : '1');
+    const sequence = props.cooperateType
+      ? props.cooperateType === 'sequence' : String(ratio).endsWith('@@sequence');
+    const baseRatio = String(ratio).replace(/@@sequence$/, '');
+    way = sequence ? '4' : parseFloat(baseRatio) === 0 ? '1'
+      : parseFloat(baseRatio) === 100 ? '3' : (baseRatio ? '2' : '1');
   }
   if (way === '2') return '票签';
   if (way === '3') return '会签';
+  if (way === '4') return '顺签';
   return '';
 });
 

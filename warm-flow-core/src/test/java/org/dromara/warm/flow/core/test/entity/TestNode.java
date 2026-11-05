@@ -30,6 +30,7 @@ public class TestNode implements Node {
     private String nodeName;
     private String permissionFlag;
     private String nodeRatio;
+    private String cooperateType;
     private String coordinate;
     private String anyNodeSkip;
     private String listenerType;

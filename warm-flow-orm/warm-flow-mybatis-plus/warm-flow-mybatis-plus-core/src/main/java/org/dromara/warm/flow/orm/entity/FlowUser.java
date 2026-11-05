@@ -88,4 +88,9 @@ public class FlowUser implements User {
      */
     private Long associated;
 
+    /**
+     * 办理顺序号（同一任务内从 0 递增；顺序会签用，其余协作方式不参与逻辑）
+     */
+    private Integer seqNo;
+
 }

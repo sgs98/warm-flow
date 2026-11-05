@@ -26,11 +26,13 @@ class NodeConfigJsonRoundTripTest {
     }
 
     @Test
-    void copyKeepsNodeConfig() {
+    void copyKeepsNodeConfigAndCooperateType() {
         Node node = FlowEngine.newNode().setNodeCode("s1").setNodeName("s1")
             .setNodeType(NodeType.SERVICE.getKey())
-            .setNodeConfig("{\"serviceTask\":{\"type\":\"class\",\"handler\":\"a.B\"}}");
+            .setNodeConfig("{\"serviceTask\":{\"type\":\"class\",\"handler\":\"a.B\"}}")
+            .setCooperateType("sequence");
         assertEquals(node.getNodeConfig(), node.copy().getNodeConfig());
+        assertEquals("sequence", node.copy().getCooperateType());
     }
 
     @Test
@@ -39,11 +41,13 @@ class NodeConfigJsonRoundTripTest {
         Definition def = FlowEngine.newDef().setFlowCode("f").setFlowName("f")
             .setVersion("1").setIsPublish(1);
         Node node = FlowEngine.newNode().setDefinitionId(1L).setNodeCode("s1").setNodeName("s1")
-            .setNodeType(NodeType.SERVICE.getKey()).setNodeConfig(config);
+            .setNodeType(NodeType.SERVICE.getKey()).setNodeConfig(config).setCooperateType("sequence");
         def.setNodeList(java.util.List.of(node));
 
         DefJson json = DefJson.copyDef(def);
         Node back = DefJson.copyDef(json).getNodeList().get(0);
         assertEquals(config, back.getNodeConfig());
+        assertEquals("sequence", json.getNodeList().get(0).getCooperateType());
+        assertEquals("sequence", back.getCooperateType());
     }
 }

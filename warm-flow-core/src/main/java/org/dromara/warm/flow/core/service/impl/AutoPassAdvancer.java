@@ -4,12 +4,15 @@ import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.FlowCons;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.Instance;
+import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
+import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.utils.CollUtil;
+import org.dromara.warm.flow.core.utils.StreamUtils;
 import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 import org.slf4j.Logger;
@@ -108,8 +111,11 @@ final class AutoPassAdvancer {
      */
     private Instance autoPass(FlowExecution execution, List<Task> candidates, String handler) {
         Instance latest = null;
+        // 复用本批执行已加载的定义图，避免逐个候选查节点
+        Map<String, Node> nodeMap = StreamUtils.toMap(execution.loadCombineNoDef().getAllNodes()
+            , Node::getNodeCode, node -> node);
         for (Task candidate : candidates) {
-            Task task = matchHandlerTask(candidate, handler);
+            Task task = matchHandlerTask(candidate, handler, nodeMap);
             if (task == null) {
                 continue;
             }
@@ -135,10 +141,16 @@ final class AutoPassAdvancer {
      *
      * @param candidate 候选待办
      * @param handler   当前办理人
+     * @param nodeMap   当前定义图的节点索引（编码 → 节点）
      * @return 可自动通过的活动任务；不满足条件时返回 {@code null}
      */
-    private Task matchHandlerTask(Task candidate, String handler) {
+    private Task matchHandlerTask(Task candidate, String handler, Map<String, Node> nodeMap) {
         if (!NodeType.isBetween(candidate.getNodeType())) {
+            return null;
+        }
+        // 顺序会签必须由当前位逐个人工办理，自动审批不得代替
+        Node node = nodeMap.get(candidate.getNodeCode());
+        if (node != null && CooperateType.isSequence(node.getCooperateType(), node.getNodeRatio())) {
             return null;
         }
         Task task = FlowEngine.taskService().getById(candidate.getId());

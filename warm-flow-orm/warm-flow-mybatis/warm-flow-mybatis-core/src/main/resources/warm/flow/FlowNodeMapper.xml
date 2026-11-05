@@ -12,6 +12,7 @@
         <result property="nodeName" column="node_name"/>
         <result property="permissionFlag" column="permission_flag"/>
         <result property="nodeRatio" column="node_ratio"/>
+        <result property="cooperateType" column="cooperate_type"/>
         <result property="coordinate" column="coordinate"/>
         <result property="anyNodeSkip" column="any_node_skip"/>
         <result property="listenerType" column="listener_type"/>
@@ -40,6 +41,7 @@
                t.node_name,
                t.permission_flag,
                t.node_ratio,
+               t.cooperate_type,
                t.coordinate,
                t.any_node_skip,
                t.listener_type,
@@ -82,6 +84,9 @@
                 #{entity.permissionFlag}
             </if>
             <if test="entity.nodeRatio != null">and t.node_ratio = #{entity.nodeRatio}</if>
+            <if test="entity.cooperateType != null and entity.cooperateType != ''">and t.cooperate_type =
+                #{entity.cooperateType}
+            </if>
             <if test="entity.coordinate != null and entity.coordinate != ''">and t.coordinate = #{entity.coordinate}
             </if>
             <if test="entity.anyNodeSkip != null and entity.anyNodeSkip != ''">and t.any_node_skip =
@@ -122,6 +127,7 @@
         node_name,
         permission_flag,
         node_ratio,
+        cooperate_type,
         coordinate,
         any_node_skip,
         listener_type,
@@ -151,6 +157,7 @@
             #{item.nodeName},
             #{item.permissionFlag},
             #{item.nodeRatio},
+            #{item.cooperateType},
             #{item.coordinate},
             #{item.anyNodeSkip},
             #{item.listenerType},
@@ -184,6 +191,7 @@
         node_name,
         permission_flag,
         node_ratio,
+        cooperate_type,
         coordinate,
         any_node_skip,
         listener_type,
@@ -212,6 +220,7 @@
             #{item.nodeName},
             #{item.permissionFlag},
             #{item.nodeRatio},
+            #{item.cooperateType},
             #{item.coordinate},
             #{item.anyNodeSkip},
             #{item.listenerType},
@@ -304,6 +313,7 @@
                 <if test="permissionFlag != null and permissionFlag != ''">permission_flag,</if>
             </if>
             <if test="nodeRatio != null">node_ratio,</if>
+            <if test="cooperateType != null and cooperateType != ''">cooperate_type,</if>
             <if test="coordinate != null and coordinate != ''">coordinate,</if>
             <if test="anyNodeSkip != null and anyNodeSkip != ''">any_node_skip,</if>
             <if test="listenerType != null and listenerType != ''">listener_type,</if>
@@ -332,6 +342,7 @@
                 <if test="permissionFlag != null and permissionFlag != ''">#{permissionFlag},</if>
             </if>
             <if test="nodeRatio != null">#{nodeRatio},</if>
+            <if test="cooperateType != null and cooperateType != ''">#{cooperateType},</if>
             <if test="coordinate != null and coordinate != ''">#{coordinate},</if>
             <if test="anyNodeSkip != null and anyNodeSkip != ''">#{anyNodeSkip},</if>
             <if test="listenerType != null and listenerType != ''">#{listenerType},</if>
@@ -362,6 +373,7 @@
             <if test="nodeName != null and nodeName != ''">node_name = #{nodeName},</if>
             <if test="permissionFlag != null and permissionFlag != ''">permission_flag = #{permissionFlag},</if>
             <if test="nodeRatio != null">node_ratio = #{nodeRatio},</if>
+            <if test="cooperateType != null and cooperateType != ''">cooperate_type = #{cooperateType},</if>
             <if test="coordinate != null and coordinate != ''">coordinate = #{coordinate},</if>
             <if test="anyNodeSkip != null and anyNodeSkip != ''">any_node_skip = #{anyNodeSkip},</if>
             <if test="listenerType != null and listenerType != ''">listener_type = #{listenerType},</if>
@@ -432,6 +444,7 @@
             <if test="nodeName != null and nodeName != ''">and node_name = #{nodeName}</if>
             <if test="permissionFlag != null and permissionFlag != ''">and permission_flag = #{permissionFlag}</if>
             <if test="nodeRatio != null">and node_ratio = #{nodeRatio}</if>
+            <if test="cooperateType != null and cooperateType != ''">and cooperate_type = #{cooperateType}</if>
             <if test="coordinate != null and coordinate != ''">and coordinate = #{coordinate}</if>
             <if test="anyNodeSkip != null and anyNodeSkip != ''">and any_node_skip = #{anyNodeSkip}</if>
             <if test="listenerType != null and listenerType != ''">and listener_type = #{listenerType}</if>
@@ -465,6 +478,9 @@
                 #{entity.permissionFlag}
             </if>
             <if test="entity.nodeRatio != null">and node_ratio = #{entity.nodeRatio}</if>
+            <if test="entity.cooperateType != null and entity.cooperateType != ''">and cooperate_type =
+                #{entity.cooperateType}
+            </if>
             <if test="entity.coordinate != null and entity.coordinate != ''">and coordinate = #{entity.coordinate}
             </if>
             <if test="entity.anyNodeSkip != null and entity.anyNodeSkip != ''">and any_node_skip =

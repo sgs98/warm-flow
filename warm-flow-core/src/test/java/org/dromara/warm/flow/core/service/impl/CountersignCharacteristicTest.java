@@ -1,13 +1,17 @@
 package org.dromara.warm.flow.core.service.impl;
 
+import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.FlowStatus;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.TaskStatus;
+import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
+import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.test.listener.RecordingListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +22,7 @@ import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -97,6 +102,41 @@ class CountersignCharacteristicTest {
         // 会签全程不落协作动作：所有历史行的动作列都是 none
         assertEquals(0, harness.hisTaskDao.all().stream()
                 .filter(h -> !CooperateType.NONE.getKey().equals(h.getCooperateType())).count());
+    }
+
+    @Test
+    void countersignHandlerCanTransferOwnVote() {
+        Task task = atApply("cs4", "biz-c4");
+        Instance instance = harness.insDao.raw(task.getInstanceId());
+
+        // 并行会签：任一在办会签人都可转办自己的这一票（新增转办人 + 移除本人）
+        FlowEngine.taskService().updateHandlers(task.getId()
+            , TestFlows.context(TestFlows.HANDLER), List.of("zhaoliu"), List.of(TestFlows.HANDLER)
+            , CooperateType.TRANSFER.getKey());
+
+        assertEquals(2, harness.userDao.size(), "会签人数不变：转办人接替原会签人");
+        assertTrue(harness.userDao.all().stream()
+            .anyMatch(u -> "zhaoliu".equals(u.getProcessedBy())
+                && UserType.TRANSFER.getKey().equals(u.getType())));
+
+        // 转办人签的这一票计入会签，末票后正常流转
+        TestFlows.pass(task.getId(), "zhaoliu");
+        assertNotNull(harness.taskDao.raw(task.getId()), "会签未签完前任务应保留");
+        TestFlows.pass(task.getId(), "lisi");
+        assertEquals("end", instance.getNodeCode());
+        assertEquals(FlowStatus.FINISHED.getKey(), harness.insDao.raw(instance.getId()).getFlowStatus());
+    }
+
+    @Test
+    void countersignHandlerCannotTransferOtherVote() {
+        Task task = atApply("cs5", "biz-c5");
+
+        // 任一在办会签人只能转办自己，不能移除他人的办理记录
+        FlowException ex = assertThrows(FlowException.class, () -> FlowEngine.taskService()
+            .updateHandlers(task.getId(), TestFlows.context("lisi"), List.of("zhaoliu")
+                , List.of(TestFlows.HANDLER), CooperateType.TRANSFER.getKey()));
+        assertEquals(ExceptionCons.NOT_AUTHORITY, ex.getMessage());
+        assertEquals(2, harness.userDao.size(), "越权转办不应改动办理人");
     }
 
     @Test

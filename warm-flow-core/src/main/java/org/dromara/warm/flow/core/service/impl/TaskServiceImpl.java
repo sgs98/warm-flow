@@ -341,6 +341,7 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
         return getDao().getByInsIdAndNodeCodes(instanceId, nodeCodes);
     }
 
+
     /**
      * 更新实例上的当前节点、流程状态和变量。后续任务包含结束节点时会移除结束任务并以其状态收口实例。
      *

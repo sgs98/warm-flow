@@ -259,6 +259,14 @@ public final class TestFlows {
      * @return 已保存的流程定义
      */
     public static Definition cooperateFlow(String flowCode, String applyRatio, String applyPermission) {
+        return cooperateFlow(flowCode, applyRatio, applyPermission, null);
+    }
+
+    /**
+     * 构建带独立办理顺序配置的协作测试流程。
+     */
+    public static Definition cooperateFlow(String flowCode, String applyRatio, String applyPermission
+            , String cooperateType) {
         Definition def = FlowEngine.newDef()
                 .setFlowCode(flowCode)
                 .setFlowName("协作测试流程")
@@ -268,7 +276,7 @@ public final class TestFlows {
         FlowEngine.defService().save(def);
         node(def, "start", NodeType.START.getKey(), null);
         node(def, "draft", NodeType.BETWEEN.getKey(), HANDLER);
-        node(def, "apply", NodeType.BETWEEN.getKey(), applyPermission, applyRatio);
+        node(def, "apply", NodeType.BETWEEN.getKey(), applyPermission, applyRatio, cooperateType);
         node(def, "end", NodeType.END.getKey(), null);
         skip(def, "start", NodeType.START.getKey(), "draft", NodeType.BETWEEN.getKey());
         skip(def, "draft", NodeType.BETWEEN.getKey(), "apply", NodeType.BETWEEN.getKey());
@@ -392,6 +400,29 @@ public final class TestFlows {
     }
 
     /**
+     * 构建顺序会签形态的自动审批流程：start(0) → apply(1, applyFlag)
+     * → audit(1, nodeRatio=100@@sequence, auditFlag) → end(2)。
+     *
+     * @param flowCode  流程编码
+     * @param defConfig 流程定义配置（如 {"autoPass":true}）
+     * @param applyFlag apply 节点办理人权限
+     * @param auditFlag audit 节点办理人权限
+     * @return 已保存的流程定义
+     */
+    public static Definition sequenceSignAutoPassFlow(String flowCode, String defConfig, String applyFlag
+            , String auditFlag) {
+        Definition def = defConfigDefinition(flowCode, "顺序会签自动审批测试流程", defConfig);
+        node(def, "start", NodeType.START.getKey(), null);
+        node(def, "apply", NodeType.BETWEEN.getKey(), applyFlag);
+        node(def, "audit", NodeType.BETWEEN.getKey(), auditFlag, "100@@sequence");
+        node(def, "end", NodeType.END.getKey(), null);
+        skip(def, "start", NodeType.START.getKey(), "apply", NodeType.BETWEEN.getKey());
+        skip(def, "apply", NodeType.BETWEEN.getKey(), "audit", NodeType.BETWEEN.getKey());
+        skip(def, "audit", NodeType.BETWEEN.getKey(), "end", NodeType.END.getKey());
+        return def;
+    }
+
+    /**
      * 构建连续三个审批节点的自动审批流程：start(0) → apply(1, HANDLER) → audit(1, auditFlag)
      * → review(1, reviewFlag) → end(2)。
      *
@@ -488,12 +519,18 @@ public final class TestFlows {
      */
     private static void node(Definition def, String code, Integer nodeType, String permissionFlag
             , String nodeRatio) {
+        node(def, code, nodeType, permissionFlag, nodeRatio, null);
+    }
+
+    private static void node(Definition def, String code, Integer nodeType, String permissionFlag
+            , String nodeRatio, String cooperateType) {
         org.dromara.warm.flow.core.entity.Node node = FlowEngine.newNode()
                 .setDefinitionId(def.getId())
                 .setNodeCode(code)
                 .setNodeName(code)
                 .setNodeType(nodeType)
-                .setNodeRatio(nodeRatio);
+                .setNodeRatio(nodeRatio)
+                .setCooperateType(cooperateType);
         if (permissionFlag != null) {
             node.setPermissionFlag(permissionFlag);
         }
@@ -572,7 +609,15 @@ public final class TestFlows {
      */
     public static Instance startCooperateFlow(String flowCode, String applyRatio, String applyPermission
             , String businessId) {
-        cooperateFlow(flowCode, applyRatio, applyPermission);
+        return startCooperateFlow(flowCode, applyRatio, applyPermission, null, businessId);
+    }
+
+    /**
+     * 构建带独立办理顺序配置的协作流程并发起实例。
+     */
+    public static Instance startCooperateFlow(String flowCode, String applyRatio, String applyPermission
+            , String cooperateType, String businessId) {
+        cooperateFlow(flowCode, applyRatio, applyPermission, cooperateType);
         return FlowEngine.insService().start(businessId, flowCode, context(HANDLER));
     }
 

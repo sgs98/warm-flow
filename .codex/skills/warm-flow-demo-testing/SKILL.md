@@ -29,6 +29,7 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 | --- | --- |
 | `demo_gateway_classic`、`demo_gateway_mimic` | 排他 + 并行 + 包容网关；两文件结构相同，只差设计器模式（`CLASSICS` / `MIMIC`），网关复测主用定义 |
 | `demo_service_task` | 服务任务三种执行方式（class / delegateExpression / expression）+ 网关 + 并行 |
+| `demo_sequence_sign` | 顺序会签（`nodeRatio=100`、`cooperateType=sequence`）：approver1 → approver2 → approver3 逐个办理、仅当前位可见、越序不可办、转办继承顺位 |
 | `demo_event_refund` | 定时边界 + 消息结束（`refund.finish`） |
 | `demo_event_risk_wait` | 消息启动（`order.paid`）+ 消息捕获（`risk.result`） |
 | `demo_event_cooldown` | 定时捕获 + 消息抛出（`membership.cancelled`） |
@@ -75,6 +76,7 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 - 撤回：使用发起人操作；确认实例业务状态、历史任务和新待办符合 Demo 规则。
 - 终止：使用当前节点办理人操作；确认实例进入终态、剩余待办被正确处理。
 - 抄送：办理时带 `copyUsers`，确认抄送列表可查询且不改变审批办理人。
+- 顺序会签（`demo_sequence_sign`，`nodeRatio=100`、`cooperateType=sequence`）：核对待办**仅当前位可见**（后续办理人查询待办为空）；越序直调办理接口应返回无权限且任务/办理人不变；`approver1 → approver2 → approver3` 依次办理，每人办完本人待办消失、下一人待办出现，末位办理后流转到结束；`flow_user.seq_no` 应为 0/1/2，数据库还需 `flow_node.cooperate_type`（旧库先执行 `v1-upgrade/warm-flow_2.1.2.sql`）；顺序模式使用比例 / 人数 / 表达式票签时，规则提前达标应清退剩余顺序位；全员会签任一当前位驳回 → 退回申请人并清退其余办理人；转办 / 委托自己允许（当前位与非当前位均可，记录保留原 `id` / `seq_no`），但目标必须不在现有审批 / 转办 / 委托队列中且只能选一人；未轮到的转办人 / 受托人不可提前办理，移除他人记录应被拒绝。
 - 完成链路：通过所有实际活动任务后，确认实例状态为 `finish`，活动任务为空，历史任务包含最后节点；且该实例的 `flow_event_wait` 已无活动等待行（普通完成链路也会取消本实例的事件等待，防僵尸等待被事后唤醒）。
 
 ### 4. 事件与内置定时器

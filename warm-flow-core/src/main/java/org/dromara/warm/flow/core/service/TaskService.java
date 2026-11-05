@@ -133,6 +133,20 @@ public interface TaskService extends IWarmService<Task> {
     List<Task> getByInsId(Long instanceId);
 
     /**
+     * 按办理人查询当前待办（宿主待办列表入口）。
+     * <p>
+     * 普通节点返回该办理人持有的全部待办；顺序会签（{@code node_ratio = 100@@sequence}）
+     * 节点只返回当前位办理人的待办，未轮到的办理人查询结果为空，实现「到谁办理谁可见」。
+     * </p>
+     *
+     * @param handler 办理人唯一标识
+     * @return 该办理人的当前待办集合
+     */
+    default List<Task> listTodoByHandler(String handler) {
+        return org.dromara.warm.flow.core.utils.TodoQueryUtil.listTodoByHandler(handler);
+    }
+
+    /**
      * 根据流程实例和节点编码查询当前待办。
      *
      * @param instanceId 流程实例主键

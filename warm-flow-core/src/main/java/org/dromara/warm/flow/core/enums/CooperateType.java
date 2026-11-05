@@ -73,7 +73,12 @@ public enum CooperateType {
     public final static String REJECT_COUNT = "rejectCount";
 
     /**
-     * 顺签
+     * 并行办理
+     */
+    public final static String PARALLEL = "parallel";
+
+    /**
+     * 顺序办理
      */
     public final static String SEQUENCE = "sequence";
 
@@ -194,10 +199,25 @@ public enum CooperateType {
     }
 
     /**
-     * 移除顺签标记，返回真正的协作表达式。
+     * 判断节点是否按顺序办理。
+     * <p>新字段非空时以字段为准；字段为空时兼容旧 {@code @@sequence} 后缀。</p>
+     *
+     * @param cooperateType 多人审批办理顺序
+     * @param nodeRatio     完成规则
+     * @return true：顺序办理；false：并行办理
+     */
+    public static boolean isSequence(String cooperateType, String nodeRatio) {
+        if (StringUtils.isNotEmpty(cooperateType)) {
+            return SEQUENCE.equalsIgnoreCase(cooperateType);
+        }
+        return isSequenceSign(nodeRatio);
+    }
+
+    /**
+     * 判断完成规则是否包含旧顺签标记。
      *
      * @param expression 表达式
-     * @return 去除顺签后缀后的表达式
+     * @return true：包含；false：不包含
      */
     public static boolean isSequenceSign(String expression) {
         return StringUtils.isNotEmpty(expression) && expression.endsWith(FlowCons.SPLIT_AT + SEQUENCE);

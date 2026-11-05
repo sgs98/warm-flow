@@ -64,6 +64,11 @@ public class NodeJson {
     private String nodeRatio;
 
     /**
+     * 多人审批办理顺序（parallel / sequence）。
+     */
+    private String cooperateType;
+
+    /**
      * 流程节点坐标
      */
     private String coordinate;

@@ -88,7 +88,8 @@ const emit = defineEmits(['dragInNode'])
 // 基础节点（开始/中间/服务/结束）
 const flowNodes = [
   { type: 'start', text: '开始', label: '开始', icon: startIcon },
-  { type: 'between', text: '中间节点', label: '中间节点', icon: betweenIcon, properties: { collaborativeWay: '1' } },
+  { type: 'between', text: '中间节点', label: '中间节点', icon: betweenIcon,
+    properties: { collaborativeWay: '1', nodeRatio: '0', cooperateType: 'parallel' } },
   { type: 'service', text: '服务任务', label: '服务任务', icon: serviceIcon, properties: {} },
   { type: 'end', text: '结束', label: '结束', icon: endIcon },
 ]

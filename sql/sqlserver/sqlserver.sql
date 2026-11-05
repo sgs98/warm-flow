@@ -187,6 +187,7 @@ CREATE TABLE flow_node (
     node_name nvarchar(100) NULL,
     permission_flag nvarchar(200) NULL,
     node_ratio nvarchar(200)  NULL,
+    cooperate_type nvarchar(20) NULL,
     coordinate nvarchar(100) NULL,
     any_node_skip nvarchar(100) NULL,
     listener_type nvarchar(100) NULL,
@@ -259,6 +260,13 @@ EXEC sp_addextendedproperty
 'SCHEMA', N'dbo',
 'TABLE', N'flow_node',
 'COLUMN', N'node_ratio'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'多人审批办理顺序（parallel并行 sequence顺序）',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_node',
+'COLUMN', N'cooperate_type'
 GO
 
 EXEC sp_addextendedproperty
@@ -1032,6 +1040,7 @@ CREATE TABLE flow_user (
     type nchar(1) NOT NULL,
     processed_by nvarchar(80) NULL,
     associated bigint NOT NULL,
+    seq_no int NULL,
     create_time datetime2(7)  NULL,
     create_by nvarchar(80) NULL,
     update_time datetime2(7)  NULL,

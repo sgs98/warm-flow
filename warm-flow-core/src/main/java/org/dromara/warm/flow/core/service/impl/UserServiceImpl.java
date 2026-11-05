@@ -28,7 +28,9 @@ import org.dromara.warm.flow.core.utils.StreamUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 流程办理人服务实现。
@@ -75,9 +77,13 @@ public class UserServiceImpl extends WarmServiceImpl<FlowUserDao<User>, User> im
      */
     @Override
     public List<User> taskAddUser(Task task) {
-        // 遍历权限集合，生成流程节点的权限
-        List<User> userList = StreamUtils.toList(task.getPermissionList()
-            , permission -> structureUser(task.getId(), permission, UserType.APPROVAL.getKey()));
+        // 遍历权限集合，生成流程节点的权限；seq_no 按表达式书写顺序编号，供顺序会签逐个办理
+        List<String> permissionList = distinctPermissions(task.getPermissionList());
+        List<User> userList = new ArrayList<>(permissionList.size());
+        for (int i = 0; i < permissionList.size(); i++) {
+            userList.add(structureUser(task.getId(), permissionList.get(i)
+                , UserType.APPROVAL.getKey()).setSeqNo(i));
+        }
         task.setUserList(userList);
         return userList;
     }
@@ -200,9 +206,61 @@ public class UserServiceImpl extends WarmServiceImpl<FlowUserDao<User>, User> im
         if (clear) {
             getDao().delete(FlowEngine.newUser().setAssociated(associated).setCreateBy(handler));
         }
-        // 再新增权限人
-        saveBatch(StreamUtils.toList(permissions, permission -> structureUser(associated, permission, type, handler)));
+        // 再新增权限人；顺序会签按传入顺序编号。
+        // clear=false 时从现有最大顺序号之后追加；存在未编号存量记录时保持未编号（按 id 兜底），避免插队
+        List<User> existing = list(FlowEngine.newUser().setAssociated(associated));
+        List<String> distinctPermissions = distinctPermissions(permissions);
+        List<User> sequenceUsers = existing;
+        if (isActiveType(type)) {
+            sequenceUsers = StreamUtils.filter(existing, user -> isActiveType(user.getType()));
+            Set<String> activeHandlers = new LinkedHashSet<>(StreamUtils.toList(sequenceUsers
+                , User::getProcessedBy));
+            distinctPermissions.removeIf(activeHandlers::contains);
+        }
+        Integer startSeqNo = startSeqNo(sequenceUsers);
+        List<User> addUsers = new ArrayList<>(distinctPermissions.size());
+        for (int i = 0; i < distinctPermissions.size(); i++) {
+            User addUser = structureUser(associated, distinctPermissions.get(i), type, handler);
+            if (startSeqNo != null) {
+                addUser.setSeqNo(startSeqNo + i);
+            }
+            addUsers.add(addUser);
+        }
+        saveBatch(addUsers);
         return true;
+    }
+
+    /**
+     * 计算追加办理人的起始顺序号。
+     *
+     * @param existing 删除后剩余的办理人记录
+     * @return 从删除后剩余记录的最大值 + 1 开始；存在未编号记录或无法确定时返回 {@code null}
+     */
+    private Integer startSeqNo(List<User> existing) {
+        if (CollUtil.isEmpty(existing)) {
+            return 0;
+        }
+        int max = -1;
+        for (User user : existing) {
+            if (user.getSeqNo() == null) {
+                return null;
+            }
+            if (user.getSeqNo() > max) {
+                max = user.getSeqNo();
+            }
+        }
+        return max + 1;
+    }
+
+    private List<String> distinctPermissions(List<String> permissions) {
+        return CollUtil.isEmpty(permissions)
+            ? new ArrayList<>() : new ArrayList<>(new LinkedHashSet<>(permissions));
+    }
+
+    private boolean isActiveType(String type) {
+        return UserType.APPROVAL.getKey().equals(type)
+            || UserType.TRANSFER.getKey().equals(type)
+            || UserType.DEPUTE.getKey().equals(type);
     }
 
     /**

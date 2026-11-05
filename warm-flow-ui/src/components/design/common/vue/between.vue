@@ -180,10 +180,23 @@
                 <el-icon :size="13" class="radio-card-tip"><WarningFilled /></el-icon>
               </el-tooltip>
             </label>
+            <label
+              class="radio-card-item"
+              :class="{ 'is-checked': form.collaborativeWay === '4' }"
+              @click="!disabled && (form.collaborativeWay = '4')"
+              v-if="form.collaborativeWay === '4' || showWays"
+            >
+              <span class="radio-card-dot"></span>
+              <span class="radio-card-text">顺序会签</span>
+              <el-tooltip effect="dark" placement="top" content="办理人按填写顺序逐个办理；可配置全员通过或票签规则，达到条件后提前完成">
+                <el-icon :size="13" class="radio-card-tip"><WarningFilled /></el-icon>
+              </el-tooltip>
+            </label>
           </div>
         </el-form-item>
 
-        <el-form-item label="票签策略：" prop="nodeRatio" v-if="form.collaborativeWay === '2'" class="ratio-item">
+        <el-form-item :label="form.collaborativeWay === '4' ? '完成规则：' : '票签策略：'" prop="nodeRatio"
+                      v-if="['2', '4'].includes(form.collaborativeWay)" class="ratio-item">
           <div class="ratio-row">
             <el-select v-model="form.nodeRatioType" class="ratio-type" placeholder="策略类型" clearable @clear="handleClear">
                 <el-option label="通过率" value="passRatio"/>
@@ -195,7 +208,8 @@
             <el-input v-model="form.nodeRatioValue" class="ratio-value" :placeholder="getNodeRatioDescription()"/>
           </div>
         </el-form-item>
-        <el-form-item label="驳回节点：" prop="formCustom" class="reject-item" :required="form.collaborativeWay === '2'">
+        <el-form-item label="驳回节点：" prop="formCustom" class="reject-item"
+                      :required="form.collaborativeWay === '2' || (form.collaborativeWay === '4' && form.nodeRatio !== '100')">
           <el-select v-model="form.anyNodeSkip" placeholder="请选择驳回到的节点" clearable>
             <el-option
                 v-for="dict in filteredNodes"
@@ -204,7 +218,8 @@
                 :value="dict.id"
             />
           </el-select>
-          <div v-if="form.collaborativeWay === '2'" class="field-hint">票签必须指定驳回节点</div>
+          <div v-if="form.collaborativeWay === '2' || (form.collaborativeWay === '4' && form.nodeRatio !== '100')"
+               class="field-hint">票签规则建议指定驳回节点</div>
           <div v-else class="field-hint">驳回目标以这里为准：配了就退到该节点，否则沿当前节点的「退回线」退回</div>
         </el-form-item>
         </form-section>
@@ -605,7 +620,7 @@ const kvExtSummary = computed(() => {
 });
 
 // 基础设置三个分组的收起摘要
-const COLLABORATIVE_WAY_LABELS = {'1': '或签', '2': '票签', '3': '会签'};
+const COLLABORATIVE_WAY_LABELS = {'1': '或签', '2': '票签', '3': '会签', '4': '顺序会签'};
 
 const baseInfoSummary = computed(() => {
   const name = form.value.nodeName;
@@ -615,7 +630,8 @@ const baseInfoSummary = computed(() => {
 
 const collaborativeWaySummary = computed(() => {
   const way = COLLABORATIVE_WAY_LABELS[form.value.collaborativeWay] || '未设置';
-  return form.value.collaborativeWay === '2' && form.value.nodeRatio ? `${way} · ${form.value.nodeRatio}` : way;
+  return ['2', '4'].includes(form.value.collaborativeWay) && form.value.nodeRatio
+    ? `${way} · ${form.value.nodeRatio}` : way;
 });
 
 const formSummary = computed(() => {
@@ -1038,11 +1054,18 @@ const rules = reactive({
     interrupting: [{validator: validateEventInterrupting, trigger: 'change'}]
 });
 
+// 记录上一次的票签策略输入：协作方式切换（propertySetting 已直接写入 nodeRatio）时不得用旧值覆盖
+let lastNodeRatioType = null
+let lastNodeRatioValue = null
+
 watch(() => form.value, n => {
   if (n) {
     emit('update:modelValue', n)
   }
-  if (n.nodeRatioType) {
+  const ratioInputChanged = n.nodeRatioType !== lastNodeRatioType || n.nodeRatioValue !== lastNodeRatioValue
+  lastNodeRatioType = n.nodeRatioType
+  lastNodeRatioValue = n.nodeRatioValue
+  if (n.nodeRatioType && ratioInputChanged && ['2', '4'].includes(n.collaborativeWay)) {
       let nodeRatio = '';
       if (/^passCount|rejectCount/.test(n.nodeRatioType)) {
           nodeRatio = n.nodeRatioType + "=";

@@ -347,6 +347,11 @@ public class ExceptionCons {
     public static final String NULL_REDUCTION_SIGNATURE_HANDLER = "减签对象不能为空";
 
     /**
+     * 顺序会签的单个顺位不能同时转办或委托给多人。
+     */
+    public static final String SEQUENCE_COOPERATE_ONE_HANDLER = "顺序会签转办或委托只能选择一个对象";
+
+    /**
      * 输入流读取失败。
      */
     public static final String READ_IS_ERROR = "读取is流失败";

@@ -230,11 +230,25 @@ watch(() => props.node, n => {
       })
     } else {
       let nodeRatio = n.properties.nodeRatio || "0";
+      const legacySequence = typeof nodeRatio === 'string' && nodeRatio.endsWith('@@sequence');
+      if (legacySequence) {
+        nodeRatio = nodeRatio.slice(0, -'@@sequence'.length);
+      }
+      // 新字段优先；字段为空时才兼容旧 @@sequence 后缀。打开旧定义后即规范化为新结构。
+      const configuredType = n.properties.cooperateType;
+      const isSequence = configuredType ? configuredType === 'sequence' : legacySequence;
+      if (!configuredType) {
+        n.properties.cooperateType = isSequence ? 'sequence' : 'parallel';
+      }
+      n.properties.nodeRatio = nodeRatio;
       if (!n.properties.collaborativeWay) {
-        n.properties.collaborativeWay = parseFloat(nodeRatio) === 0 ? "1" : parseFloat(nodeRatio) === 100 ?
+        n.properties.collaborativeWay = isSequence ? "4" : parseFloat(nodeRatio) === 0 ? "1" : parseFloat(nodeRatio) === 100 ?
             "3" : nodeRatio ? "2" : "1";
       }
-      if (n.properties.collaborativeWay === "2" && !n.properties.nodeRatio) n.properties.nodeRatio = "50";
+      if (["2", "4"].includes(n.properties.collaborativeWay) && !nodeRatio) {
+        nodeRatio = n.properties.collaborativeWay === "4" ? "100" : "50";
+        n.properties.nodeRatio = nodeRatio;
+      }
 
       let nodeRatioType = 'passRatio', nodeRatioValue = ''
       if (nodeRatio) {
@@ -297,9 +311,18 @@ watch(() => form.value.nodeName, (n) => {
 });
 
 watch(() => form.value.collaborativeWay, (n) => {
-  // 监听节点属性变化并更新
+  // 完成规则与办理顺序分开保存；顺序模式默认全员通过，仍可在下方改成票签规则。
+  const nodeRatio = n === "1" ? "0" : n === "3" || n === "4" ? "100" : "50";
+  const cooperateType = n === "4" ? "sequence" : "parallel";
+  form.value.nodeRatio = nodeRatio
+  form.value.cooperateType = cooperateType
+  if (["2", "4"].includes(n)) {
+    form.value.nodeRatioType = 'passRatio'
+    form.value.nodeRatioValue = nodeRatio
+  }
   props.lf.setProperties(objId.value, {
-    nodeRatio: n === "1" ? "0" : n === "3" ? "100" : "50"
+    nodeRatio: nodeRatio,
+    cooperateType: cooperateType
   })
 });
 

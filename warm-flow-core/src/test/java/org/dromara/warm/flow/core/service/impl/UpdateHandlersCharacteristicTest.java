@@ -50,6 +50,21 @@ class UpdateHandlersCharacteristicTest {
     }
 
     @Test
+    void transferWithoutHandler_stillThrowsHandlerNotEmpty() {
+        Instance instance = TestFlows.start("uh0", "biz-u0");
+        Task task = TestFlows.currentTask(instance.getId());
+
+        // 操作人为空时保持原有错误语义，不被"移除他人"守卫抢先报 NOT_AUTHORITY
+        org.dromara.warm.flow.core.workflow.context.WorkflowContext context
+            = new org.dromara.warm.flow.core.workflow.context.WorkflowContext();
+        context.setIgnorePermission(true);
+        FlowException ex = assertThrows(FlowException.class,
+                () -> FlowEngine.taskService().updateHandlers(task.getId(), context
+                        , List.of("lisi"), List.of(TestFlows.HANDLER), CooperateType.TRANSFER.getKey()));
+        assertEquals(ExceptionCons.HANDLER_NOT_EMPTY, ex.getMessage());
+    }
+
+    @Test
     void transfer_locksFinishListenerWithoutContextAndCooperateHis() {
         Instance instance = TestFlows.start("uh2", "biz-u2");
         Task task = TestFlows.currentTask(instance.getId());

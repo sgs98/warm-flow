@@ -10,10 +10,10 @@ import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.CollUtil;
+import org.dromara.warm.flow.core.utils.SequenceSignUtil;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
 import org.dromara.warm.flow.core.utils.StreamUtils;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -39,7 +39,7 @@ final class TaskCooperationHandler {
      * @param skipType 流转类型
      * @return 是否已完成委派处理；为true时本次流程不继续流转
      */
-    boolean handleDepute(Task task, WorkflowContext context, String skipType) {
+    boolean handleDepute(FlowExecution execution, Task task, WorkflowContext context, String skipType) {
         List<User> entrustedUserList = StreamUtils.filter(task.getUserList(),
             user -> UserType.DEPUTE.getKey().equals(user.getType())
                 && Objects.equals(context.getHandler(), user.getProcessedBy()));
@@ -47,19 +47,65 @@ final class TaskCooperationHandler {
             return false;
         }
 
-        User entrustedUser = entrustedUserList.get(0);
+        boolean sequenceSign = CooperateType.isSequence(execution.nowNode.getCooperateType()
+            , execution.nowNode.getNodeRatio());
+        User entrustedUser;
+        if (sequenceSign) {
+            List<User> sequenceUsers = StreamUtils.filter(task.getUserList(), user ->
+                UserType.APPROVAL.getKey().equals(user.getType())
+                    || UserType.TRANSFER.getKey().equals(user.getType())
+                    || UserType.DEPUTE.getKey().equals(user.getType()));
+            entrustedUser = SequenceSignUtil.firstBySeqNo(sequenceUsers);
+            if (entrustedUser != null
+                && Objects.equals(context.getHandler(), entrustedUser.getProcessedBy())
+                && !UserType.DEPUTE.getKey().equals(entrustedUser.getType())) {
+                return false;
+            }
+            AssertUtil.isTrue(entrustedUser == null
+                || !UserType.DEPUTE.getKey().equals(entrustedUser.getType())
+                || !Objects.equals(context.getHandler(), entrustedUser.getProcessedBy())
+                , ExceptionCons.NOT_AUTHORITY);
+        } else {
+            entrustedUser = entrustedUserList.get(0);
+        }
+
         HisTask hisTask = FlowEngine.hisTaskService().setDeputeHisTask(task, context, entrustedUser, skipType);
         FlowEngine.hisTaskService().save(hisTask);
-        FlowEngine.userService().removeById(entrustedUser.getId());
+        if (sequenceSign) {
+            restoreSequenceDepute(task, entrustedUser);
+            return true;
+        }
 
+        FlowEngine.userService().removeById(entrustedUser.getId());
         User deputeUser = FlowEngine.userService().getOne(FlowEngine.newUser().setAssociated(task.getId())
             .setProcessedBy(entrustedUser.getCreateBy()).setType(UserType.APPROVAL.getKey()));
         if (ObjectUtil.isNull(deputeUser)) {
             User newUser = FlowEngine.userService().structureUser(entrustedUser.getAssociated()
                 , entrustedUser.getCreateBy(), UserType.APPROVAL.getKey(), entrustedUser.getProcessedBy());
+            newUser.setSeqNo(entrustedUser.getSeqNo());
             FlowEngine.userService().save(newUser);
         }
         return true;
+    }
+
+    /**
+     * 恢复顺签委派占用的具体顺序位；原审批记录仍在同一顺位时仅移除委派记录。
+     */
+    private void restoreSequenceDepute(Task task, User entrustedUser) {
+        List<User> samePosition = StreamUtils.filter(task.getUserList(), user ->
+            UserType.APPROVAL.getKey().equals(user.getType())
+                && Objects.equals(entrustedUser.getCreateBy(), user.getProcessedBy())
+                && entrustedUser.getSeqNo() != null
+                && Objects.equals(entrustedUser.getSeqNo(), user.getSeqNo()));
+        if (CollUtil.isNotEmpty(samePosition)) {
+            FlowEngine.userService().removeById(entrustedUser.getId());
+            return;
+        }
+        String deputee = entrustedUser.getProcessedBy();
+        entrustedUser.setProcessedBy(entrustedUser.getCreateBy())
+            .setType(UserType.APPROVAL.getKey())
+            .setCreateBy(deputee);
+        FlowEngine.userService().updateById(entrustedUser);
     }
 
     /**
@@ -72,20 +118,34 @@ final class TaskCooperationHandler {
      * @return 是否仅记录当前办理结果；为true时本次流程不继续流转
      */
     boolean cooperate(FlowExecution execution, Task task, WorkflowContext context, String skipType) {
-        if (CooperateType.isOrSign(execution.nowNode.getNodeRatio())) {
+        String rawNodeRatio = execution.nowNode.getNodeRatio();
+        String nodeRatio = CooperateType.removeSequence(rawNodeRatio);
+        boolean sequenceSign = CooperateType.isSequence(execution.nowNode.getCooperateType(), rawNodeRatio);
+        if (!sequenceSign && CooperateType.isOrSign(nodeRatio)) {
             return false;
         }
 
-        String nodeRatio = execution.nowNode.getNodeRatio();
         // 从操作内办理人全集派生待办视图，与权限校验共用同一份快照。
         List<User> todoList = execution.usersOfTypes(UserType.APPROVAL.getKey()
             , UserType.TRANSFER.getKey(), UserType.DEPUTE.getKey());
         AssertUtil.isEmpty(context.getHandler(), ExceptionCons.SIGN_NULL_HANDLER);
-        User todoUser = CollUtil.getOne(StreamUtils.filter(todoList
-            , u -> Objects.equals(u.getProcessedBy(), context.getHandler())));
-        AssertUtil.isNull(todoUser, ExceptionCons.NOT_AUTHORITY);
-        List<User> restList = StreamUtils.filter(todoList
-            , u -> !Objects.equals(u.getProcessedBy(), context.getHandler()));
+        User todoUser;
+        if (sequenceSign) {
+            // 顺序模式按具体顺序位定位记录，兼容历史数据中同一办理人占有多个顺位的情况
+            todoUser = SequenceSignUtil.firstBySeqNo(todoList);
+            AssertUtil.isTrue(todoUser == null
+                || !Objects.equals(todoUser.getProcessedBy(), context.getHandler()), ExceptionCons.NOT_AUTHORITY);
+        } else {
+            todoUser = CollUtil.getOne(StreamUtils.filter(todoList
+                , u -> Objects.equals(u.getProcessedBy(), context.getHandler())));
+            AssertUtil.isNull(todoUser, ExceptionCons.NOT_AUTHORITY);
+        }
+        List<User> restList = sequenceSign
+            ? StreamUtils.filter(todoList, u -> !Objects.equals(u.getId(), todoUser.getId()))
+            : StreamUtils.filter(todoList, u -> !Objects.equals(u.getProcessedBy(), context.getHandler()));
+        if (CooperateType.isOrSign(nodeRatio)) {
+            return removeRestList(restList);
+        }
 
         if (CooperateType.isCountersign(nodeRatio) && SkipType.isReject(skipType)) {
             return removeRestList(restList);

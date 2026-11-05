@@ -162,7 +162,7 @@ final class FlowExecuteChain {
      */
     private Optional<Instance> deputeGate(FlowExecution execution) {
         // 如果是受托人在处理任务，需要处理一条委派记录，并且更新委托人，回到计划审批人,然后直接返回流程实例
-        if (!execution.intent.isIgnore() && cooperationHandler.handleDepute(execution.task
+        if (!execution.intent.isIgnore() && cooperationHandler.handleDepute(execution, execution.task
             , execution.intent, skipType)) {
             return Optional.of(execution.instance);
         }

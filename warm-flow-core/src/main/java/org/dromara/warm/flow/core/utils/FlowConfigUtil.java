@@ -21,6 +21,7 @@ import org.dromara.warm.flow.core.dto.FlowCombine;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Skip;
+import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.EventType;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
@@ -108,11 +109,27 @@ public class FlowConfigUtil {
         for (Node node : allNodes) {
             checkServiceNode(node, skipGroup.get(node.getNodeCode()));
             checkEventNode(node, nodeMap, skipGroup.get(node.getNodeCode()), incomingGroup.get(node.getNodeCode()));
+            checkCooperateType(node);
         }
         // 并行 / 包容网关不允许产生多个无待办的事件等待分支
         checkGatewayEventBranches(allNodes, nodeMap, skipGroup);
         // 同一定义不能混用消息启动与定时启动
         checkStartEventTypeConsistency(allNodes);
+    }
+
+    /**
+     * 校验多人审批办理顺序字段；空值保留给旧定义并按并行或旧后缀兼容读取。
+     *
+     * @param node 待校验节点
+     */
+    private static void checkCooperateType(Node node) {
+        String cooperateType = node.getCooperateType();
+        if (StringUtils.isEmpty(cooperateType)) {
+            return;
+        }
+        AssertUtil.isTrue(!CooperateType.PARALLEL.equalsIgnoreCase(cooperateType)
+                && !CooperateType.SEQUENCE.equalsIgnoreCase(cooperateType)
+            , "[" + node.getNodeCode() + "]协作顺序仅支持 parallel 或 sequence");
     }
 
     /**

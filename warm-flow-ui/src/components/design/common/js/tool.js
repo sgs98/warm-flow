@@ -127,6 +127,7 @@ export const json2LogicFlowJson = (definition) => {
         lfNode.text.y = isGateWay(lfNode.type) ? lfNode.y + 40 : lfNode.y
       }
       lfNode.properties.nodeRatio = node.nodeRatio.toString()
+      lfNode.properties.cooperateType = node.cooperateType
       lfNode.properties.permissionFlag = node.permissionFlag
       lfNode.properties.anyNodeSkip = node.anyNodeSkip
       lfNode.properties.listenerType = node.listenerType
@@ -299,6 +300,7 @@ export const logicFlowJsonToWarmFlow = (data) => {
     }
     node.permissionFlag = anyNode.properties.permissionFlag
     node.nodeRatio = anyNode.properties.nodeRatio
+    node.cooperateType = anyNode.properties.cooperateType
     node.anyNodeSkip = anyNode.properties.anyNodeSkip
     node.listenerType = anyNode.properties.listenerType
     node.listenerPath = anyNode.properties.listenerPath

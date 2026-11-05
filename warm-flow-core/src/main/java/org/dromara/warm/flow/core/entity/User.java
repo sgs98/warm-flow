@@ -114,4 +114,26 @@ public interface User extends RootEntity {
      * @return 当前用户记录
      */
     User setAssociated(Long associated);
+
+    /**
+     * 获取办理顺序号。
+     * <p>
+     * 同一任务内从 0 递增，仅顺序会签（{@code node_ratio = 100@@sequence}）读取；
+     * 其余协作方式不参与逻辑，可为 {@code null}。
+     *
+     * @return 办理顺序号
+     */
+    default Integer getSeqNo() {
+        return null;
+    }
+
+    /**
+     * 设置办理顺序号。
+     *
+     * @param seqNo 办理顺序号
+     * @return 当前用户记录
+     */
+    default User setSeqNo(Integer seqNo) {
+        return this;
+    }
 }

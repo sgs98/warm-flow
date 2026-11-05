@@ -56,6 +56,7 @@ create table FLOW_NODE
     NODE_NAME       VARCHAR2(100),
     PERMISSION_FLAG VARCHAR2(200),
     NODE_RATIO      VARCHAR2(200),
+    COOPERATE_TYPE  VARCHAR2(20),
     COORDINATE      VARCHAR2(100),
     ANY_NODE_SKIP   VARCHAR2(100),
     LISTENER_TYPE   VARCHAR2(100),
@@ -86,6 +87,7 @@ comment on column FLOW_NODE.DEFINITION_ID is '对应flow_definition表的id';
 comment on column FLOW_NODE.NODE_CODE is '流程节点编码';
 comment on column FLOW_NODE.NODE_NAME is '流程节点名称';
 comment on column FLOW_NODE.NODE_RATIO is '流程签署比例值';
+comment on column FLOW_NODE.COOPERATE_TYPE is '多人审批办理顺序（parallel并行 sequence顺序）';
 comment on column FLOW_NODE.COORDINATE is '坐标';
 comment on column FLOW_NODE.ANY_NODE_SKIP is '任意结点跳转';
 comment on column FLOW_NODE.LISTENER_TYPE is '监听器类型';
@@ -293,6 +295,7 @@ create table FLOW_USER
     TYPE         VARCHAR2(1) not null,
     PROCESSED_BY VARCHAR2(80),
     ASSOCIATED   NUMBER(20)  not null,
+    SEQ_NO       NUMBER(10),
     CREATE_TIME  DATE,
     CREATE_BY    VARCHAR2(80),
     UPDATE_TIME  DATE,
@@ -309,6 +312,7 @@ comment on column FLOW_USER.ID is '主键id';
 comment on column FLOW_USER.TYPE is '人员类型（1待办任务的审批人权限 2待办任务的转办人权限 3待办任务的委托人权限 4待办任务的抄送人）';
 comment on column FLOW_USER.PROCESSED_BY is '权限人)';
 comment on column FLOW_USER.ASSOCIATED is '关联id（待办任务id；抄送人记录为 flow_his_task.id）';
+comment on column FLOW_USER.SEQ_NO is '办理顺序号（同一任务内从 0 递增；顺序会签用，其余协作方式不参与逻辑）';
 comment on column FLOW_USER.CREATE_TIME is '创建时间';
 comment on column FLOW_USER.CREATE_BY is '创建人';
 comment on column FLOW_USER.UPDATE_TIME is '更新时间';

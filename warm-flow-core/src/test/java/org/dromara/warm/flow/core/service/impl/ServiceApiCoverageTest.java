@@ -110,9 +110,11 @@ class ServiceApiCoverageTest {
 
     @Test
     void userApis_coverTaskConstructionUpdateAndCleanup() {
-        Task task = FlowEngine.newTask().setId(1001L).setPermissionList(List.of("zhangsan", "lisi"));
+        Task task = FlowEngine.newTask().setId(1001L)
+            .setPermissionList(List.of("zhangsan", "lisi", "zhangsan"));
         List<User> users = FlowEngine.userService().taskAddUser(task);
-        assertEquals(2, users.size());
+        assertEquals(2, users.size(), "最终办理人集合应按首次出现顺序去重");
+        assertEquals(List.of(0, 1), users.stream().map(User::getSeqNo).toList());
         assertEquals(2, task.getUserList().size());
         assertEquals(2, FlowEngine.userService().taskAddUsers(List.of(task)).size());
 
@@ -129,8 +131,33 @@ class ServiceApiCoverageTest {
             UserType.APPROVAL.getKey(), "creator").getCreateBy());
         assertEquals("creator", FlowEngine.userService().structureUser(task.getId(), List.of("a"),
             UserType.APPROVAL.getKey(), "creator").get(0).getCreateBy());
-        FlowEngine.userService().deleteByTaskIds(List.of(task.getId()));
+
+        Long sharedTaskId = 1002L;
+        FlowEngine.userService().save(FlowEngine.userService().structureUser(sharedTaskId, "kept"
+            , UserType.APPROVAL.getKey(), "other").setSeqNo(3));
+        FlowEngine.userService().save(FlowEngine.userService().structureUser(sharedTaskId, "old"
+            , UserType.APPROVAL.getKey(), "operator").setSeqNo(4));
+        FlowEngine.userService().updatePermission(sharedTaskId, List.of("kept", "new", "new")
+            , UserType.APPROVAL.getKey(), true, "operator");
+        List<User> sharedUsers = FlowEngine.userService().list(FlowEngine.newUser().setAssociated(sharedTaskId));
+        assertEquals(List.of("kept", "new"), sharedUsers.stream().map(User::getProcessedBy).toList());
+        assertEquals(List.of(3, 4), sharedUsers.stream().map(User::getSeqNo).toList()
+            , "clear=true 仅删除当前操作人创建的记录，新办理人应接在剩余顺序位之后");
+
+        FlowEngine.userService().deleteByTaskIds(List.of(task.getId(), sharedTaskId));
         assertEquals(0, harness.userDao.size());
+    }
+
+    @Test
+    void sequenceContracts_areBackwardCompatibleAndFieldFirst() throws Exception {
+        assertTrue(User.class.getMethod("getSeqNo").isDefault());
+        assertTrue(User.class.getMethod("setSeqNo", Integer.class).isDefault());
+        assertTrue(Node.class.getMethod("getCooperateType").isDefault());
+        assertTrue(Node.class.getMethod("setCooperateType", String.class).isDefault());
+
+        assertTrue(CooperateType.isSequence(CooperateType.SEQUENCE, "50"));
+        assertFalse(CooperateType.isSequence(CooperateType.PARALLEL, "100@@sequence"));
+        assertTrue(CooperateType.isSequence(null, "100@@sequence"));
     }
 
     @Test

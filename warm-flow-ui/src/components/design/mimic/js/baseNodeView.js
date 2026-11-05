@@ -14,6 +14,7 @@ export class BaseNodeView extends HtmlNode {
       permissionFlag: props.model.properties.permissionFlag,
       collaborativeWay: props.model.properties.collaborativeWay,
       nodeRatio: props.model.properties.nodeRatio,
+      cooperateType: props.model.properties.cooperateType,
       selected: props.model.isSelected,
       chartStatusColor: props.model.properties.chartStatusColor,
       status: props.model.properties.status,
@@ -48,6 +49,7 @@ export class BaseNodeView extends HtmlNode {
       if (currentProperties.permissionFlag !== preProperties.permissionFlag
           || currentProperties.collaborativeWay !== preProperties.collaborativeWay
           || currentProperties.nodeRatio !== preProperties.nodeRatio
+          || currentProperties.cooperateType !== preProperties.cooperateType
           || currentProperties.status !== preProperties.status
           || currentProperties.nodeConfig !== preProperties.nodeConfig
           || currentProperties.eventType !== preProperties.eventType
@@ -88,6 +90,7 @@ export class BaseNodeView extends HtmlNode {
       this.r.component.props.permissionFlag = this.props.model.properties.permissionFlag
       this.r.component.props.collaborativeWay = this.props.model.properties.collaborativeWay
       this.r.component.props.nodeRatio = this.props.model.properties.nodeRatio
+      this.r.component.props.cooperateType = this.props.model.properties.cooperateType
       this.r.component.props.status = this.props.model.properties.status
       this.r.component.props.nodeConfig = this.props.model.properties.nodeConfig
       this.r.component.props.eventType = this.props.model.properties.eventType

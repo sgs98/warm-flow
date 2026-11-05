@@ -147,6 +147,27 @@ public interface Node extends RootEntity {
     Node setNodeRatio(String nodeRatio);
 
     /**
+     * 获取多人审批的办理顺序。
+     * <p>为空时按并行处理；为兼容旧定义，运行时还会回退识别 {@code node_ratio} 的
+     * {@code @@sequence} 后缀。</p>
+     *
+     * @return {@code parallel}、{@code sequence} 或 {@code null}
+     */
+    default String getCooperateType() {
+        return null;
+    }
+
+    /**
+     * 设置多人审批的办理顺序。
+     *
+     * @param cooperateType {@code parallel} 或 {@code sequence}
+     * @return 当前节点
+     */
+    default Node setCooperateType(String cooperateType) {
+        return this;
+    }
+
+    /**
      * 获取办理人权限表达式。
      *
      * @return 权限表达式
@@ -375,6 +396,7 @@ public interface Node extends RootEntity {
             .setNodeCode(this.getNodeCode())
             .setNodeName(this.getNodeName())
             .setNodeRatio(this.getNodeRatio())
+            .setCooperateType(this.getCooperateType())
             .setPermissionFlag(this.getPermissionFlag())
             .setCoordinate(this.getCoordinate())
             .setAnyNodeSkip(this.getAnyNodeSkip())
