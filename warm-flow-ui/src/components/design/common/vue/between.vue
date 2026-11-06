@@ -140,31 +140,17 @@
         </template>
         </form-section>
 
-        <form-section title="协作方式" :summary="collaborativeWaySummary">
-        <!-- 协作方式 - 卡片式单选 -->
-        <el-form-item label="协作方式：" prop="collaborativeWay">
+        <form-section title="完成方式" :summary="collaborativeWaySummary">
+        <el-form-item label="完成方式：" prop="collaborativeWay">
           <div class="radio-card-group">
             <label
               class="radio-card-item"
               :class="{ 'is-checked': form.collaborativeWay === '1' }"
               @click="!disabled && (form.collaborativeWay = '1')"
-              v-if="form.collaborativeWay === '1' || showWays"
             >
               <span class="radio-card-dot"></span>
               <span class="radio-card-text">或签</span>
-              <el-tooltip effect="dark" placement="top" content="只需一个人审批">
-                <el-icon :size="13" class="radio-card-tip"><WarningFilled /></el-icon>
-              </el-tooltip>
-            </label>
-            <label
-              class="radio-card-item"
-              :class="{ 'is-checked': form.collaborativeWay === '2' }"
-              @click="!disabled && (form.collaborativeWay = '2')"
-              v-if="form.collaborativeWay === '2' || showWays"
-            >
-              <span class="radio-card-dot"></span>
-              <span class="radio-card-text">票签</span>
-              <el-tooltip effect="dark" placement="top" content="部分办理人审批，建议选择用户；如果选择角色或者部门等，需自行通过办理人表达式或者监听器，转成具体办理用户">
+              <el-tooltip effect="dark" placement="top" content="同时生成全部待办，任意一人通过后节点完成">
                 <el-icon :size="13" class="radio-card-tip"><WarningFilled /></el-icon>
               </el-tooltip>
             </label>
@@ -172,44 +158,50 @@
               class="radio-card-item"
               :class="{ 'is-checked': form.collaborativeWay === '3' }"
               @click="!disabled && (form.collaborativeWay = '3')"
-              v-if="form.collaborativeWay === '3' || showWays"
             >
               <span class="radio-card-dot"></span>
               <span class="radio-card-text">会签</span>
-              <el-tooltip effect="dark" placement="top" content="所有办理都需要审批，建议选择用户；如果选择角色或者部门等，需自行通过办理人表达式或者监听器，转成具体办理用户">
-                <el-icon :size="13" class="radio-card-tip"><WarningFilled /></el-icon>
-              </el-tooltip>
-            </label>
-            <label
-              class="radio-card-item"
-              :class="{ 'is-checked': form.collaborativeWay === '4' }"
-              @click="!disabled && (form.collaborativeWay = '4')"
-              v-if="form.collaborativeWay === '4' || showWays"
-            >
-              <span class="radio-card-dot"></span>
-              <span class="radio-card-text">顺序会签</span>
-              <el-tooltip effect="dark" placement="top" content="办理人按填写顺序逐个办理；可配置全员通过或票签规则，达到条件后提前完成">
+              <el-tooltip effect="dark" placement="top" content="多位办理人协同审批，可配置办理顺序和完成规则">
                 <el-icon :size="13" class="radio-card-tip"><WarningFilled /></el-icon>
               </el-tooltip>
             </label>
           </div>
         </el-form-item>
 
-        <el-form-item :label="form.collaborativeWay === '4' ? '完成规则：' : '票签策略：'" prop="nodeRatio"
-                      v-if="['2', '4'].includes(form.collaborativeWay)" class="ratio-item">
+        <el-form-item label="办理顺序：" prop="cooperateType" v-if="form.collaborativeWay === '3'">
+          <div class="radio-card-group">
+            <label
+              class="radio-card-item"
+              :class="{ 'is-checked': form.cooperateType === 'parallel' }"
+              @click="!disabled && (form.cooperateType = 'parallel')"
+            >
+              <span class="radio-card-dot"></span>
+              <span class="radio-card-text">并行办理</span>
+            </label>
+            <label
+              class="radio-card-item"
+              :class="{ 'is-checked': form.cooperateType === 'sequence' }"
+              @click="!disabled && (form.cooperateType = 'sequence')"
+            >
+              <span class="radio-card-dot"></span>
+              <span class="radio-card-text">顺序办理</span>
+            </label>
+          </div>
+        </el-form-item>
+
+        <el-form-item label="完成规则：" prop="nodeRatio" v-if="form.collaborativeWay === '3'" class="ratio-item">
           <div class="ratio-row">
-            <el-select v-model="form.nodeRatioType" class="ratio-type" placeholder="策略类型" clearable @clear="handleClear">
-                <el-option label="通过率" value="passRatio"/>
-                <el-option label="固定通过人数" value="passCount"/>
-                <el-option label="固定驳回人数" value="rejectCount"/>
-                <el-option label="默认表达式" value="default" v-if="framework ==='SPRING_BOOT'"/>
-                <el-option label="spel表达式" value="spel" v-if="framework ==='SPRING_BOOT'"/>
+            <el-select v-model="form.nodeRatioType" class="ratio-type" placeholder="规则类型">
+              <el-option label="通过率" value="passRatio"/>
+              <el-option label="固定通过人数" value="passCount"/>
+              <el-option label="固定驳回人数" value="rejectCount"/>
+              <el-option label="默认表达式" value="default" v-if="framework === 'SPRING_BOOT'"/>
+              <el-option label="SpEL 表达式" value="spel" v-if="framework === 'SPRING_BOOT'"/>
             </el-select>
             <el-input v-model="form.nodeRatioValue" class="ratio-value" :placeholder="getNodeRatioDescription()"/>
           </div>
         </el-form-item>
-        <el-form-item label="驳回节点：" prop="formCustom" class="reject-item"
-                      :required="form.collaborativeWay === '2' || (form.collaborativeWay === '4' && form.nodeRatio !== '100')">
+        <el-form-item label="驳回节点：" prop="formCustom" class="reject-item" :required="isCustomCompletionRule">
           <el-select v-model="form.anyNodeSkip" placeholder="请选择驳回到的节点" clearable>
             <el-option
                 v-for="dict in filteredNodes"
@@ -218,8 +210,7 @@
                 :value="dict.id"
             />
           </el-select>
-          <div v-if="form.collaborativeWay === '2' || (form.collaborativeWay === '4' && form.nodeRatio !== '100')"
-               class="field-hint">票签规则建议指定驳回节点</div>
+          <div v-if="isCustomCompletionRule" class="field-hint">自定义完成规则建议指定驳回节点</div>
           <div v-else class="field-hint">驳回目标以这里为准：配了就退到该节点，否则沿当前节点的「退回线」退回</div>
         </el-form-item>
         </form-section>
@@ -412,7 +403,7 @@
       </div>
     </el-form>
 
-    <!-- 权限标识：会签票签选择用户 -->
+    <!-- 权限标识：会签建议选择具体用户 -->
     <el-dialog title="人员选择" v-if="userVisible" v-model="userVisible" :width="isMobile ? '96%' : '80%'" append-to-body
       class="person-select-dialog" :class="{ 'mobile-user-dialog': isMobile }"
     >
@@ -450,11 +441,6 @@ const props = defineProps({
   disabled: { // 是否禁止
     type: Boolean,
     default: false
-  },
-  // 是否展示所有协作方式
-  showWays: {
-    type: Boolean,
-    default: true
   },
   nodes: {
     type: Array,
@@ -620,18 +606,23 @@ const kvExtSummary = computed(() => {
 });
 
 // 基础设置三个分组的收起摘要
-const COLLABORATIVE_WAY_LABELS = {'1': '或签', '2': '票签', '3': '会签', '4': '顺序会签'};
-
 const baseInfoSummary = computed(() => {
   const name = form.value.nodeName;
   if (!name) return '未命名节点';
   return form.value.nodeCode ? `${name}（${form.value.nodeCode}）` : name;
 });
 
+const isCustomCompletionRule = computed(() =>
+  form.value.collaborativeWay === '3' && Number(form.value.nodeRatio) !== 100
+);
+
 const collaborativeWaySummary = computed(() => {
-  const way = COLLABORATIVE_WAY_LABELS[form.value.collaborativeWay] || '未设置';
-  return ['2', '4'].includes(form.value.collaborativeWay) && form.value.nodeRatio
-    ? `${way} · ${form.value.nodeRatio}` : way;
+  if (form.value.collaborativeWay === '1') return '或签';
+  if (form.value.collaborativeWay === '3') {
+    const order = form.value.cooperateType === 'sequence' ? '顺序办理' : '并行办理';
+    return `会签 · ${order} · ${form.value.nodeRatio || '未设置规则'}`;
+  }
+  return '未设置';
 });
 
 const formSummary = computed(() => {
@@ -1037,13 +1028,12 @@ const rules = reactive({
                 {required: true, message: "请输入", trigger: "change"},
                 {validator: validateDefault, trigger: ["change", "blur"]}
             ];
-        }  else if (type === 'spel') {
+        } else if (type === 'spel') {
             return [
                 {required: true, message: "请输入", trigger: "change"},
                 {validator: validateSpel, trigger: ["change", "blur"]}
             ];
         }
-        // 其他类型不作限制
         return [];
     }),
     // 事件节点字段校验：与后端 FlowConfigUtil 的事件结构校验保持一致，尽量在保存前拦截
@@ -1054,7 +1044,6 @@ const rules = reactive({
     interrupting: [{validator: validateEventInterrupting, trigger: 'change'}]
 });
 
-// 记录上一次的票签策略输入：协作方式切换（propertySetting 已直接写入 nodeRatio）时不得用旧值覆盖
 let lastNodeRatioType = null
 let lastNodeRatioValue = null
 
@@ -1065,93 +1054,76 @@ watch(() => form.value, n => {
   const ratioInputChanged = n.nodeRatioType !== lastNodeRatioType || n.nodeRatioValue !== lastNodeRatioValue
   lastNodeRatioType = n.nodeRatioType
   lastNodeRatioValue = n.nodeRatioValue
-  if (n.nodeRatioType && ratioInputChanged && ['2', '4'].includes(n.collaborativeWay)) {
-      let nodeRatio = '';
-      if (/^passCount|rejectCount/.test(n.nodeRatioType)) {
-          nodeRatio = n.nodeRatioType + "=";
-      } else if (/^spel|default/.test(n.nodeRatioType)) {
-          nodeRatio = n.nodeRatioType + "@@";
-      }
-      n.nodeRatio = nodeRatio + (n.nodeRatioValue ? n.nodeRatioValue : '')
+  if (n.nodeRatioType && ratioInputChanged && n.collaborativeWay === '3') {
+    let nodeRatio = '';
+    if (/^passCount|rejectCount/.test(n.nodeRatioType)) {
+      nodeRatio = n.nodeRatioType + '=';
+    } else if (/^spel|default/.test(n.nodeRatioType)) {
+      nodeRatio = n.nodeRatioType + '@@';
+    }
+    n.nodeRatio = nodeRatio + (n.nodeRatioValue || '')
   }
 },{ deep: true });
 
 function validatePassRatio(rule, value, callback) {
-    if (value === '' || value === undefined || value === null) {
-        callback(new Error('请输入通过率'));
+  if (value === '' || value === undefined || value === null) {
+    callback(new Error('请输入通过率'));
+  } else {
+    const numValue = Number(value);
+    if (isNaN(numValue)) {
+      callback(new Error('请输入有效数字'));
+    } else if (numValue < 0.001 || numValue > 100) {
+      callback(new Error('通过率必须在0.001-100之间'));
+    } else if (!/^\d+(\.\d{1,3})?$/.test(value)) {
+      callback(new Error('通过率最多保留三位小数'));
     } else {
-        const numValue = Number(value);
-        if (isNaN(numValue)) {
-            callback(new Error('请输入有效数字'));
-        } else if (numValue < 0.001 || numValue > 100) {
-            callback(new Error('通过率必须在0.001-100之间'));
-        } else if (!/^\d+(\.\d{1,3})?$/.test(value)) {
-            callback(new Error('通过率最多保留三位小数'));
-        }  else {
-            callback();
-        }
+      callback();
     }
+  }
 }
 
 function validatePassCount(rule, value, callback) {
-    if (value === '' || value === undefined || value === null) {
-        callback(new Error('请输入固定人数'));
-    } else {
-        value = value.replace('passCount', '').replace('rejectCount', '').replace('=', '').trim();
-        const reg = /^[1-9]\d*$/;
-        if (!reg.test(value)) {
-            callback(new Error('请输入正整数'));
-        } else {
-            callback();
-        }
-    }
+  const count = String(value || '').replace('passCount', '').replace('rejectCount', '').replace('=', '').trim();
+  if (!count) {
+    callback(new Error('请输入固定人数'));
+  } else if (!/^[1-9]\d*$/.test(count)) {
+    callback(new Error('请输入正整数'));
+  } else {
+    callback();
+  }
 }
 
 function validateDefault(rule, value, callback) {
-    value = value.replace('default@@', '').replace('=', '').trim();
-    if (value === '' || value === undefined || value === null) {
-        callback(new Error('请输入默认表达式'));
-    } else if (!/^\$\{.*\}$/.test(value)) {
-        callback(new Error('默认表达式必须以${开头，以}结尾'));
-    } else {
-        callback();
-    }
+  const expression = String(value || '').replace('default@@', '').replace('=', '').trim();
+  if (!expression) {
+    callback(new Error('请输入默认表达式'));
+  } else if (!/^\$\{.*\}$/.test(expression)) {
+    callback(new Error('默认表达式必须以${开头，以}结尾'));
+  } else {
+    callback();
+  }
 }
 
 function validateSpel(rule, value, callback) {
-    value = value.replace('spel@@', '').replace('=', '').trim();
-    if (value === '' || value === undefined || value === null) {
-        callback(new Error('请输入spel表达式'));
-    } else if (!/^\#\{.*\}$/.test(value)) {
-        callback(new Error('spel表达式必须以#{开头，以}结尾'));
-    } else {
-        callback();
-    }
+  const expression = String(value || '').replace('spel@@', '').replace('=', '').trim();
+  if (!expression) {
+    callback(new Error('请输入SpEL表达式'));
+  } else if (!/^\#\{.*\}$/.test(expression)) {
+    callback(new Error('SpEL表达式必须以#{开头，以}结尾'));
+  } else {
+    callback();
+  }
 }
 
 function getNodeRatioDescription() {
-    const type = form.value.nodeRatioType;
-    switch (type) {
-        case 'passRatio':
-            return '请输入通过率(0.001-100)';
-        case 'passCount':
-            return '请输入固定通过人数，类型为正整数';
-        case 'rejectCount':
-            return '请输入固定驳回人数，类型为正整数';
-        case 'default':
-            return '请输入默认表达式,格式如: ${flag > 4}';
-        case 'spel':
-            return '请输入spel表达式，格式如: #{@user.eval(#flag)}';
-        default:
-            return '请输入';
-    }
-}
-
-function handleClear() {
-    // 处理清空操作的逻辑
-    form.value.nodeRatioType = '';
-    form.value.nodeRatioValue = '';
-    form.value.nodeRatio = '';
+  const descriptions = {
+    passRatio: '请输入通过率(0.001-100)',
+    passCount: '请输入固定通过人数，类型为正整数',
+    rejectCount: '请输入固定驳回人数，类型为正整数',
+    default: '请输入默认表达式，格式如：${flag > 4}',
+    spel: '请输入SpEL表达式，格式如：#{@user.eval(#flag)}'
+  };
+  return descriptions[form.value.nodeRatioType] || '请输入';
 }
 
 // 删除办理人
@@ -1704,7 +1676,7 @@ defineExpose({
     width: 100%;
   }
 
-  /* 票签策略：select + input 堆叠显示 */
+  /* 窄屏表单控件保持整行显示 */
   .betweenForm::v-deep(.el-form-item) {
     .el-form-item__content {
       display: flex !important;

@@ -241,29 +241,15 @@ watch(() => props.node, n => {
         n.properties.cooperateType = isSequence ? 'sequence' : 'parallel';
       }
       n.properties.nodeRatio = nodeRatio;
-      if (!n.properties.collaborativeWay) {
-        n.properties.collaborativeWay = isSequence ? "4" : parseFloat(nodeRatio) === 0 ? "1" : parseFloat(nodeRatio) === 100 ?
-            "3" : nodeRatio ? "2" : "1";
-      }
-      if (["2", "4"].includes(n.properties.collaborativeWay) && !nodeRatio) {
-        nodeRatio = n.properties.collaborativeWay === "4" ? "100" : "50";
-        n.properties.nodeRatio = nodeRatio;
-      }
+      n.properties.collaborativeWay = Number(nodeRatio) === 0 ? "1" : "3";
 
       let nodeRatioType = 'passRatio', nodeRatioValue = ''
-      if (nodeRatio) {
-          if (/^passCount|rejectCount/.test(nodeRatio)) {
-              const [type, value] = nodeRatio.split('=');
-              nodeRatioType = type;
-              nodeRatioValue = value;
-          } else if (/^spel|default/.test(nodeRatio)) {
-              const [type, value] = nodeRatio.split('@@');
-              nodeRatioType = type;
-              nodeRatioValue = value;
-          } else {
-              // 默认情况：直接使用整个字符串
-              nodeRatioValue = nodeRatio;
-          }
+      if (/^passCount|rejectCount/.test(nodeRatio)) {
+        [nodeRatioType, nodeRatioValue] = nodeRatio.split('=');
+      } else if (/^spel|default/.test(nodeRatio)) {
+        [nodeRatioType, nodeRatioValue] = nodeRatio.split('@@');
+      } else {
+        nodeRatioValue = nodeRatio;
       }
 
       n.properties.formCustom = JSON.stringify(n.properties) === "{}" ? "N" : (n.properties.formCustom ?
@@ -311,18 +297,28 @@ watch(() => form.value.nodeName, (n) => {
 });
 
 watch(() => form.value.collaborativeWay, (n) => {
-  // 完成规则与办理顺序分开保存；顺序模式默认全员通过，仍可在下方改成票签规则。
-  const nodeRatio = n === "1" ? "0" : n === "3" || n === "4" ? "100" : "50";
-  const cooperateType = n === "4" ? "sequence" : "parallel";
+  if (!["1", "3"].includes(n)) return;
+  const currentRatio = String(form.value.nodeRatio ?? '');
+  const nodeRatio = n === "1" ? "0" : currentRatio && Number(currentRatio) !== 0 ? currentRatio : "100";
+  const cooperateType = n === "1" ? "parallel" :
+      ["parallel", "sequence"].includes(form.value.cooperateType) ? form.value.cooperateType : "parallel";
   form.value.nodeRatio = nodeRatio
   form.value.cooperateType = cooperateType
-  if (["2", "4"].includes(n)) {
+  if (n === "3" && Number(currentRatio) === 0) {
     form.value.nodeRatioType = 'passRatio'
-    form.value.nodeRatioValue = nodeRatio
+    form.value.nodeRatioValue = '100'
   }
   props.lf.setProperties(objId.value, {
+    collaborativeWay: n,
     nodeRatio: nodeRatio,
     cooperateType: cooperateType
+  })
+});
+
+watch(() => form.value.cooperateType, (n) => {
+  if (!["parallel", "sequence"].includes(n)) return;
+  props.lf.setProperties(objId.value, {
+    cooperateType: n
   })
 });
 
