@@ -251,7 +251,7 @@ final class EventArrivalDispatcher {
     /**
      * 任务创建后注册附着在该任务节点上的定时 / 消息边界事件等待。
      */
-    private static void registerBoundaryWaits(FlowExecution execution, Node taskNode, Task task) {
+    static void registerBoundaryWaits(FlowExecution execution, Node taskNode, Task task) {
         List<Node> boundaries = StreamUtils.filter(execution.loadCombineNoDef().getAllNodes()
             , node -> EventType.isBoundary(node.getEventType())
                 && taskNode.getNodeCode().equals(node.getAttachedToNodeCode()));

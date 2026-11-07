@@ -3,8 +3,10 @@ package org.dromara.warm.demo.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.BizException;
 import org.dromara.warm.demo.dto.PageQuery;
+import org.dromara.warm.demo.dto.ResetInstanceRequest;
 import org.dromara.warm.demo.dto.StartInstanceRequest;
 import org.dromara.warm.demo.mapper.DemoInstanceDeleteMapper;
+import org.dromara.warm.demo.mapper.DemoInstanceLockMapper;
 import org.dromara.warm.demo.service.InstanceAppService;
 import org.dromara.warm.demo.service.support.WorkflowSupport;
 import org.dromara.warm.demo.vo.HistoryVo;
@@ -19,6 +21,7 @@ import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.core.utils.page.Page;
+import org.dromara.warm.flow.core.workflow.command.ResetCommand;
 import org.dromara.warm.flow.core.workflow.command.RevokeCommand;
 import org.dromara.warm.flow.core.workflow.command.StartCommand;
 import org.dromara.warm.flow.core.workflow.command.TerminateCommand;
@@ -44,6 +47,7 @@ import java.util.stream.Collectors;
 public class InstanceAppServiceImpl implements InstanceAppService {
 
     private final DemoInstanceDeleteMapper instanceDeleteMapper;
+    private final DemoInstanceLockMapper instanceLockMapper;
     private final WorkflowSupport support;
 
     /**
@@ -222,6 +226,30 @@ public class InstanceAppServiceImpl implements InstanceAppService {
             command.setOperator(support.operator(user));
             command.setInstanceId(instanceId);
             FlowEngine.workflow().terminate(command);
+        } catch (FlowException e) {
+            throw BizException.badRequest(e.getMessage());
+        }
+    }
+
+    /**
+     * 将终态流程实例重置到指定普通人工审批节点。
+     *
+     * @param user       当前用户名
+     * @param instanceId 流程实例主键
+     * @param request    重置目标和审批人
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void reset(String user, Long instanceId, ResetInstanceRequest request) {
+        try {
+            instanceLockMapper.lockById(instanceId);
+            ResetCommand command = new ResetCommand();
+            command.setOperator(support.operator(user));
+            command.setInstanceId(instanceId);
+            command.setTargetNodeCode(request.getTargetNodeCode());
+            command.setHandlers(request.getHandlers());
+            command.setFlowStatus(request.getFlowStatus());
+            FlowEngine.workflow().reset(command);
         } catch (FlowException e) {
             throw BizException.badRequest(e.getMessage());
         }

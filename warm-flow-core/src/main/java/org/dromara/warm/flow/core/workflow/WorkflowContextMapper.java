@@ -81,6 +81,12 @@ final class WorkflowContextMapper {
         return context;
     }
 
+    static WorkflowContext toContext(ResetCommand command) {
+        WorkflowContext context = baseContext(command);
+        context.setFlowStatus(command.getFlowStatus());
+        return context;
+    }
+
     static WorkflowContext toContext(TransferCommand command) {
         WorkflowContext context = baseContext(command);
         context.setMessage(command.getMessage());

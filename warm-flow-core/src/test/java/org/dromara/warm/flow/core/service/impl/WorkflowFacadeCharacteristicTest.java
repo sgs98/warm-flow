@@ -13,6 +13,7 @@ import org.dromara.warm.flow.core.workflow.WorkflowService;
 import org.dromara.warm.flow.core.workflow.command.AddSignerCommand;
 import org.dromara.warm.flow.core.workflow.command.CompleteCommand;
 import org.dromara.warm.flow.core.workflow.command.RejectCommand;
+import org.dromara.warm.flow.core.workflow.command.ResetCommand;
 import org.dromara.warm.flow.core.workflow.command.StartCommand;
 import org.dromara.warm.flow.core.workflow.command.TerminateCommand;
 import org.dromara.warm.flow.core.workflow.command.TransferCommand;
@@ -279,6 +280,24 @@ class WorkflowFacadeCharacteristicTest {
         noSigners.setTaskId(1L);
         FlowException emptySigners = assertThrows(FlowException.class, () -> facade().addSigner(noSigners));
         assertEquals("加签办理人不能为空", emptySigners.getMessage());
+
+        FlowException nullReset = assertThrows(FlowException.class, () -> facade().reset(null));
+        assertEquals("重置流程参数不能为空", nullReset.getMessage());
+
+        ResetCommand noInstance = new ResetCommand();
+        FlowException resetWithoutInstance = assertThrows(FlowException.class, () -> facade().reset(noInstance));
+        assertEquals("流程实例ID不能为空", resetWithoutInstance.getMessage());
+
+        ResetCommand resetNoTarget = new ResetCommand();
+        resetNoTarget.setInstanceId(1L);
+        FlowException resetWithoutTarget = assertThrows(FlowException.class, () -> facade().reset(resetNoTarget));
+        assertEquals("目标节点编码不能为空", resetWithoutTarget.getMessage());
+
+        ResetCommand noHandlers = new ResetCommand();
+        noHandlers.setInstanceId(1L);
+        noHandlers.setTargetNodeCode("apply");
+        FlowException resetWithoutHandlers = assertThrows(FlowException.class, () -> facade().reset(noHandlers));
+        assertEquals("重置审批人不能为空", resetWithoutHandlers.getMessage());
     }
 
     @Test

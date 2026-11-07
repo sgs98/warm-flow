@@ -54,3 +54,11 @@ export function revokeInstance(id: string | number): Promise<void> {
 export function terminateInstance(id: string | number): Promise<void> {
   return httpPost<void>(`/instances/${id}/termination`)
 }
+
+/** 将终态流程实例重置到指定普通人工审批节点。 */
+export function resetInstance(
+  id: string | number,
+  payload: { targetNodeCode: string; handlers: string[]; flowStatus?: string },
+): Promise<void> {
+  return httpPost<void>(`/instances/${id}/reset`, payload)
+}

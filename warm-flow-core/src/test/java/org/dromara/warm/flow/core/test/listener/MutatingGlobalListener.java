@@ -18,6 +18,8 @@ public class MutatingGlobalListener extends RecordingGlobalListener {
      */
     public static Consumer<ListenerVariable> onStart;
 
+    public static Consumer<ListenerVariable> onAssignment;
+
     private static final GlobalListener INSTANCE = new MutatingGlobalListener();
 
     private MutatingGlobalListener() {
@@ -43,5 +45,13 @@ public class MutatingGlobalListener extends RecordingGlobalListener {
         if (onStart != null) {
             onStart.accept(variable);
         }
+    }
+
+    @Override
+    public void assignment(ListenerVariable variable) {
+        if (onAssignment != null) {
+            onAssignment.accept(variable);
+        }
+        super.assignment(variable);
     }
 }
