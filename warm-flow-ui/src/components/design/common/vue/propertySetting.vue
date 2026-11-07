@@ -604,19 +604,61 @@ defineExpose({
 
   .modern-tabs-wrapper {
     margin: 0 -2px 12px;
-    overflow-x: auto;
-    scrollbar-width: none;
+    overflow: hidden;
     /* 属性面板滚动时保持页签可见，切换「基础设置 / 办理人设置」不用先滚回顶部 */
     position: sticky;
     top: 0;
     z-index: 3;
     background: var(--wf-bg-white, #fff);
-    &::-webkit-scrollbar { display: none; }
   }
 
   .modern-tabs {
-    min-width: max-content;
+    width: 100%;
+    min-width: 0;
     gap: 4px !important;
+  }
+
+  .has-tab-overflow .modern-tabs {
+    padding-inline: 28px;
+  }
+
+  .tabs-scroll-control {
+    position: absolute;
+    top: 0;
+    bottom: 1px;
+    z-index: 4;
+    width: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    color: var(--wf-text-regular, #606266);
+    cursor: pointer;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    &.is-left {
+      left: 0;
+      background: linear-gradient(to right, var(--wf-bg-white, #fff) 68%, transparent);
+    }
+
+    &.is-right {
+      right: 0;
+      background: linear-gradient(to left, var(--wf-bg-white, #fff) 68%, transparent);
+    }
+
+    &:hover:not(:disabled) {
+      color: var(--wf-primary, #409eff);
+    }
+
+    &:disabled {
+      opacity: 0.32;
+      cursor: default;
+    }
   }
 
   .modern-tab-item {
@@ -738,6 +780,15 @@ html.dark {
 
     .modern-tabs-wrapper {
       background: var(--wf-bg-color, #141414);
+    }
+
+    .tabs-scroll-control {
+      &.is-left {
+        background: linear-gradient(to right, var(--wf-bg-color, #141414) 68%, transparent);
+      }
+      &.is-right {
+        background: linear-gradient(to left, var(--wf-bg-color, #141414) 68%, transparent);
+      }
     }
 
     /* iOS 填充式输入框：暗黑覆盖 */

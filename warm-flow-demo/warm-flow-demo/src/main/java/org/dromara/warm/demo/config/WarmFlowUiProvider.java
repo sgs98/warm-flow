@@ -52,7 +52,30 @@ public class WarmFlowUiProvider implements NodeExtService, HandlerSelectService,
             .map(button -> option(button.getLabel(), button.getCode(), button.isDefaultShow()))
             .collect(Collectors.toList()));
         tab.setChilds(Collections.singletonList(child));
-        return Collections.singletonList(tab);
+
+        List<NodeExt> tabs = new ArrayList<>();
+        tabs.add(tab);
+        tabs.add(demoTextTab("demoNotify", "通知设置", "通知渠道", "例如：站内信、邮件"));
+        tabs.add(demoTextTab("demoRisk", "风险控制", "风险说明", "填写节点风险控制要求"));
+        tabs.add(demoTextTab("demoArchive", "归档设置", "归档目录", "填写流程资料归档目录"));
+        return tabs;
+    }
+
+    private NodeExt demoTextTab(String code, String name, String label, String desc) {
+        NodeExt tab = new NodeExt();
+        tab.setCode(code);
+        tab.setName(name);
+        tab.setDesc(name + "（Demo 扩展示例）");
+        tab.setType(2);
+
+        NodeExt.ChildNode child = new NodeExt.ChildNode();
+        child.setCode(code);
+        child.setLabel(label);
+        child.setType(1);
+        child.setMust(false);
+        child.setDesc(desc);
+        tab.setChilds(Collections.singletonList(child));
+        return tab;
     }
 
     @Override

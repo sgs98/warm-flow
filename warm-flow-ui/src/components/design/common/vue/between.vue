@@ -2,8 +2,18 @@
   <div class="between">
     <el-form ref="formRef" class="betweenForm" :model="form" label-width="110px" :rules="rules" :disabled="disabled" size="small">
       <!-- 页签区域 -->
-      <div class="modern-tabs-wrapper">
-        <div class="modern-tabs">
+      <div class="modern-tabs-wrapper" :class="{ 'has-tab-overflow': tabsOverflow }">
+        <button
+          v-if="tabsOverflow"
+          type="button"
+          class="tabs-scroll-control is-left"
+          aria-label="向左滚动页签"
+          :disabled="!canScrollTabsLeft"
+          @click="scrollTabs(-1)"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z" fill="currentColor"/></svg>
+        </button>
+        <div ref="tabsScroller" class="modern-tabs" @scroll="updateTabsScrollState" @wheel="handleTabsWheel">
           <div
             v-for="(item, index) in tabsList"
             :key="item.name"
@@ -21,6 +31,16 @@
             <span v-if="index >= 3" class="tab-ext-tag">扩展</span>
           </div>
         </div>
+        <button
+          v-if="tabsOverflow"
+          type="button"
+          class="tabs-scroll-control is-right"
+          aria-label="向右滚动页签"
+          :disabled="!canScrollTabsRight"
+          @click="scrollTabs(1)"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12z" fill="currentColor"/></svg>
+        </button>
       </div>
 
       <!-- 基础设置 -->
@@ -477,6 +497,94 @@ const tabsList = ref([
   { label: "基础设置", name: "1", iconPath: TAB_ICONS.base },
   { label: "办理人设置", name: "2", iconPath: TAB_ICONS.handler },
 ]);
+const tabsScroller = ref(null);
+const tabsOverflow = ref(false);
+const canScrollTabsLeft = ref(false);
+const canScrollTabsRight = ref(false);
+let tabsResizeObserver;
+
+function updateTabsScrollState() {
+  const scroller = tabsScroller.value;
+  if (!scroller) return;
+
+  const style = getComputedStyle(scroller);
+  const controlGutters = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+  const maxScrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+  const intrinsicOverflow = Math.max(0, maxScrollLeft - controlGutters);
+  const tolerance = (parseFloat(getComputedStyle(scroller.parentElement).paddingLeft) || 0) + 1;
+  tabsOverflow.value = intrinsicOverflow > tolerance;
+  canScrollTabsLeft.value = tabsOverflow.value && scroller.scrollLeft > tolerance;
+  canScrollTabsRight.value = tabsOverflow.value && scroller.scrollLeft < maxScrollLeft - tolerance;
+}
+
+function scrollTabs(direction) {
+  const scroller = tabsScroller.value;
+  if (!scroller) return;
+
+  scroller.scrollBy({
+    left: direction * scroller.clientWidth * 0.7,
+    behavior: "smooth",
+  });
+}
+
+function handleTabsWheel(event) {
+  const scroller = tabsScroller.value;
+  if (!scroller || !tabsOverflow.value) return;
+
+  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+  const canScroll = delta < 0 ? canScrollTabsLeft.value : canScrollTabsRight.value;
+  if (!delta || !canScroll) return;
+
+  event.preventDefault();
+  scroller.scrollLeft += delta;
+}
+
+function scrollActiveTabIntoView() {
+  const scroller = tabsScroller.value;
+  const activeTab = scroller?.querySelector(".modern-tab-item.is-active");
+  if (!scroller || !activeTab) return;
+
+  // 用视口坐标相对测量，避免 offsetLeft 受 offsetParent 影响；只在该方向仍可滚动时校正
+  const inset = parseFloat(getComputedStyle(scroller).paddingLeft) || 0;
+  const scrollerRect = scroller.getBoundingClientRect();
+  const tabRect = activeTab.getBoundingClientRect();
+  const maxScrollLeft = scroller.scrollWidth - scroller.clientWidth;
+  let targetLeft = scroller.scrollLeft;
+
+  if (tabRect.left < scrollerRect.left + inset) {
+    targetLeft += tabRect.left - (scrollerRect.left + inset);
+  } else if (tabRect.right > scrollerRect.right - inset) {
+    targetLeft += tabRect.right - (scrollerRect.right - inset);
+  }
+
+  targetLeft = Math.min(Math.max(targetLeft, 0), maxScrollLeft);
+  if (Math.round(targetLeft) !== Math.round(scroller.scrollLeft)) {
+    scroller.scrollTo({ left: targetLeft, behavior: "smooth" });
+  }
+}
+
+watch([tabsValue, () => tabsList.value.length], () => {
+  nextTick(() => {
+    updateTabsScrollState();
+    scrollActiveTabIntoView();
+  });
+}, { flush: "post" });
+
+onMounted(() => {
+  nextTick(() => {
+    updateTabsScrollState();
+    if (tabsScroller.value && typeof ResizeObserver !== "undefined") {
+      tabsResizeObserver = new ResizeObserver(() => {
+        updateTabsScrollState();
+        scrollActiveTabIntoView();
+      });
+      tabsResizeObserver.observe(tabsScroller.value);
+    }
+  });
+});
+
+onBeforeUnmount(() => tabsResizeObserver?.disconnect());
+
 const form = ref(props.modelValue);
 const userVisible = ref(false);
 const framework = getFramework()
