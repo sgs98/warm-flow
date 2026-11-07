@@ -1,25 +1,31 @@
 ---
 name: warm-flow-demo-testing
-description: 使用 Warm-Flow Demo 对流程定义、网关、草稿变量、任务协作、事件与内置定时器做可重复的端到端回归测试；适用于复测流程引擎改动或排查 Demo 流程行为，不替代独立测试仓库的多数据库测试。
+description: Use when 需要通过 Warm-Flow Demo 复测流程定义与版本、实例生命周期与终态重置、网关、任务协作、事件与定时器、权限、变量、监听器或状态映射，或排查 UI、HTTP 与数据库结果不一致。
 ---
 
 # Warm-Flow Demo 流程测试
 
 ## 目标
 
-通过 Demo 的 HTTP API 和数据库活动任务验证真实流程行为，覆盖：发起、草稿、变量、通过、驳回、转办、委托、加签、减签、撤回、终止、抄送，以及排他、并行、包容网关，和事件节点与内置定时器（定时启动 / 中间定时捕获 / 定时边界 / 消息抛出）。测试必须给出每个场景的输入、实际结果、数据库状态和未验证项。
+通过 Demo 的 UI、HTTP API 和数据库状态验证真实流程行为，覆盖定义导入/导出/复制/发布/版本、实例发起/撤回/终止/重置/删除、变量、任务协作与签核、三类网关、事件与内置定时器、权限、状态映射、监听器和自动通过。每个场景必须给出输入、实际结果、UI/HTTP/数据库证据和未验证项；本 Skill 不替代独立测试仓库的多数据库、多 ORM、Spring Boot 3/4 集成测试。
+
+## 信息源与证据合同
+
+发生冲突时依次相信：当前 Controller/Service/Core 实现 → Core 特征测试 → Demo 前端 API/页面 → Demo README → 本 Skill。工作区未提交能力（如当前 reset 改动）必须标记为 `working-tree only`，不能当成已发布行为。
+
+一个场景只有同时拿到 **UI 行为、HTTP 响应、数据库前后状态** 才算验证完成。API 成功不等于流程正确；负例必须保存并比较实例、任务、历史、用户和事件等待五类数据，证明没有部分写入。
 
 ## 测试前检查
 
 1. 阅读仓库根 `AGENTS.md`，再阅读 `warm-flow-demo/README.md` 和 Demo 所在模块规则。
-2. 检查 Demo 启动配置、流程 API、任务 API、`BusinessStatusEnum` 和现有流程定义，不假设固定流程编码或固定节点 ID。
-3. 检查 MySQL/Demo 是否已经运行。优先复用现有环境；不要重建数据库、执行 DROP、批量 DELETE 或清空流程表。
+2. 检查 Demo 启动配置、定义/实例/任务/事件 API、`FlowStatus`、`TaskStatus`、`CooperateType`、`StatusMapper` 和现有流程定义，不假设固定定义、版本、节点或任务 ID。
+3. 检查 MySQL/Demo 是否已经运行。优先复用现有环境；不要重建数据库、执行 DROP、批量 DELETE 或清空流程表。若数据库 MCP/连接失败，将其记为环境阻塞，不能据此断定数据库不存在或无访问权限。
 4. 若需启动 Demo，优先使用未占用端口，例如 `8081`，并记录 URL、数据库和进程会话。
 5. 每条测试使用唯一且不超过 40 个字符的业务号，例如 `WF-D-<unix秒>`；不要把纳秒时间戳、完整日期和长场景名全部拼入业务号。测试创建的数据默认保留，除非用户明确要求清理。
 6. 测事件 / 定时器前，确认 Demo 依赖的 `warm-flow` 版本已包含待测代码：Demo 一般依赖本地 `~/.m2` 的同版本坐标，先在仓库根 `mvn clean install -DskipTests` 安装当前反应堆，再启动 Demo；不要假设 Demo 会自动使用工作区源码。
 7. 测事件 / 定时器前，确认数据库已应用事件结构（`flow_node` 的 `event_type` / `event_name` / `attached_to_node_code` / `interrupting` 四列与 `flow_event_wait` 表）：对已存在的库执行对应版本升级脚本（如 `sql/mysql/v1-upgrade/warm-flow_<version>.sql`），不要重新建库或删表。
-8. 内置定时器默认关闭。启动 Demo 时用启动参数开启，不改 Demo 配置文件，例如 `-Dspring-boot.run.arguments="--warm-flow.timer-enabled=true --warm-flow.timer-scan-interval=1000 --warm-flow.timer-lease-seconds=30"`；启动完成日志应出现「Warm-Flow 内置定时器已启动」，否则定时事件不会触发。
-9. 办理类请求（`pass`/`reject`/`jump`/`terminate`/转办/委托/加减签）必须带请求头 `X-User-Name`，只带 body 里的 `user` 字段不够（Demo 按请求头装配 `PermissionHandler`）；发起用 `admin`，办理用节点办理人。
+8. 定时器开关以当前 profile 与实际启动参数为准：仓库默认 `application.yml` 将 `warm-flow.timer-enabled` 设为 `true`，Core 默认值可能不同。启动后检查有效配置和「Warm-Flow 内置定时器已启动」日志，不要为了开启功能重复覆盖配置；扫描间隔可在隔离测试环境通过启动参数调整。
+9. 办理类请求同时带 `X-User-Name` 和 body `user`，通常保持一致。Demo 的 `PermissionHandler` 从请求头上下文提供授权权限，但部分 `TaskAppService` 命令以 body `user` 构造 OperatorContext；两者不一致时分别核对授权结果和历史审计操作者，不能假定其中一个同时决定两者。发起用 `admin`，办理用节点办理人。
 
 ## 内置流程定义（复测数据从哪来）
 
@@ -34,15 +40,16 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 | `demo_event_risk_wait` | 消息启动（`order.paid`）+ 消息捕获（`risk.result`） |
 | `demo_event_cooldown` | 定时捕获 + 消息抛出（`membership.cancelled`） |
 | `demo_event_pay_fail` | 错误边界 + 判定型监听器抛错（`payAmount` 超限 1000） |
-| `demo_event_daily_check` | 定时启动 + 终止结束打断并行分支（`veto=1`；`veto=0` 正常汇聚）；定时启动节点带默认变量 `veto=0`/`channel=daily`（触发时并入实例变量） |
+| `demo_event_daily_check` | 定时启动（每日 09:00，Asia/Shanghai）+ 终止结束打断并行分支（需确认 `veto` 变量来源后再测分支）；该 JSON 未配置 `veto=0`/`channel=daily` 默认值 |
 | `demo_event_notify` | 消息启动（`membership.cancelled`），由 `demo_event_cooldown` 抛出的消息驱动 |
+| `demo_timer_start` | 30 秒后定时启动；TIMER_START 默认变量 `veto=0`、`channel=daily` |
 
 维护约定：
 
 - 导出文件名形如 `流程编码_版本号.json`；**收进仓库时去掉版本后缀**，一个 flowCode 只保留最新一份文件，文件名必须等于 `flowCode`（改名时同步改文件里的 `flowCode` / `flowName`）。
 - 文件里的 `version` 是导出快照；导入时引擎按同编码递增重新编号，不要手改它来「控版本」。
 - 发布同一 `flowCode` 的新版本会把旧版本转为未发布（已被实例用过则转为已失效），并重建该版本的 `TIMER_START` 定义级等待；删除定义会级联清理节点 / 连线 / 定义级等待，但**已被实例使用的定义会被拒绝删除**。
-- 整理脚本：`CONFIRM=YES bash scripts/reimport-definitions.sh`（导出备份 → 全删 → 按 json 目录逐个导入并发布；存在流程实例时拒绝执行）。默认打 `http://localhost:8080`，可用 `BASE=` / `JSONDIR=` / `DUMPDIR=` 覆盖。
+- 整理脚本属于破坏性操作，只有用户明确批准后才能执行：`CONFIRM=YES bash scripts/reimport-definitions.sh`（导出备份 → 全删 → 按 json 目录逐个导入并发布；存在流程实例时拒绝执行）。默认打 `http://localhost:8080`，可用 `BASE=` / `JSONDIR=` / `DUMPDIR=` 覆盖；仅编辑或验证本 Skill 不构成执行授权。
 
 ## 核心测试顺序
 
@@ -52,7 +59,7 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 
 - 发起时不填写审批说明，确认请求成功。
 - 带 `variables` 发起，确认实例详情能完整回显变量。
-- 确认实例为 Demo 业务状态 `draft`，启动历史任务为 `pass`，首节点任务可继续办理，且没有提前生成后续审批节点。
+- 确认实例为 Demo 业务状态 `draft`，启动历史任务为 `pass`，首节点活动任务为 `pending` 且可继续办理，且没有提前生成后续审批节点。实例状态与任务状态是两个独立维度，不能都断言成 `draft`。
 - 关闭/不提交首节点后，重新从实例列表打开，确认仍能继续办理。
 
 ### 2. 普通办理与网关
@@ -84,7 +91,7 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 事件节点统一用 `BETWEEN`（`node_type=1`）承载，事件类型持久化在 `flow_node.event_type`，定时参数在 `node_config` 的 `event` 段（`timerType` = `AFTER`/`FIXED`/`POINT_IN_TIME`，`timerValue` 为 ISO-8601 时长或时间点）。**节点默认变量**是 `node_config` 顶层的 `variables`（任何节点都能配，旧写法 `event.variables` 自动回落兼容）：发布时随等待记录落 `payload`，触发时并入实例变量，办理传入的同名变量优先。事件不生成办理任务；需要等待的事件落一行 `flow_event_wait`，由内置定时器或消息回调推进。定时是异步的：断言前按扫描间隔等待（sleep ≥ 定时时长 + 1~2 个扫描间隔），不要立即断言。
 
 - 定时捕获（`TIMER_CATCH`）：`开始 → 人工A → 定时捕获(AFTER PT3S) → 人工B → 结束`。办理人工A 后应生成 1 行 `flow_event_wait`（`WAITING`/`TIMER_CATCH`，`next_trigger_at ≈ now+3s`），且**活动待办为空**（实例停在事件节点）；到期后等待行被删除（Demo 为物理删除模式，行直接消失；引擎逻辑删除模式下为 `del_flag='1'`）、生成人工B 待办、历史含人工A。
-- 定时启动（`TIMER_START`）：`开始 → 定时启动事件(AFTER PT3S) → 人工 → 结束`。**发布定义时**即生成定义级等待行（`instance_id` 为空）；手动发起应被拒绝（提示"该流程由启动事件触发，不支持手动启动"）；到期后引擎自动创建实例（`business_id` 形如 `T<等待行id>_<毫秒>`）并生成首个待办。**实例状态应为审批中**（demo `waiting`，内置码 1，不是 `draft`）——定时启动没有发起人提交环节；节点默认变量（如 `demo_event_daily_check` 的 `veto=0`/`channel=daily`）应并入实例变量，后续条件网关不因变量缺失报「跳转条件不能为空」。
+- 定时启动（`TIMER_START`）：使用实际已发布的定时启动夹具。**发布定义时**即生成定义级等待行（`instance_id` 为空）；手动发起应被拒绝；到期后引擎自动创建实例并生成首个待办。**实例状态应为审批中**（Demo `waiting`，不是 `draft`）。检查实际夹具的默认变量：当前 `demo_timer_start` 为 AFTER PT30S 且配置 `veto=0`/`channel=daily`；`demo_event_daily_check` 为每日 09:00 定时启动，JSON 未配置这两个默认值。
 - 定时边界（`TIMER_BOUNDARY`，第一阶段必须为中断型 `interrupting=true`，`attached_to_node_code` 指向宿主任务节点）：`开始 → 人工A(+定时边界 AFTER PT3S → 人工C) → 结束`。发起后除人工A 待办外还应有 1 行边界等待（`attached_task_id` = 人工A 的任务id）；不办理人工A 直到到期，应中断人工A（历史 `flow_status=10` 失效，`message` 为定时边界中断提示）并生成人工C 待办。
 - 消息抛出 / 结束（`MESSAGE_THROW`/`MESSAGE_END`）：`人工A → 消息抛出 → 结束`。宿主未注册 `EventPublisher` 时到达即告警跳过发布但**继续推进**，不得阻塞流程；核对实例到达后续节点而非卡死。`MESSAGE_END` 到达时另写一条结束事件留痕历史（见下「结束事件留痕」）。
 - 消息捕获（`MESSAGE_CATCH`）：`开始 → 人工A → 消息捕获(eventName=X) → 人工B → 结束`。办理人工A 后生成 `WAITING/MESSAGE_CATCH`（`event_name=X`）、无活动待办；`GET /api/instances/{id}/events` 能查到；`POST /api/instances/{id}/messages {eventName:X}` 触发，消息名不符应被拒绝（流程不变），命中后生成人工B。触发时带的 `payload` 必须并入实例变量（核对 `flow_instance.variable`），并落库到 `flow_event_wait.payload`（Demo 物理删除模式下触发成功后该行被物理删除；引擎逻辑删除模式下该行 `del_flag='1'` 且载荷保留，供重试/租约恢复读取）——只看接口成功、流程是否推进不足以发现载荷被静默丢弃。
@@ -92,9 +99,37 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 - 错误捕获（`ERROR_CATCH`）：`开始 → 人工A → 错误捕获(eventName=P001) → 人工B → 结束`。办理人工A 后生成 `WAITING/ERROR_CATCH`（`event_name` 为错误码，空=通配）；`POST /api/instances/{id}/errors {errorCode}`，错误码不匹配返回「流程错误未被捕获」且流程不变，命中后生成人工B。
 - 错误边界（`ERROR_BOUNDARY`）：人工A 挂错误边界（`attachedToNodeCode`=人工A、`interrupting=true`、`eventName`=错误码）→ 人工C。发起后除人工A 待办外生成边界等待（`attached_task_id`）；`POST /api/tasks/{taskId}/errors {errorCode}` 命中后中断人工A（历史 `flow_status=10`）并生成人工C。另有**监听器判定变体**：人工A 挂 `create` 事件监听器，监听器读流程变量命中时调 `TaskService.throwError`，则人工A 不产生待办即被中断、直接进边界出口（demo `demo_event_pay_fail` 用 `payAmount` 超限 1000）。判定型监听器不要挂 `start`/`finish` 事件，否则链尾找不到任务而报错（见 regression-cases）。
 - 消息启动（`MESSAGE_START`）：`开始 → 消息启动(eventName=X) → 人工 → 结束`。发布后该流程**不能手动发起**，由 `POST /api/instances/message {flowCode,businessId,eventName,variables}` 创建实例（消息名与节点 `eventName` 不符应被拒绝）；它不落 `flow_event_wait`，核对重点是实例由消息创建且后继待办生成（现成定义：`demo_event_risk_wait` 的 `order.paid`、`demo_event_notify` 的 `membership.cancelled`）。
-- 终止结束（`TERMINATE_END`）：节点到达即把实例状态置为**终止**（demo 映射 `termination`，内置码 4；普通完成与消息结束仍是「已完成」），**并行分支上其它活动待办按「失效」归档**（历史 `flow_status=10`，`message` 为「流程结束时待办未办理，自动失效」）。复测用 `demo_event_daily_check`：办理「风控否决判定」时带 `veto=1`，质检分支任务应被失效归档、实例状态为终止；带 `veto=0` 时两分支正常汇聚、实例为已完成。
+- 终止结束（`TERMINATE_END`）：节点到达即把实例状态置为**终止**（Demo 映射 `termination`；普通完成与消息结束仍是「已完成」），并将并行分支上其它活动待办按「失效」归档。复测 `demo_event_daily_check` 的 `veto=1/0` 分支前，先确认发布定义中 `veto` 的输入来源；该夹具没有 JSON 节点默认值，不能从 `demo_timer_start` 推断其变量配置。
 - 结束事件留痕：`TERMINATE_END` / `MESSAGE_END` 到达时在 `flow_his_task` 写一条**结束事件留痕**——`task_id=0` 哨兵、`flow_status=8`（结束；demo 自定义映射下落业务码 `pass`，时间线标签显示「通过」，「结束」语义由 message 承载）、办理人为系统兜底，`message` 区分「流程由该终止结束事件终止」与「流程由该结束事件节点结束」；按 `node_code` 可筛出异常终止的实例。断言终态场景时别忘了核对这条记录的存在与文案。
 - 边界校验：事件节点的能力门禁在发布时校验（`DefServiceImpl.publish`），草稿保存不校验运行时能力；启动类事件与固定 `START` 的一致性、边界事件必须绑定宿主节点等结构规则在发布时报错。
+
+### 5. 定义与版本生命周期
+
+- 覆盖导入、导出、复制、发布、自动通过开关和替代版本，不只验证发起链路。删除会不可逆清理定义数据，只能在隔离测试环境且获得本次明确批准后验证；否则标记 blocked。定义挂起/恢复仅在当前 Demo 实际提供对应 UI/API 时执行，否则标记 unsupported/blocked。
+- 导出再导入后，新定义必须是新 ID、未发布版本；节点、连线、事件、监听器、变量和配置不能丢失。非法 JSON 或非法图必须失败且不产生半套 definition/node/skip 数据。
+- 发布态或过期态的 UI 编辑入口与服务端强制校验必须一致；隐藏按钮不是权限或状态校验。
+- 定义复制后修改/发布副本不得影响源定义；自动通过开关同时核对 `def_config.autoPass`、新任务状态和历史 `auto_pass`。
+- 替代发布时按定义 ID 核对 `TIMER_START` 等待的创建、取消与重建；删除仅在获批隔离环境验证。挂起/恢复仅当当前 Demo 暴露对应操作时验证。
+
+### 6. 终态实例重置（working-tree only，直到能力正式提交）
+
+仅当当前 Controller 确实暴露 `POST /api/instances/{id}/reset` 时执行。请求指定同一实例定义快照内的普通人工 `BETWEEN` 节点和一个或多个审批人；事件型 BETWEEN、开始/结束、网关、服务任务、快照外或跨定义节点全部拒绝。
+
+- 正例分别准备 `finish`、`termination`、`invalid`，且实例无活动任务；重置后只新增一个 `pending` 当前任务，实例默认进入 `StatusMapper(WAITING)`，历史任务逐字段不变。
+- `handlers` 用 Demo 权限格式提交（如 `user:approver1`），核对 `PermissionHandler` 归一化、去空和去重后 `flow_user` 落具体可办理用户；会签、或签、票签、顺序签属于人工节点协作模式，仍是合法目标。
+- 显式传 `flowStatus` 时核对实例使用调用方状态；省略时必须回落 waiting 映射。UI 示例默认省略此字段。
+- 重置到带默认变量、监听器、自动抄送和边界事件的人工节点时，核对旧等待取消、目标边界等待重建、默认变量只补缺失键、assignment/create 顺序、抄送和流程图 TODO 标记。
+- 负例覆盖非终态、仍有活动任务、空参数、定义/实例挂起和所有非法目标；调用前后比较实例、任务、历史、用户、等待，证明事务没有部分写入。
+- 同实例并发发两个 reset 请求，Demo 必须依靠事务内行锁串行化；最终恰好一个请求成功、一个因已有活动任务失败，且只有一份任务和办理人。单线程连续调用不能替代并发证明。
+- Demo 没有作废入口时，`invalid` 正例标记为 core-only 或使用用户明确批准的专用夹具；不得直接改共享库伪造状态。
+
+### 7. 权限、状态、变量、监听器与自动通过
+
+- 权限同时验证 admin/approver1/approver2/approver3、bare username、`user:`、部门/父部门、未知用户和缺请求头；请求头提供授权权限，body `user` 在部分命令中构造 OperatorContext/审计身份。不一致时分别断言“是否授权”和“记录谁”，不能预设必然拒绝或把 body 用户视为授权凭证。
+- 状态按四个维度分别断言：实例 `FlowStatus`、任务/历史 `TaskStatus`、协作 `CooperateType`、事件等待状态。自定义 `StatusMapper` 下用数据库原始码、API label 和 UI fallback 三方核对，不能硬编码默认字符串。
+- 节点默认变量只补缺失键，调用方同名值优先；消息、错误、定时和 reset payload/默认值都要验证合并后类型和值。
+- 监听器至少核对 start/assignment/finish/create；assignment 对变量或办理人的修改必须在 `flow_user` 落库前生效，监听器异常进入错误边界或整笔事务回滚。
+- 自动通过启用后历史状态为 `auto_pass`；关闭后恢复普通 `pending`。链路最多 100 步，驳回目标和顺序会签不自动通过，会签只能处理当前人的一票。
 
 ## 数据库核对
 

@@ -1,4 +1,4 @@
 interface:
-  display_name: "Warm-Flow Demo 流程测试"
-  short_description: "使用 Warm-Flow Demo 验证流程、网关和任务协作"
-  default_prompt: "请使用 $warm-flow-demo-testing 对当前 Warm-Flow Demo 做一次完整流程回归测试。"
+  display_name: "Warm-Flow Demo 全栈回归测试"
+  short_description: "验证定义、实例、重置、协作、事件、权限与状态"
+  default_prompt: "请使用 $warm-flow-demo-testing 对当前 Warm-Flow Demo 执行可重复回归：先读仓库规则并记录 commit/dirty 状态，动态发现可用定义、用户、事件夹具、配置和环境；明确本轮可执行与阻塞的测试族，使用不超过 40 字符的唯一业务号，不清库、不做物理删除；每次流转后重查活动任务和事件等待，同时收集 UI、HTTP、数据库前后证据；权限验证区分请求头授权身份与 body 操作者/审计身份；将产品缺陷、环境/夹具阻塞、working-tree-only 能力和文档漂移分开报告。未实际覆盖请求的测试族标为 BLOCKED/NOT VERIFIED，不得称为完整回归。"

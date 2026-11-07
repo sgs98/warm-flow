@@ -1,6 +1,6 @@
 # 回归问题记录
 
-只记录可复现、可泛化的回归点；不要记录临时实例 ID。
+只记录可复现、可泛化的回归点；不要记录临时实例 ID。新增条目至少写清：不变量、最小拓扑与前置条件、复现动作、API/UI 期望、数据库必查、禁止状态、代码/特征测试锚点、适用范围和最近验证环境。一次性故障现场留在测试报告，不写入本文件。
 
 ## 并行/包容汇聚不能使用流程图历史状态
 
@@ -41,8 +41,15 @@
 
 - 症状：启动接口成功，但 `flow_instance.flow_status` 被首节点任务状态写成 `pass`，草稿实例无法按业务状态展示。
 - 根因：启动阶段复用了更新当前节点的公共逻辑，首任务状态参与了实例状态更新。
-- 检查：启动后应为实例 `draft`、开始历史任务 `pass`、首节点活动任务可继续办理；首次办理后实例再进入 `waiting`。
+- 检查：启动后应为实例 `draft`、开始历史任务 `pass`、首节点活动任务 `pending` 且可继续办理；首次办理后实例再进入 `waiting`。实例和任务是独立状态维度，不能都断言为 `draft`。
 - 处理：启动保存阶段保护调用方指定的实例状态，不扩大公共任务状态接口的职责。
+
+## 实例、任务、协作和事件状态必须分维度验证
+
+- 不变量：`FlowStatus`、`TaskStatus`、`CooperateType` 与事件等待状态是四套契约；宿主 `StatusMapper` 可独立映射实例、任务与协作编码。
+- 检查：发起、办理、自动通过、终止、重置和协作场景同时核对 DB 原始编码、API label 与 UI fallback；新发起是 instance=`draft`、task=`pending`，自动通过历史是 `auto_pass`。
+- 禁止：用任务状态推断实例终态、硬编码默认状态字符串验证自定义映射、未知状态导致列表崩溃或空白。
+- 处理：状态断言锚定当前 mapper 与 DTO 投影，UI 对未知值提供稳定原值 fallback。
 
 ## 包容网关无条件出口与条件出口独立判断
 
@@ -75,6 +82,13 @@
 - 根因：`OperatorContext` 不再暴露 `permissions`，`WorkflowContext` 的权限只来自全局 `FlowEngine.permissionHandler()`。Demo 按请求确定操作者，若全局处理器拿不到当前用户，权限集合为空，`TaskServiceImpl.checkAuth` 与 `FlowUpdateHandlersChain.authGate` 直接判无权限。
 - 检查：Demo 侧按请求写入当前用户（`X-User-Name` 拦截器 → `DemoUserContext` → `DemoPermissionHandler.permissions()` 返回该用户的 `permissionFlags`）；curl 复测必须带 `X-User-Name`，只带 body 里的 `user` 字段不够。
 - 复测要求：修复后按矩阵重跑通过/驳回/终止/转办/委派/加减签；仅验证发起与撤回不足以证明办理链路可用。
+
+## 请求头与 body 操作者不一致不能越权
+
+- 不变量：Demo 的授权权限来自 `X-User-Name` 请求上下文；部分命令的 OperatorContext/历史审计操作者来自 body `user`。二者必须分别验证，不能互相替代。
+- 复现：在隔离测试环境中让请求头与 body `user` 分别使用有权限和无权限身份，直接调用 pass/reject/terminate/transfer/depute/add-signature/reduction-signature。
+- 检查：断言授权只受请求头 permissions 控制；历史审计字段按当前命令构造路径核对是否记录 body 操作者；所有拒绝操作的实例、任务、历史、用户、等待五类数据前后完全一致。UI 隐藏按钮不能作为唯一鉴权证据。
+- 处理：权限负例始终直调 API，并把“是否允许办理”和“记录哪个操作者”拆成两个断言；请求头/body 不一致不是预设必拒条件。
 
 ## 排他网关条件变量缺失时抛错而非走无条件兜底
 
@@ -180,6 +194,44 @@
 
 - 症状：定时启动定义到期后自动创建实例，`flow_instance.flow_status` 落成 `draft`（待提交），待办列表与业务侧按「草稿」过滤的查询看不到这单。
 - 根因：定时启动没有发起人提交环节，实例状态沿用了普通发起链的初始「待提交」语义。
-- 检查：定时启动触发生成首个待办后，实例状态应为**审批中**（demo `waiting`，内置码 1）；节点默认变量（如 `demo_event_daily_check` 的 `veto`/`channel`）应已并入 `flow_instance.variable`。
+- 检查：定时启动触发生成首个待办后，实例状态应为**审批中**（Demo `waiting`）；检查实际夹具配置的节点默认变量。当前 `demo_timer_start` 配置 `veto=0`/`channel=daily`，而 `demo_event_daily_check` 的每日定时启动节点没有这些默认值。
 - 边界区分：手动发起的草稿实例仍是 `draft`，两条路径语义不同属设计如此；不要以「发起后应统一为草稿」为由改回。
 - 处理（已修复）：`EventRuntimeHandler.timerStart` 触发时把实例状态置为审批中；core 特征测试 `EventRuntimeCharacteristicTest` 守护实例状态与默认变量两项断言。
+
+## 终态实例重置不变量（working-tree only，直到能力正式提交）
+
+### 只允许三种终态且实例不能有现存待办
+
+- 不变量：只有映射后的 `FINISHED`、`TERMINATE`、`INVALID` 可重置；定义和实例必须激活；实例没有活动任务。
+- 负例：draft/waiting/cancel/back、自定义其它终态，以及“终态但仍有任务”全部拒绝。
+- 必查：调用前后 `flow_instance`、`flow_task`、`flow_his_task`、`flow_user`、`flow_event_wait` 快照完全一致，不能为了重置先静默删除旧任务。
+
+### 目标必须属于实例快照的普通人工节点
+
+- 不变量：目标属于同一实例 `def_json` 快照，是 `BETWEEN` 且 `eventType` 为空；会签、或签、票签、顺序签是合法人工协作模式。
+- 负例：定义后来新增但快照没有的节点、另一版本/定义、start/end/gateway/service/event 全部拒绝。
+- 必查：失败不改变实例当前位置、状态、历史、任务、用户或等待。
+
+### 显式审批人必须归一化且旧历史逐字段不变
+
+- 不变量：handlers 经 `PermissionHandler.convertPermissions` 后再次过滤空值和去重；最终至少一名具体用户。reset 只新增当前任务/用户，不重写或补造旧历史。
+- 必查：新任务为 `pending`；`flow_user.processed_by` 是具体用户名；重置前后旧历史的 id/taskId/status/approver/collaborator/message/timestamps/variables 全等。
+- 负例：空列表、全空白、转换后为空、重复标识和未知权限按当前校验明确处理，不得成功后留下无办理人任务。
+
+### 正常到达副作用必须完整恢复
+
+- 不变量：旧活动等待取消；目标节点边界等待绑定新 taskId 重建；节点默认变量只补缺失键；assignment 在办理人落库前执行，create 随后执行；自动抄送和流程图 TODO 与正常到达一致。
+- 必查：监听器/持久化任一步失败时整笔回滚，不留 task/user/wait/instance 部分写入；旧历史仍不变。
+- 代码锚点：reset 编排应复用正常边界等待、默认变量、监听器、抄送和 chart 语义，而不是 Demo 单独补偿。
+
+### 可选 flowStatus 必须有稳定回落
+
+- 不变量：调用方显式传值时写入该实例状态；未传或空值时使用 `StatusMapper.instanceStatus(WAITING)`。
+- 必查：默认 mapper 与自定义 mapper 各一例；任务状态仍是 `pending`，不得被实例自定义状态污染。
+
+### 同实例并发重置只能有一个赢家
+
+- 不变量：宿主事务内对实例行加锁并覆盖“检查无活动任务→创建任务/用户→更新实例”的完整区间。
+- 复现：两个独立事务同时 reset 同一终态实例，不能用单线程顺序调用替代。
+- 必查：恰好一个成功，另一个在获得锁后看到新任务并拒绝；最终只有一份活动任务、一组审批用户、一次实例更新，旧历史无变化。
+- Demo 锚点：`SELECT ... FOR UPDATE` 必须在 `@Transactional` 方法内、调用引擎 facade 之前执行；Spring 事务本身不等于并发串行化。
