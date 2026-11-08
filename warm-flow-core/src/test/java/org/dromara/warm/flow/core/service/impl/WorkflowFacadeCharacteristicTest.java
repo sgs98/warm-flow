@@ -14,6 +14,7 @@ import org.dromara.warm.flow.core.workflow.command.AddSignerCommand;
 import org.dromara.warm.flow.core.workflow.command.CompleteCommand;
 import org.dromara.warm.flow.core.workflow.command.RejectCommand;
 import org.dromara.warm.flow.core.workflow.command.ResetCommand;
+import org.dromara.warm.flow.core.workflow.command.RestartCommand;
 import org.dromara.warm.flow.core.workflow.command.StartCommand;
 import org.dromara.warm.flow.core.workflow.command.TerminateCommand;
 import org.dromara.warm.flow.core.workflow.command.TransferCommand;
@@ -185,6 +186,37 @@ class WorkflowFacadeCharacteristicTest {
         taskCmd.setOperator(operator(TestFlows.HANDLER));
         WorkflowResult taskResult = facade().terminate(taskCmd);
         assertEquals(FlowStatus.TERMINATE.getKey(), taskResult.getFlowStatus());
+    }
+
+    @Test
+    void restart_primaryApiAndLegacyResetAliasKeepTheirOperationNames() {
+        Instance primary = TestFlows.start("wfc-restart", "biz-wfc-restart");
+        TestFlows.pass(TestFlows.currentTask(primary.getId()).getId(), TestFlows.HANDLER);
+        RestartCommand restart = new RestartCommand();
+        restart.setInstanceId(primary.getId());
+        restart.setTargetNodeCode("apply");
+        restart.setHandlers(List.of("lisi"));
+        restart.setOperator(operator(TestFlows.HANDLER));
+
+        WorkflowResult restartResult = facade().restart(restart);
+
+        assertEquals("restart", restartResult.getOperation());
+        assertTrue(FlowEngine.hisTaskService().getByInsId(primary.getId()).stream()
+            .anyMatch(item -> TaskStatus.RESTART.getKey().equals(item.getFlowStatus())));
+
+        Instance legacy = TestFlows.start("wfc-reset-alias", "biz-wfc-reset-alias");
+        TestFlows.pass(TestFlows.currentTask(legacy.getId()).getId(), TestFlows.HANDLER);
+        ResetCommand reset = new ResetCommand();
+        reset.setInstanceId(legacy.getId());
+        reset.setTargetNodeCode("apply");
+        reset.setHandlers(List.of("wangwu"));
+        reset.setOperator(operator(TestFlows.HANDLER));
+
+        WorkflowResult resetResult = facade().reset(reset);
+
+        assertEquals("reset", resetResult.getOperation());
+        assertTrue(FlowEngine.hisTaskService().getByInsId(legacy.getId()).stream()
+            .anyMatch(item -> TaskStatus.RESTART.getKey().equals(item.getFlowStatus())));
     }
 
     @Test

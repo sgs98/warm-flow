@@ -4,7 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.ApiResponse;
 import org.dromara.warm.demo.dto.PageQuery;
-import org.dromara.warm.demo.dto.ResetInstanceRequest;
+import org.dromara.warm.demo.dto.RestartInstanceRequest;
 import org.dromara.warm.demo.dto.StartInstanceRequest;
 import org.dromara.warm.demo.service.InstanceAppService;
 import org.dromara.warm.demo.vo.HistoryVo;
@@ -134,18 +134,18 @@ public class InstanceController {
     }
 
     /**
-     * 将终态流程实例重置到指定普通人工审批节点。
+     * 将终态流程实例重启到指定普通人工审批节点。
      *
      * @param user    当前用户名
      * @param id      流程实例主键
-     * @param request 重置目标和审批人
+     * @param request 重启目标和审批人
      * @return 空响应
      */
-    @PostMapping("/instances/{id}/reset")
-    public ApiResponse<Void> reset(@RequestHeader("X-User-Name") String user,
-                                   @PathVariable("id") Long id,
-                                   @Valid @RequestBody ResetInstanceRequest request) {
-        instanceAppService.reset(user, id, request);
+    @PostMapping("/instances/{id}/restart")
+    public ApiResponse<Void> restart(@RequestHeader("X-User-Name") String user,
+                                     @PathVariable("id") Long id,
+                                     @Valid @RequestBody RestartInstanceRequest request) {
+        instanceAppService.restart(user, id, request);
         return ApiResponse.ok();
     }
 }

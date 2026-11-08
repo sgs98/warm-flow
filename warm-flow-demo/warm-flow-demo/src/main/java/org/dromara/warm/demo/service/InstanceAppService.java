@@ -1,7 +1,7 @@
 package org.dromara.warm.demo.service;
 
 import org.dromara.warm.demo.dto.PageQuery;
-import org.dromara.warm.demo.dto.ResetInstanceRequest;
+import org.dromara.warm.demo.dto.RestartInstanceRequest;
 import org.dromara.warm.demo.dto.StartInstanceRequest;
 import org.dromara.warm.demo.vo.HistoryVo;
 import org.dromara.warm.demo.vo.InstanceVo;
@@ -89,11 +89,11 @@ public interface InstanceAppService {
     void termination(String user, Long instanceId);
 
     /**
-     * 将终态流程实例重置到指定普通人工审批节点。
+     * 将终态流程实例重启到指定普通人工审批节点。
      *
      * @param user       当前用户名
      * @param instanceId 流程实例主键
-     * @param request    重置目标和审批人
+     * @param request    重启目标和审批人
      */
-    void reset(String user, Long instanceId, ResetInstanceRequest request);
+    void restart(String user, Long instanceId, RestartInstanceRequest request);
 }

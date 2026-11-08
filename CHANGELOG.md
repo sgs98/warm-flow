@@ -19,6 +19,8 @@
 - 修复撤回发起人校验漏判 `ignore`：`FlowRevokeChain` 原先只认 `ignorePermission`，用 `ignore`（系统内部调用 / 超管代撤销）时仍会因 `handler != createBy` 抛「非发起人不能撤回」；现与 `checkAuth` / `authGate` 口径一致，`ignorePermission` 或 `ignore` 均跳过发起人校验。
 - 修复跳过权限仍强制访问 `PermissionHandler`：门面上下文（`WorkflowContextMapper`）原先无论是否忽略权限都会调用 `getHandler()` / `permissions()`，导致定时任务、任务补偿等无登录态的系统调用即便设了 `ignorePermission` 也会被宿主的未登录异常阻断。现 `ignore=true` 完全不接触 `PermissionHandler`、`ignorePermission=true` 只跳过权限集合；两种情况下 `handler` 为空都回落 `warm-flow.system-handler`（默认 `system`，新增常量 `FlowCons.DEFAULT_SYSTEM_HANDLER`），修复系统调用历史 `approver` / 实例 `createBy` 为空；`WorkflowContext.create(...)` 也补齐引擎未初始化时的空指针兜底。
 - 修复重复型定时事件「累计失败」被误判死亡：`reschedule`（MyBatis / MyBatis-Plus / 测试内存 DAO 三处）在成功重排期时清零 `retry_count`，避免 `FIXED` / `POINT_IN_TIME` 事件把历史上的零散失败累加，够 4 次就永久转 `DEAD`；已 `DEAD` 的记录仍需 `reviveEvent` 手动恢复。
+- 新增终态实例重启：门面 `WorkflowService#restart(RestartCommand)` 将 `FINISHED` / `TERMINATE` / `INVALID` 实例恢复到指定普通人工节点；原 `reset(ResetCommand)` 标记 `@Deprecated` 保留，结果操作名仍为 `reset`。
+- 新增 `TaskStatus.RESTART`（`restart` /「重启」）。每次成功重启写一条 `flow_his_task` 审计：`task_id=-1` 哨兵（四套脚本该列均为非空）、来源节点为重启前实例节点、目标节点为重启目标、办理人为操作人、`skipType=NONE`；显式 `taskStatus` 优先，`StatusMapper.taskStatus(RESTART)` 返回 null 时回落内置 `restart`，不会把 null 写入非空列。
 
 ### 设计器
 
@@ -31,19 +33,22 @@
 - 定时任务页对 `DEAD` 记录新增「复活」操作，接口 `POST /api/event-waits/{id}/revive`，二次确认后刷新列表。
 - 审批历史与任务列表的状态字段收口为任务维度：`HistoryVo` / `TaskVo` 移除 `flowStatusKey`、`flowStatusName`、`businessStatus`、`businessStatusName` 四个混用字段，统一改为 `taskStatus` + `taskStatusName`；`WorkflowSupport` 的待办 / 已办 / 抄送 / 历史组装不再把实例状态塞进任务字段（抄送列表仍按页面语义显示所属实例状态，并在 javadoc 注明）。
 - `InstanceVo` 移除与 `flowStatusKey` 同值的 `businessStatus` / `businessStatusName`，实例状态只保留 `flowStatusKey` / `flowStatusName` 一对字段；前端 `types/workflow.ts` 与实例列表、详情、待办、已办、抄送、仪表盘、事件测试等页面同步改引用，状态标签颜色新增 `pending`（待审批）档。
+- 实例监控页「重置流程」统一改为「重启流程」，接口改为 `POST /api/instances/{id}/restart`，请求 DTO 与后端方法同步更名；弹窗提示重启后保留旧历史并新增一条重启记录。
 - 移除 `WorkflowSupport#isResubmittableStatus`：实例是否停在申请节点由前端按实例状态（`draft` / `back` / `cancel`）判断，后端不再按任务状态推导实例语义。
 
 ### 数据库
 
 - 无表结构变更，不需要执行升级脚本。已按 2.1.0 落库的宿主若存在被污染的存量数据（`flow_task.flow_status` 落成 `waiting` 等实例码），可自行按实例状态回填修正；新发起的流程不再产生。
-- 四套全量脚本中 `flow_his_task.flow_status` 的列注释仍写着 2.1.0 的「唯一例外是撤回归档写 cancel」，本版语义调整后该例外已不成立（撤回归档为 `back`，实际例外是终止归档的 `termination`）；因仅涉及注释文案，未随本版改动脚本，留待下一版一并纠正。
+- 四套全量脚本中 `flow_his_task.flow_status` 的列注释仍写着 2.1.0 的「唯一例外是撤回归档写 cancel」，本版语义调整后该例外已不成立（撤回归档为 `back`，实际例外是终止归档的 `termination`）；因仅涉及注释文案，未随本版改动脚本，留待下一版一并纠正。本版新增的 `restart` 业务码同样未写入列注释。
+- 重启审计复用 `flow_his_task`，`task_id` 使用 `-1` 哨兵，不新增表、字段或索引，无升级脚本。
 
 ### 升级提示
 
 - 行为变更（任务状态维度）：新建待办的 `flow_task.flow_status` 不再跟随实例状态，定时启动等自动发起链路的首个待办由 `waiting` 变为 `pending`；`flow_his_task.flow_status` 只记任务维度编码（`pass` / `back` / `invalid` / `take_back` / `copy` / 协作动作码），唯一例外是终止归档仍写实例终态码 `termination`。宿主若曾按 `waiting` 查待办或按 `cancel` 查撤回归档，请分别改查 `pending` 与 `back`，实例进展一律读 `flow_instance.flow_status`。
 - 新增能力：事件等待记录支持手工复活，只允许 `DEAD → WAITING`，自实现 `FlowEventWaitDao` 的宿主不实现 `revive` 时仅调用复活会抛「未适配事件等待复活」，其余功能不受影响。
 - 提醒（定时任务 `DEAD`）：判定口径为同一条等待记录的失败次数超过 `timer-max-retry-count`（默认 3，即第 4 次失败），`RUNNING` 租约过期（进程宕机 / 卡死）同样按一次失败计入；重复型事件成功重排期**不清零** `retry_count`，属累计失败而非连续失败。耗尽后可经本版新增的 `reviveEvent` / `revive` 恢复，`TIMER_START` 走重新发布或挂起后激活。
-- 兼容性：本版本无公共 API 签名、实体字段与表结构变更，2.1.0 用户直接改版本号即可升级。
+- 新增能力：终态实例重启 `WorkflowService#restart(RestartCommand)`；原 `reset(ResetCommand)` 保留但废弃，调用方迁移到 `restart`。`TaskStatus` 追加 `RESTART` 常量，下游若对 `TaskStatus` 使用穷举 `switch` 表达式，需要补 `case RESTART`（普通 `switch` 语句不受影响）。
+- 兼容性：本版本无实体字段与表结构变更，2.1.0 用户直接改版本号即可升级；`WorkflowService` 新增 `restart` 抽象方法，自实现该门面接口的宿主需补实现。
 
 ## 2.1.0（2026-10-24）
 

@@ -38,13 +38,13 @@
             {{ row.taskStatusKey === 'back' ? '重新提交' : '继续办理' }}
           </el-button>
           <el-button
-            v-if="canResetInstance(row)"
+            v-if="canRestartInstance(row)"
             link
             type="primary"
-            :loading="resetLoadingId === row.id"
-            @click="openResetDialog(row)"
+            :loading="restartLoadingId === row.id"
+            @click="openRestartDialog(row)"
           >
-            重置流程
+            重启流程
           </el-button>
           <el-button link type="primary" @click="goDetail(row)">详情</el-button>
           <el-button link type="danger" @click="remove(row)">删除</el-button>
@@ -87,22 +87,22 @@
     </el-dialog>
 
     <el-dialog
-      v-model="resetDialogVisible"
-      title="重置流程实例"
+      v-model="restartDialogVisible"
+      title="重启流程实例"
       width="520px"
       :close-on-click-modal="false"
-      @closed="clearResetDialog"
+      @closed="clearRestartDialog"
     >
       <el-form label-width="90px">
         <el-form-item label="目标节点" required>
           <el-select
-            v-model="resetTargetNodeCode"
+            v-model="restartTargetNodeCode"
             filterable
             placeholder="请选择普通人工审批节点"
             style="width: 100%"
           >
             <el-option
-              v-for="node in resetNodeOptions"
+              v-for="node in restartNodeOptions"
               :key="node.nodeCode"
               :label="node.nodeName || node.nodeCode"
               :value="node.nodeCode"
@@ -111,7 +111,7 @@
         </el-form-item>
         <el-form-item label="审批人" required>
           <el-select
-            v-model="resetUserNames"
+            v-model="restartUserNames"
             multiple
             filterable
             collapse-tags
@@ -120,7 +120,7 @@
             style="width: 100%"
           >
             <el-option
-              v-for="user in resetUserOptions"
+              v-for="user in restartUserOptions"
               :key="user.userName"
               :label="`${user.realName}（${user.userName}）`"
               :value="user.userName"
@@ -129,14 +129,14 @@
         </el-form-item>
       </el-form>
       <el-alert
-        title="重置后实例恢复为审批中，原有审批历史会完整保留。"
+        title="重启后实例恢复为审批中，原有审批历史会完整保留，并新增一条重启记录。"
         type="info"
         :closable="false"
         show-icon
       />
       <template #footer>
-        <el-button @click="resetDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="resetSubmitting" @click="submitReset">确认重置</el-button>
+        <el-button @click="restartDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="restartSubmitting" @click="submitRestart">确认重启</el-button>
       </template>
     </el-dialog>
 
@@ -155,7 +155,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TaskActionDialog from '../../components/tasks/TaskActionDialog.vue'
 import { getDefinition, listDefinitions } from '../../api/definitions'
-import { pageInstances, removeInstance, removeInstances, resetInstance, startInstance } from '../../api/instances'
+import { pageInstances, removeInstance, removeInstances, restartInstance, startInstance } from '../../api/instances'
 import { listUsers, type DemoUser } from '../../api/users'
 import { usePagedList } from '../../composables/usePagedList'
 import type { DefinitionOption, InstanceRow } from '../../types/workflow'
@@ -178,14 +178,14 @@ const startDefId = ref<string | undefined>()
 const startBusinessId = ref('')
 const variableRows = ref<{ id: number; key: string; value: string }[]>([])
 const starting = ref(false)
-const resetDialogVisible = ref(false)
-const resetLoadingId = ref<string | null>(null)
-const resetSubmitting = ref(false)
-const resetRow = ref<InstanceRow | null>(null)
-const resetTargetNodeCode = ref('')
-const resetUserNames = ref<string[]>([])
-const resetNodeOptions = ref<Array<{ nodeCode: string; nodeName?: string }>>([])
-const resetUserOptions = ref<DemoUser[]>([])
+const restartDialogVisible = ref(false)
+const restartLoadingId = ref<string | null>(null)
+const restartSubmitting = ref(false)
+const restartRow = ref<InstanceRow | null>(null)
+const restartTargetNodeCode = ref('')
+const restartUserNames = ref<string[]>([])
+const restartNodeOptions = ref<Array<{ nodeCode: string; nodeName?: string }>>([])
+const restartUserOptions = ref<DemoUser[]>([])
 const taskDialogVisible = ref(false)
 const startTask = ref<{
   id: string
@@ -258,17 +258,17 @@ function canContinue(row: InstanceRow) {
   return ['draft', 'back', 'cancel'].includes(row.flowStatusKey || '')
 }
 
-/** 仅终态实例可从监控列表发起重置。 */
-function canResetInstance(row: InstanceRow) {
+/** 仅终态实例可从监控列表发起重启。 */
+function canRestartInstance(row: InstanceRow) {
   return ['finish', 'termination', 'invalid'].includes(row.flowStatusKey || '')
 }
 
-/** 加载实例定义中的普通人工审批节点与 Demo 审批人后打开重置弹窗。 */
-async function openResetDialog(row: InstanceRow) {
-  if (resetLoadingId.value) return
-  resetLoadingId.value = row.id
-  resetTargetNodeCode.value = ''
-  resetUserNames.value = []
+/** 加载实例定义中的普通人工审批节点与 Demo 审批人后打开重启弹窗。 */
+async function openRestartDialog(row: InstanceRow) {
+  if (restartLoadingId.value) return
+  restartLoadingId.value = row.id
+  restartTargetNodeCode.value = ''
+  restartUserNames.value = []
   try {
     const [definition, users] = await Promise.all([
       getDefinition(row.definitionId),
@@ -282,60 +282,60 @@ async function openResetDialog(row: InstanceRow) {
         eventType?: string
       }>
       : []
-    resetNodeOptions.value = nodes
+    restartNodeOptions.value = nodes
       .filter(node => node.nodeType === 1 && !String(node.eventType ?? '').trim() && Boolean(node.nodeCode))
       .map(node => ({ nodeCode: node.nodeCode!, nodeName: node.nodeName }))
-    if (!resetNodeOptions.value.length) {
-      ElMessage.warning('当前流程没有可重置的普通人工审批节点')
+    if (!restartNodeOptions.value.length) {
+      ElMessage.warning('当前流程没有可重启的普通人工审批节点')
       return
     }
     if (!users.length) {
       ElMessage.warning('暂无可选审批人')
       return
     }
-    resetUserOptions.value = users
-    resetRow.value = row
-    resetDialogVisible.value = true
+    restartUserOptions.value = users
+    restartRow.value = row
+    restartDialogVisible.value = true
   } catch (e) {
     // 错误提示由 http 层统一处理
   } finally {
-    resetLoadingId.value = null
+    restartLoadingId.value = null
   }
 }
 
-/** 清理重置弹窗数据，避免下次显示上一次选择。 */
-function clearResetDialog() {
-  resetRow.value = null
-  resetTargetNodeCode.value = ''
-  resetUserNames.value = []
-  resetNodeOptions.value = []
-  resetUserOptions.value = []
+/** 清理重启弹窗数据，避免下次显示上一次选择。 */
+function clearRestartDialog() {
+  restartRow.value = null
+  restartTargetNodeCode.value = ''
+  restartUserNames.value = []
+  restartNodeOptions.value = []
+  restartUserOptions.value = []
 }
 
-/** 校验目标节点与审批人后提交终态实例重置。 */
-async function submitReset() {
-  const row = resetRow.value
-  if (!row || !resetTargetNodeCode.value) {
+/** 校验目标节点与审批人后提交终态实例重启。 */
+async function submitRestart() {
+  const row = restartRow.value
+  if (!row || !restartTargetNodeCode.value) {
     ElMessage.warning('请选择目标节点')
     return
   }
-  if (!resetUserNames.value.length) {
+  if (!restartUserNames.value.length) {
     ElMessage.warning('请选择至少一位审批人')
     return
   }
-  resetSubmitting.value = true
+  restartSubmitting.value = true
   try {
-    await resetInstance(row.id, {
-      targetNodeCode: resetTargetNodeCode.value,
-      handlers: resetUserNames.value.map(userName => `user:${userName}`),
+    await restartInstance(row.id, {
+      targetNodeCode: restartTargetNodeCode.value,
+      handlers: restartUserNames.value.map(userName => `user:${userName}`),
     })
-    resetDialogVisible.value = false
-    ElMessage.success('流程重置成功')
+    restartDialogVisible.value = false
+    ElMessage.success('流程重启成功')
     await load()
   } catch (e) {
     // 错误提示由 http 层统一处理
   } finally {
-    resetSubmitting.value = false
+    restartSubmitting.value = false
   }
 }
 

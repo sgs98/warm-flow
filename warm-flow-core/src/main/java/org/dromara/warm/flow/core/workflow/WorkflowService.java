@@ -65,11 +65,21 @@ public interface WorkflowService {
     WorkflowResult terminate(TerminateCommand command);
 
     /**
-     * 将已完成、已终止或已作废的流程实例重置到指定人工审批节点。
+     * 将已完成、已终止或已作废的流程实例重启到指定人工审批节点。
+     *
+     * @param command 重启参数
+     * @return 流程操作结果
+     */
+    WorkflowResult restart(RestartCommand command);
+
+    /**
+     * 将已完成、已终止或已作废的流程实例重启到指定人工审批节点。
      *
      * @param command 重置参数
      * @return 流程操作结果
+     * @deprecated 请使用 {@link #restart(RestartCommand)}，流程恢复语义统一为“重启”。
      */
+    @Deprecated
     WorkflowResult reset(ResetCommand command);
 
     /**

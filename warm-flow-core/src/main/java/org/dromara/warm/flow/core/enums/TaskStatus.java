@@ -12,7 +12,7 @@ import lombok.Getter;
  * key 持久化、value 用于展示。
  * <p>
  * 持久化编码直接用<b>小写英文</b>（如 {@code "pass"}），落库即可自解释。
- * 任务维度只描述「这条待办/历史是怎么收口的」：待审批、通过、自动审批、退回、失效、拿回、抄送；
+ * 任务维度只描述「这条待办/历史是怎么收口的」：待审批、通过、自动审批、退回、失效、拿回、抄送、重启；
  * 流程是否结束由实例状态表达，任务维度不设「结束」。
  * <p>
  * 与 {@link CooperateType}（协作动作）正交：协作动作是<b>行为维度</b>
@@ -66,7 +66,12 @@ public enum TaskStatus {
      * {@code flow_his_task}（本编码）与 {@code flow_user}（type=4）留痕，不产生待办、
      * 不改实例与任务状态、不触发监听器。
      */
-    COPY("copy", "抄送");
+    COPY("copy", "抄送"),
+
+    /**
+     * 重启：终态流程实例重新进入指定人工审批节点。
+     */
+    RESTART("restart", "重启");
 
     private final String key;
     private final String value;

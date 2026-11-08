@@ -18,7 +18,7 @@
 - `timer`：框架无关的事件调度底座——`TimerEngine`（扫描、CAS 抢占、租约恢复、重试退避）、
   `EventWaitProcessor`（执行、续租、完成 / 失败处理）、`EventTaskHandler`（宿主事务接缝）。
 - `service/event`：`EventPublisher`（消息抛出 / 消息结束扩展点）与事件配置、消息模型。
-- `workflow`：v2.0.0 起对外的统一流程操作门面——`WorkflowService`（`start`/`complete`/`reject`/`jump`/`revoke`/`terminate`/`transfer`/`delegate`/`addSigner`/`removeSigner`/`copy`，经 `FlowEngine.workflow()` 获取）、`command/`（`WorkflowCommand` 基类 + 各 `XxxCommand`）、`context/`（`WorkflowContext`/`OperatorContext`，字段为 `flowStatus`/`taskStatus`）、`result/`（`WorkflowResult`）、`WorkflowContextMapper`。**这是当前主推的对外写操作契约**，属 L2。
+- `workflow`：v2.0.0 起对外的统一流程操作门面——`WorkflowService`（`start`/`complete`/`reject`/`jump`/`revoke`/`terminate`/`restart`/`transfer`/`delegate`/`addSigner`/`removeSigner`/`copy`，经 `FlowEngine.workflow()` 获取；`reset` 为废弃兼容入口）、`command/`（`WorkflowCommand` 基类 + 各 `XxxCommand`）、`context/`（`WorkflowContext`/`OperatorContext`，字段为 `flowStatus`/`taskStatus`）、`result/`（`WorkflowResult`）、`WorkflowContextMapper`。**这是当前主推的对外写操作契约**，属 L2。
 - `orm`：抽象 `dao/WarmDao`、`dao/FlowEventWaitDao`、`agent/WarmQuery`、`service/WarmServiceImpl`（ORM 接缝，不含具体实现）。
 - `spi`：2.1.0 起对外扩展点统一收口于此（原 `handler` / `listener` 两包已删除）——`DataFillHandler`/`TenantHandler`/
   `PermissionHandler`/`StatusMapper`/`Listener`/`GlobalListener`/`ListenerVariable`（`Listener` 含 create/start/assignment/finish/formLoad 五种事件常量）。

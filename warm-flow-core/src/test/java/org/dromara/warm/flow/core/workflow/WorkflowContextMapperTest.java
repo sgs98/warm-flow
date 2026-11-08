@@ -6,6 +6,7 @@ import org.dromara.warm.flow.core.workflow.command.DelegateCommand;
 import org.dromara.warm.flow.core.workflow.command.JumpCommand;
 import org.dromara.warm.flow.core.workflow.command.RejectCommand;
 import org.dromara.warm.flow.core.workflow.command.RemoveSignerCommand;
+import org.dromara.warm.flow.core.workflow.command.RestartCommand;
 import org.dromara.warm.flow.core.workflow.command.RevokeCommand;
 import org.dromara.warm.flow.core.workflow.command.StartCommand;
 import org.dromara.warm.flow.core.workflow.command.TerminateCommand;
@@ -107,6 +108,25 @@ class WorkflowContextMapperTest {
         assertEquals("flow", terminateContext.getFlowStatus());
         assertEquals("task", terminateContext.getTaskStatus());
         assertNull(terminateContext.getVariables());
+    }
+
+    @Test
+    void restartMapsFlowStatusAndInheritedTaskStatus() {
+        RestartCommand command = new RestartCommand();
+        command.setInstanceId(1L);
+        command.setTargetNodeCode("apply");
+        command.setHandlers(List.of("lisi"));
+        command.setFlowStatus("flow");
+        command.setTaskStatus("task");
+        command.setOperator(operator());
+        command.setExt("ext");
+
+        WorkflowContext context = WorkflowContextMapper.toContext(command);
+
+        assertEquals("flow", context.getFlowStatus());
+        assertEquals("task", context.getTaskStatus());
+        assertEquals("apply", context.getTargetNodeCode());
+        assertOperatorAndExt(context);
     }
 
     @Test

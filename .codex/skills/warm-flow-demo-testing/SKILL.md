@@ -1,17 +1,17 @@
 ---
 name: warm-flow-demo-testing
-description: Use when 需要通过 Warm-Flow Demo 复测流程定义与版本、实例生命周期与终态重置、网关、任务协作、事件与定时器、权限、变量、监听器或状态映射，或排查 UI、HTTP 与数据库结果不一致。
+description: Use when 需要通过 Warm-Flow Demo 复测流程定义与版本、实例生命周期与终态重启、网关、任务协作、事件与定时器、权限、变量、监听器或状态映射，或排查 UI、HTTP 与数据库结果不一致。
 ---
 
 # Warm-Flow Demo 流程测试
 
 ## 目标
 
-通过 Demo 的 UI、HTTP API 和数据库状态验证真实流程行为，覆盖定义导入/导出/复制/发布/版本、实例发起/撤回/终止/重置/删除、变量、任务协作与签核、三类网关、事件与内置定时器、权限、状态映射、监听器和自动通过。每个场景必须给出输入、实际结果、UI/HTTP/数据库证据和未验证项；本 Skill 不替代独立测试仓库的多数据库、多 ORM、Spring Boot 3/4 集成测试。
+通过 Demo 的 UI、HTTP API 和数据库状态验证真实流程行为，覆盖定义导入/导出/复制/发布/版本、实例发起/撤回/终止/重启/删除、变量、任务协作与签核、三类网关、事件与内置定时器、权限、状态映射、监听器和自动通过。每个场景必须给出输入、实际结果、UI/HTTP/数据库证据和未验证项；本 Skill 不替代独立测试仓库的多数据库、多 ORM、Spring Boot 3/4 集成测试。
 
 ## 信息源与证据合同
 
-发生冲突时依次相信：当前 Controller/Service/Core 实现 → Core 特征测试 → Demo 前端 API/页面 → Demo README → 本 Skill。工作区未提交能力（如当前 reset 改动）必须标记为 `working-tree only`，不能当成已发布行为。
+发生冲突时依次相信：当前 Controller/Service/Core 实现 → Core 特征测试 → Demo 前端 API/页面 → Demo README → 本 Skill。工作区未提交能力（如当前 restart 改动）必须标记为 `working-tree only`，不能当成已发布行为。
 
 一个场景只有同时拿到 **UI 行为、HTTP 响应、数据库前后状态** 才算验证完成。API 成功不等于流程正确；负例必须保存并比较实例、任务、历史、用户和事件等待五类数据，证明没有部分写入。
 
@@ -111,23 +111,23 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 - 定义复制后修改/发布副本不得影响源定义；自动通过开关同时核对 `def_config.autoPass`、新任务状态和历史 `auto_pass`。
 - 替代发布时按定义 ID 核对 `TIMER_START` 等待的创建、取消与重建；删除仅在获批隔离环境验证。挂起/恢复仅当当前 Demo 暴露对应操作时验证。
 
-### 6. 终态实例重置（working-tree only，直到能力正式提交）
+### 6. 终态实例重启（working-tree only，直到能力正式提交）
 
-仅当当前 Controller 确实暴露 `POST /api/instances/{id}/reset` 时执行。请求指定同一实例定义快照内的普通人工 `BETWEEN` 节点和一个或多个审批人；事件型 BETWEEN、开始/结束、网关、服务任务、快照外或跨定义节点全部拒绝。
+仅当当前 Controller 确实暴露 `POST /api/instances/{id}/restart` 时执行。请求指定同一实例定义快照内的普通人工 `BETWEEN` 节点和一个或多个审批人；事件型 BETWEEN、开始/结束、网关、服务任务、快照外或跨定义节点全部拒绝。
 
-- 正例分别准备 `finish`、`termination`、`invalid`，且实例无活动任务；重置后只新增一个 `pending` 当前任务，实例默认进入 `StatusMapper(WAITING)`，历史任务逐字段不变。
+- 正例分别准备 `finish`、`termination`、`invalid`，且实例无活动任务；重启后只新增一个 `pending` 当前任务，实例默认进入 `StatusMapper(WAITING)`，旧历史逐字段不变，并新增唯一一条重启审计记录：`flow_status=restart`（自定义映射按其编码）、`task_id=-1`、来源节点=重启前实例节点、目标节点=重启目标节点、办理人=操作人。
 - `handlers` 用 Demo 权限格式提交（如 `user:approver1`），核对 `PermissionHandler` 归一化、去空和去重后 `flow_user` 落具体可办理用户；会签、或签、票签、顺序签属于人工节点协作模式，仍是合法目标。
 - 显式传 `flowStatus` 时核对实例使用调用方状态；省略时必须回落 waiting 映射。UI 示例默认省略此字段。
-- 重置到带默认变量、监听器、自动抄送和边界事件的人工节点时，核对旧等待取消、目标边界等待重建、默认变量只补缺失键、assignment/create 顺序、抄送和流程图 TODO 标记。
+- 重启到带默认变量、监听器、自动抄送和边界事件的人工节点时，核对旧等待取消、目标边界等待重建、默认变量只补缺失键、assignment/create 顺序、抄送和流程图 TODO 标记。
 - 负例覆盖非终态、仍有活动任务、空参数、定义/实例挂起和所有非法目标；调用前后比较实例、任务、历史、用户、等待，证明事务没有部分写入。
-- 同实例并发发两个 reset 请求，Demo 必须依靠事务内行锁串行化；最终恰好一个请求成功、一个因已有活动任务失败，且只有一份任务和办理人。单线程连续调用不能替代并发证明。
+- 同实例并发发两个 restart 请求，Demo 必须依靠事务内行锁串行化；最终恰好一个请求成功、一个因已有活动任务失败，且只有一份任务和办理人。单线程连续调用不能替代并发证明。
 - Demo 没有作废入口时，`invalid` 正例标记为 core-only 或使用用户明确批准的专用夹具；不得直接改共享库伪造状态。
 
 ### 7. 权限、状态、变量、监听器与自动通过
 
 - 权限同时验证 admin/approver1/approver2/approver3、bare username、`user:`、部门/父部门、未知用户和缺请求头；请求头提供授权权限，body `user` 在部分命令中构造 OperatorContext/审计身份。不一致时分别断言“是否授权”和“记录谁”，不能预设必然拒绝或把 body 用户视为授权凭证。
-- 状态按四个维度分别断言：实例 `FlowStatus`、任务/历史 `TaskStatus`、协作 `CooperateType`、事件等待状态。自定义 `StatusMapper` 下用数据库原始码、API label 和 UI fallback 三方核对，不能硬编码默认字符串。
-- 节点默认变量只补缺失键，调用方同名值优先；消息、错误、定时和 reset payload/默认值都要验证合并后类型和值。
+- 状态按四个维度分别断言：实例 `FlowStatus`、任务/历史 `TaskStatus`、协作 `CooperateType`、事件等待状态。自定义 `StatusMapper` 下用数据库原始码、API label 和 UI fallback 三方核对，不能硬编码默认字符串。重启审计状态显式 `taskStatus` 优先，否则取 `StatusMapper.taskStatus(RESTART)`；mapper 返回 null 时必须回落内置 `restart`，不能落 null。
+- 节点默认变量只补缺失键，调用方同名值优先；消息、错误、定时和 restart payload/默认值都要验证合并后类型和值。
 - 监听器至少核对 start/assignment/finish/create；assignment 对变量或办理人的修改必须在 `flow_user` 落库前生效，监听器异常进入错误边界或整笔事务回滚。
 - 自动通过启用后历史状态为 `auto_pass`；关闭后恢复普通 `pending`。链路最多 100 步，驳回目标和顺序会签不自动通过，会签只能处理当前人的一票。
 

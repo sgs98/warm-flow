@@ -46,7 +46,7 @@ GET /api/instances/<instanceId>/history
 GET /api/tasks/todo?pageNum=1&pageSize=100
 POST /api/instances/<instanceId>/revoke
 POST /api/instances/<instanceId>/termination
-POST /api/instances/<instanceId>/reset              # 仅当前工作树存在时；终态实例重置
+POST /api/instances/<instanceId>/restart              # 仅当前工作树存在时；终态实例重启
 DELETE /api/instances/<instanceId>                 # 物理删除单个实例（演示清数，谨慎使用）
 DELETE /api/instances?ids=<id1>&ids=<id2>          # 批量物理删除实例（演示清数，返回删除数量；回归测试默认不用）
 ```
@@ -122,8 +122,8 @@ DELETE /api/definitions/{id}                                        # 删除（�
 | 减签 | 当前已有用户；逐个减签和一次选择全部用户 | 只移除所选用户，不能清空；全选时拒绝 |
 | 撤回 | 发起人、活动实例 | 实例状态与待办符合撤回规则 |
 | 终止 | 当前办理人；任务级与无人工任务实例级 | 实例 `termination`，剩余任务失效归档，用户清理，等待取消 |
-| 终态重置 | `finish/termination/invalid`、人工目标、多审批人、可选 flowStatus | 历史不变；唯一新 `pending` 任务；默认 waiting/显式状态；边界等待、变量、监听器、抄送、图状态完整 |
-| 重置负例/并发 | 非终态、已有任务、非法目标、同实例双请求 | 全部拒绝且无部分写入；并发最终只有一个成功和一份活动任务/用户 |
+| 终态重启 | `finish/termination/invalid`、人工目标、多审批人、可选 flowStatus | 历史不变；唯一新 `pending` 任务；默认 waiting/显式状态；边界等待、变量、监听器、抄送、图状态完整 |
+| 重启负例/并发 | 非终态、已有任务、非法目标、同实例双请求 | 全部拒绝且无部分写入；并发最终只有一个成功和一份活动任务/用户 |
 | 抄送 | `copyUsers` | 抄送可查，不污染审批办理人 |
 | 权限 | 请求头/body 不一致、未知用户、部门权限、直接 API | 不得借 body 越权；UI 隐藏与服务端校验一致；负例无写入 |
 | 状态映射 | 默认与自定义 `StatusMapper` | 实例、任务、协作、事件状态独立；DB 原始码/API label/UI fallback 一致 |
@@ -142,9 +142,9 @@ DELETE /api/definitions/{id}                                        # 删除（�
 | 消息启动 | 已发布定义含 `MESSAGE_START`(eventName=X)，不手动发起 | 手动发起被拒；`POST /api/instances/message` 按消息建实例；消息名不符被拒；后继待办生成 |
 | 终止结束 | `demo_event_daily_check`，仅在确认发布图的 `veto` 输入来源后测试 `veto=1/0` | 实例终止或正常完成；另一并行分支按规则失效；检查结束事件历史留痕。该 JSON 未配置 `veto` 默认变量，勿假设自动有值 |
 
-## 终态实例重置矩阵（RST，working-tree only）
+## 终态实例重启矩阵（RST，working-tree only）
 
-仅在当前实现存在 reset Controller/DTO/Core API 时执行，并记录 capability 来源。UI 默认请求：
+仅在当前实现存在 restart Controller/DTO/Core API 时执行，并记录 capability 来源。UI 默认请求：
 
 ```json
 {
@@ -161,14 +161,14 @@ API 调用方可额外传 `"flowStatus":"<custom-instance-status>"`；Demo UI �
 | RST-02 | 显式/省略 `flowStatus` | 显式值原样写实例；省略时走 `StatusMapper.instanceStatus(WAITING)` |
 | RST-03 | `user:`、bare user、重复/空白、多审批人 | 经 `PermissionHandler` 归一化、过滤和去重；`flow_user` 是具体可办理用户；至少一人 |
 | RST-04 | 会签、或签、票签、顺序签人工节点 | 均可作为目标，节点协作配置保留；后续按各自签核语义办理 |
-| RST-05 | 历史保留 | reset 前后旧 `flow_his_task` 的 id/taskId/status/approver/message/time/variable 等逐字段一致 |
+| RST-05 | 历史保留与重启留痕 | restart 前后旧 `flow_his_task` 的 id/taskId/status/approver/message/time/variable 等逐字段一致；另新增唯一一条 `flow_status=restart`、`task_id=-1`、来源节点=重启前节点、目标节点=重启目标的审计记录 |
 | RST-06 | 目标默认值/监听器/抄送/图 | 默认变量只补缺失键；assignment/create 生效；自动抄送生成；仅目标节点为 TODO |
 | RST-07 | 旧等待与目标边界等待 | 旧活动 wait 取消；目标节点边界 wait 按正常到达语义重建并绑定新 taskId |
 | RST-08 | 非终态或终态仍有活动任务 | draft/waiting/cancel/back 与“终态+任务”拒绝，五类表快照不变 |
 | RST-09 | 非法目标/状态 | 空参数、快照外、跨定义/版本、start/end/gateway/service/event 拒绝且无部分写入；定义挂起仅在 Demo 暴露该能力时测，否则标记 blocked |
 | RST-10 | 同实例并发两请求 | Demo 事务行锁串行化；恰好一个成功、一个因新任务拒绝；最终一份任务与用户 |
 
-重置前后固定保存：`flow_instance`、当前 `flow_task`、全部 `flow_his_task`、相关 `flow_user`、`flow_event_wait` 和 `def_json`。Demo 没有作废入口时，RST-01 的 invalid 标记为 core-only 或使用获批专用夹具，禁止直接改共享数据库状态。
+重启前后固定保存：`flow_instance`、当前 `flow_task`、全部 `flow_his_task`、相关 `flow_user`、`flow_event_wait` 和 `def_json`；比较旧历史时排除唯一新增的重启审计行。Demo 没有作废入口时，RST-01 的 invalid 标记为 core-only 或使用获批专用夹具，禁止直接改共享数据库状态。
 
 ## 网关综合复测路径（`demo_gateway_classic` / `demo_gateway_mimic`）
 

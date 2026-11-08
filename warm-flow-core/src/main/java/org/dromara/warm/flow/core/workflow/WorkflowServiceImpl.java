@@ -11,7 +11,7 @@ import org.dromara.warm.flow.core.entity.User;
 import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.UserType;
-import org.dromara.warm.flow.core.service.impl.InstanceResetCoordinator;
+import org.dromara.warm.flow.core.service.impl.InstanceRestartCoordinator;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
@@ -130,20 +130,45 @@ public class WorkflowServiceImpl implements WorkflowService {
     }
 
     /**
-     * 将结束流程实例重置到指定人工审批节点。
+     * 将结束流程实例重启到指定人工审批节点。
      *
-     * @param command 重置参数
+     * @param command 重启参数
      * @return 流程操作结果
      */
     @Override
+    public WorkflowResult restart(RestartCommand command) {
+        check(command, "重启流程参数不能为空");
+        AssertUtil.isNull(command.getInstanceId(), "流程实例ID不能为空");
+        AssertUtil.isEmpty(command.getTargetNodeCode(), "目标节点编码不能为空");
+        AssertUtil.isTrue(CollUtil.isEmpty(command.getHandlers()), "重启审批人不能为空");
+        Instance instance = executeRestart(command);
+        return result("restart", instance, null);
+    }
+
+    /**
+     * 兼容旧的重置入口。
+     *
+     * @param command 重置参数
+     * @return 流程操作结果
+     * @deprecated 请使用 {@link #restart(RestartCommand)}。
+     */
+    @Override
+    @Deprecated
     public WorkflowResult reset(ResetCommand command) {
         check(command, "重置流程参数不能为空");
         AssertUtil.isNull(command.getInstanceId(), "流程实例ID不能为空");
         AssertUtil.isEmpty(command.getTargetNodeCode(), "目标节点编码不能为空");
         AssertUtil.isTrue(CollUtil.isEmpty(command.getHandlers()), "重置审批人不能为空");
-        Instance instance = InstanceResetCoordinator.reset(command.getInstanceId(), command.getTargetNodeCode()
-            , command.getHandlers(), WorkflowContextMapper.toContext(command));
+        Instance instance = executeRestart(command);
         return result("reset", instance, null);
+    }
+
+    /**
+     * 执行终态实例重启的公共逻辑。
+     */
+    private Instance executeRestart(RestartCommand command) {
+        return InstanceRestartCoordinator.restart(command.getInstanceId(), command.getTargetNodeCode()
+            , command.getHandlers(), WorkflowContextMapper.toContext(command));
     }
 
     /**

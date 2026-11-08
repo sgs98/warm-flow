@@ -47,7 +47,7 @@
 ## 实例、任务、协作和事件状态必须分维度验证
 
 - 不变量：`FlowStatus`、`TaskStatus`、`CooperateType` 与事件等待状态是四套契约；宿主 `StatusMapper` 可独立映射实例、任务与协作编码。
-- 检查：发起、办理、自动通过、终止、重置和协作场景同时核对 DB 原始编码、API label 与 UI fallback；新发起是 instance=`draft`、task=`pending`，自动通过历史是 `auto_pass`。
+- 检查：发起、办理、自动通过、终止、重启和协作场景同时核对 DB 原始编码、API label 与 UI fallback；新发起是 instance=`draft`、task=`pending`，自动通过历史是 `auto_pass`。
 - 禁止：用任务状态推断实例终态、硬编码默认状态字符串验证自定义映射、未知状态导致列表崩溃或空白。
 - 处理：状态断言锚定当前 mapper 与 DTO 投影，UI 对未知值提供稳定原值 fallback。
 
@@ -198,13 +198,13 @@
 - 边界区分：手动发起的草稿实例仍是 `draft`，两条路径语义不同属设计如此；不要以「发起后应统一为草稿」为由改回。
 - 处理（已修复）：`EventRuntimeHandler.timerStart` 触发时把实例状态置为审批中；core 特征测试 `EventRuntimeCharacteristicTest` 守护实例状态与默认变量两项断言。
 
-## 终态实例重置不变量（working-tree only，直到能力正式提交）
+## 终态实例重启不变量（working-tree only，直到能力正式提交）
 
 ### 只允许三种终态且实例不能有现存待办
 
-- 不变量：只有映射后的 `FINISHED`、`TERMINATE`、`INVALID` 可重置；定义和实例必须激活；实例没有活动任务。
+- 不变量：只有映射后的 `FINISHED`、`TERMINATE`、`INVALID` 可重启；定义和实例必须激活；实例没有活动任务。
 - 负例：draft/waiting/cancel/back、自定义其它终态，以及“终态但仍有任务”全部拒绝。
-- 必查：调用前后 `flow_instance`、`flow_task`、`flow_his_task`、`flow_user`、`flow_event_wait` 快照完全一致，不能为了重置先静默删除旧任务。
+- 必查：除唯一新增的重启审计行外，调用前后 `flow_instance`、`flow_task`、`flow_his_task`、`flow_user`、`flow_event_wait` 快照完全一致，不能为了重启先静默删除旧任务。
 
 ### 目标必须属于实例快照的普通人工节点
 
@@ -214,24 +214,25 @@
 
 ### 显式审批人必须归一化且旧历史逐字段不变
 
-- 不变量：handlers 经 `PermissionHandler.convertPermissions` 后再次过滤空值和去重；最终至少一名具体用户。reset 只新增当前任务/用户，不重写或补造旧历史。
-- 必查：新任务为 `pending`；`flow_user.processed_by` 是具体用户名；重置前后旧历史的 id/taskId/status/approver/collaborator/message/timestamps/variables 全等。
+- 不变量：handlers 经 `PermissionHandler.convertPermissions` 后再次过滤空值和去重；最终至少一名具体用户。restart 只新增当前任务/用户和一条重启审计，不重写或补造旧历史。
+- 必查：新任务为 `pending`；`flow_user.processed_by` 是具体用户名；重启前后旧历史的 id/taskId/status/approver/collaborator/message/timestamps/variables 全等；审计行 `flow_status=restart`、`task_id=-1`、来源节点为重启前节点、目标节点为重启目标、办理人为操作人。
 - 负例：空列表、全空白、转换后为空、重复标识和未知权限按当前校验明确处理，不得成功后留下无办理人任务。
 
 ### 正常到达副作用必须完整恢复
 
 - 不变量：旧活动等待取消；目标节点边界等待绑定新 taskId 重建；节点默认变量只补缺失键；assignment 在办理人落库前执行，create 随后执行；自动抄送和流程图 TODO 与正常到达一致。
 - 必查：监听器/持久化任一步失败时整笔回滚，不留 task/user/wait/instance 部分写入；旧历史仍不变。
-- 代码锚点：reset 编排应复用正常边界等待、默认变量、监听器、抄送和 chart 语义，而不是 Demo 单独补偿。
+- 代码锚点：restart 编排应复用正常边界等待、默认变量、监听器、抄送和 chart 语义，而不是 Demo 单独补偿。
+- 状态锚点：审计状态显式 `taskStatus` 优先，否则取 `StatusMapper.taskStatus(RESTART)`，mapper 返回 null 时回落内置 `restart`；不得把 null 写进非空的 `flow_his_task.flow_status`。
 
 ### 可选 flowStatus 必须有稳定回落
 
 - 不变量：调用方显式传值时写入该实例状态；未传或空值时使用 `StatusMapper.instanceStatus(WAITING)`。
 - 必查：默认 mapper 与自定义 mapper 各一例；任务状态仍是 `pending`，不得被实例自定义状态污染。
 
-### 同实例并发重置只能有一个赢家
+### 同实例并发重启只能有一个赢家
 
 - 不变量：宿主事务内对实例行加锁并覆盖“检查无活动任务→创建任务/用户→更新实例”的完整区间。
-- 复现：两个独立事务同时 reset 同一终态实例，不能用单线程顺序调用替代。
+- 复现：两个独立事务同时 restart 同一终态实例，不能用单线程顺序调用替代。
 - 必查：恰好一个成功，另一个在获得锁后看到新任务并拒绝；最终只有一份活动任务、一组审批用户、一次实例更新，旧历史无变化。
 - Demo 锚点：`SELECT ... FOR UPDATE` 必须在 `@Transactional` 方法内、调用引擎 facade 之前执行；Spring 事务本身不等于并发串行化。

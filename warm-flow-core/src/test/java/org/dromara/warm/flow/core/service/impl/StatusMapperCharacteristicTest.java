@@ -193,6 +193,7 @@ class StatusMapperCharacteristicTest {
                 case TAKE_BACK -> "take_back";
                 case AUTO_PASS -> "auto_pass";
                 case COPY -> "copy";
+                case RESTART -> "restart";
             };
         }
 
