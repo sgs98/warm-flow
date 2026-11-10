@@ -111,4 +111,23 @@ public class DemoPermissionHandler implements PermissionHandler {
             .distinct()
             .collect(Collectors.toList());
     }
+
+    /**
+     * 把组签成员展开成具体用户名。
+     * <p>组内成员沿用设计器的权限标识（{@code user:}、{@code dept:}、父部门链等），
+     * 由 Demo 用户数据统一展开为用户名；角色、未知编码等落不到人的标识直接丢弃。</p>
+     *
+     * @param handlers 组内成员权限标识
+     * @return 具体用户名集合；空集合表示该组无法解析
+     */
+    @Override
+    public List<String> resolveGroupHandlers(List<String> handlers) {
+        if (CollUtil.isEmpty(handlers)) {
+            return new ArrayList<>();
+        }
+        return userService.listByPermissionFlags(handlers).stream()
+            .map(DemoUserVo::getUserName)
+            .distinct()
+            .collect(Collectors.toList());
+    }
 }

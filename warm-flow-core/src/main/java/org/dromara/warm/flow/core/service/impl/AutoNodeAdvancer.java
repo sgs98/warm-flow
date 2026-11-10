@@ -60,12 +60,26 @@ final class AutoNodeAdvancer {
      * @return 推进过程中新建的后继任务（含人工正式待办与服务临时待办，结束节点任务已移除）
      */
     List<Task> advance(FlowExecution execution, List<Node> nextNodes, List<Task> newTasks) {
+        return advance(execution, nextNodes, newTasks, null);
+    }
+
+    List<Task> advanceBeforeStartPersist(FlowExecution execution, List<Node> nextNodes, List<Task> newTasks
+        , Runnable persistStart) {
+        return advance(execution, nextNodes, newTasks, persistStart);
+    }
+
+    boolean hasAutoTasks(List<Task> tasks) {
+        return !autoTasksOf(tasks).isEmpty();
+    }
+
+    private List<Task> advance(FlowExecution execution, List<Node> nextNodes, List<Task> newTasks
+        , Runnable persistStart) {
+        List<Task> stagedTasks = persistStart == null ? List.of() : newTasks;
         Deque<Task> queue = autoTasksOf(newTasks);
         List<Task> createdTasks = new ArrayList<>();
         if (queue.isEmpty()) {
             return createdTasks;
         }
-        // 写回可变变量表，保证处理器写入对网关、办理人表达式与历史快照可见
         Map<String, Object> variables = execution.intent.getVariables();
         if (variables == null) {
             variables = new HashMap<>();
@@ -89,13 +103,31 @@ final class AutoNodeAdvancer {
 
             // 3) 解析后继：临时待办此时仍活动，汇聚判断可见本分支（必须先于删除临时待办）
             PathWayData pathWayData = pathResolver.resolve(temp, serviceNode, execution.instance
-                , WorkflowContext.buildAutoSuccessorContext(variables), SkipType.PASS.getKey(), execution.loadCombineNoDef());
+                , WorkflowContext.buildAutoSuccessorContext(variables), SkipType.PASS.getKey()
+                , execution.loadCombineNoDef(), stagedTasks);
             List<Node> afterNodes = pathWayData.getTargetNodes();
 
-            // 4) 流程图元数据：本跳途经节点与连线置完成、后继置待办；与办理链 route() 语义一致，
-            //    否则流程图会停留在进入服务任务之前的状态；随步骤 7 的实例更新一并落库
+            // 4) 首个 start 服务任务尚无实例行，以启动时的内存快照为路径合并基底。
+            if (persistStart != null) {
+                pathWayData.setDefJson(execution.instance.getDefJson());
+            }
             execution.instance.setDefJson(FlowEngine.chartService().skipMetadata(pathWayData));
 
+            ArrivalPlan arrivalPlan = EventArrivalDispatcher.prepare(execution, afterNodes
+                , SkipType.PASS.getKey());
+            EventArrivalDispatcher.validateBoundaries(execution, arrivalPlan.tasks());
+            List<Task> afterTasks = arrivalPlan.tasks();
+            EventArrivalDispatcher.commit(arrivalPlan);
+            ExpressionUtil.evalVariable(afterTasks, variables, null, false);
+            assignSuccessors(execution, temp, serviceNode, afterNodes, afterTasks);
+            List<User> users = FlowEngine.userService().taskAddUsers(afterTasks);
+
+            // 首次 start 推进先完整解析真实后继，再落启动记录；服务处理器的宿主副作用不在引擎回滚范围内。
+            if (persistStart != null) {
+                persistStart.run();
+                persistStart = null;
+                stagedTasks = List.of();
+            }
             // 5) 写服务任务历史（审批通过 / NONE / node_config 快照）
             FlowEngine.hisTaskService().save(FlowEngine.hisTaskService()
                 .setServiceTaskHis(serviceNode, temp, afterNodes, execution.intent, variables));
@@ -104,11 +136,6 @@ final class AutoNodeAdvancer {
             removeTempTask(temp);
 
             // 7) 后继统一分派（人工正式待办 / 服务临时待办 / 捕获事件等待）并落库
-            List<Task> afterTasks = EventArrivalDispatcher.dispatch(execution, afterNodes
-                , SkipType.PASS.getKey());
-            ExpressionUtil.evalVariable(afterTasks, variables, null, false);
-            assignSuccessors(execution, temp, serviceNode, afterNodes, afterTasks);
-            List<User> users = FlowEngine.userService().taskAddUsers(afterTasks);
             FlowEngine.taskService().setInsFinishInfo(execution.instance, afterTasks, variables);
             if (CollUtil.isNotEmpty(afterTasks)) {
                 FlowEngine.taskService().saveBatch(afterTasks);

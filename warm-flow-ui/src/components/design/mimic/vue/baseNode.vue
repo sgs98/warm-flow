@@ -168,8 +168,23 @@ const isRuntime = computed(() => (props.status !== null && props.status !== unde
   || (Array.isArray(props.chartStatusColor) && props.chartStatusColor.length === 3));
 const showHandler = computed(() => !isRuntime.value || Number(props.status) === 2);
 
+// 组签摘要：组配置随 nodeConfig 透传，卡片展示组数与组间顺序
+const groupSignText = computed(() => {
+  if (props.cooperateType !== 'group') return '';
+  try {
+    const parsed = JSON.parse(props.nodeConfig || '{}');
+    const section = parsed.groupSign || {};
+    const groups = Array.isArray(section.groups) ? section.groups : [];
+    // 卡片已有「组签」徽标，副标题只展示组数与顺序，避免小卡片被省略号截断
+    return `${groups.length} 组 · ${section.order === 'sequence' ? '顺序' : '并行'}`;
+  } catch (e) {
+    return '组签';
+  }
+});
+
 // 协作方式徽标：顺序字段优先，字段缺失时兼容旧 nodeRatio 后缀。
 const collaborativeBadge = computed(() => {
+  if (props.cooperateType === 'group') return '组签';
   let way = props.collaborativeWay;
   if (!way) {
     const ratio = props.nodeRatio || '0';
@@ -284,10 +299,14 @@ watch(
 );
 
 watch(
-    () => [props.permissionFlag, props.status, props.chartStatusColor],
+    () => [props.permissionFlag, props.status, props.chartStatusColor, props.cooperateType, props.nodeConfig],
     ([newVal]) => {
       if (!showHandler.value) {
         handler.value = '';
+        return;
+      }
+      if (props.cooperateType === 'group') {
+        handler.value = groupSignText.value;
         return;
       }
       if (newVal) {

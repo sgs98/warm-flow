@@ -1,6 +1,6 @@
 ---
 name: warm-flow-demo-testing
-description: Use when 需要通过 Warm-Flow Demo 复测流程定义与版本、实例生命周期与终态重启、网关、任务协作、事件与定时器、权限、变量、监听器或状态映射，或排查 UI、HTTP 与数据库结果不一致。
+description: Use when 需要通过 Warm-Flow Demo 复测流程定义与版本、实例生命周期与终态重启、网关、任务协作（含组签）、事件与定时器、权限、变量、监听器或状态映射，或排查 UI、HTTP 与数据库结果不一致。
 ---
 
 # Warm-Flow Demo 流程测试
@@ -36,6 +36,7 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 | `demo_gateway_classic`、`demo_gateway_mimic` | 排他 + 并行 + 包容网关；两文件结构相同，只差设计器模式（`CLASSICS` / `MIMIC`），网关复测主用定义 |
 | `demo_service_task` | 服务任务三种执行方式（class / delegateExpression / expression）+ 网关 + 并行 |
 | `demo_sequence_sign` | 顺序会签（`nodeRatio=100`、`cooperateType=sequence`）：approver1 → approver2 → approver3 逐个办理、仅当前位可见、越序不可办、转办继承顺位 |
+| `demo_group_sign` | 并行组签（`cooperateType=group`、`node_config.groupSign`）：legal(approver1/2) 与 finance(approver3) 组内或签、组间全通过；改 `order=sequence` 可验证仅当前组可见 |
 | `demo_event_refund` | 定时边界 + 消息结束（`refund.finish`） |
 | `demo_event_risk_wait` | 消息启动（`order.paid`）+ 消息捕获（`risk.result`） |
 | `demo_event_cooldown` | 定时捕获 + 消息抛出（`membership.cancelled`） |
@@ -131,6 +132,15 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 - 监听器至少核对 start/assignment/finish/create；assignment 对变量或办理人的修改必须在 `flow_user` 落库前生效，监听器异常进入错误边界或整笔事务回滚。
 - 自动通过启用后历史状态为 `auto_pass`；关闭后恢复普通 `pending`。链路最多 100 步，驳回目标和顺序会签不自动通过，会签只能处理当前人的一票。
 
+### 8. 组签（GRP）
+
+组签节点 `cooperate_type='group'`，配置在 `node_config.groupSign`（`groups[]` + `order`），`permission_flag` 为空。按 `references/test-matrix.md` 的 `GRP-01 ~ GRP-15` 执行：并行两组、顺序越序、同用户多组、组内重复成员、驳回清空全部组、单人/多人转办与二次转办、禁用动作、成员解析失败的零写入、定义往返与双模式/复制/嵌入、重启目标排除、旧模式回归、并发通过与并发转办。
+
+- 每个具体成员一行 `flow_user`，`seq_no` 是组下标（并行组签也写入）；同一组多人共享同一 `seq_no`。批准前先核对 `flow_user`，不要用 `flow_task` 数量判断组是否完成。
+- 成员解析由宿主 `PermissionHandler.resolveGroupHandlers` 完成；展开为空时发起 / 办理 / 撤回 / 事件 / 服务后继都必须在首次写入前失败，五类数据前后一致。
+- 组签定义不得发布到旧版本引擎（旧引擎会当成无办理人的或签节点）；发布前确认引擎版本并在报告中写明。
+- 顺序组签的待办可见性与 Demo SQL 顺序过滤都要验证：同组任一成员可见，后续组不可见；普通顺序会签语义不变。
+
 ## 数据库核对
 
 只读核对与当前场景相关的记录：
@@ -138,7 +148,7 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 - `flow_instance`：实例状态、节点、变量、创建人。
 - `flow_task`：只把 `del_flag='0'` 且未完成的记录视为活动待办。
 - `flow_his_task`：办理、驳回、转办、委托、加减签、终止等历史记录；结束事件留痕（`task_id=0`）也在这里，按 `node_code` + `task_id=0` 定位。
-- `flow_user`：按任务关联查询审批、转办、委托、抄送办理人。
+- `flow_user`：按任务关联查询审批、转办、委托、抄送办理人；组签成员行的 `seq_no` 是组下标，同一组多人共享同一值，转办后仍保留原组下标。
 - `flow_event_wait`：事件等待记录；只把 `del_flag='0'` 视为活动等待，核对 `status`/`event_type`/`next_trigger_at`/`retry_at`/`attached_task_id`/`repeat_count`。定义级定时启动等待的 `instance_id` 为空。
 - 等待记录的**全局只读视图**（不按实例查时用）：`GET /api/event-waits`（默认只查定时类、按 `next_trigger_at` 升序；`timerOnly=false` 含消息 / 错误类；支持 `definitionId`/`instanceId`/`businessId`/`flowCode`/`status`/`eventType` 过滤）、`GET /api/event-waits/summary`（各状态计数）；设计器「定时任务」菜单（`/timers`）是同一份数据的页面。参数与字段见 references/test-matrix.md。
 

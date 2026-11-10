@@ -55,7 +55,7 @@
         </el-select>
       </el-form-item>
 
-      <el-form-item v-if="needHandler" :label="multipleHandler ? '办理人(可多选)' : '转给'">
+      <el-form-item v-if="needHandler" :label="handlerLabel">
         <el-select
           v-model="selected"
           :multiple="multipleHandler"
@@ -64,7 +64,7 @@
           :max-collapse-tags="2"
           :loading="['add', 'reduction'].includes(action) && signatureHandlersLoading"
           style="width: 100%"
-          :placeholder="action === 'add' ? '请选择加签办理人' : action === 'reduction' ? '请选择要减签的办理人' : '请选择 demo 用户'"
+          :placeholder="handlerPlaceholder"
         >
           <el-option
             v-for="u in action === 'add' ? addHandlerOptions : action === 'reduction' ? reductionHandlerOptions : approvers"
@@ -73,6 +73,9 @@
             :value="u.userName"
           />
         </el-select>
+        <div v-if="groupTransfer" class="transfer-hint">
+          按组转出当前槽位，组序号保持不变；任意一名接手人通过即完成该组
+        </div>
       </el-form-item>
 
       <el-form-item v-if="needCopyUsers" label="抄送人">
@@ -122,6 +125,10 @@ export interface TodoTask {
   variables?: Record<string, unknown>
   /** 当前任务办理人用户名。 */
   assignees?: string[]
+  /** 节点协作模式。 */
+  cooperateType?: string
+  /** 组签节点允许转办到多个目标。 */
+  multiTargetTransfer?: boolean
 }
 
 const props = defineProps<{ task: TodoTask | null; submitOnly?: boolean; compact?: boolean }>()
@@ -155,7 +162,19 @@ const submitLabel = computed(() => {
 
 const needMessage = computed(() => action.value === 'pass' || action.value === 'reject')
 const needHandler = computed(() => ['transfer', 'depute', 'add', 'reduction'].includes(action.value))
-const multipleHandler = computed(() => action.value === 'add' || action.value === 'reduction')
+const multipleHandler = computed(() =>
+  action.value === 'add' || action.value === 'reduction'
+  || (action.value === 'transfer' && props.task?.multiTargetTransfer === true))
+const groupTransfer = computed(() =>
+  action.value === 'transfer' && props.task?.multiTargetTransfer === true)
+const handlerLabel = computed(() =>
+  groupTransfer.value ? '转给（组内可多选）' : multipleHandler.value ? '办理人(可多选)' : '转给')
+const handlerPlaceholder = computed(() => {
+  if (action.value === 'add') return '请选择加签办理人'
+  if (action.value === 'reduction') return '请选择要减签的办理人'
+  if (groupTransfer.value) return '可转给一人或多人'
+  return '请选择 demo 用户'
+})
 const needNextHandler = computed(() =>
   action.value === 'pass' && can('pop') && nextNodes.value.length > 0)
 const needBackNode = computed(() => action.value === 'reject')
@@ -423,6 +442,13 @@ defineExpose({ init })
 
 .variables-editor {
   width: 100%;
+}
+
+.transfer-hint {
+  margin-top: 4px;
+  color: var(--wf-text-muted, #7a8699);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .variable-row {

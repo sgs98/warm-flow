@@ -11,11 +11,13 @@ import org.dromara.warm.flow.core.entity.User;
 import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.UserType;
+import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.service.impl.InstanceRestartCoordinator;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
 import org.dromara.warm.flow.core.utils.StreamUtils;
+import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.core.utils.page.Page;
 import org.dromara.warm.flow.core.workflow.command.*;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
@@ -24,6 +26,7 @@ import org.dromara.warm.flow.core.workflow.result.WorkflowResult;
 import org.dromara.warm.flow.core.workflow.result.WorkflowTaskView;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 流程统一门面默认实现。
@@ -181,12 +184,41 @@ public class WorkflowServiceImpl implements WorkflowService {
     public WorkflowResult transfer(TransferCommand command) {
         check(command, "转办参数不能为空");
         AssertUtil.isNull(command.getTaskId(), "任务ID不能为空");
-        AssertUtil.isEmpty(command.getTargetHandler(), "转办办理人不能为空");
+        List<String> targetHandlers = resolveTransferHandlers(command);
+        AssertUtil.isEmpty(targetHandlers, "转办办理人不能为空");
         WorkflowContext context = WorkflowContextMapper.toContext(command);
         Instance instance = FlowEngine.taskService().updateHandlers(command.getTaskId(), context
-            , Collections.singletonList(command.getTargetHandler()), Collections.singletonList(context.getHandler())
+            , targetHandlers, Collections.singletonList(context.getHandler())
             , CooperateType.TRANSFER.getKey());
         return result("transfer", instance, command.getTaskId());
+    }
+
+    /**
+     * 解析转办目标列表：新列表字段优先，旧单目标字段保持兼容。
+     *
+     * <p>两者同时提供时只接受「同一个单目标」；内容冲突直接拒绝，避免同一次调用产生两种目标语义。
+     * 是否允许多目标由节点类型决定（组签允许多目标，普通节点单目标），校验放在办理人调整链。</p>
+     *
+     * @param command 转办参数
+     * @return 去空、去重后的目标列表
+     */
+    private List<String> resolveTransferHandlers(TransferCommand command) {
+        List<String> targets = command.getTargetHandlers() == null ? new ArrayList<>()
+            : command.getTargetHandlers().stream()
+                .filter(StringUtils::isNotEmpty)
+                .map(String::trim)
+                .filter(StringUtils::isNotEmpty)
+                .distinct()
+                .collect(Collectors.toList());
+        String legacy = StringUtils.isEmpty(command.getTargetHandler())
+            ? null : command.getTargetHandler().trim();
+        if (targets.isEmpty()) {
+            return legacy == null ? targets : Collections.singletonList(legacy);
+        }
+        if (legacy != null && !(targets.size() == 1 && legacy.equals(targets.get(0)))) {
+            throw new FlowException(ExceptionCons.CONFLICT_TRANSFER_HANDLER);
+        }
+        return targets;
     }
 
     /**

@@ -18,7 +18,7 @@
           "nowNodeCode": "start",
           "nextNodeCode": "submit",
           "skipType": "PASS",
-          "coordinate": "88,180;180,180"
+          "coordinate": "80,180;180,180"
         }
       ]
     },
@@ -36,7 +36,7 @@
           "nowNodeCode": "submit",
           "nextNodeCode": "seqSign",
           "skipType": "PASS",
-          "coordinate": "280,180;410,180"
+          "coordinate": "280,180;420,180"
         }
       ]
     },
@@ -55,13 +55,7 @@
           "nowNodeCode": "seqSign",
           "nextNodeCode": "end",
           "skipType": "PASS",
-          "coordinate": "520,180;650,180"
-        },
-        {
-          "nowNodeCode": "seqSign",
-          "nextNodeCode": "submit",
-          "skipType": "REJECT",
-          "coordinate": "470,215;230,215"
+          "coordinate": "520,180;690,180"
         }
       ]
     },

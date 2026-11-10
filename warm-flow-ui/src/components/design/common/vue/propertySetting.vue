@@ -236,12 +236,19 @@ watch(() => props.node, n => {
       }
       // 新字段优先；字段为空时才兼容旧 @@sequence 后缀。打开旧定义后即规范化为新结构。
       const configuredType = n.properties.cooperateType;
+      // 事件节点不允许组签；即使导入数据误配，设计器也不进入组签表单（发布仍由后端拒绝）
+      const isGroup = configuredType === 'group' && !n.properties.eventType;
       const isSequence = configuredType ? configuredType === 'sequence' : legacySequence;
       if (!configuredType) {
         n.properties.cooperateType = isSequence ? 'sequence' : 'parallel';
       }
-      n.properties.nodeRatio = nodeRatio;
-      n.properties.collaborativeWay = Number(nodeRatio) === 0 ? "1" : "3";
+      n.properties.nodeRatio = isGroup ? '0' : nodeRatio;
+      if (isGroup) {
+        // 组签办理人只来自组配置；导入的草稿若残留权限 / 比例，在设计器回显时归一到合法形态
+        n.properties.permissionFlag = '';
+      }
+      // 组签不能从 nodeRatio 推导（组签也是 0），必须先识别 cooperateType=group
+      n.properties.collaborativeWay = isGroup ? 'group' : Number(nodeRatio) === 0 ? "1" : "3";
 
       let nodeRatioType = 'passRatio', nodeRatioValue = ''
       if (/^passCount|rejectCount/.test(nodeRatio)) {
@@ -297,7 +304,34 @@ watch(() => form.value.nodeName, (n) => {
 });
 
 watch(() => form.value.collaborativeWay, (n) => {
-  if (!["1", "3"].includes(n)) return;
+  if (!["1", "3", "group"].includes(n)) return;
+  if (n === "group") {
+    // 组签：办理人只来自组配置，permission_flag 与完成规则都保持为空 / 0
+    form.value.nodeRatio = "0"
+    form.value.cooperateType = "group"
+    form.value.permissionFlag = []
+    const config = parseNodeConfig(form.value.nodeConfig)
+    const section = config.groupSign
+    if (!section || !Array.isArray(section.groups) || section.groups.length === 0) {
+      form.value.nodeConfig = {
+        ...config,
+        groupSign: { groups: [{ id: '', name: '', members: [] }], order: 'parallel' }
+      }
+    }
+    props.lf.setProperties(objId.value, {
+      collaborativeWay: 'group',
+      nodeRatio: '0',
+      cooperateType: 'group',
+      permissionFlag: ''
+    })
+    return
+  }
+  // 离开组签：清掉组配置，避免把无意义的 groupSign 保存进普通节点
+  const config = parseNodeConfig(form.value.nodeConfig)
+  if (config.groupSign !== undefined) {
+    const { groupSign: _ignored, ...rest } = config
+    form.value.nodeConfig = rest
+  }
   const currentRatio = String(form.value.nodeRatio ?? '');
   const nodeRatio = n === "1" ? "0" : currentRatio && Number(currentRatio) !== 0 ? currentRatio : "100";
   const cooperateType = n === "1" ? "parallel" :
@@ -316,7 +350,7 @@ watch(() => form.value.collaborativeWay, (n) => {
 });
 
 watch(() => form.value.cooperateType, (n) => {
-  if (!["parallel", "sequence"].includes(n)) return;
+  if (!["parallel", "sequence", "group"].includes(n)) return;
   props.lf.setProperties(objId.value, {
     cooperateType: n
   })

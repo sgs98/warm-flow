@@ -83,6 +83,11 @@ public enum CooperateType {
     public final static String SEQUENCE = "sequence";
 
     /**
+     * 组签
+     */
+    public final static String GROUP = "group";
+
+    /**
      * 根据展示文案获取协作类型 key。
      *
      * @param value 展示文案
@@ -196,6 +201,16 @@ public enum CooperateType {
      */
     public static boolean isVoteSignRejectSpel(String expression) {
         return StringUtils.isNotEmpty(expression) && expression.startsWith(FlowCons.SPEL);
+    }
+
+    /**
+     * 判断节点是否为组签模式。
+     *
+     * @param cooperateType 多人审批模式
+     * @return true：组签；false：其它模式
+     */
+    public static boolean isGroup(String cooperateType) {
+        return GROUP.equalsIgnoreCase(cooperateType);
     }
 
     /**

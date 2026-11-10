@@ -2,6 +2,18 @@ import {RectNode, RectNodeModel, h} from "@logicflow/core";
 import {setCommonStyle, applyClassicDesignColor} from "@/components/design/common/js/tool.js";
 import {handlerFeedback} from "@/api/flow/definition.js";
 
+// 组签摘要：组配置随 nodeConfig 透传，卡片副标题展示组数与组间顺序
+function groupSignSummary(nodeConfig) {
+  try {
+    const parsed = JSON.parse(nodeConfig || '{}');
+    const section = parsed.groupSign || {};
+    const groups = Array.isArray(section.groups) ? section.groups : [];
+    return `组签·${groups.length}组·${section.order === 'sequence' ? '顺序' : '并行'}`;
+  } catch (e) {
+    return '组签';
+  }
+}
+
 // 事件节点设计态语义色：品红，与左侧事件节点图标、侧栏底色保持一致
 const EVENT_COLOR_RGB = '217,70,239';
 // 闪电图标路径（Material bolt，viewBox 0 0 24 24），事件节点标识
@@ -33,6 +45,10 @@ class BetweenModel extends RectNodeModel {
   // 结果写入 properties 触发视图重绘，卡片副标题展示。
   // 运行态未完成节点不请求、不展示，避免暴露未办理节点的办理人。
   fetchHandlerName() {
+    if (this.properties.cooperateType === 'group') {
+      this.setProperties({_handlerName: groupSignSummary(this.properties.nodeConfig)});
+      return;
+    }
     const flag = this.properties.permissionFlag;
     if (!flag || this.properties._handlerName || !this.shouldShowHandler()) {
       return;

@@ -22,15 +22,26 @@ public interface DemoTaskQueryMapper {
     @Select("<script>SELECT t.* FROM flow_task t WHERE t.del_flag = '0' AND EXISTS (" +
         "SELECT 1 FROM flow_user u WHERE u.associated = t.id AND u.processed_by IN " +
         "<foreach collection='permissions' item='permission' open='(' separator=',' close=')'>#{permission}</foreach> " +
-        "AND u.type IN ('1', '2', '3') AND u.del_flag = '0' AND (NOT EXISTS (" +
+        "AND u.type IN ('1', '2', '3') AND u.del_flag = '0' AND (" +
+        // 非顺序节点整体可见；顺序会签沿用最小 id 的单人位；顺序组签按最小 seq_no 的整组可见
+        "NOT EXISTS (" +
         "SELECT 1 FROM flow_node n WHERE n.definition_id = t.definition_id AND n.node_code = t.node_code " +
-        "AND (n.cooperate_type = 'sequence' OR ((n.cooperate_type IS NULL OR TRIM(n.cooperate_type) = '') " +
-        "AND n.node_ratio LIKE '%@@sequence')) AND n.del_flag = '0') OR u.id = (" +
+        "AND n.del_flag = '0' AND (n.cooperate_type = 'sequence' OR ((n.cooperate_type IS NULL " +
+        "OR TRIM(n.cooperate_type) = '') AND n.node_ratio LIKE '%@@sequence') " +
+        "OR (LOWER(n.cooperate_type) = 'group' AND JSON_VALID(n.node_config) " +
+        "AND LOWER(JSON_UNQUOTE(JSON_EXTRACT(n.node_config, " +
+        "'$.groupSign.order'))) = 'sequence'))) OR u.id = (" +
         "SELECT su.id FROM flow_user su WHERE su.associated = t.id AND su.type IN ('1', '2', '3') " +
         "AND su.del_flag = '0' ORDER BY CASE WHEN EXISTS (SELECT 1 FROM flow_user lu " +
         "WHERE lu.associated = t.id AND lu.type IN ('1', '2', '3') AND lu.del_flag = '0' " +
         "AND lu.seq_no IS NULL) THEN su.id ELSE su.seq_no END, " +
-        "CASE WHEN su.type IN ('2', '3') THEN 0 ELSE 1 END, su.id LIMIT 1))) ORDER BY t.id DESC</script>")
+        "CASE WHEN su.type IN ('2', '3') THEN 0 ELSE 1 END, su.id LIMIT 1) OR (EXISTS (" +
+        "SELECT 1 FROM flow_node gn WHERE gn.definition_id = t.definition_id AND gn.node_code = t.node_code " +
+        "AND gn.del_flag = '0' AND LOWER(gn.cooperate_type) = 'group' AND JSON_VALID(gn.node_config) " +
+        "AND LOWER(JSON_UNQUOTE(JSON_EXTRACT(gn.node_config, '$.groupSign.order'))) = 'sequence') " +
+        "AND u.seq_no = (SELECT MIN(gu.seq_no) FROM flow_user gu WHERE gu.associated = t.id " +
+        "AND gu.type IN ('1', '2', '3') AND gu.del_flag = '0' AND gu.seq_no IS NOT NULL" +
+        ")))) ORDER BY t.id DESC</script>")
     List<FlowTask> selectTodoPage(Page<FlowTask> page, @Param("permissions") List<String> permissions);
 
     /**

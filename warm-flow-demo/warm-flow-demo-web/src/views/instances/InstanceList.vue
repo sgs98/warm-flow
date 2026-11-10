@@ -108,6 +108,7 @@
               :value="node.nodeCode"
             />
           </el-select>
+          <div v-if="restartHasGroupNode" class="restart-hint">组签节点不支持重启，已自动排除</div>
         </el-form-item>
         <el-form-item label="审批人" required>
           <el-select
@@ -186,6 +187,7 @@ const restartTargetNodeCode = ref('')
 const restartUserNames = ref<string[]>([])
 const restartNodeOptions = ref<Array<{ nodeCode: string; nodeName?: string }>>([])
 const restartUserOptions = ref<DemoUser[]>([])
+const restartHasGroupNode = ref(false)
 const taskDialogVisible = ref(false)
 const startTask = ref<{
   id: string
@@ -280,13 +282,18 @@ async function openRestartDialog(row: InstanceRow) {
         nodeName?: string
         nodeType?: number
         eventType?: string
+        cooperateType?: string
       }>
       : []
+    restartHasGroupNode.value = nodes.some(node => node.cooperateType === 'group')
     restartNodeOptions.value = nodes
-      .filter(node => node.nodeType === 1 && !String(node.eventType ?? '').trim() && Boolean(node.nodeCode))
+      .filter(node => node.nodeType === 1 && !String(node.eventType ?? '').trim()
+        && node.cooperateType !== 'group' && Boolean(node.nodeCode))
       .map(node => ({ nodeCode: node.nodeCode!, nodeName: node.nodeName }))
     if (!restartNodeOptions.value.length) {
-      ElMessage.warning('当前流程没有可重启的普通人工审批节点')
+      ElMessage.warning(restartHasGroupNode.value
+        ? '当前流程只有组签节点，暂不支持重启'
+        : '当前流程没有可重启的普通人工审批节点')
       return
     }
     if (!users.length) {
@@ -310,6 +317,7 @@ function clearRestartDialog() {
   restartUserNames.value = []
   restartNodeOptions.value = []
   restartUserOptions.value = []
+  restartHasGroupNode.value = false
 }
 
 /** 校验目标节点与审批人后提交终态实例重启。 */
@@ -456,5 +464,12 @@ onMounted(loadDefs)
 
 .variable-row .el-input {
   min-width: 0;
+}
+
+.restart-hint {
+  margin-top: 4px;
+  color: var(--wf-text-muted, #7a8699);
+  font-size: 12px;
+  line-height: 1.5;
 }
 </style>

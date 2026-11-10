@@ -47,39 +47,49 @@ final class EventFlowAdvancer {
      * @param eventNode       已触发的事件节点
      * @param interruptedNode 中断型边界事件中断的原任务节点，无则传 {@code null}
      */
-    static void advanceFromEvent(FlowExecution execution, Node eventNode, Node interruptedNode) {
+    static PreparedEventArrival prepareFromEvent(FlowExecution execution, Node eventNode, Node interruptedNode) {
         Instance instance = execution.instance;
-
-        // 沿事件节点的普通出口解析后续节点
         PathWayData pathWayData = new PathWayData()
             .setInsId(instance.getId())
             .setDefId(eventNode.getDefinitionId())
             .setSkipType(SkipType.PASS.getKey())
-            // 以内存中的最新实例快照为合并基底：边界事件中断等场景下，
-            // 实例 defJson 的本次更新尚未落库，回库加载会覆盖掉这些状态
             .setDefJson(instance.getDefJson());
         List<Node> nextNodes = FlowEngine.nodeService().getNextNodeList(eventNode, null
             , SkipType.PASS.getKey(), execution.intent.getVariables(), pathWayData
             , execution.loadCombineNoDef());
         pathWayData.getTargetNodes().addAll(nextNodes);
-
-        // 中断型边界：被中断节点已离开（待办删除、历史归档为 INVALID），补进本次途经节点
-        // 置为已办理，与终止链对当前节点的处理一致，避免其残留为「待办理」
         if (interruptedNode != null) {
             pathWayData.getPathWayNodes().add(interruptedNode);
         }
+        String defJson = FlowEngine.chartService().skipMetadata(pathWayData);
+        ArrivalPlan arrivalPlan = EventArrivalDispatcher.prepare(execution, nextNodes, SkipType.PASS.getKey());
+        EventArrivalDispatcher.validateBoundaries(execution, arrivalPlan.tasks());
+        return new PreparedEventArrival(nextNodes, arrivalPlan, defJson);
+    }
 
-        // 写流程图元数据（事件节点本跳途经置完成、后继置待办）
-        instance.setDefJson(FlowEngine.chartService().skipMetadata(pathWayData));
+    static void advanceFromEvent(FlowExecution execution, Node eventNode, Node interruptedNode) {
+        advanceFromEvent(execution, eventNode, interruptedNode, prepareFromEvent(execution, eventNode, interruptedNode));
+    }
 
-        // 后续节点统一分派：人工节点建待办、捕获事件起新等待、抛出 / 结束事件继续递归
-        List<Task> addTasks = EventArrivalDispatcher.dispatch(execution, nextNodes
-            , SkipType.PASS.getKey());
+    static void advanceFromEvent(FlowExecution execution, Node eventNode, Node interruptedNode
+        , PreparedEventArrival prepared) {
+        Instance instance = execution.instance;
+        List<Node> nextNodes = prepared.nextNodes();
+        ArrivalPlan arrivalPlan = prepared.arrivalPlan();
+        instance.setDefJson(prepared.defJson());
+        List<Task> addTasks = arrivalPlan.tasks();
+        EventArrivalDispatcher.commit(arrivalPlan);
 
         // 办理人变量替换
         ExpressionUtil.evalVariable(addTasks, execution.intent.getVariables()
             , execution.intent.getNextHandlers(), execution.intent.isNextHandlerAppend());
 
+        // assignment 保留既有位置且在所有组签解析成功后执行；任务和等待写入随后才提交。
+        if (CollUtil.isNotEmpty(addTasks)) {
+            ListenerUtil.executeAssignment(execution.contextListener(null, eventNode, nextNodes, addTasks));
+        }
+        List<org.dromara.warm.flow.core.entity.User> users =
+            FlowEngine.userService().taskAddUsers(addTasks);
         // 更新实例位置 / 状态 / 变量；后继含固定 END 时随 setInsFinishInfo 收口实例
         FlowEngine.taskService().setInsFinishInfo(instance, addTasks, execution.intent.getVariables());
         // 终止结束事件：intent 里带的是「实例终止码」，而 setInsFinishInfo 只能按落点推导出「已完成」。
@@ -90,14 +100,9 @@ final class EventFlowAdvancer {
         }
         if (CollUtil.isNotEmpty(addTasks)) {
             FlowEngine.taskService().saveBatch(addTasks);
-            List<org.dromara.warm.flow.core.entity.User> users =
-                FlowEngine.userService().taskAddUsers(addTasks);
             FlowEngine.userService().saveBatch(users);
             // 到达节点：按 node_config.copy 自动抄送
             CopyAdvancer.copyOnArrival(addTasks, execution.instance, execution.intent);
-            // 分派监听器：与人工节点收尾语义一致，事件节点无当前任务（task 为空合法）
-            ListenerUtil.executeAssignment(execution.contextListener(null, eventNode
-                , nextNodes, addTasks));
         }
 
         // 服务任务自动推进（事件出口直连服务任务时）
@@ -109,5 +114,8 @@ final class EventFlowAdvancer {
 
         // 完成与创建监听器
         ListenerUtil.endCreateListener(execution.contextListener(null, eventNode, nextNodes, addTasks));
+    }
+
+    record PreparedEventArrival(List<Node> nextNodes, ArrivalPlan arrivalPlan, String defJson) {
     }
 }

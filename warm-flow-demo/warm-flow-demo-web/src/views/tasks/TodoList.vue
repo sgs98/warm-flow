@@ -22,7 +22,10 @@
             :class="{ selected: currentTask?.id === row.id }"
             @click="selectTask(row)"
           >
-            <span class="queue-node">{{ row.nodeName || '待办理' }}</span>
+            <span class="queue-head">
+              <span class="queue-node">{{ row.nodeName || '待办理' }}</span>
+              <span v-if="row.cooperateType === 'group'" class="queue-badge">组签</span>
+            </span>
             <strong>{{ row.flowName || '-' }}</strong>
             <small>{{ row.businessId || '-' }}</small>
           </button>
@@ -60,7 +63,14 @@
         <el-table-column label="流程名称" min-width="140">
           <template #default="{ row }">{{ row.flowName || '-' }}</template>
         </el-table-column>
-        <el-table-column prop="nodeName" label="待办节点" min-width="120" />
+        <el-table-column label="待办节点" min-width="140">
+          <template #default="{ row }">
+            <span class="table-node-cell">
+              {{ row.nodeName }}
+              <el-tag v-if="row.cooperateType === 'group'" size="small" type="primary" effect="plain">组签</el-tag>
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column label="业务ID" width="130">
           <template #default="{ row }">{{ row.businessId || '-' }}</template>
         </el-table-column>

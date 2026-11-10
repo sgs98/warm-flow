@@ -62,6 +62,7 @@ public class UserServiceImpl extends WarmServiceImpl<FlowUserDao<User>, User> im
      */
     @Override
     public List<User> taskAddUsers(List<Task> addTasks) {
+        ArrivalPlan.prepareGroupUsers(addTasks);
         List<User> taskUserList = new ArrayList<>();
         if (CollUtil.isNotEmpty(addTasks)) {
             StreamUtils.toList(addTasks, task -> taskUserList.addAll(taskAddUser(task)));
@@ -77,6 +78,14 @@ public class UserServiceImpl extends WarmServiceImpl<FlowUserDao<User>, User> im
      */
     @Override
     public List<User> taskAddUser(Task task) {
+        // 批量入口已解析过组签办理人；先返回快照，避免为每个普通任务重复加载定义节点
+        if (CollUtil.isNotEmpty(task.getUserList())) {
+            return task.getUserList();
+        }
+        ArrivalPlan.prepareGroupUsers(Collections.singletonList(task));
+        if (CollUtil.isNotEmpty(task.getUserList())) {
+            return task.getUserList();
+        }
         // 遍历权限集合，生成流程节点的权限；seq_no 按表达式书写顺序编号，供顺序会签逐个办理
         List<String> permissionList = distinctPermissions(task.getPermissionList());
         List<User> userList = new ArrayList<>(permissionList.size());

@@ -80,6 +80,7 @@ final class FlowRevokeChain {
      * 新增待办任务。
      */
     private List<Task> addTasks;
+    private ArrivalPlan arrivalPlan;
 
     /**
      * @param taskService 任务服务
@@ -113,11 +114,10 @@ final class FlowRevokeChain {
      */
     private Optional<Instance> snapshotAndStart(FlowExecution execution) {
         taskList = taskService.getByInsId(instanceId);
-        // 撤回前先取消实例所有活动等待记录，避免旧等待在撤回后继续推进流程；
-        // 取消前记录「是否存在等待事件」：等待事件实例没有普通待办也允许撤回
+        // 撤回前记录「是否存在等待事件」：等待事件实例没有普通待办也允许撤回。
+        // 实际取消延后到新到达路径完成预解析后，失败时保持旧等待可用。
         waitingEventInstance = CollUtil.isNotEmpty(
             FlowEngine.eventWaitService().getActiveByInstanceId(instanceId));
-        FlowEngine.eventWaitService().cancelByInstanceIds(Collections.singletonList(instanceId));
         FlowCombine flowCombine = execution.loadCombine();
         nodeMap = StreamUtils.toMap(flowCombine.getAllNodes(), Node::getNodeCode, node -> node);
         // 执行开始监听器
@@ -190,7 +190,11 @@ final class FlowRevokeChain {
 
         // 给回退到的那个节点赋权限-给当前处理人权限：统一分派（撤回重新命中
         // 实例内捕获事件时重建等待记录，不重新触发启动事件）
-        addTasks = EventArrivalDispatcher.dispatch(execution, nextNodes, SkipType.REJECT.getKey());
+        // 撤回会先取消旧等待再提交本计划；预解析必须按「替换等待」处理，否则重新命中同一捕获节点会被误跳过
+        arrivalPlan = EventArrivalDispatcher.prepareReplacingWaits(execution, nextNodes
+            , SkipType.REJECT.getKey());
+        EventArrivalDispatcher.validateBoundaries(execution, arrivalPlan.tasks());
+        addTasks = arrivalPlan.tasks();
 
         // 办理人变量替换
         ExpressionUtil.evalVariable(addTasks, execution.intent.getVariables(), execution.intent.getNextHandlers()
@@ -199,6 +203,7 @@ final class FlowRevokeChain {
         // 执行分派监听器
         taskList.forEach(task -> ListenerUtil.executeAssignment(execution.contextListener(task
             , nodeMap.get(task.getNodeCode()), nextNodes, addTasks)));
+        FlowEngine.eventWaitService().cancelByInstanceIds(Collections.singletonList(instanceId));
         return Optional.empty();
     }
 
@@ -209,7 +214,8 @@ final class FlowRevokeChain {
      * @return 空表示继续执行后续步骤
      */
     private Optional<Instance> persist(FlowExecution execution) {
-        // 设置流程历史任务信息（等待事件实例无普通待办可归档，跳过）
+        List<User> users = CollUtil.isEmpty(addTasks) ? new ArrayList<>()
+            : FlowEngine.userService().taskAddUsers(addTasks);
         if (CollUtil.isNotEmpty(taskList)) {
             List<HisTask> insHisList = FlowEngine.hisTaskService().setSkipHisList(taskList, nextNodes
                 , execution.intent, SkipType.REJECT.getKey());
@@ -218,10 +224,6 @@ final class FlowRevokeChain {
             // 且 updateById 不带 NOT_FOUNT_INSTANCE 断言——与办理链持久化形似实异）
             taskService.removeAndUser(taskList);
         }
-        List<User> users = CollUtil.isEmpty(addTasks) ? new ArrayList<>()
-            : FlowEngine.userService().taskAddUsers(addTasks);
-
-        // 设置任务完成后的实例相关信息
         taskService.setInsFinishInfo(execution.instance, addTasks, execution.intent.getVariables());
         // 撤回后的实例状态取调用意图：loadInstance 已把空的 flowStatus 预置为 CANCEL。
         // setInsFinishInfo 按落点待办推导的是「流程还在不在审批中」，但撤回的语义是申请人
@@ -230,6 +232,9 @@ final class FlowRevokeChain {
         if (CollUtil.isNotEmpty(addTasks)) {
             taskService.saveBatch(addTasks);
         }
+        // 新待办落库后再提交捕获等待 / 边界等待，随后由实例更新写入等待节点位置。
+        // 旧等待已在 buildTasks 中取消，顺序不能颠倒，否则新等待会被一并取消。
+        EventArrivalDispatcher.commit(arrivalPlan);
         // 到达节点：按 node_config.copy 自动抄送
         CopyAdvancer.copyOnArrival(addTasks, execution.instance, execution.intent);
         FlowEngine.insService().updateById(execution.instance);

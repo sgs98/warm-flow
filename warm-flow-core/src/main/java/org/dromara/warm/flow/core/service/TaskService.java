@@ -93,6 +93,8 @@ public interface TaskService extends IWarmService<Task> {
 
     /**
      * 调整当前待办的办理人并记录协作历史。
+     * <p>组签节点只接受转办（{@code cooperateType=transfer}），且按槽位整体替换：
+     * {@code addHandlers} 可包含多个目标，{@code seq_no} 保持原组下标；加签、减签、委派会被拒绝。</p>
      *
      * @param taskId         当前待办任务主键
      * @param context        流程执行上下文

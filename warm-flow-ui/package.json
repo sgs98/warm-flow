@@ -9,6 +9,7 @@
     "dev": "vite",
     "build:prod": "vite build",
     "preview": "vite preview",
+    "test:group-sign": "node --test src/components/design/common/js/groupSign.test.mjs",
     "sync:plugin": "node scripts/sync-plugin-resources.mjs"
   },
   "repository": {

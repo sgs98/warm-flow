@@ -95,6 +95,21 @@ class FlowUserMapperJdbcTest {
     }
 
     @Test
+    void groupMembersShareOneSeqNoAndRoundTrip() {
+        insert(21L, 300L, "alice", 0);
+        insert(22L, 300L, "bob", 0);
+        insert(23L, 300L, "carol", 1);
+
+        List<FlowUser> firstGroup = mapper.selectList(new FlowUser().setAssociated(300L).setSeqNo(0)
+            , null, null, null);
+        assertEquals(List.of(21L, 22L), firstGroup.stream().map(FlowUser::getId).sorted().toList());
+        assertEquals(List.of("alice", "bob"), firstGroup.stream()
+            .map(FlowUser::getProcessedBy).sorted().toList());
+        assertEquals(1, mapper.selectList(new FlowUser().setAssociated(300L).setSeqNo(1)
+            , null, null, null).size());
+    }
+
+    @Test
     void seqNo_scopesLogicDelete() {
         insert(11L, 200L, "a", 0);
         insert(12L, 200L, "b", 1);

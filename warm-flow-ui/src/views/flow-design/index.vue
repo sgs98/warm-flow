@@ -1123,8 +1123,11 @@ function modelValuePayload(json) {
 
 async function saveJsonModel() {
   const loadingInstance = ElLoading.service(({fullscreen: true, text: "保存中，请稍等"}))
-  // 常驻侧栏：面板里改过的节点编码要先落到画布（原先靠关闭抽屉时提交）
-  propertySettingRef.value?.commitIdChange?.()
+  // 保存前复用离开校验：字段错误（含组签配置）未修正时不得绕过节点面板直接提交
+  if (nodeClick.value && !(await propertySettingRef.value?.confirmLeave?.())) {
+    loadingInstance.close();
+    return;
+  }
   if (!onlyDesignShow.value) {
     // 常驻面板：BaseInfo 已挂载即当前值，校验失败直接切回流程配置就近改错
     const baseInfoComp = proxy.$refs.baseInfoRef;

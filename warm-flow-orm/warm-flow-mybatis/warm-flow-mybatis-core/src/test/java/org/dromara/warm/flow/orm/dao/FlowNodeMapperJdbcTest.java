@@ -83,6 +83,21 @@ class FlowNodeMapperJdbcTest {
     }
 
     @Test
+    void groupCooperateType_roundTripsQueriesAndUpdates() {
+        FlowNode node = new FlowNode().setId(2L).setNodeType(1).setDefinitionId(10L)
+            .setNodeCode("group").setNodeRatio("0").setCooperateType("group").setDelFlag("0");
+        assertEquals(1, mapper.insert(node));
+
+        FlowNode loaded = mapper.selectById(2L, new FlowNode());
+        assertEquals("group", loaded.getCooperateType());
+        assertEquals(List.of(2L), mapper.selectList(new FlowNode().setCooperateType("group")
+            , null, null, null).stream().map(FlowNode::getId).toList());
+
+        assertEquals(1, mapper.updateById(new FlowNode().setId(2L).setCooperateType("sequence")));
+        assertEquals("sequence", mapper.selectById(2L, new FlowNode()).getCooperateType());
+    }
+
+    @Test
     void cooperateType_roundTripsQueriesAndUpdates() {
         FlowNode node = new FlowNode().setId(1L).setNodeType(1).setDefinitionId(10L)
             .setNodeCode("audit").setNodeRatio("50").setCooperateType("sequence").setDelFlag("0");

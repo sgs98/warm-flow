@@ -81,6 +81,10 @@ final class FlowStartChain {
      * 首待办任务。
      */
     private List<Task> addTasks;
+    /**
+     * 已完整校验的首跳到达计划。
+     */
+    private ArrivalPlan arrivalPlan;
 
     /**
      * @param insService 实例服务
@@ -146,6 +150,9 @@ final class FlowStartChain {
         // 设置流程实例对象（创建后回填作用域：此后 assignment/endCreate 监听器可见）
         instance = setStartInstance(nextNodes.get(0), execution.intent);
         execution.instance = instance;
+        // 先建立内存中的启动图快照，递归事件出口才能在实例落库前继续合并路径元数据。
+        pathWayData.getTargetNodes().addAll(nextNodes);
+        instance.setDefJson(FlowEngine.chartService().startMetadata(pathWayData));
 
         // 设置历史任务
         hisTask = setHisTask(nextNodes, execution.intent, execution.nowNode, instance.getId());
@@ -160,7 +167,9 @@ final class FlowStartChain {
      */
     private Optional<Instance> buildTasks(FlowExecution execution) {
         // 首批节点统一分派：人工 / 服务节点建待办，捕获事件节点起等待记录不建 Task
-        addTasks = EventArrivalDispatcher.dispatch(execution, nextNodes, SkipType.PASS.getKey());
+        arrivalPlan = EventArrivalDispatcher.prepare(execution, nextNodes, SkipType.PASS.getKey());
+        EventArrivalDispatcher.validateBoundaries(execution, arrivalPlan.tasks());
+        addTasks = arrivalPlan.tasks();
 
         // 办理人变量替换
         if (CollUtil.isNotEmpty(addTasks)) {
@@ -177,10 +186,7 @@ final class FlowStartChain {
      * @return 空表示继续执行后续步骤
      */
     private Optional<Instance> metadataAndAssignment(FlowExecution execution) {
-        // 设置流程图元数据
-        pathWayData.getTargetNodes().addAll(nextNodes);
-        instance.setDefJson(FlowEngine.chartService().startMetadata(pathWayData));
-
+        EventArrivalDispatcher.commit(arrivalPlan);
         // 执行分派监听器
         ListenerUtil.executeAssignment(execution.contextListener(null, execution.nowNode, nextNodes, addTasks));
         return Optional.empty();
@@ -193,11 +199,13 @@ final class FlowStartChain {
      * @return 已创建的流程实例，用于短路覆盖流水线兜底返回
      */
     private Optional<Instance> persistAndFinish(FlowExecution execution) {
-        // 开启流程，保存流程信息
-        saveFlowInfo(instance, addTasks, hisTask, execution.intent);
-
-        // 推进自动节点（服务任务）：首批临时待办已随 saveFlowInfo 落库，可复用汇聚判断
-        advancer.advance(execution, nextNodes, addTasks);
+        // 服务任务后继需执行 handler 后才能确定；先暂存引擎写入，待真实后继完整预检后再落库。
+        if (advancer.hasAutoTasks(addTasks)) {
+            advancer.advanceBeforeStartPersist(execution, nextNodes, addTasks
+                , () -> saveFlowInfo(instance, addTasks, hisTask, execution.intent));
+        } else {
+            saveFlowInfo(instance, addTasks, hisTask, execution.intent);
+        }
 
         // 执行完成和创建监听器
         ListenerUtil.endCreateListener(execution.contextListener(null, execution.nowNode, nextNodes, addTasks));
@@ -267,10 +275,11 @@ final class FlowStartChain {
         String startStatus = instance.getFlowStatus();
         FlowEngine.taskService().setInsFinishInfo(instance, addTasks, context.getVariables());
         instance.setFlowStatus(startStatus);
+        List<User> users = CollUtil.isEmpty(addTasks) ? List.of()
+            : FlowEngine.userService().taskAddUsers(addTasks);
         FlowEngine.hisTaskService().save(hisTask);
         // 待办任务设置处理人
         if (CollUtil.isNotEmpty(addTasks)) {
-            List<User> users = FlowEngine.userService().taskAddUsers(addTasks);
             FlowEngine.taskService().saveBatch(addTasks);
             FlowEngine.userService().saveBatch(users);
             // 到达节点：按 node_config.copy 自动抄送（实例尚未落库，直接传对象）

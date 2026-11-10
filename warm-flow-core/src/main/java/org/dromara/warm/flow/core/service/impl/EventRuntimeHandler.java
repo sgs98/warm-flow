@@ -155,8 +155,10 @@ public class EventRuntimeHandler implements EventTaskHandler {
         WorkflowContext context = executionContext(wait, caller);
         FlowExecution execution = loadEventExecution(instance, wait.getNodeCode(), context);
         Node eventNode = execution.nowNode;
+        EventFlowAdvancer.PreparedEventArrival prepared = EventFlowAdvancer.prepareFromEvent(
+            execution, eventNode, null);
         ListenerUtil.executeStart(execution.contextListener(null, eventNode));
-        EventFlowAdvancer.advanceFromEvent(execution, eventNode);
+        EventFlowAdvancer.advanceFromEvent(execution, eventNode, null, prepared);
     }
 
     /**
@@ -185,14 +187,17 @@ public class EventRuntimeHandler implements EventTaskHandler {
         Node interruptedNode = StreamUtils.filterOne(execution.loadCombineNoDef().getAllNodes()
             , node -> node.getNodeCode().equals(task.getNodeCode()));
 
-        // 中断原任务：归档为 INVALID（不代表审批人同意），沿边界出口继续
+        EventFlowAdvancer.PreparedEventArrival prepared = EventFlowAdvancer.prepareFromEvent(
+            execution, eventNode, interruptedNode);
+
+        // 中断原任务：归档为 INVALID（不代表审批人同意），沿已校验的边界出口继续
         interruptAttachedTask(execution, task, eventNode, message);
 
         // 取消同任务的其它边界事件等待；当前执行记录由调度器在完成阶段处理。
         FlowEngine.eventWaitService().cancelByAttachedTaskId(task.getId());
 
         ListenerUtil.executeStart(execution.contextListener(null, eventNode));
-        EventFlowAdvancer.advanceFromEvent(execution, eventNode, interruptedNode);
+        EventFlowAdvancer.advanceFromEvent(execution, eventNode, interruptedNode, prepared);
     }
 
     /**

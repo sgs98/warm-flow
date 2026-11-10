@@ -18,6 +18,7 @@ package org.dromara.warm.flow.core.utils;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.dto.FlowCombine;
+import org.dromara.warm.flow.core.dto.GroupSignConfig;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Skip;
@@ -129,7 +130,8 @@ public class FlowConfigUtil {
         }
         AssertUtil.isTrue(!CooperateType.PARALLEL.equalsIgnoreCase(cooperateType)
                 && !CooperateType.SEQUENCE.equalsIgnoreCase(cooperateType)
-            , "[" + node.getNodeCode() + "]协作顺序仅支持 parallel 或 sequence");
+                && !CooperateType.isGroup(cooperateType)
+            , "[" + node.getNodeCode() + "]协作顺序仅支持 parallel、sequence 或 group");
     }
 
     /**
@@ -276,6 +278,44 @@ public class FlowConfigUtil {
             hasTimerStart = hasTimerStart || EventType.TIMER_START.getValue().equals(eventType);
         }
         AssertUtil.isTrue(hasMessageStart && hasTimerStart, ExceptionCons.EVENT_MIX_START_TYPE);
+    }
+
+    /**
+     * 发布组签能力门禁；草稿保存与导入只校验 {@code cooperateType} 取值。
+     *
+     * @param combine 含定义、节点和连线的流程组合数据
+     */
+    public static void validateGroupSignCapability(FlowCombine combine) {
+        for (Node node : combine.getAllNodes()) {
+            if (!CooperateType.isGroup(node.getCooperateType())) {
+                continue;
+            }
+            String prefix = "[" + node.getNodeCode() + "]";
+            AssertUtil.isTrue(!NodeType.isBetween(node.getNodeType()),
+                prefix + "组签只能配置在普通人工 BETWEEN 节点");
+            AssertUtil.isTrue(StringUtils.isNotEmpty(node.getEventType()), prefix + "事件节点不能配置组签");
+            AssertUtil.isTrue(StringUtils.isNotEmpty(node.getPermissionFlag()), prefix + "组签节点办理人权限必须为空");
+            AssertUtil.isTrue(!CooperateType.isOrSign(node.getNodeRatio()), prefix + "组签节点比例必须为 0");
+
+            GroupSignConfig config = GroupSignUtil.require(node);
+            List<GroupSignConfig.Group> groups = config.getGroups();
+            AssertUtil.isTrue(CollUtil.isEmpty(groups), prefix + "组签至少需要一个审批组");
+            boolean legalOrder = CooperateType.PARALLEL.equalsIgnoreCase(config.getOrder())
+                || CooperateType.SEQUENCE.equalsIgnoreCase(config.getOrder());
+            AssertUtil.isTrue(!legalOrder, prefix + "组签顺序只能是 parallel 或 sequence");
+
+            Set<String> ids = new HashSet<>();
+            for (GroupSignConfig.Group group : groups) {
+                String id = group.getId();
+                AssertUtil.isTrue(StringUtils.isEmpty(id) || !id.matches("[A-Za-z0-9_-]{1,32}"),
+                    prefix + "组标识必须匹配 [A-Za-z0-9_-]{1,32}");
+                AssertUtil.contains(ids, id, prefix + "组标识不能重复: " + id);
+                ids.add(id);
+                boolean hasMember = CollUtil.isNotEmpty(group.getMembers())
+                    && group.getMembers().stream().anyMatch(StringUtils::isNotEmpty);
+                AssertUtil.isTrue(!hasMember, prefix + "组 " + id + " 的成员不能为空");
+            }
+        }
     }
 
     /**

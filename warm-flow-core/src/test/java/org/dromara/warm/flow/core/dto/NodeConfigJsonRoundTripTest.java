@@ -50,4 +50,22 @@ class NodeConfigJsonRoundTripTest {
         assertEquals("sequence", json.getNodeList().get(0).getCooperateType());
         assertEquals("sequence", back.getCooperateType());
     }
+
+    @Test
+    void roundTripPreservesGroupSignAndLegacyCustomKeys() {
+        String config = "{\"groups\":{\"legacy\":true},\"groupOrder\":\"legacy\","
+            + "\"groupSign\":{\"groups\":[{\"id\":\"legal\",\"members\":[\"user:alice\"]}],"
+            + "\"order\":\"parallel\"}}";
+        Definition def = FlowEngine.newDef().setFlowCode("group").setFlowName("group")
+            .setVersion("1").setIsPublish(0);
+        Node node = FlowEngine.newNode().setDefinitionId(1L).setNodeCode("approve").setNodeName("approve")
+            .setNodeType(NodeType.BETWEEN.getKey()).setNodeConfig(config).setCooperateType("group");
+        def.setNodeList(java.util.List.of(node));
+
+        assertEquals(config, node.copy().getNodeConfig());
+        DefJson json = DefJson.copyDef(def);
+        Node back = DefJson.copyDef(json).getNodeList().get(0);
+        assertEquals(config, back.getNodeConfig());
+        assertEquals("group", back.getCooperateType());
+    }
 }

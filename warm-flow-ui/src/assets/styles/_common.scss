@@ -19,9 +19,49 @@
       border-bottom-color: var(--wf-border-color, #333333);
     }
   }
+  .modern-tabs-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
   .modern-tabs {
     display: flex; align-items: center; gap: 24px;
+    flex: 1; min-width: 0;
     overflow-x: auto; &::-webkit-scrollbar { height: 0; display: none; }
+  }
+
+  /* 页签溢出时的左右滚动按钮：圆形轻量控件，避免露出原生按钮样式 */
+  .tabs-scroll-control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 1px solid var(--wf-border-light, #e4e7ed);
+    border-radius: 50%;
+    background: var(--wf-bg-white, #fff);
+    color: var(--wf-text-secondary, #909399);
+    cursor: pointer;
+    transition: color 0.2s ease, box-shadow 0.2s ease;
+
+    svg { width: 14px; height: 14px; }
+
+    &:hover:not(:disabled) {
+      color: var(--wf-primary, #409eff);
+      box-shadow: 0 1px 4px rgba(64, 158, 255, 0.2);
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
+    html.dark & {
+      border-color: var(--wf-border-color, #333333);
+      background: var(--wf-bg-color, #141414);
+    }
   }
   .modern-tab-item {
     position: relative;

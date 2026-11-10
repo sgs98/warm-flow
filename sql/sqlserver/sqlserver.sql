@@ -263,7 +263,7 @@ EXEC sp_addextendedproperty
 GO
 
 EXEC sp_addextendedproperty
-'MS_Description', N'多人审批办理顺序（parallel并行 sequence顺序）',
+'MS_Description', N'多人审批办理顺序（parallel并行 sequence顺序 group组签）',
 'SCHEMA', N'dbo',
 'TABLE', N'flow_node',
 'COLUMN', N'cooperate_type'
@@ -1127,6 +1127,13 @@ EXEC sp_addextendedproperty
 'SCHEMA', N'dbo',
 'TABLE', N'flow_user',
 'COLUMN', N'tenant_id'
+GO
+
+EXEC sp_addextendedproperty
+'MS_Description', N'办理顺序号（顺序会签为办理人顺位；组签为成员所属组下标，并行组签同样写入；其余协作方式不参与逻辑）',
+'SCHEMA', N'dbo',
+'TABLE', N'flow_user',
+'COLUMN', N'seq_no'
 GO
 
 EXEC sp_addextendedproperty

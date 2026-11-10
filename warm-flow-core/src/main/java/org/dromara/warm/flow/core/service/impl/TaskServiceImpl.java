@@ -490,6 +490,33 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
             || CollUtil.notContainsAny(context.getPermissions(), permissions)), ExceptionCons.NULL_ROLE_NODE);
     }
 
+    /**
+     * 校验当前处理人是否有权限处理，并按节点协作模式选择组签专属规则。
+     *
+     * <p>组签的办理人身份来自节点组配置展开出的具体用户行，不能再用 {@code permissions()} 交集判定：
+     * 当前操作者必须精确匹配某条活动办理人行。权限集合为空的宿主仍按既有语义报
+     * {@code NULL_ROLE_NODE}，不退化为裸字符串匹配。</p>
+     *
+     * @param task    当前任务（已加载办理人）
+     * @param node    当前节点
+     * @param context 流程执行上下文
+     */
+    void checkAuth(Task task, Node node, WorkflowContext context) {
+        if (context.isIgnorePermission() || context.isIgnore()) {
+            return;
+        }
+        if (node == null || !CooperateType.isGroup(node.getCooperateType())) {
+            checkAuth(task, context);
+            return;
+        }
+        List<String> permissions = StreamUtils.toList(task.getUserList(), User::getProcessedBy);
+        AssertUtil.isTrue(CollUtil.isNotEmpty(permissions) && CollUtil.isEmpty(context.getPermissions())
+            , ExceptionCons.NULL_ROLE_NODE);
+        boolean member = task.getUserList() != null && task.getUserList().stream()
+            .anyMatch(user -> Objects.equals(context.getHandler(), user.getProcessedBy()));
+        AssertUtil.isFalse(member, ExceptionCons.NOT_AUTHORITY);
+    }
+
 
     /**
      * 处理未完成的任务：流程结束时仍存在的待办，按「失效」归档进历史后删除。

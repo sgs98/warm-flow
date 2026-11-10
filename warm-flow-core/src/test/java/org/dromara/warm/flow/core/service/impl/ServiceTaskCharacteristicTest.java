@@ -4,12 +4,15 @@ import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.dto.DefJson;
 import org.dromara.warm.flow.core.dto.NodeJson;
+import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.entity.User;
+import org.dromara.warm.flow.core.enums.ActivityStatus;
 import org.dromara.warm.flow.core.enums.ChartStatus;
 import org.dromara.warm.flow.core.enums.FlowStatus;
+import org.dromara.warm.flow.core.enums.PublishStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.TaskStatus;
@@ -76,6 +79,43 @@ class ServiceTaskCharacteristicTest {
         assertEquals(6, serviceHis.getNodeType());
         assertNotNull(serviceHis.getNodeConfig());
         assertEquals("apply", instance.getNodeCode());
+    }
+
+    @Test
+    void startWithMultipleServiceBranchesCountsPersistedJoinPredecessorsOnce() {
+        Definition definition = FlowEngine.newDef().setFlowCode("svcMultiJoin").setFlowName("svcMultiJoin")
+            .setVersion("1").setIsPublish(PublishStatus.PUBLISHED.getKey())
+            .setActivityStatus(ActivityStatus.ACTIVITY.getKey());
+        FlowEngine.defService().save(definition);
+        FlowEngine.nodeService().save(FlowEngine.newNode().setDefinitionId(definition.getId())
+            .setNodeCode("s1").setNodeName("s1").setNodeType(NodeType.SERVICE.getKey())
+            .setNodeRatio("0").setNodeConfig(classConfig()));
+        FlowEngine.nodeService().save(FlowEngine.newNode().setDefinitionId(definition.getId())
+            .setNodeCode("s2").setNodeName("s2").setNodeType(NodeType.SERVICE.getKey())
+            .setNodeRatio("0").setNodeConfig(classConfig()));
+        FlowEngine.nodeService().save(FlowEngine.newNode().setDefinitionId(definition.getId())
+            .setNodeCode("start").setNodeName("start").setNodeType(NodeType.START.getKey()));
+        FlowEngine.nodeService().save(FlowEngine.newNode().setDefinitionId(definition.getId())
+            .setNodeCode("fork").setNodeName("fork").setNodeType(NodeType.PARALLEL.getKey()));
+        FlowEngine.nodeService().save(FlowEngine.newNode().setDefinitionId(definition.getId())
+            .setNodeCode("join").setNodeName("join").setNodeType(NodeType.PARALLEL.getKey()));
+        FlowEngine.nodeService().save(FlowEngine.newNode().setDefinitionId(definition.getId())
+            .setNodeCode("end").setNodeName("end").setNodeType(NodeType.END.getKey()));
+        skip(definition, "start", NodeType.START.getKey(), "fork", NodeType.PARALLEL.getKey());
+        skip(definition, "fork", NodeType.PARALLEL.getKey(), "s1", NodeType.SERVICE.getKey());
+        skip(definition, "fork", NodeType.PARALLEL.getKey(), "s2", NodeType.SERVICE.getKey());
+        skip(definition, "s1", NodeType.SERVICE.getKey(), "join", NodeType.PARALLEL.getKey());
+        skip(definition, "s2", NodeType.SERVICE.getKey(), "join", NodeType.PARALLEL.getKey());
+        skip(definition, "join", NodeType.PARALLEL.getKey(), "end", NodeType.END.getKey());
+
+        Instance instance = FlowEngine.insService().start("biz-svc-multi-join", definition.getFlowCode()
+            , TestFlows.context(TestFlows.HANDLER));
+
+        assertEquals("end", instance.getNodeCode());
+        assertEquals(FlowStatus.FINISHED.getKey(), instance.getFlowStatus());
+        assertTrue(TestFlows.pendingTasks(instance.getId()).isEmpty());
+        assertEquals(2, FlowEngine.hisTaskService().getByInsId(instance.getId()).stream()
+            .filter(history -> "s1".equals(history.getNodeCode()) || "s2".equals(history.getNodeCode())).count());
     }
 
     @Test
@@ -177,6 +217,14 @@ class ServiceTaskCharacteristicTest {
     private static String classConfig() {
         return "{\"serviceTask\":{\"type\":\"class\",\"handler\":\""
             + RecordingServiceTaskHandler.class.getName() + "\"}}";
+    }
+
+    private static void skip(Definition definition, String nowCode, Integer nowType, String nextCode
+        , Integer nextType) {
+        FlowEngine.skipService().save(FlowEngine.newSkip().setDefinitionId(definition.getId())
+            .setNowNodeCode(nowCode).setNowNodeType(nowType).setNextNodeCode(nextCode)
+            .setNextNodeType(nextType).setSkipName(nowCode + "_" + nextCode)
+            .setSkipType(SkipType.PASS.getKey()));
     }
 
     @Test

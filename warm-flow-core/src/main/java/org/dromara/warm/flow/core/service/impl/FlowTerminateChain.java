@@ -96,7 +96,7 @@ final class FlowTerminateChain {
         // 后续若新增 usersOfTypes 派生会引入快照语义，需重新评估
         execution.task.setUserList(execution.loadTaskUsers());
         // 判断当前处理人是否有权限处理（userList 在 start 监听器后设置——与办理链相反，时机契约）
-        taskService.checkAuth(execution.task, execution.intent);
+        taskService.checkAuth(execution.task, execution.nowNode, execution.intent);
         return Optional.empty();
     }
 

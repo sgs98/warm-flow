@@ -25,9 +25,11 @@ import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.utils.*;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * 办理人调整（转办、委派、加签、减签）操作链：装配 5 个有序步骤并委托 {@link FlowPipeline} 执行。
@@ -108,6 +110,11 @@ final class FlowUpdateHandlersChain {
         //（顶部无条件加载，守卫失败路径的查询数也保持不变）
         List<User> taskUsers = execution.usersOfTypes(UserType.APPROVAL.getKey()
             , UserType.TRANSFER.getKey(), UserType.DEPUTE.getKey());
+        // 组签仅支持槽位转办：加签、减签、委派都会破坏组归属与 seq_no 语义
+        if (CooperateType.isGroup(execution.nowNode.getCooperateType())) {
+            groupTransferGuards(execution, taskUsers);
+            return Optional.empty();
+        }
         // 引擎级协作守卫：操作人必填、协作对象必填且不可重复持有任务、减签不可移除最后一名办理人
         if (CooperateType.TRANSFER.getKey().equals(cooperateType)) {
             AssertUtil.isNull(execution.intent.getHandler(), ExceptionCons.HANDLER_NOT_EMPTY);
@@ -115,6 +122,10 @@ final class FlowUpdateHandlersChain {
             AssertUtil.isNotEmpty(usersOfProcessedBy(taskUsers, addHandlers, UserType.TRANSFER.getKey())
                 , ExceptionCons.IS_ALREADY_TRANSFER);
             sequenceTargetGuards(execution, taskUsers, ExceptionCons.IS_ALREADY_TRANSFER);
+            // 顺序会签已由 sequenceTargetGuards 给出专属错误；其余普通节点只允许单目标，避免改变既有调用语义
+            AssertUtil.isTrue(!CooperateType.isSequence(execution.nowNode.getCooperateType()
+                , execution.nowNode.getNodeRatio()) && addHandlers.size() > 1
+                , ExceptionCons.SINGLE_TRANSFER_HANDLER);
         } else if (CooperateType.DELEGATE.getKey().equals(cooperateType)) {
             AssertUtil.isNull(execution.intent.getHandler(), ExceptionCons.HANDLER_NOT_EMPTY);
             AssertUtil.isEmpty(addHandlers, ExceptionCons.NULL_DEPUTE_HANDLER);
@@ -135,6 +146,57 @@ final class FlowUpdateHandlersChain {
                 , ExceptionCons.REDUCTION_SIGN_ONE_ERROR);
         }
         return Optional.empty();
+    }
+
+    /**
+     * 组签槽位转办守卫：只允许转办，目标必须非空、不可重复且不得已在任务任何活动行中。
+     * <p>顺序组签只有当前组可以转办；并行组签任意未完成组的成员均可转办自己命中的组。</p>
+     *
+     * @param execution 执行作用域
+     * @param taskUsers 当前任务的办理人快照
+     */
+    private void groupTransferGuards(FlowExecution execution, List<User> taskUsers) {
+        AssertUtil.isTrue(!CooperateType.TRANSFER.getKey().equals(cooperateType)
+            , ExceptionCons.GROUP_SIGN_TRANSFER_ONLY);
+        AssertUtil.isNull(execution.intent.getHandler(), ExceptionCons.HANDLER_NOT_EMPTY);
+        AssertUtil.isEmpty(addHandlers, ExceptionCons.NULL_TRANSFER_HANDLER);
+        List<String> targets = normalizedTransferTargets();
+        AssertUtil.isTrue(targets.size() != addHandlers.size(), ExceptionCons.IS_ALREADY_TRANSFER);
+        AssertUtil.isTrue(targets.stream().anyMatch(target -> taskUsers.stream()
+            .anyMatch(user -> Objects.equals(target, user.getProcessedBy()))), ExceptionCons.IS_ALREADY_TRANSFER);
+        if (execution.intent.isIgnore()) {
+            return;
+        }
+        String handler = execution.intent.getHandler();
+        List<User> matched = StreamUtils.filter(taskUsers
+            , user -> Objects.equals(handler, user.getProcessedBy()));
+        AssertUtil.isEmpty(matched, ExceptionCons.NOT_AUTHORITY);
+        if (GroupSignUtil.isSequence(execution.nowNode)) {
+            Integer current = SequenceSignUtil.minimumSeqNo(taskUsers);
+            AssertUtil.isTrue(matched.stream().noneMatch(user -> Objects.equals(user.getSeqNo(), current))
+                , ExceptionCons.GROUP_SIGN_NOT_CURRENT_GROUP);
+        }
+    }
+
+    /**
+     * 转办目标去空、去重，保持调用方顺序；组签多目标与普通单目标共用同一规范化结果。
+     *
+     * @return 规范化后的目标列表
+     */
+    private List<String> normalizedTransferTargets() {
+        List<String> targets = new ArrayList<>();
+        if (addHandlers != null) {
+            for (String handler : addHandlers) {
+                if (handler == null) {
+                    continue;
+                }
+                String target = handler.trim();
+                if (StringUtils.isNotEmpty(target) && !targets.contains(target)) {
+                    targets.add(target);
+                }
+            }
+        }
+        return targets;
     }
 
     /**
@@ -176,6 +238,10 @@ final class FlowUpdateHandlersChain {
      * @return 空表示继续执行后续步骤
      */
     private Optional<Instance> authGate(FlowExecution execution) {
+        // 组签转办的办理人身份已在组槽位守卫中精确校验，不再用 permissions() 交集判定
+        if (CooperateType.isGroup(execution.nowNode.getCooperateType())) {
+            return Optional.empty();
+        }
         // 协作语义守卫（isIgnore 是引擎/宿主的管理员通道，保留整体绕过能力）：
         if (!execution.intent.isIgnore()) {
             String handler = execution.intent.getHandler();
@@ -226,6 +292,9 @@ final class FlowUpdateHandlersChain {
      * @return 空表示继续执行后续步骤
      */
     private Optional<Instance> applyHandlers(FlowExecution execution) {
+        if (CooperateType.isGroup(execution.nowNode.getCooperateType())) {
+            return applyGroupTransfer(execution);
+        }
         // 顺签转办 / 委派直接更新原顺序位，避免混合空序号按 id 兜底时替换记录掉到队尾。
         if (replaceSequenceHandler(execution)) {
             HisTask hisTask = FlowEngine.hisTaskService().setCooperateHis(execution.task, execution.intent
@@ -292,6 +361,47 @@ final class FlowUpdateHandlersChain {
         if (ObjectUtil.isNotNull(hisTask)) {
             FlowEngine.hisTaskService().save(hisTask);
         }
+        return Optional.empty();
+    }
+
+    /**
+     * 组签槽位转办：删除当前办理人命中的所有组槽位成员行，再为每个目标新增同序号的转办行。
+     * <p>并行模式下同一办理人命中多个组时一并转出；顺序模式下只转当前组。
+     * 组序号保持不变，目标用户即成为该组的候选成员（多人即组内或签）。</p>
+     *
+     * @param execution 执行作用域
+     * @return 空表示继续执行后续步骤
+     */
+    private Optional<Instance> applyGroupTransfer(FlowExecution execution) {
+        List<User> taskUsers = execution.usersOfTypes(UserType.APPROVAL.getKey()
+            , UserType.TRANSFER.getKey(), UserType.DEPUTE.getKey());
+        String handler = execution.intent.getHandler();
+        List<User> matched = StreamUtils.filter(taskUsers
+            , user -> Objects.equals(handler, user.getProcessedBy()));
+        Set<Integer> slots = new LinkedHashSet<>();
+        if (GroupSignUtil.isSequence(execution.nowNode)) {
+            slots.add(SequenceSignUtil.minimumSeqNo(taskUsers));
+        } else {
+            matched.stream().map(User::getSeqNo).filter(Objects::nonNull).forEach(slots::add);
+        }
+        AssertUtil.isEmpty(slots, ExceptionCons.NOT_AUTHORITY);
+
+        List<User> completed = StreamUtils.filter(taskUsers, user -> slots.contains(user.getSeqNo()));
+        FlowEngine.userService().removeByIds(StreamUtils.toList(completed, User::getId));
+
+        List<String> targets = normalizedTransferTargets();
+        List<User> addUsers = new ArrayList<>(slots.size() * targets.size());
+        for (Integer slot : slots) {
+            for (String target : targets) {
+                addUsers.add(FlowEngine.userService()
+                    .structureUser(taskId, target, UserType.TRANSFER.getKey(), handler).setSeqNo(slot));
+            }
+        }
+        FlowEngine.userService().saveBatch(addUsers);
+
+        HisTask hisTask = FlowEngine.hisTaskService().setCooperateHis(execution.task, execution.intent
+            , targets, CooperateType.TRANSFER.getKey());
+        FlowEngine.hisTaskService().save(hisTask);
         return Optional.empty();
     }
 

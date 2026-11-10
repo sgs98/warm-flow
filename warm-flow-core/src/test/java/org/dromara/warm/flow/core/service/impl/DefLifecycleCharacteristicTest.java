@@ -10,6 +10,8 @@ import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Skip;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
+import org.dromara.warm.flow.core.enums.CooperateType;
+import org.dromara.warm.flow.core.enums.EventType;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.PublishStatus;
 import org.dromara.warm.flow.core.exception.FlowException;
@@ -124,6 +126,72 @@ class DefLifecycleCharacteristicTest {
             assertThrows(FlowException.class, () -> FlowEngine.defService().publish(candidate.getId())).getMessage());
         assertEquals(PublishStatus.PUBLISHED.getKey(), harness.defDao.raw(current.getId()).getIsPublish());
         assertEquals(PublishStatus.UNPUBLISHED.getKey(), harness.defDao.raw(candidate.getId()).getIsPublish());
+    }
+
+    @Test
+    void publish_validGroupSign_succeeds() {
+        Definition current = TestFlows.serialFlow("group-valid", "1", PublishStatus.PUBLISHED.getKey());
+        Definition candidate = TestFlows.serialFlow("group-valid", "2", PublishStatus.UNPUBLISHED.getKey());
+        configureGroupNode(candidate, "apply", validGroupConfig());
+
+        assertTrue(FlowEngine.defService().publish(candidate.getId()));
+        assertEquals(PublishStatus.UNPUBLISHED.getKey(), harness.defDao.raw(current.getId()).getIsPublish());
+        assertEquals(PublishStatus.PUBLISHED.getKey(), harness.defDao.raw(candidate.getId()).getIsPublish());
+    }
+
+    @Test
+    void publish_rejectsInvalidGroupConfigurationBeforeStatusChanges() {
+        List<String> invalidConfigs = List.of(
+            "{\"groupSign\":{\"groups\":[]}}",
+            "{\"groupSign\":{\"groups\":[{\"id\":\"same\",\"members\":[\"alice\"]},"
+                + "{\"id\":\"same\",\"members\":[\"bob\"]}]}}",
+            "{\"groupSign\":{\"groups\":[{\"id\":\"bad id\",\"members\":[\"alice\"]}]}}",
+            "{\"groupSign\":{\"groups\":[{\"id\":\"legal\",\"members\":[\" \"]}]}}",
+            "{\"groupSign\":{\"groups\":[{\"id\":\"legal\",\"members\":[\"alice\"]}],"
+                + "\"order\":\"random\"}}"
+        );
+        for (int i = 0; i < invalidConfigs.size(); i++) {
+            String flowCode = "group-invalid-" + i;
+            Definition current = TestFlows.serialFlow(flowCode, "1", PublishStatus.PUBLISHED.getKey());
+            Definition candidate = TestFlows.serialFlow(flowCode, "2", PublishStatus.UNPUBLISHED.getKey());
+            configureGroupNode(candidate, "apply", invalidConfigs.get(i));
+
+            assertPublishRejectedWithoutStatusChanges(current, candidate);
+        }
+
+        Definition permissionCurrent = TestFlows.serialFlow("group-permission", "1", PublishStatus.PUBLISHED.getKey());
+        Definition permissionCandidate = TestFlows.serialFlow("group-permission", "2", PublishStatus.UNPUBLISHED.getKey());
+        Node permissionNode = configureGroupNode(permissionCandidate, "apply", validGroupConfig());
+        permissionNode.setPermissionFlag("alice");
+        assertPublishRejectedWithoutStatusChanges(permissionCurrent, permissionCandidate);
+
+        Definition ratioCurrent = TestFlows.serialFlow("group-ratio", "1", PublishStatus.PUBLISHED.getKey());
+        Definition ratioCandidate = TestFlows.serialFlow("group-ratio", "2", PublishStatus.UNPUBLISHED.getKey());
+        Node ratioNode = configureGroupNode(ratioCandidate, "apply", validGroupConfig());
+        ratioNode.setNodeRatio("100");
+        assertPublishRejectedWithoutStatusChanges(ratioCurrent, ratioCandidate);
+    }
+
+    @Test
+    void publish_rejectsGroupModeOnNonHumanAndEventNodesBeforeStatusChanges() {
+        Definition startCurrent = TestFlows.serialFlow("group-start", "1", PublishStatus.PUBLISHED.getKey());
+        Definition startCandidate = TestFlows.serialFlow("group-start", "2", PublishStatus.UNPUBLISHED.getKey());
+        configureGroupNode(startCandidate, "start", validGroupConfig());
+        assertPublishRejectedWithoutStatusChanges(startCurrent, startCandidate);
+
+        Definition serviceCurrent = TestFlows.serialFlow("group-service", "1", PublishStatus.PUBLISHED.getKey());
+        Definition serviceCandidate = TestFlows.serialFlow("group-service", "2", PublishStatus.UNPUBLISHED.getKey());
+        Node serviceNode = configureGroupNode(serviceCandidate, "apply",
+            "{\"serviceTask\":{\"type\":\"class\",\"handler\":\"a.B\"},"
+                + "\"groupSign\":{\"groups\":[{\"id\":\"legal\",\"members\":[\"alice\"]}]}}");
+        serviceNode.setNodeType(NodeType.SERVICE.getKey());
+        assertPublishRejectedWithoutStatusChanges(serviceCurrent, serviceCandidate);
+
+        Definition eventCurrent = TestFlows.serialFlow("group-event", "1", PublishStatus.PUBLISHED.getKey());
+        Definition eventCandidate = TestFlows.serialFlow("group-event", "2", PublishStatus.UNPUBLISHED.getKey());
+        Node eventNode = configureGroupNode(eventCandidate, "apply", validGroupConfig());
+        eventNode.setEventType(EventType.MESSAGE_CATCH.getValue()).setEventName("approval.received");
+        assertPublishRejectedWithoutStatusChanges(eventCurrent, eventCandidate);
     }
 
     @Test
@@ -468,6 +536,27 @@ class DefLifecycleCharacteristicTest {
         assertEquals(ExceptionCons.MUL_SKIP_BETWEEN,
             assertThrows(FlowException.class, () -> FlowEngine.defService().saveDef(invalid, false)).getMessage());
         assertTrue(harness.defDao.all().isEmpty());
+    }
+
+    private Node configureGroupNode(Definition definition, String nodeCode, String nodeConfig) {
+        Node node = harness.nodeDao.all().stream()
+            .filter(item -> definition.getId().equals(item.getDefinitionId())
+                && nodeCode.equals(item.getNodeCode()))
+            .findFirst().orElseThrow();
+        node.setCooperateType(CooperateType.GROUP).setNodeRatio("0")
+            .setPermissionFlag(null).setNodeConfig(nodeConfig);
+        return node;
+    }
+
+    private void assertPublishRejectedWithoutStatusChanges(Definition current, Definition candidate) {
+        assertThrows(FlowException.class, () -> FlowEngine.defService().publish(candidate.getId()));
+        assertEquals(PublishStatus.PUBLISHED.getKey(), harness.defDao.raw(current.getId()).getIsPublish());
+        assertEquals(PublishStatus.UNPUBLISHED.getKey(), harness.defDao.raw(candidate.getId()).getIsPublish());
+    }
+
+    private String validGroupConfig() {
+        return "{\"groupSign\":{\"groups\":[{\"id\":\"legal\",\"members\":[\"alice\"]}],"
+            + "\"order\":\"parallel\"}}";
     }
 
     /** 构造 start → apply → end 的设计器 json（apply 带办理人） */

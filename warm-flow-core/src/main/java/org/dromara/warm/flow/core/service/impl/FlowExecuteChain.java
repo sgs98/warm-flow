@@ -22,8 +22,10 @@ import org.dromara.warm.flow.core.dto.PathWayData;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
+import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.utils.*;
 
 import java.util.ArrayList;
@@ -86,6 +88,10 @@ final class FlowExecuteChain {
      * 新增待办任务（setInsFinishInfo 可能原地移除结束任务，endCreate 监听器看到删后同引用列表）。
      */
     private List<Task> addTasks;
+    /**
+     * 已完成全路径校验的到达计划。
+     */
+    private ArrivalPlan arrivalPlan;
 
     /**
      * @param taskService        任务服务
@@ -176,8 +182,8 @@ final class FlowExecuteChain {
      * @return 空表示继续执行后续步骤
      */
     private Optional<Instance> authGate(FlowExecution execution) {
-        // 判断当前处理人是否有权限处理
-        taskService.checkAuth(execution.task, execution.intent);
+        // 判断当前处理人是否有权限处理；组签按具体办理人行精确匹配
+        taskService.checkAuth(execution.task, execution.nowNode, execution.intent);
         return Optional.empty();
     }
 
@@ -188,6 +194,14 @@ final class FlowExecuteChain {
      * @return 需要短路时返回当前实例，否则继续执行后续步骤
      */
     private Optional<Instance> cooperateGate(FlowExecution execution) {
+        // 组签不支持任意跳转：跳过其它组会绕过组完成统计，语义未定义。
+        // 公开 execute(PASS) 与 WorkflowService.jump 都走这里，服务端统一拒绝。
+        if (CooperateType.isGroup(execution.nowNode.getCooperateType())
+            && SkipType.isPass(skipType)
+            && StringUtils.isNotEmpty(execution.intent.getTargetNodeCode())) {
+            throw new FlowException("[" + execution.nowNode.getNodeCode() + "]"
+                + ExceptionCons.GROUP_SIGN_JUMP_UNSUPPORTED);
+        }
         //或签、会签、票签逻辑处理
         if (!execution.intent.isIgnore() && cooperationHandler.cooperate(execution, execution.task
             , execution.intent, skipType)) {
@@ -224,12 +238,15 @@ final class FlowExecuteChain {
     private Optional<Instance> buildTasks(FlowExecution execution) {
         // 构建增待办任务和设置结束任务历史记录：后续节点统一分派，
         // 人工 / 服务节点建待办，捕获事件节点起等待记录不建 Task
-        addTasks = EventArrivalDispatcher.dispatch(execution, nextNodes, skipType);
+        arrivalPlan = EventArrivalDispatcher.prepare(execution, nextNodes, skipType);
+        EventArrivalDispatcher.validateBoundaries(execution, arrivalPlan.tasks());
+        addTasks = arrivalPlan.tasks();
 
         // 办理人变量替换
         ExpressionUtil.evalVariable(addTasks, execution.intent.getVariables(), execution.intent.getNextHandlers()
             , execution.intent.isNextHandlerAppend());
 
+        EventArrivalDispatcher.commit(arrivalPlan);
         // 执行分派监听器
         ListenerUtil.executeAssignment(execution.contextListener(execution.task, execution.nowNode, nextNodes
             , addTasks));

@@ -236,3 +236,42 @@
 - 复现：两个独立事务同时 restart 同一终态实例，不能用单线程顺序调用替代。
 - 必查：恰好一个成功，另一个在获得锁后看到新任务并拒绝；最终只有一份活动任务、一组审批用户、一次实例更新，旧历史无变化。
 - Demo 锚点：`SELECT ... FOR UPDATE` 必须在 `@Transactional` 方法内、调用引擎 facade 之前执行；Spring 事务本身不等于并发串行化。
+
+## 组签不变量（GRP-*）
+
+### 组成员必须在首次写入前展开为具体用户
+
+- 不变量：`flow_user` 每行 `processed_by` 是具体用户名，`seq_no` 是组下标（并行组签同样写入）；同组多人共享同一 `seq_no`。
+- 负例：任一组成员的 `resolveGroupHandlers` 展开为空时，发起 / 办理 / 撤回 / 事件 / 服务后继必须在首次 `flow_task`、`flow_user`、`flow_event_wait` 写入前失败；失败跳自身零写入。
+- 边界：服务处理器执行与跨服务跳的宿主副作用不在 core 回滚范围，整条调用链的原子性由宿主事务承担；不要用单跳测试宣称多级服务链整体原子。
+- 代码锚点：`PermissionHandler.resolveGroupHandlers`、`ArrivalPlan`、`EventArrivalDispatcher`、`UserServiceImpl`。
+
+### 组完成判定按整组清退，不能按人计票
+
+- 不变量：通过时删除当前办理人命中的所有组槽位行；顺序模式只命中最小 `seq_no` 组，并行模式命中全部匹配组；仍有组时写一条 `pass` 签名历史并停留，最后一组完成才流转。
+- 驳回：任一当前组成员驳回即清空全部组，按驳回路由流转。
+- 检查：不要用 `flow_task` 行数或单行 `flow_user` 判断完成，必须按 `seq_no` 分组核对剩余行。
+- 代码锚点：`TaskCooperationHandler#cooperateGroup`、`SequenceSignUtil#isCurrentGroup`。
+
+### 顺序组签的可见性与办理权限一致
+
+- 不变量：当前组任一成员可见、可办；后续组不可见，直调返回无权限。core `TodoQueryUtil` 与 Demo `selectTodoPage` 两条查询路径都必须按「匹配行最小 `seq_no` = 活动行最小 `seq_no`」过滤。
+- 检查：同时核对待办接口结果与 `flow_user` 的 `seq_no`，不能只用其中一条路径证明。
+- 兼容：普通顺序会签仍按「最小顺序位的那一名办理人」判定，不能被组签规则改写。
+
+### 组签转办是槽位整体替换
+
+- 不变量：删除当前组全部成员行，为目标新增 `type=transfer`、同 `seq_no` 的行；目标可多人（组内或签）；二次转办规则相同；历史 `approver` 为转出人、`collaborator` 为目标、`message` 原样保留。
+- 负例：目标已在任务任何活动行、顺序组签非当前组、普通节点多目标、空目标、重复目标全部拒绝且五类数据不变。
+- 检查：转办后原组成员不可见、受转人可见；组标识不单独落库，不要从历史里找组 ID。
+
+### 组签禁用动作与重启排除必须服务端兜底
+
+- 不变量：加签、减签、委托、任意跳转、自动审批、终态重启 / 重置到组签节点全部由服务端拒绝；Demo 按钮隐藏只是提示。
+- 检查：直调 HTTP API，不只看 UI；失败后比较实例、任务、历史、用户、等待五类快照。
+- 代码锚点：`FlowUpdateHandlersChain`、`FlowExecuteChain`（PASS + targetNodeCode）、`AutoPassAdvancer`、`InstanceRestartCoordinator`。
+
+### 旧版本引擎没有安全降级
+
+- 不变量：旧引擎把组签节点当作无办理人的或签节点，知道 taskId 的调用方可以越过组规则。
+- 处理：发布说明与运维必须要求「组签定义只发布到支持组签的引擎版本」；测试报告写明引擎版本，不能声称权限为空会安全失败。

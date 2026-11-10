@@ -148,9 +148,10 @@ final class AutoPassAdvancer {
         if (!NodeType.isBetween(candidate.getNodeType())) {
             return null;
         }
-        // 顺序会签必须由当前位逐个人工办理，自动审批不得代替
+        // 顺序会签必须由当前位逐个人工办理，自动审批不得代替；组签整体不参与自动审批
         Node node = nodeMap.get(candidate.getNodeCode());
-        if (node != null && CooperateType.isSequence(node.getCooperateType(), node.getNodeRatio())) {
+        if (node != null && (CooperateType.isGroup(node.getCooperateType())
+            || CooperateType.isSequence(node.getCooperateType(), node.getNodeRatio()))) {
             return null;
         }
         Task task = FlowEngine.taskService().getById(candidate.getId());

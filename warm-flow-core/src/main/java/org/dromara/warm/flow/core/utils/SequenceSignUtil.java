@@ -61,6 +61,45 @@ public final class SequenceSignUtil {
         return current != null && Objects.equals(current.getProcessedBy(), handler);
     }
 
+    /**
+     * 判断办理人是否属于顺序组签的当前组。
+     * <p>
+     * 与顺序会签按「最小顺序位的那一名办理人」判定不同，组签的一组包含多名成员：
+     * 比较办理人匹配行的最小 {@code seq_no} 与任务剩余行的最小 {@code seq_no}，
+     * 同组任何成员都落在当前位。
+     *
+     * @param users   当前任务的活动办理人集合
+     * @param handler 办理人标识
+     * @return true：属于当前组
+     */
+    public static boolean isCurrentGroup(List<User> users, String handler) {
+        if (CollUtil.isEmpty(users) || StringUtils.isEmpty(handler)) {
+            return false;
+        }
+        Integer current = minimumSeqNo(users);
+        Integer mine = users.stream()
+            .filter(user -> Objects.equals(user.getProcessedBy(), handler))
+            .map(User::getSeqNo)
+            .filter(Objects::nonNull)
+            .min(Integer::compareTo)
+            .orElse(null);
+        return current != null && current.equals(mine);
+    }
+
+    /**
+     * 取活动办理人集合中的最小顺序位；组签行的 {@code seq_no} 即组下标。
+     *
+     * @param users 活动办理人集合
+     * @return 最小顺序位；没有非空顺序位时返回 {@code null}
+     */
+    public static Integer minimumSeqNo(List<User> users) {
+        if (CollUtil.isEmpty(users)) {
+            return null;
+        }
+        return users.stream().map(User::getSeqNo).filter(Objects::nonNull)
+            .min(Integer::compareTo).orElse(null);
+    }
+
     private static Comparator<User> comparator(List<User> users) {
         return users.stream().anyMatch(user -> ObjectUtil.isNull(user.getSeqNo()))
             ? Comparator.comparing(User::getId, Comparator.nullsLast(Long::compareTo))

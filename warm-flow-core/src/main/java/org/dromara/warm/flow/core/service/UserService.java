@@ -31,6 +31,8 @@ public interface UserService extends IWarmService<User> {
 
     /**
      * 设置流程用户
+     * <p>组签节点的任务在这里按 {@code node_config.groupSign} 展开为具体办理人：每组每个成员一行，
+     * {@code seq_no} 为组下标；任一组成员无法解析为空时整批失败，不生成无人可办的任务。</p>
      *
      * @param addTasks 待办任务
      * @return List<User>

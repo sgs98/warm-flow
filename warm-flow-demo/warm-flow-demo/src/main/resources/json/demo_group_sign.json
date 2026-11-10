@@ -1,0 +1,73 @@
+{
+  "flowCode": "demo_group_sign",
+  "flowName": "组签示例",
+  "modelValue": "CLASSICS",
+  "version": "1",
+  "formCustom": "N",
+  "nodeList": [
+    {
+      "nodeType": 0,
+      "nodeCode": "start",
+      "nodeName": "开始",
+      "nodeRatio": "0",
+      "coordinate": "60,180|60,180",
+      "formCustom": "N",
+      "ext": "[]",
+      "skipList": [
+        {
+          "nowNodeCode": "start",
+          "nextNodeCode": "submit",
+          "skipType": "PASS",
+          "coordinate": "80,180;180,180"
+        }
+      ]
+    },
+    {
+      "nodeType": 1,
+      "nodeCode": "submit",
+      "nodeName": "申请人",
+      "permissionFlag": "user:admin",
+      "nodeRatio": "0",
+      "coordinate": "230,180|230,180",
+      "formCustom": "N",
+      "ext": "[]",
+      "skipList": [
+        {
+          "nowNodeCode": "submit",
+          "nextNodeCode": "groupSign",
+          "skipType": "PASS",
+          "coordinate": "280,180;420,180"
+        }
+      ]
+    },
+    {
+      "nodeType": 1,
+      "nodeCode": "groupSign",
+      "nodeName": "组签",
+      "nodeRatio": "0",
+      "cooperateType": "group",
+      "coordinate": "470,180|470,180",
+      "formCustom": "N",
+      "ext": "[{\"code\":\"ButtonPermissionEnum\",\"value\":\"copy,back,termination,file,transfer\"}]",
+      "nodeConfig": "{\"groupSign\":{\"groups\":[{\"id\":\"legal\",\"name\":\"法务组\",\"members\":[\"user:approver1\",\"user:approver2\"]},{\"id\":\"finance\",\"name\":\"财务组\",\"members\":[\"user:approver3\"]}],\"order\":\"parallel\"}}",
+      "skipList": [
+        {
+          "nowNodeCode": "groupSign",
+          "nextNodeCode": "end",
+          "skipType": "PASS",
+          "coordinate": "520,180;690,180"
+        }
+      ]
+    },
+    {
+      "nodeType": 2,
+      "nodeCode": "end",
+      "nodeName": "结束",
+      "nodeRatio": "0",
+      "coordinate": "710,180|710,180",
+      "formCustom": "N",
+      "ext": "[]",
+      "skipList": []
+    }
+  ]
+}

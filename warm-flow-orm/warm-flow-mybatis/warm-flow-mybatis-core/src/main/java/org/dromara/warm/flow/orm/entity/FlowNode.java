@@ -96,7 +96,7 @@ public class FlowNode implements Node {
      */
     private String nodeRatio;
     /**
-     * 多人审批办理顺序（parallel / sequence）
+     * 多人审批办理顺序（parallel / sequence / group）
      */
     private String cooperateType;
     /**

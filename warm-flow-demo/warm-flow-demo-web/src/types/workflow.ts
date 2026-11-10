@@ -46,6 +46,10 @@ export interface WorkflowTask {
   assignees?: string[]
   variables?: Record<string, unknown>
   createTime: string
+  /** 节点协作模式（parallel / sequence / group 等）。 */
+  cooperateType?: string
+  /** 组签节点允许转办到多个目标。 */
+  multiTargetTransfer?: boolean
 }
 
 /* ==================== 通用 ==================== */
@@ -157,6 +161,10 @@ export interface TaskRow {
   taskStatusName?: string
   createTime: string
   message?: string
+  /** 节点协作模式（parallel / sequence / group 等）。 */
+  cooperateType?: string
+  /** 是否允许转办到多个目标；当前仅组签节点为 true。 */
+  multiTargetTransfer?: boolean
 }
 
 /** 办理请求体（通过/退回/转办/委派/加签/减签共用）。 */

@@ -149,9 +149,10 @@ public interface Node extends RootEntity {
     /**
      * 获取多人审批的办理顺序。
      * <p>为空时按并行处理；为兼容旧定义，运行时还会回退识别 {@code node_ratio} 的
-     * {@code @@sequence} 后缀。</p>
+     * {@code @@sequence} 后缀。{@code group} 表示组签节点：组内任一成员通过即完成该组，
+     * 组间是否顺序由 {@code node_config.groupSign.order} 决定。</p>
      *
-     * @return {@code parallel}、{@code sequence} 或 {@code null}
+     * @return {@code parallel}、{@code sequence}、{@code group} 或 {@code null}
      */
     default String getCooperateType() {
         return null;
@@ -160,7 +161,7 @@ public interface Node extends RootEntity {
     /**
      * 设置多人审批的办理顺序。
      *
-     * @param cooperateType {@code parallel} 或 {@code sequence}
+     * @param cooperateType {@code parallel}、{@code sequence} 或 {@code group}
      * @return 当前节点
      */
     default Node setCooperateType(String cooperateType) {

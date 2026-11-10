@@ -32,11 +32,11 @@ final class TaskHistoryHandler {
      */
     void updateFlowInfo(TaskServiceImpl taskService, Task task, Instance instance, List<Task> addTasks
         , WorkflowContext context, String skipType, List<Node> nextNodes) {
-        HisTask insHis = FlowEngine.hisTaskService().setSkipInsHis(task, nextNodes, context, skipType);
-        FlowEngine.hisTaskService().save(insHis);
-        taskService.removeAndUserInternal(List.of(task));
-
+        // 先完成组签身份解析，之后才允许归档 / 删除当前待办或更新实例。
+        ArrivalPlan.prepareGroupUsers(addTasks);
         List<User> users = FlowEngine.userService().taskAddUsers(addTasks);
+        FlowEngine.hisTaskService().save(FlowEngine.hisTaskService().setSkipInsHis(task, nextNodes, context, skipType));
+        taskService.removeAndUserInternal(List.of(task));
         taskService.setInsFinishInfo(instance, addTasks, context.getVariables());
         // 调用方经上下文显式指定了实例状态（典型是终止结束事件把「实例终止码」带下来）时按意图回写。
         // 不能靠「落点任务码 == 实例码」的数值比较来识别终止：实例状态与任务状态是两个独立编码空间，

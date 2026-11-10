@@ -65,85 +65,147 @@ final class EventArrivalDispatcher {
     }
 
     /**
-     * 分派一批到达节点。
-     *
-     * @param execution 执行作用域
-     * @param nodes     到达节点集合
-     * @param skipType  流转类型
-     * @return 本批创建的待办任务（含服务任务临时待办，事件节点不产生任务）
+     * 校验并构造完整递归到达批次，不执行到达副作用。
      */
-    static List<Task> dispatch(FlowExecution execution, List<Node> nodes, String skipType) {
-        return dispatch(execution, nodes, skipType, 0);
+    static ArrivalPlan prepare(FlowExecution execution, List<Node> nodes, String skipType) {
+        return prepare(execution, nodes, skipType, false);
     }
 
     /**
-     * 分派一批到达节点（内部递归入口）。
-     *
-     * @param execution 执行作用域
-     * @param nodes     到达节点集合
-     * @param skipType  流转类型
-     * @param depth     递归深度
-     * @return 本批创建的待办任务
+     * 撤回专用预解析：旧等待尚未取消，但本次到达会整体替换它们。
+     * <p>捕获事件按实例 + 节点查重时忽略现存等待，否则重新命中同一捕获节点会被误判为
+     * 「已存在等待」而不再构造新等待，随后旧等待又被取消，留下零等待。失败路径仍保留旧等待。</p>
      */
-    private static List<Task> dispatch(FlowExecution execution, List<Node> nodes, String skipType
-        , int depth) {
-        List<Task> createdTasks = new ArrayList<>();
+    static ArrivalPlan prepareReplacingWaits(FlowExecution execution, List<Node> nodes, String skipType) {
+        return prepare(execution, nodes, skipType, true);
+    }
+
+    private static ArrivalPlan prepare(FlowExecution execution, List<Node> nodes, String skipType
+        , boolean replacingWaits) {
+        ArrivalPlan plan = new ArrivalPlan();
+        prepare(execution, nodes, skipType, 0, plan, replacingWaits);
+        plan.resolveGroupUsers();
+        plan.validateCommitActions();
+        return plan;
+    }
+
+    /**
+     * 执行已验证计划中延迟的事件等待、历史与发布副作用。
+     */
+    static void commit(ArrivalPlan plan) {
+        plan.commit();
+    }
+
+    private static void prepare(FlowExecution execution, List<Node> nodes, String skipType, int depth
+        , ArrivalPlan plan, boolean replacingWaits) {
         if (CollUtil.isEmpty(nodes)) {
-            return createdTasks;
+            return;
         }
         AssertUtil.isTrue(depth > MAX_DISPATCH_DEPTH, ExceptionCons.SERVICE_TASK_LOOP_LIMIT);
         for (Node node : nodes) {
-            // 到达即补充该节点的默认流程变量（缺键才写），随后它自己的出口 / 后续网关都能读到
             execution.applyNodeDefaults(node);
             if (StringUtils.isNotEmpty(node.getEventType())) {
-                dispatchEventNode(execution, node, skipType, depth, createdTasks);
+                prepareEventNode(execution, node, skipType, depth, plan, replacingWaits);
             } else {
                 Task task = FlowEngine.taskService().addTask(node, execution.instance
                     , execution.definition, execution.intent, skipType);
-                createdTasks.add(task);
-                registerBoundaryWaits(execution, node, task);
+                plan.addTask(task);
+                plan.deferCommit(() -> registerBoundaryWaits(execution, node, task));
             }
         }
-        return createdTasks;
     }
 
-    /**
-     * 分派单个事件节点。
-     */
-    private static void dispatchEventNode(FlowExecution execution, Node node, String skipType
-        , int depth, List<Task> createdTasks) {
+    private static void prepareEventNode(FlowExecution execution, Node node, String skipType, int depth
+        , ArrivalPlan plan, boolean replacingWaits) {
         String eventType = node.getEventType();
         if (EventType.isCatch(eventType)) {
-            arriveCatch(execution, node, skipType);
+            if (!plan.addCatchNode(execution.instance.getId(), node.getNodeCode())) {
+                return;
+            }
+            EventWait wait = prepareCatchWait(execution, node, skipType, replacingWaits);
+            if (wait != null) {
+                plan.deferCommit(() -> ListenerUtil.executeStart(execution.contextListener(null, node
+                    , Collections.emptyList(), Collections.emptyList())));
+                plan.deferCommit(() -> {
+                    FlowEngine.eventWaitService().save(wait);
+                    updateWaitingInstance(execution, node, skipType);
+                });
+                plan.deferCommit(() -> ListenerUtil.endCreateListener(execution.contextListener(null, node
+                    , Collections.emptyList(), Collections.emptyList())));
+            }
             return;
         }
         if (EventType.isThrow(eventType) || EventType.isEnd(eventType)) {
-            // 抛出事件先发布消息；结束事件（MESSAGE_END / TERMINATE_END）同样先完成发布 / 清理
             if (EventType.isThrow(eventType) || EventType.MESSAGE_END.getValue().equals(eventType)) {
-                publishMessage(execution, node);
+                plan.validatePublisher(node);
+                plan.deferCommit(() -> publishMessage(execution, node));
             }
             if (EventType.TERMINATE_END.getValue().equals(eventType)) {
-                // 终止结束事件：中断实例其它活动等待记录，并把实例终态定为「终止」——
-                // 经 intent 传给收口链，随固定 END 的收口写入实例状态
-                FlowEngine.eventWaitService().cancelByInstanceIds(List.of(execution.instance.getId()));
-                execution.intent.setFlowStatus(
-                    FlowStatusMachine.mapper().instanceStatus(FlowStatus.TERMINATE));
+                plan.deferCommit(() -> {
+                    FlowEngine.eventWaitService().cancelByInstanceIds(List.of(execution.instance.getId()));
+                    execution.intent.setFlowStatus(
+                        FlowStatusMachine.mapper().instanceStatus(FlowStatus.TERMINATE));
+                });
             }
-            // 结束事件留痕：历史里记一条「流程由该结束事件节点结束」，
-            // 终止结束的实例状态为「终止」，正常结束 / 消息结束仍为「已完成」
-            recordEndEvent(execution, node);
-            // 沿事件出口继续分派（MESSAGE_END / TERMINATE_END 的唯一出口指向固定 END）；
-            // 出口解析与路径元数据共用同一收集器，确保事件节点出口连线一并标记为已完成
+            if (EventType.isEnd(eventType)) {
+                plan.deferCommit(() -> recordEndEvent(execution, node));
+            }
             PathWayData exitPathWay = exitPathWay(execution, node);
             List<Node> exitNodes = resolveExit(execution, node, exitPathWay);
             exitPathWay.getTargetNodes().addAll(exitNodes);
             execution.instance.setDefJson(FlowEngine.chartService().skipMetadata(exitPathWay));
-            createdTasks.addAll(dispatch(execution, exitNodes, skipType, depth + 1));
+            prepare(execution, exitNodes, skipType, depth + 1, plan, replacingWaits);
             return;
         }
-        // 启动事件与边界事件不允许出现在实例级路由中
         throw new IllegalStateException("[" + node.getNodeCode() + "]"
             + ExceptionCons.EVENT_START_TOPOLOGY_MISMATCH);
+    }
+
+    private static EventWait prepareCatchWait(FlowExecution execution, Node node, String skipType
+        , boolean replacingWaits) {
+        Long currentWaitId = EventWaitProcessor.currentWaitId();
+        boolean exists = !replacingWaits && FlowEngine.eventWaitService()
+            .getActiveByInstanceId(execution.instance.getId()).stream()
+            .anyMatch(wait -> node.getNodeCode().equals(wait.getNodeCode())
+                && !Objects.equals(currentWaitId, wait.getId()));
+        if (exists) {
+            log.info("实例 {} 节点 {} 已存在等待记录，跳过重复到达", execution.instance.getId(), node.getNodeCode());
+            return null;
+        }
+        Instance instance = execution.instance;
+        String eventType = node.getEventType();
+        EventWait wait = FlowEngine.newEventWait();
+        Date now = new Date();
+        FlowEngine.dataFillHandler().idFill(wait);
+        EventConfig config = EventConfig.parse(node.getNodeConfig());
+        wait.setDefinitionId(instance.getDefinitionId())
+            .setInstanceId(instance.getId())
+            .setNodeCode(node.getNodeCode())
+            .setEventType(eventType)
+            .setEventName(node.getEventName())
+            .setStatus(EventCons.STATUS_WAITING)
+            .setRetryCount(0)
+            .setRepeatCount(0)
+            .setVersion(0)
+            .setCreateTime(now)
+            .setUpdateTime(now)
+            .setTenantId(instance.getTenantId());
+        if (config.hasTimer()) {
+            Date nextTriggerAt = TimerScheduleStrategies.nextTriggerAt(config.getTimerType()
+                , new TimerContext().setPreviousTriggerAt(null).setCurrentTime(now)
+                    .setTriggerInterval(config.getTimerValue()).setTimezone(config.getTimezone()).setRepeatCount(0));
+            wait.setTriggerType(config.getTimerType()).setTriggerInterval(config.getTimerValue())
+                .setTimezone(config.getTimezone()).setMaxRepeatCount(config.getMaxCount())
+                .setNextTriggerAt(nextTriggerAt);
+        }
+        return wait;
+    }
+
+    private static void updateWaitingInstance(FlowExecution execution, Node node, String skipType) {
+        Instance instance = execution.instance;
+        instance.setNodeType(node.getNodeType()).setNodeCode(node.getNodeCode()).setNodeName(node.getNodeName())
+            .setFlowStatus(StringUtils.emptyDefault(execution.intent.getFlowStatus()
+                , FlowStatusMachine.instanceStatus(node.getNodeType(), skipType)));
     }
 
     /**
@@ -179,73 +241,29 @@ final class EventArrivalDispatcher {
         FlowEngine.hisTaskService().save(hisTask);
     }
 
-    /**
-     * 到达中间捕获事件：幂等创建等待记录、实例位置与状态指向等待节点、执行事件节点监听器。
-     *
-     * @param execution 执行作用域
-     * @param node      到达的捕获事件节点
-     * @param skipType  流转类型，用于计算实例状态
-     */
-    private static void arriveCatch(FlowExecution execution, Node node, String skipType) {
-        Instance instance = execution.instance;
-        // 幂等：该实例该节点已有活动等待记录时跳过
-        Long currentWaitId = EventWaitProcessor.currentWaitId();
-        boolean exists = FlowEngine.eventWaitService().getActiveByInstanceId(instance.getId()).stream()
-            .anyMatch(wait -> node.getNodeCode().equals(wait.getNodeCode())
-                && !Objects.equals(currentWaitId, wait.getId()));
-        if (exists) {
-            log.info("实例 {} 节点 {} 已存在等待记录，跳过重复到达", instance.getId(), node.getNodeCode());
+    static void validateBoundaries(FlowExecution execution, List<Task> tasks) {
+        if (CollUtil.isEmpty(tasks)) {
             return;
         }
-
-        String eventType = node.getEventType();
-        // start 监听器在等待记录创建前执行
-        ListenerUtil.executeStart(execution.contextListener(null, node, Collections.emptyList()
-            , Collections.emptyList()));
-
-        EventWait wait = FlowEngine.newEventWait();
-        Date now = new Date();
-        FlowEngine.dataFillHandler().idFill(wait);
-        EventConfig config = EventConfig.parse(node.getNodeConfig());
-        wait.setDefinitionId(instance.getDefinitionId())
-            .setInstanceId(instance.getId())
-            .setNodeCode(node.getNodeCode())
-            .setEventType(eventType)
-            .setEventName(node.getEventName())
-            .setStatus(EventCons.STATUS_WAITING)
-            .setRetryCount(0)
-            .setRepeatCount(0)
-            .setVersion(0)
-            .setCreateTime(now)
-            .setUpdateTime(now)
-            .setTenantId(instance.getTenantId());
-        if (config.hasTimer()) {
-            Date nextTriggerAt = TimerScheduleStrategies.nextTriggerAt(config.getTimerType()
-                , new TimerContext()
-                    .setPreviousTriggerAt(null)
-                    .setCurrentTime(now)
-                    .setTriggerInterval(config.getTimerValue())
-                    .setTimezone(config.getTimezone())
-                    .setRepeatCount(0));
-            wait.setTriggerType(config.getTimerType())
-                .setTriggerInterval(config.getTimerValue())
-                .setTimezone(config.getTimezone())
-                .setMaxRepeatCount(config.getMaxCount())
-                .setNextTriggerAt(nextTriggerAt);
+        List<Node> boundaries = StreamUtils.filter(execution.loadCombineNoDef().getAllNodes()
+            , node -> EventType.isBoundary(node.getEventType()));
+        for (Task task : tasks) {
+            for (Node boundary : boundaries) {
+                if (!task.getNodeCode().equals(boundary.getAttachedToNodeCode())) {
+                    continue;
+                }
+                EventConfig config = EventConfig.parse(boundary.getNodeConfig());
+                if (EventType.TIMER_BOUNDARY.getValue().equals(boundary.getEventType()) && !config.hasTimer()) {
+                    throw new FlowException("[" + boundary.getNodeCode() + "]" + ExceptionCons.TIMER_EVENT_NO_CONFIG);
+                }
+                if (config.hasTimer()) {
+                    TimerScheduleStrategies.nextTriggerAt(config.getTimerType(), new TimerContext()
+                        .setPreviousTriggerAt(null).setCurrentTime(new Date())
+                        .setTriggerInterval(config.getTimerValue()).setTimezone(config.getTimezone())
+                        .setRepeatCount(0));
+                }
+            }
         }
-        FlowEngine.eventWaitService().save(wait);
-
-        // 实例位置指向正在等待的事件节点（本批无人工待办时不会被 setInsFinishInfo 覆盖），
-        // 状态按与建待办相同的规则同步，避免等待期间实例状态停留在发起时的待提交 / 草稿
-        instance.setNodeType(node.getNodeType())
-            .setNodeCode(node.getNodeCode())
-            .setNodeName(node.getNodeName())
-            .setFlowStatus(StringUtils.emptyDefault(execution.intent.getFlowStatus()
-                , FlowStatusMachine.instanceStatus(node.getNodeType(), skipType)));
-
-        // create 监听器在等待记录创建后执行（task 为空是合法语义）
-        ListenerUtil.endCreateListener(execution.contextListener(null, node
-            , Collections.emptyList(), Collections.emptyList()));
     }
 
     /**
@@ -292,6 +310,12 @@ final class EventArrivalDispatcher {
                     .setNextTriggerAt(nextTriggerAt);
             }
             FlowEngine.eventWaitService().save(wait);
+        }
+    }
+
+    static void validatePublisher(Node node) {
+        if (FlowEngine.eventPublisher() == null) {
+            throw new FlowException("[" + node.getNodeCode() + "]" + ExceptionCons.EVENT_PUBLISHER_MISSING);
         }
     }
 

@@ -338,6 +338,7 @@ public class DefServiceImpl extends WarmServiceImpl<FlowDefinitionDao<Definition
         FlowCombine combine = getFlowCombine(definition);
         AssertUtil.isEmpty(combine.getAllNodes(), ExceptionCons.NOT_DRAW_FLOW_ERROR);
         checkFlowLegal(combine);
+        FlowConfigUtil.validateGroupSignCapability(combine);
         // 发布能力门禁：未开放运行时的事件类型只能保存为未发布草稿
         FlowConfigUtil.validateEventCapability(combine);
         List<Definition> definitions = getByFlowCode(definition.getFlowCode());

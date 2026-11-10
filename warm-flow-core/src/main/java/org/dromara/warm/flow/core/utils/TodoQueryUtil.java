@@ -69,11 +69,32 @@ public final class TodoQueryUtil {
                         .list(FlowEngine.newNode().setDefinitionId(definitionId))
                     , Node::getNodeCode, node -> node));
             Node node = nodeMap.get(task.getNodeCode());
-            if (node == null || !CooperateType.isSequence(node.getCooperateType(), node.getNodeRatio())
-                || SequenceSignUtil.isCurrentPosition(usersByTask.get(task.getId()), handler)) {
+            if (visibleTo(node, usersByTask.get(task.getId()), handler)) {
                 result.add(task);
             }
         }
         return result;
+    }
+
+    /**
+     * 判断待办对当前办理人是否可见。
+     * <p>
+     * 顺序组签按「最小组序号」过滤，同组任一成员都可见；并行组签不做顺序过滤。
+     * 顺序会签保持原有「最小顺序位的那一名办理人」语义。
+     *
+     * @param node    待办节点；节点缺失时保持可见（与既有兼容行为一致）
+     * @param users   待办的活动办理人集合
+     * @param handler 办理人标识
+     * @return true：可见
+     */
+    private static boolean visibleTo(Node node, List<User> users, String handler) {
+        if (node == null) {
+            return true;
+        }
+        if (CooperateType.isGroup(node.getCooperateType())) {
+            return !GroupSignUtil.isSequence(node) || SequenceSignUtil.isCurrentGroup(users, handler);
+        }
+        return !CooperateType.isSequence(node.getCooperateType(), node.getNodeRatio())
+            || SequenceSignUtil.isCurrentPosition(users, handler);
     }
 }

@@ -118,10 +118,11 @@ public interface User extends RootEntity {
     /**
      * 获取办理顺序号。
      * <p>
-     * 同一任务内从 0 递增，仅顺序会签（{@code node_ratio = 100@@sequence}）读取；
-     * 其余协作方式不参与逻辑，可为 {@code null}。
+     * 顺序会签：同一任务内从 0 递增的办理人顺位，仅顺序会签（{@code node_ratio = 100@@sequence}）读取。
+     * 组签：记录成员所属审批组在 {@code node_config.groupSign.groups} 数组中的下标；
+     * 并行组签同样写入，用于按组完成判定。其余协作方式不参与逻辑，可为 {@code null}。
      *
-     * @return 办理顺序号
+     * @return 办理顺序号或组下标
      */
     default Integer getSeqNo() {
         return null;

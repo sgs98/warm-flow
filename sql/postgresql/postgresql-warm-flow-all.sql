@@ -84,7 +84,7 @@ COMMENT ON COLUMN flow_node.node_code IS '流程节点编码';
 COMMENT ON COLUMN flow_node.node_name IS '流程节点名称';
 COMMENT ON COLUMN flow_node.permission_flag IS '权限标识（权限类型:权限标识，可以多个，用@@隔开)';
 COMMENT ON COLUMN flow_node.node_ratio IS '流程签署比例值';
-COMMENT ON COLUMN flow_node.cooperate_type IS '多人审批办理顺序（parallel并行 sequence顺序）';
+COMMENT ON COLUMN flow_node.cooperate_type IS '多人审批办理顺序（parallel并行 sequence顺序 group组签）';
 COMMENT ON COLUMN flow_node.coordinate IS '坐标';
 COMMENT ON COLUMN flow_node.any_node_skip IS '任意结点跳转';
 COMMENT ON COLUMN flow_node.listener_type IS '监听器类型';
@@ -285,7 +285,7 @@ CREATE TABLE flow_user
     associated   int8        NOT NULL,
     seq_no       int4        NULL,
     create_time  timestamp    NULL,
-    create_by    varchar(80)  NULL,
+    create_by    varchar(80)  NULL DEFAULT '':: character varying,
     update_time  timestamp    NULL,
     update_by    varchar(64)  NULL     DEFAULT '':: character varying,
     del_flag     bpchar(1)   NULL DEFAULT '0':: character varying,
@@ -300,7 +300,7 @@ COMMENT ON COLUMN flow_user.id IS '主键id';
 COMMENT ON COLUMN flow_user."type" IS '人员类型（1待办任务的审批人权限 2待办任务的转办人权限 3待办任务的委托人权限 4待办任务的抄送人）';
 COMMENT ON COLUMN flow_user.processed_by IS '权限人';
 COMMENT ON COLUMN flow_user.associated IS '关联id（待办任务id；抄送人记录为 flow_his_task.id）';
-COMMENT ON COLUMN flow_user.seq_no IS '办理顺序号（同一任务内从 0 递增；顺序会签用，其余协作方式不参与逻辑）';
+COMMENT ON COLUMN flow_user.seq_no IS '办理顺序号（顺序会签为办理人顺位；组签为成员所属组下标，并行组签同样写入；其余协作方式不参与逻辑）';
 COMMENT ON COLUMN flow_user.create_time IS '创建时间';
 COMMENT ON COLUMN flow_user.create_by IS '创建人';
 COMMENT ON COLUMN flow_user.update_time IS '更新时间';

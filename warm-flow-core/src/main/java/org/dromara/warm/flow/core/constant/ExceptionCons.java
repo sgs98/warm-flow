@@ -247,6 +247,31 @@ public class ExceptionCons {
     public static final String IS_ALREADY_TRANSFER = "已经是转办人，不可转办";
 
     /**
+     * 普通节点转办只能指定一个目标。
+     */
+    public static final String SINGLE_TRANSFER_HANDLER = "普通节点转办只能指定一个办理人";
+
+    /**
+     * 组签节点仅支持转办，不支持加签、减签、委派。
+     */
+    public static final String GROUP_SIGN_TRANSFER_ONLY = "组签节点仅支持转办";
+
+    /**
+     * 组签节点不支持任意跳转。
+     */
+    public static final String GROUP_SIGN_JUMP_UNSUPPORTED = "组签节点不支持跳转";
+
+    /**
+     * 组签转办的顺序模式只允许当前组操作。
+     */
+    public static final String GROUP_SIGN_NOT_CURRENT_GROUP = "顺序组签只能由当前组办理";
+
+    /**
+     * 转办新旧目标字段冲突。
+     */
+    public static final String CONFLICT_TRANSFER_HANDLER = "转办目标冲突：targetHandler 与 targetHandlers 不一致";
+
+    /**
      * 委托对象已经是当前受托人。
      */
     public static final String IS_ALREADY_DEPUTE = "已经是受托人，不可委托";

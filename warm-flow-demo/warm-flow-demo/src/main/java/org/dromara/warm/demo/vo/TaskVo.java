@@ -72,6 +72,16 @@ public class TaskVo {
     private List<String> assignees;
 
     /**
+     * 节点协作模式（parallel / sequence / group 等）。
+     */
+    private String cooperateType;
+
+    /**
+     * 是否允许转办到多个目标；当前仅组签节点为 true。
+     */
+    private boolean multiTargetTransfer;
+
+    /**
      * 创建时间。
      */
     private Date createTime;

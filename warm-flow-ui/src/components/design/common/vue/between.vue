@@ -162,7 +162,7 @@
 
         <form-section title="完成方式" :summary="collaborativeWaySummary">
         <el-form-item label="完成方式：" prop="collaborativeWay">
-          <div class="radio-card-group">
+          <div class="radio-card-group completion-way-group">
             <label
               class="radio-card-item"
               :class="{ 'is-checked': form.collaborativeWay === '1' }"
@@ -185,8 +185,91 @@
                 <el-icon :size="13" class="radio-card-tip"><WarningFilled /></el-icon>
               </el-tooltip>
             </label>
+            <label
+              v-if="!isEventNode"
+              class="radio-card-item"
+              :class="{ 'is-checked': form.collaborativeWay === 'group' }"
+              @click="!disabled && (form.collaborativeWay = 'group')"
+            >
+              <span class="radio-card-dot"></span>
+              <span class="radio-card-text">组签</span>
+              <el-tooltip effect="dark" placement="top" content="按审批组协同：组内任一成员通过即该组完成，全部组通过后节点完成">
+                <el-icon :size="13" class="radio-card-tip"><WarningFilled /></el-icon>
+              </el-tooltip>
+            </label>
           </div>
         </el-form-item>
+
+        <template v-if="form.collaborativeWay === 'group'">
+          <el-form-item label="组间办理顺序：">
+            <div class="radio-card-group">
+              <label
+                class="radio-card-item"
+                :class="{ 'is-checked': groupSign.order === 'parallel' }"
+                @click="!disabled && setGroupSignOrder('parallel')"
+              >
+                <span class="radio-card-dot"></span>
+                <span class="radio-card-text">并行办理</span>
+              </label>
+              <label
+                class="radio-card-item"
+                :class="{ 'is-checked': groupSign.order === 'sequence' }"
+                @click="!disabled && setGroupSignOrder('sequence')"
+              >
+                <span class="radio-card-dot"></span>
+                <span class="radio-card-text">顺序办理</span>
+              </label>
+            </div>
+            <div class="field-hint">顺序模式下只有当前组可见；组内固定或签</div>
+          </el-form-item>
+
+          <el-form-item label="审批组：">
+            <div class="group-sign-editor">
+              <div v-for="(group, index) in groupSign.groups" :key="index" class="group-sign-card">
+                <div class="group-sign-card-head">
+                  <span class="group-sign-card-title">第 {{ index + 1 }} 组</span>
+                  <div class="group-sign-actions">
+                    <el-button link size="small" :disabled="disabled || index === 0"
+                               @click="moveGroup(index, -1)">上移</el-button>
+                    <el-button link size="small" :disabled="disabled || index === groupSign.groups.length - 1"
+                               @click="moveGroup(index, 1)">下移</el-button>
+                    <el-button link size="small" type="danger" :disabled="disabled || groupSign.groups.length === 1"
+                               @click="removeGroup(index)">删除</el-button>
+                  </div>
+                </div>
+                <div class="group-sign-fields">
+                  <label class="group-sign-field">
+                    <span>组标识</span>
+                    <el-input v-model="group.id" :disabled="disabled" placeholder="如 legal" maxlength="32" />
+                  </label>
+                  <label class="group-sign-field">
+                    <span>组名称</span>
+                    <el-input v-model="group.name" :disabled="disabled" placeholder="可选" maxlength="50" />
+                  </label>
+                </div>
+                <div class="group-sign-members">
+                  <span class="group-sign-members-label">成员</span>
+                  <el-tag
+                    v-for="(member, memberIndex) in group.members"
+                    :key="member + memberIndex"
+                    size="small"
+                    :title="member"
+                    :closable="!disabled"
+                    @close="removeGroupMember(index, memberIndex)"
+                  >{{ memberLabel(member) }}</el-tag>
+                  <span v-if="group.members.length === 0" class="group-sign-member-empty">未选择成员</span>
+                  <el-button v-if="!disabled" link type="primary" size="small" class="group-sign-add-member"
+                             @click="openGroupMember(index)">+ 选择成员</el-button>
+                </div>
+              </div>
+              <div class="action-buttons">
+                <el-button v-if="!disabled" size="small" class="add-row-btn" @click="addGroup">添加审批组</el-button>
+              </div>
+              <div v-if="groupSignErrors.length > 0" class="group-sign-error">{{ groupSignErrors[0] }}</div>
+              <div class="field-hint">组标识需在节点内唯一；成员可选用户、部门或角色，由宿主解析为具体办理人。</div>
+            </div>
+          </el-form-item>
+        </template>
 
         <el-form-item label="办理顺序：" prop="cooperateType" v-if="form.collaborativeWay === '3'">
           <div class="radio-card-group">
@@ -375,7 +458,12 @@
 
       <!-- 办理人设置 -->
       <div v-show="tabsValue === '2'" class="tabPane tabPane-full">
-        <div class="section-card section-blue">
+        <div v-if="form.collaborativeWay === 'group'" class="section-card section-blue">
+          <div class="section-card-body">
+            <div class="field-hint">组签节点不直接配置办理人：成员在「完成方式 → 审批组」中维护，permission_flag 保持为空</div>
+          </div>
+        </div>
+        <div v-else class="section-card section-blue">
           <div class="section-card-body">
               <el-table :data="permissionRows" style="width: 100%;" class="inputGroup handler-table-mobile"
                   :table-layout="isMobile ? 'fixed' : 'auto'"
@@ -436,6 +524,13 @@
     >
       <selectUser :selectUser="copyHandlerIds" v-model:userVisible="copyUserVisible" :permissionRows="copyHandlerRows" @handleUserSelect="handleCopyUserSelect"></selectUser>
     </el-dialog>
+
+    <!-- 组签成员：复用人员选择器，结果写 node_config.groupSign.groups[index].members -->
+    <el-dialog title="选择组成员" v-if="groupMemberVisible" v-model="groupMemberVisible" :width="isMobile ? '96%' : '80%'" append-to-body
+      class="person-select-dialog" :class="{ 'mobile-user-dialog': isMobile }"
+    >
+      <selectUser :selectUser="groupMemberIds" v-model:userVisible="groupMemberVisible" :permissionRows="groupMemberRows" @handleUserSelect="handleGroupMemberSelect"></selectUser>
+    </el-dialog>
   </div>
 </template>
 
@@ -448,6 +543,7 @@ import formSection from "./formSection";
 import listenerConfig from "./listenerConfig";
 import nodeVariables from "./nodeVariables";
 import {getPreviousNodes} from "@/components/design/common/js/tool.js";
+import {groupSignSummary, normalizeGroupSign, serializeGroupSign, validateGroupSign} from "../js/groupSign.js";
 import {getFramework} from "@/utils/auth.js";
 const { proxy } = getCurrentInstance();
 
@@ -638,8 +734,8 @@ const baseExtSummary = computed(() => {
 /** 扩展属性说明的元数据键：与属性值分开存，保持 nodeConfig[code] 仍是原始标量值 */
 const EXT_META_KEY = '__extMeta';
 
-/** 引擎保留的节点配置键：默认变量、服务任务、事件、抄送与说明元数据，不参与自定义 KV 行 */
-const NODE_CONFIG_RESERVED_KEYS = ['variables', '__variableMeta', 'serviceTask', 'event', 'copy', EXT_META_KEY];
+/** 引擎保留的节点配置键：默认变量、服务任务、事件、抄送、组签与说明元数据，不参与自定义 KV 行 */
+const NODE_CONFIG_RESERVED_KEYS = ['variables', '__variableMeta', 'serviceTask', 'event', 'copy', 'groupSign', EXT_META_KEY];
 
 /** 最近一次与表格同步的 nodeConfig 序列化结果，用于区分外部回显与自身写回 */
 let lastNodeConfigSnapshot = '';
@@ -682,7 +778,7 @@ function syncNodeConfig() {
     }
   });
   // 这些段由其它面板维护，编辑扩展属性时只透传，避免互相覆盖
-  ['variables', '__variableMeta', 'serviceTask', 'event', 'copy'].forEach(key => {
+  ['variables', '__variableMeta', 'serviceTask', 'event', 'copy', 'groupSign'].forEach(key => {
     if (previous[key] !== undefined) {
       config[key] = previous[key];
     }
@@ -726,6 +822,7 @@ const isCustomCompletionRule = computed(() =>
 
 const collaborativeWaySummary = computed(() => {
   if (form.value.collaborativeWay === '1') return '或签';
+  if (form.value.collaborativeWay === 'group') return groupSignSummary(form.value.nodeConfig);
   if (form.value.collaborativeWay === '3') {
     const order = form.value.cooperateType === 'sequence' ? '顺序办理' : '并行办理';
     return `会签 · ${order} · ${form.value.nodeRatio || '未设置规则'}`;
@@ -1475,6 +1572,142 @@ function removeCopyHandler(index) {
   syncCopyHandlers(rows.map(row => row.storageId));
 }
 
+// 事件节点不允许组签：切换到事件类型时退回或签，并清掉组配置
+watch(() => form.value.eventType, (eventType) => {
+  if (eventType && form.value.collaborativeWay === 'group') {
+    form.value.collaborativeWay = '1'
+  }
+})
+
+// ========== 组签（node_config.groupSign） ==========
+// 组内任一成员通过即完成该组；组间全部通过后节点完成。组配置只写 groupSign，
+// 其它 nodeConfig 段与旧定义顶层 groups / groupOrder 原样保留。
+const EMPTY_GROUP = () => ({ id: '', name: '', members: [] });
+const groupSign = ref({ order: 'parallel', groups: [] });
+const groupMemberVisible = ref(false);
+const groupMemberIndex = ref(-1);
+const groupMemberRows = ref([]);
+/** 成员标识 -> 宿主返回的展示名；加载失败时回退原始标识 */
+const groupMemberNames = ref({});
+let lastGroupSignSnapshot = '';
+
+const groupSignErrors = computed(() => validateGroupSign(groupSign.value));
+const groupMemberIds = computed(() => {
+  const group = groupSign.value.groups[groupMemberIndex.value];
+  return group ? group.members : [];
+});
+
+function memberLabel(id) {
+  return groupMemberNames.value[id] || id;
+}
+
+/** 批量解析组成员展示名；只请求尚未命中的标识，失败时保留原标识 */
+async function loadGroupMemberNames() {
+  const ids = [...new Set(groupSign.value.groups.flatMap(group => group.members || []))].filter(Boolean);
+  const missing = ids.filter(id => !groupMemberNames.value[id]);
+  if (missing.length === 0) return;
+  try {
+    const response = await handlerFeedback({ storageIds: missing });
+    if (response && response.code === 200 && Array.isArray(response.data)) {
+      const next = { ...groupMemberNames.value };
+      response.data.forEach(row => {
+        if (row && row.storageId) next[row.storageId] = row.handlerName || row.storageId;
+      });
+      groupMemberNames.value = next;
+    }
+  } catch (e) {
+    // 权限反馈不可用时直接展示原始标识，不阻断配置
+  }
+}
+
+/** 从当前 nodeConfig 读取组配置；组签模式至少保留一行 */
+function readGroupSignFromNode() {
+  const sign = normalizeGroupSign(form.value.nodeConfig);
+  groupSign.value = sign.groups.length > 0 ? sign : { order: sign.order, groups: [EMPTY_GROUP()] };
+  syncGroupSign();
+  loadGroupMemberNames();
+}
+
+/** 写回 groupSign，并记录快照，避免自身写回触发外部回显覆盖编辑中的输入 */
+function syncGroupSign() {
+  const config = serializeGroupSign(form.value.nodeConfig, groupSign.value);
+  lastGroupSignSnapshot = JSON.stringify(config.groupSign);
+  form.value.nodeConfig = config;
+}
+
+watch(() => [form.value.nodeCode, form.value.collaborativeWay], () => {
+  if (form.value.collaborativeWay === 'group') {
+    readGroupSignFromNode();
+  }
+}, { immediate: true });
+
+watch(groupSign, () => {
+  if (form.value.collaborativeWay === 'group') {
+    syncGroupSign();
+  }
+}, { deep: true });
+
+watch(() => form.value.nodeConfig, (config) => {
+  if (form.value.collaborativeWay !== 'group') return;
+  const section = config && typeof config === 'object' ? config.groupSign : null;
+  if (JSON.stringify(section) === lastGroupSignSnapshot) return;
+  const sign = normalizeGroupSign(config);
+  groupSign.value = sign.groups.length > 0 ? sign : { order: sign.order, groups: [EMPTY_GROUP()] };
+}, { deep: true });
+
+function setGroupSignOrder(order) {
+  groupSign.value = { ...groupSign.value, order };
+}
+
+function addGroup() {
+  groupSign.value.groups.push(EMPTY_GROUP());
+}
+
+function removeGroup(index) {
+  if (groupSign.value.groups.length <= 1) return;
+  groupSign.value.groups.splice(index, 1);
+}
+
+/** 上下移动替代拖拽，保留键盘可操作性 */
+function moveGroup(index, offset) {
+  const target = index + offset;
+  const groups = groupSign.value.groups;
+  if (target < 0 || target >= groups.length) return;
+  const [moved] = groups.splice(index, 1);
+  groups.splice(target, 0, moved);
+}
+
+function removeGroupMember(index, memberIndex) {
+  const group = groupSign.value.groups[index];
+  if (group) group.members.splice(memberIndex, 1);
+}
+
+function openGroupMember(index) {
+  groupMemberIndex.value = index;
+  const group = groupSign.value.groups[index];
+  groupMemberRows.value = (group ? group.members : []).map(id => ({ storageId: id, handlerName: memberLabel(id) }));
+  groupMemberVisible.value = true;
+  loadGroupMemberNames().then(() => {
+    if (groupMemberVisible.value && groupMemberIndex.value === index) {
+      const current = groupSign.value.groups[index];
+      groupMemberRows.value = (current ? current.members : [])
+        .map(id => ({ storageId: id, handlerName: memberLabel(id) }));
+    }
+  });
+}
+
+function handleGroupMemberSelect(checkedItemList) {
+  const rows = (checkedItemList || []).filter(row => row && row.storageId);
+  groupMemberRows.value = rows;
+  const names = { ...groupMemberNames.value };
+  rows.forEach(row => {
+    names[row.storageId] = row.handlerName || memberLabel(row.storageId);
+  });
+  groupMemberNames.value = names;
+  const group = groupSign.value.groups[groupMemberIndex.value];
+  if (group) group.members = rows.map(row => row.storageId);
+}
+
 /** 快捷添加发起人：引擎在抄送时把它替换成流程实例的发起人 */
 function addCopyInitiator() {
   if (copyHandlerIds.value.includes(INITIATOR_FLAG)) return;
@@ -1539,6 +1772,9 @@ async function validate() {
         || String(key) === 'interrupting')) {
       proxy.$refs.eventSection?.open();
     }
+    throw false;
+  }
+  if (form.value.collaborativeWay === 'group' && groupSignErrors.value.length > 0) {
     throw false;
   }
   if (proxy.$refs.nodeBase && proxy.$refs.nodeBase.length > 0) {
@@ -2285,6 +2521,115 @@ defineExpose({
     .Icon { width:14px;height:14px;margin-left:5px;cursor:pointer;color:#fff;background:#94979d;border-radius:50%;padding:2px;&:hover{background:#f0f2f5;color:#94979d;} }
     .btn { height:18px;margin-left:5px;color:#fff;background:#94979d;border-radius:5px;padding:6px;font-size:10px;border:0;&:hover{background:#f0f2f5;color:#94979d;} }
   }
+}
+
+.completion-way-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+.completion-way-group .radio-card-item {
+  justify-content: center;
+  min-width: 0;
+  padding: 4px 6px;
+}
+.completion-way-group .radio-card-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 768px) {
+  .completion-way-group {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .completion-way-group .radio-card-item {
+    flex: 1 0 auto;
+  }
+}
+
+.group-sign-editor {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.group-sign-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--wf-border-light, #e4e7ed);
+  border-left: 3px solid var(--wf-primary-light-5, #a0cfff);
+  border-radius: 6px;
+  background: var(--wf-bg-white, #fff);
+
+  html.dark & {
+    border-color: var(--wf-border-color, #333333);
+    border-left-color: var(--wf-primary, #409eff);
+    background: var(--wf-bg-white, #1f1f1f);
+  }
+}
+.group-sign-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.group-sign-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-regular, #606266);
+}
+.group-sign-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 2px;
+}
+.group-sign-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 6px 8px;
+}
+.group-sign-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+}
+.group-sign-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+}
+.group-sign-members-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+}
+.group-sign-member-empty {
+  font-size: 12px;
+  color: var(--el-text-color-placeholder, #a8abb2);
+}
+.group-sign-add-member {
+  padding: 0;
+}
+.group-sign-members .el-tag {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.group-sign-error {
+  font-size: 12px;
+  color: var(--el-color-danger, #f56c6c);
 }
 
 ::v-deep(.listenerItem) {

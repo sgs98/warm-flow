@@ -944,11 +944,35 @@ a {
   white-space: nowrap;
 }
 
+.queue-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .queue-node {
   flex-shrink: 0;
   color: var(--wf-primary);
   font-size: 11px;
   font-weight: 600;
+}
+
+.queue-badge {
+  flex-shrink: 0;
+  padding: 0 5px;
+  border: 1px solid var(--wf-primary-border, #b9d4ff);
+  border-radius: 4px;
+  background: var(--wf-primary-soft, #eef5ff);
+  color: var(--wf-primary);
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.table-node-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* 最近实例列表 */

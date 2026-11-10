@@ -165,7 +165,11 @@ public class TaskAppServiceImpl implements TaskAppService {
     public List<ButtonPermissionVo> buttonPermissions(Long taskId) {
         Task task = support.requireTask(taskId);
         List<ButtonPermissionVo> permissions = ButtonPermissionUtils.list(task.getDefinitionId(), task.getNodeCode());
-        if (!support.isSignNode(task)) {
+        if (support.isGroupSignNode(task)) {
+            // 组签只支持通过、驳回、转办：加减签破坏组归属，委派与组槽位语义冲突
+            permissions.removeIf(item -> "trust".equals(item.getCode())
+                || "addSign".equals(item.getCode()) || "subSign".equals(item.getCode()));
+        } else if (!support.isSignNode(task)) {
             permissions.removeIf(item -> "addSign".equals(item.getCode()) || "subSign".equals(item.getCode()));
         }
         return permissions;
@@ -305,12 +309,16 @@ public class TaskAppServiceImpl implements TaskAppService {
         Task task = support.requireTask(req.getTaskId());
         support.checkNodeButton(task, "transfer");
         List<String> nextHandlers = requiredHandlers(req.getNextHandlers(), "转办办理人不能为空");
-        String targetHandler = singleHandler(nextHandlers, "转办只能选择一个办理人");
         try {
             TransferCommand command = new TransferCommand();
             command.setOperator(support.operator(req.getUser()));
             command.setTaskId(task.getId());
-            command.setTargetHandler(targetHandler);
+            if (support.isGroupSignNode(task)) {
+                // 组签槽位允许一人或多人接手，多人即组内或签
+                command.setTargetHandlers(nextHandlers);
+            } else {
+                command.setTargetHandler(singleHandler(nextHandlers, "转办只能选择一个办理人"));
+            }
             command.setMessage(req.getMessage());
             FlowEngine.workflow().transfer(command);
         } catch (FlowException e) {

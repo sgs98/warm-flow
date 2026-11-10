@@ -38,13 +38,18 @@ final class FlowPathResolver {
      */
     PathWayData resolve(Task task, Node nowNode, Instance instance, WorkflowContext context, String skipType
         , FlowCombine flowCombine) {
+        return resolve(task, nowNode, instance, context, skipType, flowCombine, List.of());
+    }
+
+    PathWayData resolve(Task task, Node nowNode, Instance instance, WorkflowContext context, String skipType
+        , FlowCombine flowCombine, List<Task> stagedTasks) {
         PathWayData pathWayData = new PathWayData().setInsId(task.getInstanceId())
             .setSkipType(skipType);
         Node nextNode = FlowEngine.nodeService().getNextNode(nowNode, context.getTargetNodeCode()
             , skipType, pathWayData, flowCombine);
         List<Node> nextNodes = FlowEngine.nodeService().getNextByCheckGateway(context.getVariables()
             , nextNode, pathWayData, flowCombine);
-        retainJoinPath(pathWayData, instance, nextNodes, flowCombine);
+        retainJoinPath(pathWayData, instance, nextNodes, flowCombine, stagedTasks);
         pathWayData.getTargetNodes().addAll(nextNodes);
         return pathWayData;
     }
@@ -58,7 +63,7 @@ final class FlowPathResolver {
      * @param flowCombine 流程定义组合数据
      */
     private void retainJoinPath(PathWayData pathWayData, Instance instance, List<Node> nextNodes
-        , FlowCombine flowCombine) {
+        , FlowCombine flowCombine, List<Task> stagedTasks) {
         if (SkipType.isReject(pathWayData.getSkipType())) {
             return;
         }
@@ -78,8 +83,12 @@ final class FlowPathResolver {
         List<Node> previousNodes = FlowEngine.nodeService().previousNodeList(
             gateways.get(gateways.size() - 1).getNodeCode(), flowCombine);
         List<String> previousNodeCodes = StreamUtils.toList(previousNodes, Node::getNodeCode);
-        List<Task> activePreviousTasks = FlowEngine.taskService().getByInsIdAndNodeCodes(instance.getId()
-            , previousNodeCodes);
+        List<Task> activePreviousTasks = new java.util.ArrayList<>(FlowEngine.taskService()
+            .getByInsIdAndNodeCodes(instance.getId(), previousNodeCodes));
+        if (CollUtil.isNotEmpty(stagedTasks)) {
+            stagedTasks.stream().filter(staged -> previousNodeCodes.contains(staged.getNodeCode()))
+                .forEach(activePreviousTasks::add);
+        }
         if (activePreviousTasks.size() <= 1) {
             return;
         }

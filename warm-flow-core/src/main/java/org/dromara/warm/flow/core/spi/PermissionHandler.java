@@ -77,4 +77,18 @@ public interface PermissionHandler {
         return convertPermissions(handlers);
     }
 
+    /**
+     * 把组签成员标识展开成与 {@link #getHandler()} 相同命名空间的具体办理人标识。
+     * <p>
+     * 用户、部门、角色等标识的含义属于宿主身份系统，core 不解析字符串前缀。默认复用
+     * {@link #convertPermissions(List)}；宿主可覆盖本方法，把组内选择展开为实际办理人标识。
+     * 返回值由 core 清理空值并在组内去重，不应返回仍需二次解析的组织标识。
+     *
+     * @param handlers 组内成员权限标识
+     * @return 具体办理人标识；空集合表示没有成员可解析
+     */
+    default List<String> resolveGroupHandlers(List<String> handlers) {
+        return convertPermissions(handlers);
+    }
+
 }
