@@ -2,6 +2,7 @@ package org.dromara.warm.demo.servicetask;
 
 import org.dromara.warm.flow.core.service.task.ServiceTaskContext;
 import org.dromara.warm.flow.core.service.task.ServiceTaskHandler;
+import org.dromara.warm.plugin.modes.sb.annotation.FlowExpressionBean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Component;
  *
  * @author may
  */
+@FlowExpressionBean(delegate = true)
 @Component("demoDelegateServiceTask")
 public class DemoDelegateServiceTask implements ServiceTaskHandler {
 

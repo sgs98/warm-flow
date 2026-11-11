@@ -1,6 +1,7 @@
 package org.dromara.warm.demo.servicetask;
 
 import org.dromara.warm.flow.core.service.task.ServiceTaskContext;
+import org.dromara.warm.plugin.modes.sb.annotation.FlowExpressionBean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -32,6 +33,7 @@ public class DemoOrderService {
      * @param context 服务任务上下文
      * @return 订单号
      */
+    @FlowExpressionBean
     public String createOrder(ServiceTaskContext context) {
         log.info("Demo 服务任务[expression 模式]开始执行: instanceId={}, nodeCode={}, expression={}",
             context.getInstance().getId(), context.getNode().getNodeCode(), "createOrder(#execution)");
@@ -49,6 +51,7 @@ public class DemoOrderService {
      * @param context 服务任务上下文
      * @return 天数
      */
+    @FlowExpressionBean
     public Integer evalDay(ServiceTaskContext context) {
         Object inputDay = context.getVariable("inputDay");
         Integer day = inputDay == null ? 5 : Integer.parseInt(String.valueOf(inputDay));

@@ -6,6 +6,7 @@ import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.spi.Listener;
 import org.dromara.warm.flow.core.spi.ListenerVariable;
+import org.dromara.warm.plugin.modes.sb.annotation.FlowExpressionBean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Component;
  * @author may
  * @since 2026/9/20
  */
+@FlowExpressionBean
 @Component
 public class DemoTaskListener implements Listener {
 
