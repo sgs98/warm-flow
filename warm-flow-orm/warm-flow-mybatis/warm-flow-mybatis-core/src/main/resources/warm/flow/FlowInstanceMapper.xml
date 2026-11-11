@@ -4,6 +4,13 @@
     "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.dromara.warm.flow.orm.mapper.FlowInstanceMapper">
 
+    <!-- 边界直接进入锁 SQL，不得先锁住不可见行再用普通查询拒绝。 -->
+    <update id="lockInstance">
+        update flow_instance set update_time = update_time where id = #{instanceId}
+        <if test="entity.delFlag != null and entity.delFlag != ''">and del_flag = #{entity.delFlag}</if>
+        <if test="entity.tenantId != null and entity.tenantId != ''">and tenant_id = #{entity.tenantId}</if>
+    </update>
+
     <resultMap type="org.dromara.warm.flow.orm.entity.FlowInstance" id="FlowInstanceResult">
         <result property="id" column="id"/>
         <result property="businessId" column="business_id"/>

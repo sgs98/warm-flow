@@ -101,6 +101,36 @@ public final class TestFlows {
         return def;
     }
 
+    /** 构建 A→B→C→D，D→A 退回的测试定义。 */
+    public static Definition rejectReturnFlow(String flowCode, String dNodeConfig) {
+        Definition def = FlowEngine.newDef().setFlowCode(flowCode).setFlowName("驳回直返测试流程")
+            .setVersion("1").setIsPublish(PublishStatus.PUBLISHED.getKey())
+            .setActivityStatus(ActivityStatus.ACTIVITY.getKey());
+        FlowEngine.defService().save(def);
+        List<String> codes = List.of("start", "A", "B", "C", "D", "end");
+        for (String code : codes) {
+            int type = "start".equals(code) ? NodeType.START.getKey()
+                : "end".equals(code) ? NodeType.END.getKey() : NodeType.BETWEEN.getKey();
+            node(def, code, type, type == NodeType.BETWEEN.getKey() ? HANDLER : null);
+        }
+        org.dromara.warm.flow.core.entity.Node d = FlowEngine.nodeService()
+            .getByDefIdAndNodeCode(def.getId(), "D");
+        d.setNodeConfig(dNodeConfig);
+        FlowEngine.nodeService().updateById(d);
+        for (int i = 0; i < codes.size() - 1; i++) {
+            String from = codes.get(i);
+            String to = codes.get(i + 1);
+            skip(def, from, "start".equals(from) ? 0 : 1, to, "end".equals(to) ? 2 : 1);
+        }
+        skip(def, "D", 1, "A", 1, SkipType.REJECT.getKey());
+        return def;
+    }
+
+    public static Instance startRejectReturnFlow(String flowCode, String businessId, String dNodeConfig) {
+        rejectReturnFlow(flowCode, dNodeConfig);
+        return FlowEngine.insService().start(businessId, flowCode, context(HANDLER));
+    }
+
     /**
      * 构建并保存服务任务 + 人工审批流程：start(0) → s1(6) → apply(1) → end(2)，全部连线为 PASS。
      *

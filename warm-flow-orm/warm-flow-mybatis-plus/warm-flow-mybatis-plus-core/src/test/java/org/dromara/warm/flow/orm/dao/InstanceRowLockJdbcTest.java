@@ -46,6 +46,50 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class InstanceRowLockJdbcTest {
 
     @Test
+    void frameworkTenantPluginAndLogicalDeleteKeepInvisibleRowsUnlocked() throws Exception {
+        var ds = new UnpooledDataSource("org.h2.Driver", "jdbc:h2:mem:" + java.util.UUID.randomUUID()
+            + ";DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=5000", "sa", "");
+        try (Connection c = ds.getConnection(); Statement s = c.createStatement()) {
+            s.execute("create table flow_instance (id bigint primary key, tenant_id varchar(30),"
+                + " del_flag char(1) default '0', update_time timestamp)");
+            s.execute("insert into flow_instance(id, tenant_id, del_flag) values (1,'B','0'),(2,'A','1')");
+        }
+        org.dromara.warm.flow.core.invoker.FrameInvoker.setBeanFunction(type -> null);
+        org.dromara.warm.flow.core.FlowEngine.initTenantHandler(null);
+        MybatisConfiguration cfg = new MybatisConfiguration();
+        cfg.setEnvironment(new Environment("tenant-test", new JdbcTransactionFactory(), ds));
+        var plugin = new com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor();
+        plugin.addInnerInterceptor(new com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor(
+            new com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler() {
+                @Override public net.sf.jsqlparser.expression.Expression getTenantId() {
+                    return new net.sf.jsqlparser.expression.StringValue("A");
+                }
+            }));
+        cfg.addInterceptor(plugin);
+        cfg.addMapper(FlowInstanceMapper.class);
+        var factory = new MybatisSqlSessionFactoryBuilder().build(cfg);
+        ExecutorService pool = Executors.newSingleThreadExecutor();
+        try (SqlSession first = factory.openSession(false)) {
+            FlowInstanceMapper mapper = first.getMapper(FlowInstanceMapper.class);
+            for (Long id : java.util.List.of(1L, 2L)) {
+                org.junit.jupiter.api.Assertions.assertEquals(0L, mapper.selectCount(
+                    new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<org.dromara.warm.flow.orm.entity.FlowInstance>()
+                        .eq("id", id)).longValue());
+                assertThrows(org.dromara.warm.flow.core.exception.FlowException.class,
+                    () -> InstanceRowLock.lock(mapper, id));
+                Future<Integer> other = pool.submit(() -> {
+                    try (Connection c = ds.getConnection(); var s = c.prepareStatement(
+                        "update flow_instance set update_time=update_time where id=?")) {
+                        s.setLong(1, id); return s.executeUpdate();
+                    }
+                });
+                org.junit.jupiter.api.Assertions.assertEquals(1, other.get(1, TimeUnit.SECONDS).intValue());
+            }
+            first.commit();
+        } finally { pool.shutdownNow(); }
+    }
+
+    @Test
     void secondWriterWaitsForFirstTransaction() throws Exception {
         DataSource dataSource = new UnpooledDataSource("org.h2.Driver",
             "jdbc:h2:mem:instance_row_lock;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=5000", "sa", "");

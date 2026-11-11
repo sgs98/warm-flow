@@ -33,6 +33,7 @@ import org.dromara.warm.flow.orm.utils.CommonUtil;
 import org.dromara.warm.plugin.modes.sb.config.BeanConfig;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -54,6 +55,14 @@ import java.util.List;
 public class FlowAutoConfig extends BeanConfig {
 
     private final SqlSessionFactory sqlSessionFactory;
+
+    @Autowired
+    private ObjectProvider<PlatformTransactionManager> transactionManager;
+
+    private TransactionTemplate transactionTemplate() {
+        PlatformTransactionManager tm = transactionManager == null ? null : transactionManager.getIfAvailable();
+        return tm == null ? null : new TransactionTemplate(tm);
+    }
 
     public FlowAutoConfig(SqlSessionFactory sqlSessionFactory) {
         this.sqlSessionFactory = sqlSessionFactory;
@@ -96,7 +105,7 @@ public class FlowAutoConfig extends BeanConfig {
 
     @Bean
     public InsService instanceService(FlowInstanceDao dao) {
-        return new InsServiceImpl().setDao(dao);
+        return new TransactionalInsService(transactionTemplate()).setDao(dao);
     }
 
     @Bean
@@ -106,7 +115,7 @@ public class FlowAutoConfig extends BeanConfig {
 
     @Bean
     public TaskService taskService(FlowTaskDao dao) {
-        return new TaskServiceImpl().setDao(dao);
+        return new TransactionalTaskService(transactionTemplate()).setDao(dao);
     }
 
     /**
@@ -116,7 +125,7 @@ public class FlowAutoConfig extends BeanConfig {
      */
     @Bean
     public WorkflowService workflowService() {
-        return new WorkflowServiceImpl();
+        return new TransactionalWorkflowService(transactionTemplate());
     }
 
     @Bean

@@ -22,35 +22,40 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Map;
 
-/**
- * 为实例发起操作提供数据库事务，保持原服务类型供引擎内部调用。
- *
- * @author may
- */
+/** 启动及可能整行覆盖实例快照的内置操作使用相同锁协议。 @author may */
 class TransactionalInsService extends InsServiceImpl {
+    private final InstanceTransactionSupport transaction;
 
-    private final TransactionTemplate transactionTemplate;
-
-    TransactionalInsService(TransactionTemplate transactionTemplate) {
-        this.transactionTemplate = transactionTemplate;
-    }
+    TransactionalInsService(TransactionTemplate template) { transaction = new InstanceTransactionSupport(template); }
 
     @Override
     public Instance start(String businessId, String flowCode, WorkflowContext context) {
-        return transactionTemplate.execute(status -> super.start(businessId, flowCode, context));
+        transaction.requireStart(flowCode, null);
+        return transaction.execute(null, () -> super.start(businessId, flowCode, context));
     }
 
     @Override
     public Instance startByMessage(String businessId, String flowCode, String eventName,
         Map<String, Object> payload, WorkflowContext context) {
-        return transactionTemplate.execute(status ->
-            super.startByMessage(businessId, flowCode, eventName, payload, context));
+        transaction.requireStart(flowCode, null);
+        return transaction.execute(null, () -> super.startByMessage(businessId, flowCode, eventName, payload, context));
     }
 
     @Override
     public Instance startByTimer(String businessId, Long definitionId, String nodeCode,
         Map<String, Object> payload, WorkflowContext context) {
-        return transactionTemplate.execute(status ->
-            super.startByTimer(businessId, definitionId, nodeCode, payload, context));
+        transaction.requireStart(null, definitionId);
+        return transaction.execute(null, () -> super.startByTimer(businessId, definitionId, nodeCode, payload, context));
+    }
+
+    @Override
+    public boolean active(Long id) { return transaction.execute(id, () -> super.active(id)); }
+
+    @Override
+    public boolean unActive(Long id) { return transaction.execute(id, () -> super.unActive(id)); }
+
+    @Override
+    public void removeVariables(Long instanceId, String... keys) {
+        transaction.execute(instanceId, () -> { super.removeVariables(instanceId, keys); return null; });
     }
 }

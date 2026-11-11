@@ -6,6 +6,10 @@
 
 ### 引擎
 
+- 新增驳回后直返：在驳回发起节点的 `nodeConfig` 配置 `{"reject":{"schemaVersion":1,"afterApproval":"RETURN_TO_REJECTOR"}}` 后，D 驳回到 A，A 重新审批通过直接生成新的 D 待办，不再生成 B、C 的待办或本轮审批历史；D 仍需人工审批，定义级 `autoPass` 也不代替它。规则只写实例 `def_json` 内的一次性运行关联，不新增实体 / 数据库字段；不配置或显式 `REPLAY` 保持原重走行为，旧业务 `reject` 属性（标量、数组、无 `schemaVersion` 对象）不被解释为规则。
+- 直返使用约束与守卫：首版仅支持单活动人工任务、普通单人 / 或签、唯一无条件线性人工返回区间（不含会签 / 票签 / 顺签 / 组签、网关、服务 / 事件 / 边界事件区间、嵌套直返）；持有运行关联时再次驳回、任意跳转、实例撤回被拒绝，委派受托人通过或提交驳回意见按既有短路交还委托人（不路由、不消费关联），转办保持原任务。终止、结束、重启 / 重置清理关联。MyBatis / MyBatis-Plus 四个 starter 必须配置匹配流程数据源的 `PlatformTransactionManager`；SDK 新建 JDBC 事务使用 `READ_COMMITTED`，参与外层业务事务时也要求外层为 `READ_COMMITTED`（不支持已有 `REPEATABLE_READ` 读视图，不用 `REQUIRES_NEW` 拆开业务回滚），无事务管理器、隔离级别不兼容或无法确认时写前拒绝；默认重走不受影响。实例行锁 SQL 自带租户 / 逻辑删除边界，真正不可见实例不会持锁；绕过内置写门面的直接 mapper / SQL、通用 `updateById` 与自定义替换服务仍是可信低层接缝，不承诺拦截。
+- 特征测试 `RejectReturnCharacteristicTest`（17）锁定待办 / 历史 / 监听器 / 生命周期契约，`RejectReturnGraphValidationTest`（6）锁定图门禁，`RejectReturnRuntimeTest`（6）锁定快照无损更新；六个真实 JSON provider（snack3 / snack4 / jackson / jackson3 / fastjson2 / gson）动态测试锁定业务数字按原 token 精度保留、协议版本按原文精确校验（`1.0000000000000001` 拒绝、`1e0` 接受）；四 starter 各 18 项真实 Mapper + H2 + Spring 事务测试锁定行锁、外层隔离拒绝、四类写后故障回滚与并发重复办理。
+
 - 修复待办任务状态被实例状态污染：`TaskServiceImpl#addTask` 原先优先取上下文里的 `flowStatus`（实例维度）作为新建待办的 `flow_task.flow_status`，定时启动等「实例已进入 `waiting`、同时创建首个待办」的链路会把 `waiting` 这个实例码直接写进待办行。现待办状态只按任务维度推导（`FlowStatusMachine.taskStatus(nodeType, skipType)`，普通审批节点即 `pending`），实例状态仍由 `flow_instance.flow_status` 表达，两个维度不再互相覆盖。
 - 修复历史留痕状态混入实例编码：`HisTaskServiceImpl` 的流转留痕（普通办理 / 转办 / 委派 / 加签减签 / 会签票签 / 协作抄送）原先经 `customStatus(taskStatus, flowStatus)` 回落取实例状态，任务状态缺位时 `flow_his_task.flow_status` 会落进 `waiting` 这类实例码，审批记录把「正在进行的任务」显示成「实例在审批中」。现统一只取 `context.getTaskStatus()`（任务维度），`customStatus` 私有回落随之删除。
 - 修复事件作废与终止归档的状态维度：`EventRuntimeHandler#interruptAttachedTask` 中断附着待办时把 `invalid` 写进了上下文的实例状态字段（应为任务状态字段），现改回 `intent.setTaskStatus(...)`，复位同理；`FlowTerminateChain#persist` 归档终止待办前改按任务维度取终态编码（`intent.setTaskStatus(instance.getFlowStatus())`），并在链尾补写 `intent.setFlowStatus(...)` 以保持「调用方可从上下文读回实例终态」的既有契约。
@@ -24,6 +28,7 @@
 
 ### 设计器
 
+- 新增「驳回后续」配置：审批节点属性面板「完成方式」下新增单选（按原流程重走 / 重新审批后返回本节点），写入受管 `reject` 段；旧业务同名 `reject` 属性提示迁移、实例运行段拒绝导入，经典 / 仿钉钉双模式与 KV 扩展属性动态过滤保持一致，画布保存前做与后端同口径的路径预检，非法版本（如 `1.0000000000000001`）按原文报错而不是被舍入通过。
 - 修复节点扩展属性长标签被裁切：标签列原先固定 `120px` 且 `white-space: nowrap`，「是否显示审批按钮」这类长标签在 flex 空间不足时向左溢出，被面板 `overflow: hidden` 切掉左半截。现标签列固定 `140px`、改 `display: block` + `height: auto` + `white-space: normal`，文本按 `overflow-wrap: anywhere` 折行且保持右对齐，警告图标与冒号跟随文本换行；窄屏（≤768px / ≤480px）按 120px / 100px 同步降档。
 - 修复扩展属性单选项与权限按钮溢出：单选 / 多选的选项文本改为可收缩容器（`min-width: 0` + `text-overflow: ellipsis` + `white-space: nowrap`）并带 `title` 悬浮显示全文，图标不再被长文本挤走、选项也不再压到相邻控件上。
 - 设计器产物已重新构建并同步到 `warm-flow-plugin-vue3-ui` 静态资源（`index-CL32EgQB.js` / `index-3AF-POKR.css`）。
@@ -49,6 +54,7 @@
 - 提醒（定时任务 `DEAD`）：判定口径为同一条等待记录的失败次数超过 `timer-max-retry-count`（默认 3，即第 4 次失败），`RUNNING` 租约过期（进程宕机 / 卡死）同样按一次失败计入；重复型事件成功重排期**不清零** `retry_count`，属累计失败而非连续失败。耗尽后可经本版新增的 `reviveEvent` / `revive` 恢复，`TIMER_START` 走重新发布或挂起后激活。
 - 新增能力：终态实例重启 `WorkflowService#restart(RestartCommand)`；原 `reset(ResetCommand)` 保留但废弃，调用方迁移到 `restart`。`TaskStatus` 追加 `RESTART` 常量，下游若对 `TaskStatus` 使用穷举 `switch` 表达式，需要补 `case RESTART`（普通 `switch` 语句不受影响）。
 - 兼容性：本版本无实体字段与表结构变更，2.1.0 用户直接改版本号即可升级；`WorkflowService` 新增 `restart` 抽象方法，自实现该门面接口的宿主需补实现。
+- 新增能力：驳回后直返（见「引擎 / 设计器」）。启用前检查历史业务数据中带自有 `schemaVersion` 的 `reject` 对象属性——协议键不带来源标记，精确 `schemaVersion=1` 且 `afterApproval=RETURN_TO_REJECTOR` 会被识别为直返规则，其它版本 / 模式会在校验时报错；同名业务键需先迁移。参与外层业务事务使用直返时，事务需声明 `READ_COMMITTED`。
 
 ## 2.1.0（2026-10-24）
 

@@ -113,10 +113,11 @@ final class FlowTerminateChain {
         // 设置流程图元数据
         PathWayData pathWayData = new PathWayData()
             .setInsId(execution.task.getInstanceId())
+            .setDefJson(execution.instance.getDefJson())
             .setSkipType(SkipType.PASS.getKey())
             .setPathWayNodes(Collections.singletonList(execution.nowNode))
             .setTargetNodes(Collections.singletonList(endNode));
-        execution.instance.setDefJson(FlowEngine.chartService().skipMetadata(pathWayData));
+        execution.instance.setDefJson(RejectReturnRuntime.clear(FlowEngine.chartService().skipMetadata(pathWayData)));
 
         // 流程实例完成
         execution.instance.setNodeType(endNode.getNodeType())

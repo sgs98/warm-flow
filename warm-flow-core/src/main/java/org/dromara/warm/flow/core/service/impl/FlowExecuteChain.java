@@ -25,8 +25,12 @@ import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.utils.*;
+import org.dromara.warm.flow.core.service.task.RejectConfig;
+
+import java.util.Objects;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -92,6 +96,9 @@ final class FlowExecuteChain {
      * 已完成全路径校验的到达计划。
      */
     private ArrivalPlan arrivalPlan;
+    private RejectReturnRuntime.ReturnIntent returnIntent;
+    private String rejectTargetCode;
+    private Long directReturnTaskId;
 
     /**
      * @param taskService        任务服务
@@ -118,6 +125,7 @@ final class FlowExecuteChain {
     FlowPipeline pipeline() {
         return FlowPipeline.of(
             this::prepare,
+            this::rejectReturnPreflight,
             this::startListener,
             this::deputeGate,
             this::authGate,
@@ -145,6 +153,54 @@ final class FlowExecuteChain {
         execution.task.setUserList(execution.loadTaskUsers());
         // 定义图在 start 监听器前加载进作用域（操作内快照固定复用，监听器中途改图不进入本次操作视图）
         execution.loadCombineNoDef();
+        return Optional.empty();
+    }
+
+    /** 直返限制须在监听器、委派或协作写入前判定；普通重走不增加 DAO 查询。 */
+    private Optional<Instance> rejectReturnPreflight(FlowExecution execution) {
+        String snapshot = execution.instance.getDefJson();
+        if (!RejectConfig.requiresAtomicExecution(snapshot)) {
+            return Optional.empty();
+        }
+        boolean pending = RejectReturnRuntime.hasPending(snapshot);
+        boolean directReject = SkipType.isReject(skipType) && RejectConfig.parse(
+            RejectReturnRuntime.configForNode(snapshot, execution.nowNode.getNodeCode())).isReturnToRejector();
+        if (!pending && !directReject) {
+            return Optional.empty();
+        }
+        List<Task> active = taskService.getByInsId(execution.instance.getId());
+        AssertUtil.isTrue(active.size() != 1 || !Objects.equals(active.get(0).getId(), execution.task.getId()),
+            "驳回直返仅支持单活动人工任务");
+        AssertUtil.isTrue(CollUtil.isNotEmpty(FlowEngine.eventWaitService()
+            .getActiveByInstanceId(execution.instance.getId())), "驳回直返不支持活动事件等待");
+        FlowCombine combine = execution.loadCombineNoDef();
+        if (pending) {
+            returnIntent = RejectReturnRuntime.find(snapshot, execution.nowNode.getNodeCode(), execution.task.getId())
+                .orElseThrow(() -> new FlowException("驳回直返运行关联与当前待办不匹配"));
+            boolean delegatedOpinion = !execution.intent.isIgnore() && execution.task.getUserList().stream()
+                .anyMatch(user -> UserType.DEPUTE.getKey().equals(user.getType())
+                    && Objects.equals(execution.intent.getHandler(), user.getProcessedBy()));
+            AssertUtil.isTrue((!SkipType.isPass(skipType) && !(delegatedOpinion && SkipType.isReject(skipType)))
+                || StringUtils.isNotEmpty(execution.intent.getTargetNodeCode()),
+                "持有驳回直返关联的待办不支持再次驳回或任意跳转");
+            String source = returnIntent.returnNodeCode();
+            AssertUtil.isTrue(!RejectConfig.parse(RejectReturnRuntime.configForNode(snapshot, source)).isReturnToRejector(),
+                "驳回直返来源规则与实例快照不匹配");
+            FlowConfigUtil.validateRejectReturnPath(combine, source, execution.nowNode.getNodeCode());
+            boolean sourceHistory = FlowEngine.hisTaskService().getByInsId(execution.instance.getId()).stream()
+                .anyMatch(h -> Objects.equals(h.getTaskId(), returnIntent.sourceTaskId())
+                    && Objects.equals(h.getDefinitionId(), execution.instance.getDefinitionId())
+                    && source.equals(h.getNodeCode()) && execution.nowNode.getNodeCode().equals(h.getTargetNodeCode())
+                    && SkipType.isReject(h.getSkipType()) && CooperateType.NONE.getKey().equals(h.getCooperateType()));
+            AssertUtil.isFalse(sourceHistory, "驳回直返来源历史与本次运行关联不匹配");
+        } else {
+            Node target = FlowEngine.nodeService().getNextNode(execution.nowNode, execution.intent.getTargetNodeCode(),
+                skipType, new PathWayData(), combine);
+            rejectTargetCode = target.getNodeCode();
+            FlowConfigUtil.validateRejectReturnPath(combine, execution.nowNode.getNodeCode(), rejectTargetCode);
+            AssertUtil.isTrue(RejectConfig.configMap(RejectReturnRuntime.configForNode(snapshot, rejectTargetCode))
+                .containsKey(RejectConfig.RUNTIME_KEY), "驳回直返运行段同名属性冲突，请先迁移旧业务属性");
+        }
         return Optional.empty();
     }
 
@@ -219,7 +275,9 @@ final class FlowExecuteChain {
     private Optional<Instance> route(FlowExecution execution) {
         // 获取后续任务节点结合
         pathWayData = pathResolver.resolve(execution.task, execution.nowNode, execution.instance
-            , execution.intent, skipType, execution.loadCombineNoDef());
+            , execution.intent, skipType, execution.loadCombineNoDef(), List.of(),
+            returnIntent == null ? null : returnIntent.returnNodeCode());
+        pathWayData.setDefJson(execution.instance.getDefJson());
         // nextNodes 必须与 pathWayData.getTargetNodes() 同一引用：retainJoinPath 可能 clear 后 addAll，
         // 下游（一票否决/监听器）看到的清空后状态依赖该同一性，禁止复制或另行派生
         nextNodes = pathWayData.getTargetNodes();
@@ -241,6 +299,21 @@ final class FlowExecuteChain {
         arrivalPlan = EventArrivalDispatcher.prepare(execution, nextNodes, skipType);
         EventArrivalDispatcher.validateBoundaries(execution, arrivalPlan.tasks());
         addTasks = arrivalPlan.tasks();
+        // 新 taskId 确定后，在最新状态图上写入 / 消费；随后与任务、历史、用户同事务落库。
+        if (returnIntent != null || rejectTargetCode != null) {
+            AssertUtil.isTrue(addTasks.size() != 1, "驳回直返必须创建唯一人工待办");
+            Task target = addTasks.get(0);
+            if (returnIntent != null) {
+                AssertUtil.isTrue(!returnIntent.returnNodeCode().equals(target.getNodeCode()), "驳回直返目标发生变化");
+                execution.instance.setDefJson(RejectReturnRuntime.remove(execution.instance.getDefJson(),
+                    execution.nowNode.getNodeCode(), execution.task.getId()));
+                directReturnTaskId = target.getId();
+            } else {
+                AssertUtil.isTrue(!rejectTargetCode.equals(target.getNodeCode()), "驳回目标在预校验后发生变化");
+                execution.instance.setDefJson(RejectReturnRuntime.put(execution.instance.getDefJson(),
+                    rejectTargetCode, target.getId(), execution.task.getId(), execution.nowNode.getNodeCode()));
+            }
+        }
 
         // 办理人变量替换
         ExpressionUtil.evalVariable(addTasks, execution.intent.getVariables(), execution.intent.getNextHandlers()
@@ -308,6 +381,7 @@ final class FlowExecuteChain {
         if (CollUtil.isNotEmpty(autoCreatedTasks)) {
             candidates.addAll(autoCreatedTasks);
         }
+        candidates.removeIf(task -> Objects.equals(directReturnTaskId, task.getId()));
         return candidates;
     }
 

@@ -15,8 +15,13 @@
  */
 package org.dromara.warm.flow.orm.dao;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.invoker.FrameInvoker;
+import org.dromara.warm.flow.core.utils.AssertUtil;
+import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.orm.entity.FlowInstance;
 import org.dromara.warm.flow.orm.mapper.FlowInstanceMapper;
 
@@ -39,9 +44,17 @@ public final class InstanceRowLock {
 
     static void lock(FlowInstanceMapper mapper, Long instanceId) {
         // 条件 UPDATE 在各支持数据库中取得实例行写锁；不依赖 SELECT FOR UPDATE 方言。
-        mapper.update(null,
+        String tenant = FlowEngine.tenantHandler() == null ? null : FlowEngine.tenantHandler().getTenantId();
+        // 引擎租户直接入谓词；框架租户插件和 MP 原生逻辑删除仍由 mapper 叠加。
+        int changed = mapper.update(null,
             new LambdaUpdateWrapper<FlowInstance>()
                 .eq(FlowInstance::getId, instanceId)
+                .eq(StringUtils.isNotEmpty(tenant), FlowInstance::getTenantId, tenant)
                 .setSql("update_time = update_time"));
+        // 无值变化 UPDATE 的 changed rows 可为 0；锁后确认同一可见边界，不作锁前 SELECT。
+        AssertUtil.isFalse(changed > 0 || mapper.selectCount(new LambdaQueryWrapper<>(FlowInstance.class)
+            .eq(FlowInstance::getId, instanceId)
+            .eq(StringUtils.isNotEmpty(tenant), FlowInstance::getTenantId, tenant)) > 0,
+            ExceptionCons.NOT_FOUNT_INSTANCE);
     }
 }

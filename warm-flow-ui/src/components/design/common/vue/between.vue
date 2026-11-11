@@ -160,7 +160,7 @@
         </template>
         </form-section>
 
-        <form-section title="完成方式" :summary="collaborativeWaySummary">
+        <form-section title="完成方式" :summary="collaborativeWaySummary" ref="completionSection">
         <el-form-item label="完成方式：" prop="collaborativeWay">
           <div class="radio-card-group completion-way-group">
             <label
@@ -315,6 +315,19 @@
           </el-select>
           <div v-if="isCustomCompletionRule" class="field-hint">自定义完成规则建议指定驳回节点</div>
           <div v-else class="field-hint">驳回目标以这里为准：配了就退到该节点，否则沿当前节点的「退回线」退回</div>
+        </el-form-item>
+        <el-form-item v-if="!isEventNode" label="驳回后续：" class="reject-return-item" :error="rejectReturnError">
+          <div class="reject-return-options" role="radiogroup" aria-label="驳回后续" aria-describedby="reject-return-hint">
+            <label v-for="option in rejectReturnOptions" :key="option.value" class="radio-card-item"
+              :class="{ 'is-checked': rejectReturnState.mode === option.value }">
+              <input type="radio" name="reject-return-mode" :value="option.value"
+                :checked="rejectReturnState.mode === option.value" :disabled="disabled || !!rejectReturnState.error"
+                @change="setRejectReturnMode(option.value)" />
+              <span class="radio-card-text">{{ option.label }}</span>
+            </label>
+          </div>
+          <div id="reject-return-hint" class="field-hint">选择直返时，{{ rejectReturnHint }}中间节点不再生成待办，本节点仍需重新审批。仅支持普通单人 / 或签的线性人工返回区间。</div>
+          <div v-if="rejectReturnState.conflict" class="field-hint">旧业务属性 reject 保持原样；启用直返前，请在扩展属性中迁移到其它键。</div>
         </el-form-item>
         </form-section>
 
@@ -545,6 +558,7 @@ import nodeVariables from "./nodeVariables";
 import {getPreviousNodes} from "@/components/design/common/js/tool.js";
 import {groupSignSummary, normalizeGroupSign, serializeGroupSign, validateGroupSign} from "../js/groupSign.js";
 import {getFramework} from "@/utils/auth.js";
+import {isManagedRejectSection, readRejectReturn, writeRejectReturn, RETURN_TO_REJECTOR, REJECT_RETURN_RUNTIME_KEY} from "../js/rejectReturn.js";
 const { proxy } = getCurrentInstance();
 
 const props = defineProps({
@@ -737,6 +751,38 @@ const EXT_META_KEY = '__extMeta';
 /** 引擎保留的节点配置键：默认变量、服务任务、事件、抄送、组签与说明元数据，不参与自定义 KV 行 */
 const NODE_CONFIG_RESERVED_KEYS = ['variables', '__variableMeta', 'serviceTask', 'event', 'copy', 'groupSign', EXT_META_KEY];
 
+function isReservedNodeConfigKey(key, config) {
+  if (key === 'reject') return isManagedRejectSection(config.reject);
+  if (key === REJECT_RETURN_RUNTIME_KEY) {
+    const runtime = config[key];
+    return runtime && typeof runtime === 'object' && !Array.isArray(runtime) && Object.hasOwn(runtime, 'version');
+  }
+  return NODE_CONFIG_RESERVED_KEYS.includes(key);
+}
+
+const rejectReturnOptions = [
+  { value: 'REPLAY', label: '按原流程重走（默认）' },
+  { value: RETURN_TO_REJECTOR, label: '重新审批后返回本节点' }
+];
+const rejectReturnState = computed(() => readRejectReturn(form.value.nodeConfig || {}));
+const rejectReturnAttemptError = ref('');
+const rejectReturnError = computed(() => rejectReturnState.value.error || rejectReturnAttemptError.value
+  || (rejectReturnState.value.mode === RETURN_TO_REJECTOR && (isEventNode.value || form.value.collaborativeWay !== '1')
+    ? '驳回直返仅支持普通单人 / 或签，请修改完成方式或关闭直返' : ''));
+const rejectReturnHint = computed(() => {
+  const source = form.value.nodeName || form.value.nodeCode || '本节点';
+  const target = props.nodes.find(node => node.id === form.value.anyNodeSkip);
+  return target ? `${source} 驳回到 ${target.text?.value || target.id}，该节点重新审批通过后直接返回 ${source}。`
+    : `按实际驳回目标处理：退回目标重新审批通过后直接返回 ${source}。`;
+});
+function setRejectReturnMode(mode) {
+  try {
+    form.value.nodeConfig = writeRejectReturn(form.value.nodeConfig || {}, mode);
+    rejectReturnAttemptError.value = '';
+  } catch (error) { rejectReturnAttemptError.value = error.message; }
+}
+watch(() => form.value.nodeCode, () => { rejectReturnAttemptError.value = ''; });
+
 /** 最近一次与表格同步的 nodeConfig 序列化结果，用于区分外部回显与自身写回 */
 let lastNodeConfigSnapshot = '';
 
@@ -752,7 +798,7 @@ function initKvRows() {
     ? form.value.nodeConfig : {};
   const extMeta = getExtMeta(config);
   kvRows.value = Object.keys(config)
-    .filter(code => !NODE_CONFIG_RESERVED_KEYS.includes(code))
+    .filter(code => !isReservedNodeConfigKey(code, config))
     .map(code => ({
       code,
       value: config[code],
@@ -769,7 +815,7 @@ function syncNodeConfig() {
   const extMeta = {};
   kvRows.value.forEach(row => {
     const code = String(row.code || '').trim();
-    if (code && !NODE_CONFIG_RESERVED_KEYS.includes(code)) {
+    if (code && !isReservedNodeConfigKey(code, previous)) {
       config[code] = row.value;
       const description = String(row.description || '').trim();
       if (description) {
@@ -783,6 +829,11 @@ function syncNodeConfig() {
       config[key] = previous[key];
     }
   });
+  if (isManagedRejectSection(previous.reject)) config.reject = previous.reject;
+  const runtime = previous[REJECT_RETURN_RUNTIME_KEY];
+  if (runtime && typeof runtime === 'object' && !Array.isArray(runtime) && Object.hasOwn(runtime, 'version')) {
+    config[REJECT_RETURN_RUNTIME_KEY] = runtime;
+  }
   if (Object.keys(extMeta).length > 0) {
     config[EXT_META_KEY] = extMeta;
   }
@@ -821,7 +872,7 @@ const isCustomCompletionRule = computed(() =>
 );
 
 const collaborativeWaySummary = computed(() => {
-  if (form.value.collaborativeWay === '1') return '或签';
+  if (form.value.collaborativeWay === '1') return rejectReturnState.value.mode === RETURN_TO_REJECTOR ? '或签 · 驳回后直返' : '或签';
   if (form.value.collaborativeWay === 'group') return groupSignSummary(form.value.nodeConfig);
   if (form.value.collaborativeWay === '3') {
     const order = form.value.cooperateType === 'sequence' ? '顺序办理' : '并行办理';
@@ -1774,6 +1825,10 @@ async function validate() {
     }
     throw false;
   }
+  if (rejectReturnError.value) {
+    proxy.$refs.completionSection?.open();
+    throw false;
+  }
   if (form.value.collaborativeWay === 'group' && groupSignErrors.value.length > 0) {
     throw false;
   }
@@ -1803,6 +1858,22 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
+.reject-return-item {
+  :deep(.el-form-item__content) { display: block; min-width: 0; }
+  .reject-return-options { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .radio-card-item { width: 100%; min-height: 40px; box-sizing: border-box; margin: 0; }
+  input[type="radio"] { flex: 0 0 auto; accent-color: var(--wf-primary); }
+  .radio-card-text { white-space: normal; line-height: 1.5; min-width: 0; }
+  .radio-card-item:focus-within { outline: 2px solid var(--wf-primary); outline-offset: 2px; }
+}
+:global(html.dark) .reject-return-item input[type="radio"] { color-scheme: dark; }
+:global(html.dark) .reject-return-item .radio-card-item {
+  background: var(--wf-bg-color);
+  color: var(--wf-text-primary);
+}
+:global(html.dark) .reject-return-item .radio-card-item.is-checked {
+  background: var(--wf-primary-light);
+}
 @import '@/assets/styles/_common.scss';
 
 /* ========== 容器布局 ========== */

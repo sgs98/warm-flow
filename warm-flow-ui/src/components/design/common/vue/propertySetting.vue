@@ -25,6 +25,7 @@ import end from '@/components/design/common/vue/end.vue'
 import skip from '@/components/design/common/vue/skip.vue'
 import service from '@/components/design/common/vue/serviceTask.vue'
 import BaseInfo from "@/components/design/common/vue/baseInfo.vue";
+import { parseRejectReturnNodeConfig } from '@/components/design/common/js/rejectReturn.js';
 
 const { proxy } = getCurrentInstance();
 
@@ -151,7 +152,7 @@ function parseNodeConfig(nodeConfig) {
     return nodeConfig
   }
   try {
-    const parsed = JSON.parse(nodeConfig)
+    const parsed = parseRejectReturnNodeConfig(nodeConfig)
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
   } catch (e) {
     return {}

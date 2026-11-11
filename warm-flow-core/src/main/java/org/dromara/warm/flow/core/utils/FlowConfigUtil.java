@@ -29,6 +29,7 @@ import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.service.event.EventConfig;
 import org.dromara.warm.flow.core.service.task.ServiceTaskConfig;
+import org.dromara.warm.flow.core.service.task.RejectConfig;
 import org.dromara.warm.flow.core.timer.TimerContext;
 import org.dromara.warm.flow.core.timer.TimerScheduleStrategies;
 
@@ -107,6 +108,28 @@ public class FlowConfigUtil {
         for (Node item : allNodes) {
             nodeMap.put(item.getNodeCode(), item);
         }
+        for (Node source : allNodes) {
+            try {
+                if (!RejectConfig.parse(source.getNodeConfig()).isReturnToRejector()) {
+                    continue;
+                }
+                for (Node node : allNodes) {
+                    AssertUtil.isTrue(RejectConfig.configMap(node.getNodeConfig()).containsKey(RejectConfig.RUNTIME_KEY),
+                        "[" + source.getNodeCode() + "]设计定义不能包含驳回直返运行段或同名业务属性");
+                }
+                String target = source.getAnyNodeSkip();
+                if (StringUtils.isEmpty(target)) {
+                    List<Skip> rejects = allSkips.stream().filter(s -> source.getNodeCode().equals(s.getNowNodeCode())
+                        && SkipType.isReject(s.getSkipType())).collect(java.util.stream.Collectors.toList());
+                    AssertUtil.isTrue(rejects.size() != 1,
+                        "[" + source.getNodeCode() + "]驳回直返需要固定驳回节点或唯一退回线");
+                    target = rejects.get(0).getNextNodeCode();
+                }
+                validateRejectReturnPath(combine, source.getNodeCode(), target);
+            } catch (FlowException e) {
+                throw new FlowException("[" + source.getNodeCode() + "]" + e.getMessage());
+            }
+        }
         for (Node node : allNodes) {
             checkServiceNode(node, skipGroup.get(node.getNodeCode()));
             checkEventNode(node, nodeMap, skipGroup.get(node.getNodeCode()), incomingGroup.get(node.getNodeCode()));
@@ -116,6 +139,49 @@ public class FlowConfigUtil {
         checkGatewayEventBranches(allNodes, nodeMap, skipGroup);
         // 同一定义不能混用消息启动与定时启动
         checkStartEventTypeConsistency(allNodes);
+    }
+
+    /**
+     * 校验实际驳回目标到发起节点的唯一人工 PASS 路径，运行期显式目标也复用此门禁。
+     *
+     * @param combine 当前运行定义图
+     * @param sourceCode 驳回发起节点
+     * @param targetCode 本次实际驳回目标
+     */
+    public static void validateRejectReturnPath(FlowCombine combine, String sourceCode, String targetCode) {
+        String prefix = "[" + sourceCode + "]驳回直返";
+        Map<String, Node> nodes = StreamUtils.toMap(combine.getAllNodes(), Node::getNodeCode, node -> node);
+        AssertUtil.isTrue(Objects.equals(sourceCode, targetCode), prefix + "必须返回之前的人工节点");
+        Set<String> interval = new HashSet<>();
+        String code = targetCode;
+        while (true) {
+            Node node = nodes.get(code);
+            AssertUtil.isTrue(node == null || !interval.add(code), prefix + "目标不存在或返回区间存在循环");
+            Map<String, Object> config = RejectConfig.configMap(node.getNodeConfig());
+            AssertUtil.isTrue(!NodeType.isBetween(node.getNodeType()) || StringUtils.isNotEmpty(node.getEventType())
+                    || !CooperateType.isOrSign(node.getNodeRatio()) || config.containsKey("groupSign")
+                    || CooperateType.isGroup(node.getCooperateType())
+                    || CooperateType.isSequence(node.getCooperateType(), node.getNodeRatio()),
+                prefix + "仅支持普通单人或或签的线性人工区间");
+            if (sourceCode.equals(code)) {
+                break;
+            }
+            String current = code;
+            List<Skip> passes = combine.getAllSkips().stream()
+                .filter(s -> current.equals(s.getNowNodeCode()) && SkipType.isPass(s.getSkipType()))
+                .collect(java.util.stream.Collectors.toList());
+            AssertUtil.isTrue(passes.size() != 1 || StringUtils.isNotEmpty(passes.get(0).getSkipCondition()),
+                prefix + "返回区间必须具有唯一无条件通过路径");
+            code = passes.get(0).getNextNodeCode();
+            String next = code;
+            long incoming = combine.getAllSkips().stream()
+                .filter(s -> next.equals(s.getNextNodeCode()) && SkipType.isPass(s.getSkipType())).count();
+            AssertUtil.isTrue(incoming != 1, prefix + "返回区间不支持分支汇聚");
+        }
+        for (Node node : combine.getAllNodes()) {
+            AssertUtil.isTrue(StringUtils.isNotEmpty(node.getAttachedToNodeCode())
+                && interval.contains(node.getAttachedToNodeCode()), prefix + "返回区间不支持附着边界事件");
+        }
     }
 
     /**

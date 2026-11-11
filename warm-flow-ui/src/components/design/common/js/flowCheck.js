@@ -10,6 +10,8 @@
  * 由属性面板自身的 rules 与后端校验负责，这里不重复实现，避免两处漂移。
  */
 
+import { rejectReturnGraphErrors } from './rejectReturn.js'
+
 /** 逻辑跳转类型：通过 */
 const SKIP_TYPE_PASS = 'PASS'
 
@@ -142,5 +144,5 @@ export const checkFlowNodes = (graphData) => {
     }
   })
 
-  return errors
+  return [...errors, ...rejectReturnGraphErrors(graphData)]
 }

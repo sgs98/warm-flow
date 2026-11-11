@@ -372,6 +372,7 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
                 .setFlowStatus(instanceStatusOf(finallyTask.get()));
         }
         if (NodeType.isEnd(instance.getNodeType())) {
+            instance.setDefJson(RejectReturnRuntime.clear(instance.getDefJson()));
             // 实例收口即清理本实例的事件等待：普通结束同样需要，否则完成后仍会残留等待记录，
             // 外部消息或定时到点后会去推进一个已完成的实例
             FlowEngine.eventWaitService().cancelByInstanceIds(Collections.singletonList(instance.getId()));

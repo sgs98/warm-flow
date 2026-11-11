@@ -33,6 +33,7 @@ import org.dromara.warm.plugin.modes.sb.config.BeanConfig;
 import com.baomidou.mybatisplus.core.handlers.PostInitTableInfoHandler;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -50,6 +51,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 @ConditionalOnProperty(value = "warm-flow.enabled", havingValue = "true", matchIfMissing = true)
 @MapperScan("org.dromara.warm.flow.orm.mapper")
 public class FlowAutoConfig extends BeanConfig {
+
+    @Autowired
+    private ObjectProvider<PlatformTransactionManager> transactionManager;
+
+    private TransactionTemplate transactionTemplate() {
+        PlatformTransactionManager tm = transactionManager == null ? null : transactionManager.getIfAvailable();
+        return tm == null ? null : new TransactionTemplate(tm);
+    }
 
     @Bean
     public FlowDefinitionDao definitionDao() {
@@ -89,7 +98,7 @@ public class FlowAutoConfig extends BeanConfig {
     @Bean
     public InsService instanceService(FlowInstanceDao dao, ObjectProvider<PlatformTransactionManager> transactionManager) {
         PlatformTransactionManager tm = transactionManager.getIfAvailable();
-        return (tm == null ? new InsServiceImpl() : new TransactionalInsService(new TransactionTemplate(tm))).setDao(dao);
+        return new TransactionalInsService(tm == null ? null : new TransactionTemplate(tm)).setDao(dao);
     }
 
     @Bean
@@ -100,7 +109,7 @@ public class FlowAutoConfig extends BeanConfig {
     @Bean
     public TaskService taskService(FlowTaskDao dao, ObjectProvider<PlatformTransactionManager> transactionManager) {
         PlatformTransactionManager tm = transactionManager.getIfAvailable();
-        return (tm == null ? new TaskServiceImpl() : new TransactionalTaskService(new TransactionTemplate(tm))).setDao(dao);
+        return new TransactionalTaskService(tm == null ? null : new TransactionTemplate(tm)).setDao(dao);
     }
 
     /**
@@ -110,7 +119,7 @@ public class FlowAutoConfig extends BeanConfig {
      */
     @Bean
     public WorkflowService workflowService() {
-        return new WorkflowServiceImpl();
+        return new TransactionalWorkflowService(transactionTemplate());
     }
 
     /**

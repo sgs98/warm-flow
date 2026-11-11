@@ -43,9 +43,15 @@ final class FlowPathResolver {
 
     PathWayData resolve(Task task, Node nowNode, Instance instance, WorkflowContext context, String skipType
         , FlowCombine flowCombine, List<Task> stagedTasks) {
+        return resolve(task, nowNode, instance, context, skipType, flowCombine, stagedTasks, null);
+    }
+
+    PathWayData resolve(Task task, Node nowNode, Instance instance, WorkflowContext context, String skipType
+        , FlowCombine flowCombine, List<Task> stagedTasks, String internalTargetNodeCode) {
         PathWayData pathWayData = new PathWayData().setInsId(task.getInstanceId())
             .setSkipType(skipType);
-        Node nextNode = FlowEngine.nodeService().getNextNode(nowNode, context.getTargetNodeCode()
+        String target = internalTargetNodeCode == null ? context.getTargetNodeCode() : internalTargetNodeCode;
+        Node nextNode = FlowEngine.nodeService().getNextNode(nowNode, target
             , skipType, pathWayData, flowCombine);
         List<Node> nextNodes = FlowEngine.nodeService().getNextByCheckGateway(context.getVariables()
             , nextNode, pathWayData, flowCombine);

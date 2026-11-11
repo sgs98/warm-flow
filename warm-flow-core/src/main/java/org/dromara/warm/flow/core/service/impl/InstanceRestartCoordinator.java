@@ -97,6 +97,7 @@ public final class InstanceRestartCoordinator {
         List<String> restartHandlers = normalizeHandlers(handlers);
         AssertUtil.isTrue(CollUtil.isEmpty(restartHandlers), "重启审批人不能为空");
 
+        instance.setDefJson(RejectReturnRuntime.clear(instance.getDefJson()));
         Task task = FlowEngine.taskService().addTask(targetNode, instance, definition, context
             , SkipType.PASS.getKey());
         task.setPermissionList(restartHandlers)

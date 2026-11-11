@@ -19,66 +19,41 @@ import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.core.service.impl.TaskServiceImpl;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
-import org.dromara.warm.flow.orm.dao.InstanceRowLock;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 
-/**
- * 为人工任务流转和实例生命周期操作提供数据库事务。
- *
- * @author may
- */
+/** 人工任务写入先锁实例再由标准办理链重新读取决策数据。 @author may */
 class TransactionalTaskService extends TaskServiceImpl {
+    private final InstanceTransactionSupport transaction;
 
-    private final TransactionTemplate transactionTemplate;
-
-    TransactionalTaskService(TransactionTemplate transactionTemplate) {
-        this.transactionTemplate = transactionTemplate;
-    }
+    TransactionalTaskService(TransactionTemplate template) { transaction = new InstanceTransactionSupport(template); }
 
     @Override
     public Instance execute(Long taskId, WorkflowContext context, String skipType) {
-        Long instanceId = instanceIdOf(taskId);
-        return transactionTemplate.execute(status -> {
-            InstanceRowLock.lock(instanceId);
-            return super.execute(taskId, context, skipType);
-        });
+        return transaction.execute(instanceIdOf(taskId), () -> super.execute(taskId, context, skipType));
     }
 
     @Override
     public Instance revoke(Long instanceId, WorkflowContext context) {
-        return transactionTemplate.execute(status -> {
-            InstanceRowLock.lock(instanceId);
-            return super.revoke(instanceId, context);
-        });
+        return transaction.execute(instanceId, () -> super.revoke(instanceId, context));
     }
 
     @Override
     public Instance terminateByInstanceId(Long instanceId, WorkflowContext context) {
-        return transactionTemplate.execute(status -> {
-            InstanceRowLock.lock(instanceId);
-            return super.terminateByInstanceId(instanceId, context);
-        });
+        return transaction.execute(instanceId, () -> super.terminateByInstanceId(instanceId, context));
     }
 
     @Override
     public Instance terminateByTaskId(Long taskId, WorkflowContext context) {
-        Long instanceId = instanceIdOf(taskId);
-        return transactionTemplate.execute(status -> {
-            InstanceRowLock.lock(instanceId);
-            return super.terminateByTaskId(taskId, context);
-        });
+        return transaction.execute(instanceIdOf(taskId), () -> super.terminateByTaskId(taskId, context));
     }
 
     @Override
     public Instance updateHandlers(Long taskId, WorkflowContext context, List<String> addHandlers,
         List<String> removeHandlers, String cooperateType) {
-        Long instanceId = instanceIdOf(taskId);
-        return transactionTemplate.execute(status -> {
-            InstanceRowLock.lock(instanceId);
-            return super.updateHandlers(taskId, context, addHandlers, removeHandlers, cooperateType);
-        });
+        return transaction.execute(instanceIdOf(taskId),
+            () -> super.updateHandlers(taskId, context, addHandlers, removeHandlers, cooperateType));
     }
 
     private Long instanceIdOf(Long taskId) {

@@ -97,6 +97,23 @@ cd warm-flow-demo/warm-flow-demo-web && pnpm install && pnpm dev
 - 升级指南：<https://sgs98.github.io/warm-flow-doc/master/other/upgrade_guide.html>
 - 问题反馈：<https://gitee.com/sgs98/warm-flow/issues>
 
+### 驳回后直返
+
+在**驳回发起节点**的属性面板中，选择「驳回后续 → 重新审批后返回本节点」。例如 A → B → C → D，配置在 D：D 驳回到 A 后，A 重新审批通过直接生成新的 D 待办，不再生成 B、C 的待办或审批历史；D 仍需人工审批，即使开启了自动审批。
+
+规则保存在 D 的 `nodeConfig`，无需增加实体字段或数据库字段，也无需办理人每次驳回时选择：
+
+```json
+{"reject":{"schemaVersion":1,"afterApproval":"RETURN_TO_REJECTOR"}}
+```
+
+- 默认不配置（或 `afterApproval` 为 `REPLAY`）仍按原流程重走。旧的标量、数组或不含 `schemaVersion` 的业务 `reject` 属性不被解释为规则；启用前需将同名业务属性迁移到其它键。未知规则版本 / 模式明确报错。
+- 已有业务数据若把 `reject` 用作对象且带有自己的 `schemaVersion` 键，会被引擎按受管协议识别：精确 `schemaVersion=1` 且 `afterApproval=RETURN_TO_REJECTOR` 会开启直返语义，其它版本 / 模式则在校验时报错。协议键不带来源标记，引擎无法区分历史业务对象与受管配置，升级前请检查并迁移这类同名键。
+- 首版仅支持单活动人工任务、普通单人 / 或签，以及唯一无条件的线性人工返回区间；不支持会签、票签、顺签、组签、网关、服务 / 事件 / 附着边界事件区间或嵌套直返。持有关联时不能再驳回、任意跳转或撤回；委派受托人完成不消费关联，转办保持原任务关联。
+- MyBatis / MyBatis-Plus 的 Spring Boot 3 / 4 starter 必须配置匹配流程数据源的 `PlatformTransactionManager`。SDK 新建 JDBC 事务使用 `READ_COMMITTED`；如参与业务外层事务，直返流程要求外层也为 `READ_COMMITTED`（例如 `@Transactional(isolation = Isolation.READ_COMMITTED)`），不支持已有 `REPEATABLE_READ` 读视图，也不会通过 `REQUIRES_NEW` 拆开业务回滚。无事务管理器、外层隔离级别不兼容或无法确认时，直返流程的启动与实例写操作会被拒绝；默认重走仍兼容原行为。
+- 自定义 core 集成须自行保证同实例行锁、**锁后重新读取**任务 / 实例，以及任务、用户、历史与最新实例快照同事务提交。直接 mapper / SQL、通用 `updateById` 或自定义替换服务是可信低层接缝，不能用陈旧快照整行覆盖；外层事务若已读取旧实例，也必须遵守锁后当前读协议。
+- 一次性关联仅属于该实例的 `def_json`，不写业务变量或共享节点；终止、结束与重启 / 重置会清理。实例运行图不能作为设计定义导入或复制其运行段到共享节点。
+
 ## 组件所需脚本
 
 - 首次导入：先创建数据库，再执行对应数据库的全量脚本，如 [sql/mysql/warm-flow-all.sql](./sql/mysql/warm-flow-all.sql)

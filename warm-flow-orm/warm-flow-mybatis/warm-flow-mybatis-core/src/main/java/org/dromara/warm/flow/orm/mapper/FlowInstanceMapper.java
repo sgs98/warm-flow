@@ -28,5 +28,8 @@ import java.util.List;
  */
 public interface FlowInstanceMapper extends WarmMapper<FlowInstance> {
 
+    /** 在当前宿主事务内锁定唯一实例行，不改变更新时间值。 */
+    int lockInstance(@Param("instanceId") Long instanceId, @Param("entity") FlowInstance entity);
+
     List<FlowInstance> getByDefIds(@Param("defIds") List<Long> defIds, @Param("entity") FlowInstance flowInstance);
 }
