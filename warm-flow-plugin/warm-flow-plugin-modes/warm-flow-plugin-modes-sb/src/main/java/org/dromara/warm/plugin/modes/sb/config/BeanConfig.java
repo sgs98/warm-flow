@@ -25,6 +25,7 @@ import org.dromara.warm.flow.core.service.impl.EventRuntimeHandler;
 import org.dromara.warm.flow.core.timer.EventTaskHandler;
 import org.dromara.warm.flow.core.utils.ExpressionUtil;
 import org.dromara.warm.plugin.modes.sb.expression.*;
+import org.dromara.warm.plugin.modes.sb.helper.ExpressionBeanScanner;
 import org.dromara.warm.plugin.modes.sb.helper.SpelHelper;
 import org.dromara.warm.plugin.modes.sb.utils.SpringUtil;
 import org.slf4j.Logger;
@@ -45,7 +46,7 @@ import java.util.Objects;
  * @since 2023/6/5 23:01
  */
 @SuppressWarnings("rawtypes unchecked")
-@Import({SpringUtil.class, SpelHelper.class})
+@Import({SpringUtil.class, SpelHelper.class, ExpressionBeanScanner.class})
 @ConditionalOnProperty(value = "warm-flow.enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(WarmFlowProperties.class)
 public class BeanConfig {

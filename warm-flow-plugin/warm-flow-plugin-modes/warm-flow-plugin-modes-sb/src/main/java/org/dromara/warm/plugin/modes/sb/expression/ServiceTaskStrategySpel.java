@@ -19,6 +19,6 @@ public class ServiceTaskStrategySpel implements ServiceTaskStrategy {
 
     @Override
     public Object eval(String expression, Map<String, Object> variable) {
-        return SpelHelper.parseExpression(expression, variable);
+        return SpelHelper.parseServiceTaskExpression(expression, variable);
     }
 }
