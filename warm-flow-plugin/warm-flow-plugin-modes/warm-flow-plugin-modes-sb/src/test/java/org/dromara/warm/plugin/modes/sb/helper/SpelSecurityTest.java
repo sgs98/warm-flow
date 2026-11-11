@@ -69,6 +69,8 @@ class SpelSecurityTest {
         APP.getBeanFactory().registerSingleton("annotatedProxy",
             new ProxyFactory(new ProxyAnnotated()).getProxy());
         APP.getBeanFactory().registerSingleton("annotatedWithExec", new AnnotatedWithExec());
+        APP.getBeanFactory().registerSingleton("annotatedDelegate", new DelegateOnly());
+        APP.getBeanFactory().registerSingleton("annotatedDelegateNotHandler", new DelegateNotHandler());
         APP.getBeanFactory().registerSingleton("business", BUSINESS);
         APP.getBeanFactory().registerSingleton("delegate", DELEGATE);
         APP.getBeanFactory().registerAlias("probe", "probeAlias");
@@ -503,6 +505,34 @@ class SpelSecurityTest {
         first.close();
         second.close();
         ExpressionBeanScanner.reset();
+    }
+
+    @Test
+    void delegateAnnotationAuthorizesOnlyDelegateRoot() {
+        ExpressionBeanScanner.reset();
+        new ExpressionBeanScanner().setApplicationContext(APP);
+        ExpressionBeanScanner.collect();
+        assertEquals(Set.of(), ExpressionBeanScanner.getAnnotatedAuthorizations().get("annotatedDelegate"));
+        assertTrue(new ServiceTaskStrategySpel().eval("#{@annotatedDelegate}", Map.of())
+            instanceof DelegateOnly);
+        // 委托声明不授权任何方法，也不能用于普通表达式。
+        assertThrows(RuntimeException.class, () -> eval("#{@annotatedDelegate}"));
+        assertThrows(RuntimeException.class, () -> eval("#{@annotatedDelegate.execute(null)}"));
+        // 非 ServiceTaskHandler 的 Bean 即使声明 delegate 也不能作为委托取得。
+        assertThrows(RuntimeException.class, () -> new ServiceTaskStrategySpel()
+            .eval("#{@annotatedDelegateNotHandler}", Map.of()));
+        ExpressionBeanScanner.reset();
+    }
+
+    @FlowExpressionBean(delegate = true)
+    public static class DelegateOnly implements ServiceTaskHandler {
+        @Override
+        public void execute(ServiceTaskContext context) {
+        }
+    }
+
+    @FlowExpressionBean(delegate = true)
+    public static class DelegateNotHandler {
     }
 
     private static void allow(String bean, String... methods) {

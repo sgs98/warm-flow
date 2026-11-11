@@ -21,4 +21,12 @@ import java.lang.annotation.Target;
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface FlowExpressionBean {
+
+    /**
+     * 仅声明服务任务委托（只用于类级）：允许 {@code #{@beanName}} 取得实现
+     * {@code ServiceTaskHandler} 的 Bean，不授权调用任何方法。
+     *
+     * @return 为 true 时只按委托 Bean 登记（等价于配置空方法列表）
+     */
+    boolean delegate() default false;
 }

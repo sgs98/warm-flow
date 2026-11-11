@@ -9,9 +9,12 @@ public class UserServiceImpl { ... }
 
 @FlowExpressionBean          // 方法级：仅该方法可被调用
 public String createOrder(ServiceTaskContext context) { ... }
+
+@FlowExpressionBean(delegate = true)   // 类级：仅作为服务任务委托 #{@beanName}
+public class DemoDelegateServiceTask implements ServiceTaskHandler { ... }
 ```
 
-注解由引擎启动时自动扫描并合并进白名单。第三方 jar 中无法改源码的 Bean，仍可用精确配置补充：
+注解由引擎启动时自动扫描并合并进白名单，通常无需 YAML。第三方 jar 中无法改源码的 Bean 仍可用精确配置补充：
 
 ```yaml
 warm-flow:

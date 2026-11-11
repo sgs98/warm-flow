@@ -91,7 +91,12 @@ public class ExpressionBeanScanner implements ApplicationContextAware, SmartInit
                 : ClassUtils.getUserClass(type);
             FlowExpressionBean classAnnotation = AnnotatedElementUtils.findMergedAnnotation(userClass, FlowExpressionBean.class);
             if (classAnnotation != null) {
-                collectPublicMethods(userClass, collected.computeIfAbsent(name, key -> new HashSet<>()));
+                if (classAnnotation.delegate()) {
+                    // 只登记委托：空方法集合，等价于 YAML 中的 `bean: []`。
+                    collected.putIfAbsent(name, new HashSet<>());
+                } else {
+                    collectPublicMethods(userClass, collected.computeIfAbsent(name, key -> new HashSet<>()));
+                }
                 continue;
             }
             // AOP 代理上方法级注解可能被代理类遮蔽，需按原始类的方法查找。
