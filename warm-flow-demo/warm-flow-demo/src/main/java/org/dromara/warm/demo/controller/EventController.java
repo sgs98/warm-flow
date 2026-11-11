@@ -3,6 +3,7 @@ package org.dromara.warm.demo.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.ApiResponse;
+import org.dromara.warm.demo.config.DemoUserContext;
 import org.dromara.warm.demo.common.BizException;
 import org.dromara.warm.demo.config.DemoEventPublisher;
 import org.dromara.warm.demo.dto.ErrorTriggerRequest;
@@ -48,6 +49,8 @@ public class EventController {
      */
     @GetMapping("/instances/{id}/events")
     public ApiResponse<List<EventView>> waitingEvents(@PathVariable("id") Long id) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         return ApiResponse.ok(FlowEngine.workflow().waitingEvents(id));
     }
 
@@ -55,14 +58,14 @@ public class EventController {
      * 消息启动流程（MESSAGE_START）：按流程编码 + 消息名自动发起实例，
      * businessId 由调用方指定，引擎不按其去重，重复调用会创建多个实例。
      *
-     * @param user    当前用户名
      * @param request 消息启动请求
      * @return 新实例主键
      */
     @Transactional(rollbackFor = Exception.class)
     @PostMapping("/instances/message")
-    public ApiResponse<Long> startByMessage(@RequestHeader(value = "X-User-Name", defaultValue = "admin") String user
-        , @Valid @RequestBody MessageStartRequest request) {
+    public ApiResponse<Long> startByMessage(@Valid @RequestBody MessageStartRequest request) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         WorkflowContext context = new WorkflowContext();
         context.setHandler(user);
         try {
@@ -77,14 +80,14 @@ public class EventController {
     /**
      * 触发实例的消息捕获事件（MESSAGE_CATCH / MESSAGE_BOUNDARY）。
      *
-     * @param user    当前用户名
      * @param id      流程实例主键
      * @param request 消息触发请求
      * @return 触发后的实例主键
      */
     @PostMapping("/instances/{id}/messages")
-    public ApiResponse<Long> message(@RequestHeader(value = "X-User-Name", defaultValue = "admin") String user
-        , @PathVariable("id") Long id, @Valid @RequestBody MessageTriggerRequest request) {
+    public ApiResponse<Long> message(@PathVariable("id") Long id, @Valid @RequestBody MessageTriggerRequest request) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         WorkflowContext context = new WorkflowContext();
         context.setHandler(user);
         try {

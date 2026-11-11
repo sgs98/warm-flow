@@ -3,6 +3,7 @@ package org.dromara.warm.demo.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.ApiResponse;
+import org.dromara.warm.demo.config.DemoUserContext;
 import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.dto.RestartInstanceRequest;
 import org.dromara.warm.demo.dto.StartInstanceRequest;
@@ -31,13 +32,13 @@ public class InstanceController {
     /**
      * 发起流程实例。
      *
-     * @param user    当前用户名
      * @param request 发起请求
      * @return 发起结果
      */
     @PostMapping("/instances")
-    public ApiResponse<StartInstanceVo> start(@RequestHeader(value = "X-User-Name", defaultValue = "admin") String user,
-                                              @Valid @RequestBody StartInstanceRequest request) {
+    public ApiResponse<StartInstanceVo> start(@Valid @RequestBody StartInstanceRequest request) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         return ApiResponse.ok(instanceAppService.start(user, request));
     }
 
@@ -48,7 +49,6 @@ public class InstanceController {
      * @param definitionId 流程定义主键
      * @param flowStatus   流程状态
      * @param businessId   业务主键
-     * @param user         当前用户名
      * @return 流程实例分页数据
      */
     @GetMapping("/instances")
@@ -56,8 +56,9 @@ public class InstanceController {
         PageQuery pageQuery,
         @RequestParam(required = false) Long definitionId,
         @RequestParam(required = false) String flowStatus,
-        @RequestParam(required = false) String businessId,
-        @RequestHeader(value = "X-User-Name", required = false) String user) {
+        @RequestParam(required = false) String businessId) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         return ApiResponse.ok(instanceAppService.pageInstances(
             user, pageQuery, definitionId, flowStatus, businessId));
     }
@@ -104,18 +105,21 @@ public class InstanceController {
      */
     @DeleteMapping("/instances")
     public ApiResponse<Integer> removeBatch(@RequestParam("ids") List<Long> ids) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         return ApiResponse.ok(instanceAppService.removeInstances(ids));
     }
 
     /**
      * 撤回流程实例。
      *
-     * @param user 当前用户名
      * @param id   流程实例主键
      * @return 空响应
      */
     @PostMapping("/instances/{id}/revoke")
-    public ApiResponse<Void> revoke(@RequestHeader("X-User-Name") String user, @PathVariable("id") Long id) {
+    public ApiResponse<Void> revoke( @PathVariable("id") Long id) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         instanceAppService.revoke(user, id);
         return ApiResponse.ok();
     }
@@ -123,12 +127,13 @@ public class InstanceController {
     /**
      * 终止流程实例。
      *
-     * @param user 当前用户名
      * @param id   流程实例主键
      * @return 空响应
      */
     @PostMapping("/instances/{id}/termination")
-    public ApiResponse<Void> termination(@RequestHeader("X-User-Name") String user, @PathVariable("id") Long id) {
+    public ApiResponse<Void> termination( @PathVariable("id") Long id) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         instanceAppService.termination(user, id);
         return ApiResponse.ok();
     }
@@ -136,15 +141,15 @@ public class InstanceController {
     /**
      * 将终态流程实例重启到指定普通人工审批节点。
      *
-     * @param user    当前用户名
      * @param id      流程实例主键
      * @param request 重启目标和审批人
      * @return 空响应
      */
     @PostMapping("/instances/{id}/restart")
-    public ApiResponse<Void> restart(@RequestHeader("X-User-Name") String user,
-                                     @PathVariable("id") Long id,
+    public ApiResponse<Void> restart(@PathVariable("id") Long id,
                                      @Valid @RequestBody RestartInstanceRequest request) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         instanceAppService.restart(user, id, request);
         return ApiResponse.ok();
     }

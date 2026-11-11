@@ -1,6 +1,6 @@
 /**
  * 流程实例 API。
- * <p>当前登录用户由 axios 拦截器统一注入 {@code X-User-Name} 请求头。</p>
+ * <p>当前登录用户由 HttpOnly Cookie 携带，后端拦截器解析。</p>
  */
 import { httpDelete, httpGet, httpPost } from './http'
 import type { HistoryItem, InstanceRow, PageResult } from '../types/workflow'

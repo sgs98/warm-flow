@@ -172,6 +172,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { logout as logoutApi } from '../api/auth'
 import { useSessionStore } from '../stores/session'
 import { useThemeStore, type ThemeMode } from '../stores/theme'
 import { listUsers, type DemoUser } from '../api/users'
@@ -248,16 +249,17 @@ function onThemeCommand(mode: ThemeMode) {
 
 function switchUser(userName: string) {
   if (!userName || userName === session.currentUser) return
-  const next = users.value.find((u) => u.userName === userName)
-  session.setCurrentUser(userName)
-  ElMessage.success(`已切换为 ${next?.realName || userName}`)
-  session.refreshTodoCount()
+  // 身份在 HttpOnly Cookie 中，切换用户需重新登录
+  ElMessage.warning('身份由登录 Cookie 决定，切换用户请退出后重新登录')
 }
 
-function logout() {
-  router.push('/login').finally(() => {
+async function logout() {
+  try {
+    await logoutApi()
+  } finally {
     session.clearCurrentUser()
-  })
+    await router.push('/login')
+  }
 }
 
 watch(

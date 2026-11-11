@@ -3,7 +3,7 @@ package org.dromara.warm.demo.config;
 /**
  * Demo 请求级用户上下文。
  * <p>按请求保存当前用户，供引擎 {@code PermissionHandler} 在办理权限校验时读取，
- * 由 {@link DemoUserInterceptor} 写入与清理。</p>
+ * 由 {@link DemoAuthInterceptor} 从登录 Cookie 解析后写入与清理。</p>
  *
  * @author may
  */

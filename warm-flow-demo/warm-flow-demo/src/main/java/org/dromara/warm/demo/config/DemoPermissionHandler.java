@@ -16,9 +16,9 @@ import java.util.stream.Collectors;
 
 /**
  * Demo 流程权限处理器。
- * <p>权限来自当前 HTTP 请求头 {@code X-User-Name} 对应的 Demo 用户：
+ * <p>权限来自登录 Cookie 解析出的当前 Demo 用户：
  * 引擎办理权限校验读取 {@link #permissions()}，审计字段填充读取 {@link #getHandler()}，
- * 请求进入与结束由 {@link DemoUserInterceptor} 写入、清理 {@link DemoUserContext}。</p>
+ * 请求进入与结束由 {@link DemoAuthInterceptor} 写入、清理 {@link DemoUserContext}。</p>
  *
  * @author may
  */

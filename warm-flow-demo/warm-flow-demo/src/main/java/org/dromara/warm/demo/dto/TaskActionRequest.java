@@ -19,9 +19,9 @@ import java.util.Map;
 public class TaskActionRequest {
 
     /**
-     * 当前操作人 user_name。
+     * 当前操作人 user_name（可选，已废弃为信任来源）：为空时取登录 Cookie 身份；
+     * 不再允许请求体指定冒用他人身份，前端无需传该字段。
      */
-    @NotBlank(message = "操作人不能为空")
     private String user;
 
     /**

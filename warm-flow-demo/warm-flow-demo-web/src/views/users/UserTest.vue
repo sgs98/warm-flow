@@ -39,8 +39,6 @@ function rowClassName({ row }: { row: DemoUser }) {
 }
 
 function switchTo(user: DemoUser) {
-  session.setCurrentUser(user.userName)
-  ElMessage.success(`已切换为 ${user.realName}（${user.userName}）`)
-  session.refreshTodoCount()
+  ElMessage.warning('身份由登录 Cookie 决定，切换用户请退出后用 ' + user.userName + ' 重新登录')
 }
 </script>

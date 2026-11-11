@@ -2,6 +2,7 @@ package org.dromara.warm.demo.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.ApiResponse;
+import org.dromara.warm.demo.config.DemoUserContext;
 import org.dromara.warm.demo.dto.EventWaitQueryRequest;
 import org.dromara.warm.demo.dto.TimerStartRequest;
 import org.dromara.warm.demo.service.EventWaitAppService;
@@ -53,6 +54,8 @@ public class EventWaitController {
      */
     @GetMapping("/summary")
     public ApiResponse<EventWaitSummaryVo> summary(EventWaitQueryRequest request) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         return ApiResponse.ok(eventWaitAppService.summary(request));
     }
 
@@ -60,14 +63,14 @@ public class EventWaitController {
      * 手动补发一次定时启动任务（运维应急）。
      * <p>不推进等待记录，下一次定时触发照常进行；实例的发起人记为当前用户。</p>
      *
-     * @param user    当前用户名
      * @param id      事件等待记录主键
      * @param request 补发参数
      * @return 新建实例主键
      */
     @PostMapping("/{id}/trigger")
-    public ApiResponse<Long> trigger(@RequestHeader(value = "X-User-Name", defaultValue = "admin") String user
-        , @PathVariable("id") Long id, @RequestBody(required = false) TimerStartRequest request) {
+    public ApiResponse<Long> trigger(@PathVariable("id") Long id, @RequestBody(required = false) TimerStartRequest request) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         TimerStartRequest body = request == null ? new TimerStartRequest() : request;
         return ApiResponse.ok(eventWaitAppService.manualTrigger(id, user, body.getBusinessId()
             , body.getVariables()));

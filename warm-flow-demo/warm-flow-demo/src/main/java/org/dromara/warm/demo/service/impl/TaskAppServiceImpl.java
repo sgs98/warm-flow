@@ -3,6 +3,7 @@ package org.dromara.warm.demo.service.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.warm.demo.common.BizException;
+import org.dromara.warm.demo.config.DemoUserContext;
 import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.dto.TaskActionRequest;
 import org.dromara.warm.demo.mapper.DemoTaskQueryMapper;
@@ -305,6 +306,8 @@ public class TaskAppServiceImpl implements TaskAppService {
      */
     @Override
     public void transfer(TaskActionRequest req) {
+        // 操作人身份以登录 Cookie 为准，请求体 user 不再作为信任来源
+        req.setUser(DemoUserContext.get());
         checkTaskAction(req);
         Task task = support.requireTask(req.getTaskId());
         support.checkNodeButton(task, "transfer");
@@ -333,6 +336,8 @@ public class TaskAppServiceImpl implements TaskAppService {
      */
     @Override
     public void depute(TaskActionRequest req) {
+        // 操作人身份以登录 Cookie 为准，请求体 user 不再作为信任来源
+        req.setUser(DemoUserContext.get());
         checkTaskAction(req);
         Task task = support.requireTask(req.getTaskId());
         support.checkNodeButton(task, "trust");
@@ -357,6 +362,8 @@ public class TaskAppServiceImpl implements TaskAppService {
      */
     @Override
     public void addSignature(TaskActionRequest req) {
+        // 操作人身份以登录 Cookie 为准，请求体 user 不再作为信任来源
+        req.setUser(DemoUserContext.get());
         checkTaskAction(req);
         Task task = support.requireTask(req.getTaskId());
         checkSignNode(task);
@@ -384,6 +391,8 @@ public class TaskAppServiceImpl implements TaskAppService {
      */
     @Override
     public void reductionSignature(TaskActionRequest req) {
+        // 操作人身份以登录 Cookie 为准，请求体 user 不再作为信任来源
+        req.setUser(DemoUserContext.get());
         checkTaskAction(req);
         Task task = support.requireTask(req.getTaskId());
         checkSignNode(task);
@@ -409,6 +418,8 @@ public class TaskAppServiceImpl implements TaskAppService {
      * @return 办理后的流程实例
      */
     private InstanceVo operate(TaskActionRequest req, boolean reject) {
+        // 操作人身份以登录 Cookie 为准：请求体里的 user 仅作兼容展示，不能作为执行身份
+        req.setUser(DemoUserContext.get());
         try {
             WorkflowResult result;
             Map<String, Object> variables = nextHandlerVariables(req);
@@ -455,9 +466,7 @@ public class TaskAppServiceImpl implements TaskAppService {
         if (req == null) {
             throw BizException.badRequest("任务操作请求不能为空");
         }
-        if (StringUtils.isEmpty(req.getUser())) {
-            throw BizException.badRequest("user 不能为空");
-        }
+        // user 由 operate() 从登录 Cookie 写入，请求体不再提供可信身份
         if (ObjectUtil.isNull(req.getTaskId())) {
             throw BizException.badRequest("taskId 不能为空");
         }

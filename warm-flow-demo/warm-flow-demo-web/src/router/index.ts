@@ -18,8 +18,9 @@ const routes = [
 
 const router = createRouter({ history: createWebHistory(), routes })
 
+// HttpOnly Cookie 前端不可读，登录标记仅用于路由守卫；真实认证以后端 401 为准
 router.beforeEach((to) => {
-  const user = localStorage.getItem('wf_user')
+  const user = sessionStorage.getItem('wf_logged_in')
   if (to.path === '/login') {
     return user ? { path: '/' } : true
   }

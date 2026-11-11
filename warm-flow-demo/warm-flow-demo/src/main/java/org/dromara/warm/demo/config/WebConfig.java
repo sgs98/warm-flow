@@ -1,5 +1,6 @@
 package org.dromara.warm.demo.config;
 
+import org.dromara.warm.demo.config.DemoAuthInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -7,7 +8,7 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * Web 配置，为本地联调的前端放开跨域，避免跨域直连被拦成 403。
+ * Web 配置：统一认证拦截与本地联调跨域。
  *
  * @author may
  * @since 2026/9/5
@@ -15,10 +16,17 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+    private final DemoAuthInterceptor authInterceptor;
+
+    public WebConfig(DemoAuthInterceptor authInterceptor) {
+        this.authInterceptor = authInterceptor;
+    }
+
     @Override
     public void addInterceptors(@NonNull InterceptorRegistry registry) {
-        // 引擎的办理权限校验需要当前请求用户，这里按请求写入并清理，避免线程复用串号
-        registry.addInterceptor(new DemoUserInterceptor()).addPathPatterns("/api/**");
+        // 认证拦截：Cookie 解析身份并写入 DemoUserContext，覆盖业务与设计器数据接口（登录接口与设计器静态资源放行）
+        registry.addInterceptor(authInterceptor).addPathPatterns("/api/**", "/warm-flow/**")
+            .excludePathPatterns("/api/auth/login", "/warm-flow-ui/**");
     }
 
     @Override

@@ -9,22 +9,8 @@ const http = axios.create({
   },
 })
 
-http.interceptors.request.use((config) => {
-  const user = localStorage.getItem('wf_user')
-  if (user) {
-    const headers = config.headers as { set?: (k: string, v: string) => void } & Record<string, unknown>
-    if (typeof headers.set === 'function') headers.set('X-User-Name', user)
-    else headers['X-User-Name'] = user
-    return config
-  }
-  const url = config.url || ''
-  if (/\/tasks\/(todo|done|copy)\b/.test(url)) {
-    const err = new Error('UNAUTH')
-    ;(err as Error & { silent?: boolean }).silent = true
-    return Promise.reject(err)
-  }
-  return config
-})
+// 认证由 HttpOnly Cookie 自动携带；401 由响应拦截器统一跳登录页
+http.interceptors.request.use((config) => config)
 
 http.interceptors.response.use(
   (response: any) => {
@@ -40,6 +26,14 @@ http.interceptors.response.use(
   },
   async (error: any) => {
     if (error?.silent || error?.message === 'UNAUTH') {
+      return Promise.reject(error)
+    }
+    if (error?.response?.status === 401 && !window.location.pathname.startsWith('/login')) {
+      // 清除过期登录标记，避免路由守卫把 /login 弹回受保护页形成重定向循环
+      sessionStorage.removeItem('wf_logged_in')
+      sessionStorage.removeItem('wf_user')
+      const redirect = window.location.pathname + window.location.search
+      window.location.href = '/login?redirect=' + encodeURIComponent(redirect)
       return Promise.reject(error)
     }
     const data = error?.response?.data

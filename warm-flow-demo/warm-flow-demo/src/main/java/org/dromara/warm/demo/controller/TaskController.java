@@ -3,6 +3,7 @@ package org.dromara.warm.demo.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dromara.warm.demo.common.ApiResponse;
+import org.dromara.warm.demo.config.DemoUserContext;
 import org.dromara.warm.demo.dto.PageQuery;
 import org.dromara.warm.demo.dto.TaskActionRequest;
 import org.dromara.warm.demo.service.TaskAppService;
@@ -27,28 +28,26 @@ public class TaskController {
     /**
      * 分页查询当前用户待办任务。
      *
-     * @param user      当前用户名
      * @param pageQuery 分页参数
      * @return 待办任务分页数据
      */
     @GetMapping("/tasks/todo")
-    public ApiResponse<PageVo<TaskVo>> todo(
-        @RequestHeader("X-User-Name") String user,
-        PageQuery pageQuery) {
+    public ApiResponse<PageVo<TaskVo>> todo(PageQuery pageQuery) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         return ApiResponse.ok(taskAppService.todo(user, pageQuery));
     }
 
     /**
      * 分页查询当前用户已办任务。
      *
-     * @param user      当前用户名
      * @param pageQuery 分页参数
      * @return 已办任务分页数据
      */
     @GetMapping("/tasks/done")
-    public ApiResponse<PageVo<TaskVo>> done(
-        @RequestHeader("X-User-Name") String user,
-        PageQuery pageQuery) {
+    public ApiResponse<PageVo<TaskVo>> done(PageQuery pageQuery) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         return ApiResponse.ok(taskAppService.done(user, pageQuery));
     }
 
@@ -104,20 +103,21 @@ public class TaskController {
      */
     @GetMapping("/tasks/{taskId}/back-nodes")
     public ApiResponse<List<TaskNodeVo>> backNodes(@PathVariable("taskId") Long taskId) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         return ApiResponse.ok(taskAppService.backNodes(taskId));
     }
 
     /**
      * 分页查询当前用户收到的抄送。
      *
-     * @param user      当前用户名
      * @param pageQuery 分页参数
      * @return 抄送分页数据
      */
     @GetMapping("/tasks/copy")
-    public ApiResponse<PageVo<TaskVo>> copy(
-        @RequestHeader("X-User-Name") String user,
-        PageQuery pageQuery) {
+    public ApiResponse<PageVo<TaskVo>> copy(PageQuery pageQuery) {
+        // 身份来自登录 Cookie（拦截器写入），不再信任请求头
+        String user = DemoUserContext.get();
         return ApiResponse.ok(taskAppService.copy(user, pageQuery));
     }
 

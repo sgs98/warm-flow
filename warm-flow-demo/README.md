@@ -147,14 +147,14 @@ curl -X POST "http://localhost:8080/api/definitions/{已发布定义主键}/copy
 等价的发起请求（`day` 是条件出口用的流程变量）：
 
 ```bash
-curl -X POST http://localhost:8080/api/instances -H "Content-Type: application/json" -H "X-User-Name: approver1" \
+curl -X POST http://localhost:8080/api/instances -H "Content-Type: application/json" -b wf-cookie.txt \
   -d '{"flowCode":"demo_gateway_classic","businessId":"gw-demo-1","variables":{"day":4}}'
 ```
 
 验证要点：
 
 - **排他网关**：`day` 大于 3 走「大于三天」，否则走无条件兜底「小于三天」，两条分支在「第四个」汇合。
-- **并行网关**：三个分支同时生成待办，全部办理完才汇聚推进；分支办理人不同，需用 `X-User-Name` 分别办理（口径见 `.codex/skills/warm-flow-demo-testing/references/test-matrix.md`）。
+- **并行网关**：三个分支同时生成待办，全部办理完才汇聚推进；分支办理人不同，需用对应账号分别登录办理（口径见 `.codex/skills/warm-flow-demo-testing/references/test-matrix.md`）。
 - **包容网关**：条件出口与无条件出口**独立判断**——`day=4` 时同时进入「包容day大于三」「包容3」「包容4」，条件不命中时仍进入「包容3」「包容4」。两条条件出口 `gt` / `lt` 互斥，因此该定义可验证「条件出口 + 无条件出口同时命中」，**不能**证明「多个条件同时命中」，详见 `.codex/skills/warm-flow-demo-testing/references/regression-cases.md`。
 - 两个定义的节点编码一致，可用于比对两种设计器模式导出的 `nodeCode`、节点坐标与连线格式能否互相导入。
 
@@ -175,19 +175,19 @@ curl -X POST http://localhost:8080/api/instances -H "Content-Type: application/j
 - **引擎版本**：Demo 依赖 `~/.m2` 中的同版本引擎包。需先在仓库根执行 `mvn clean install -DskipTests` 安装包含顺序会签的当前反应堆；旧引擎不识别独立的 `cooperateType` 字段。
 - **数据库需含 `flow_user.seq_no` 与 `flow_node.cooperate_type` 列**。旧库执行 `sql/mysql/v1-upgrade/warm-flow_2.1.2.sql`；全新库直接用最新 `sql/mysql/warm-flow-all.sql`。升级脚本不回填存量数据，旧 `@@sequence` 定义由运行时兼容。
 - 导入 `demo_sequence_sign.json` 后**发布**该版本（导入始终生成未发布的新版本）。
-- 用 Demo 用户 `approver1` / `approver2` / `approver3` 依次办理，请求头必须带 `X-User-Name`。
+- 用 Demo 用户 `approver1` / `approver2` / `approver3` 依次办理，需分别登录对应账号（Cookie 身份）。
 
 发起：
 
 ```bash
-curl -X POST http://localhost:8080/api/instances -H "Content-Type: application/json" -H "X-User-Name: admin" \
+curl -X POST http://localhost:8080/api/instances -H "Content-Type: application/json" -b wf-cookie.txt \
   -d '{"flowCode":"demo_sequence_sign","businessId":"seq-demo-1"}'
 ```
 
 验证要点：
 
 1. **仅当前位可见**：发起并办理「申请人」后，待办只出现在 `approver1` 的列表；`approver2` / `approver3` 查询待办为空。
-2. **越序不可办**：直接用 `X-User-Name: approver2` 办理该任务返回无权限（`NOT_AUTHORITY`），任务与办理人不变。
+2. **越序不可办**：用 approver2 登录后办理该任务返回无权限（`NOT_AUTHORITY`），任务与办理人不变。
 3. **逐个交接**：`approver1` 办理后任务仍在「顺序会签」节点，本人从待办消失、`approver2` 待办出现，依此类推；`approver3` 办理后流程流转到「结束」。
 4. **完成规则**：示例的 `nodeRatio=100` 表示全部顺位通过才算完成；示例未配置驳回线，画布保持单一路径，如需验证驳回一票否决，请在设计器中给「顺序会签」添加退回「申请人」的线。改成比例、人数或表达式票签后，仍只允许当前位投票，规则提前达标即清退剩余顺序位。
 5. **转办**：
@@ -228,7 +228,7 @@ curl -X POST http://localhost:8080/api/instances -H "Content-Type: application/j
 - **禁用动作**：组签节点不支持加签、减签、委托与任意跳转，也不参与自动审批；终态实例重启 / 重置的目标列表排除组签节点。Demo 按钮权限会隐藏 `trust` / `addSign` / `subSign`，服务端仍会拒绝直调。
 - **旧引擎风险**：旧版本引擎不识别 `group`，会把组签节点当成无办理人的或签节点推进。**组签定义只能发布到支持组签的引擎版本**，不能依赖权限为空做安全降级。
 
-复测建议：用设计器新建临时定义（开始 → 组签 → 结束）并发布，分别用不同 `X-User-Name` 验证并行两组、顺序越序拒绝、转办与禁用动作；负例覆盖成员展开为空、配置了 `permission_flag`、事件节点/网关/服务任务配组签等发布拒绝场景。完整用例与证据合同见 `.codex/skills/warm-flow-demo-testing/references/test-matrix.md` 的 `GRP-*` 用例族。
+复测建议：用设计器新建临时定义（开始 → 组签 → 结束）并发布，分别登录不同账号验证并行两组、顺序越序拒绝、转办与禁用动作；负例覆盖成员展开为空、配置了 `permission_flag`、事件节点/网关/服务任务配组签等发布拒绝场景。完整用例与证据合同见 `.codex/skills/warm-flow-demo-testing/references/test-matrix.md` 的 `GRP-*` 用例族。
 
 ### 内置组签示例
 
@@ -339,12 +339,12 @@ curl "http://localhost:8080/api/event-waits/summary?timerOnly=false"
 ```bash
 # 消息启动（businessId 自定；引擎不按 businessId 去重，重复调用会创建多个实例，幂等需业务侧自行保证）
 curl -X POST http://localhost:8080/api/instances/message \
-  -H "Content-Type: application/json" -H "X-User-Name: admin" \
+  -H "Content-Type: application/json" -b wf-cookie.txt \
   -d '{"flowCode":"demo_event_risk_wait","businessId":"biz-1001","eventName":"order.paid","variables":{"orderId":"1001"}}'
 
 # 风控结果回调（触发后实例推进到对账确认）
 curl -X POST http://localhost:8080/api/instances/{instanceId}/messages \
-  -H "Content-Type: application/json" -H "X-User-Name: admin" \
+  -H "Content-Type: application/json" -b wf-cookie.txt \
   -d '{"eventName":"risk.result","variables":{"riskLevel":"low"}}'
 
 # 查看最近的消息发布记录（MESSAGE_THROW / MESSAGE_END 由 DemoEventPublisher 记录）
@@ -371,7 +371,7 @@ curl http://localhost:8080/api/events/published
 
 ```bash
 curl -X POST http://localhost:8080/api/tasks/{taskId}/errors \
-  -H "Content-Type: application/json" -H "X-User-Name: approver2" \
+  -H "Content-Type: application/json" -b wf-cookie.txt \
   -d '{"errorCode":"PAY_FAILED","message":"卡余额不足"}'
 ```
 
@@ -387,7 +387,7 @@ curl -X POST http://localhost:8080/api/tasks/{taskId}/errors \
 
 ```bash
 # veto=1：终止结束触发，质检复核未办待办按「失效」归档（历史里可见），实例状态置「终止」
-curl -X POST http://localhost:8080/api/tasks -H "Content-Type: application/json" -H "X-User-Name: approver2" \
+curl -X POST http://localhost:8080/api/tasks -H "Content-Type: application/json" -b wf-cookie.txt \
   -d '{"taskId":<id>,"message":"严重异常","variables":{"veto":"1"}}'
 ```
 
@@ -405,13 +405,50 @@ curl -X POST http://localhost:8080/api/tasks -H "Content-Type: application/json"
 
 ```bash
 curl -X POST http://localhost:8080/api/instances/message \
-  -H "Content-Type: application/json" -H "X-User-Name: admin" \
+  -H "Content-Type: application/json" -b wf-cookie.txt \
   -d '{"flowCode":"demo_event_notify","businessId":"notify-1","eventName":"membership.cancelled","variables":{"reason":"user-request"}}'
 ```
 
 ## 事件能力落地（宿主接入）
 
 宿主侧的完整写法见官方文档《[流程事件与内置定时器](https://sgs98.github.io/warm-flow-doc/master/advanced/event.html)》：`5.4 接入清单`（照做即可）、`13 完整示例`（六个可直接跑通的例子，覆盖除 `MESSAGE_BOUNDARY` / `ERROR_CATCH` 外的全部事件类型，并给出对应关系）、`12.2 运行期排查`（触发后没反应怎么查）。demo 里只保留最小实现：`DemoEventPublisher`（引擎 → 宿主）+ `DemoMessageSubscriber`（收到消息 → `startByMessage` 启动案例 6）。
+
+## 认证与安全边界
+
+Demo 已接入**演示级登录认证**（完整可运行的参考实现）：
+
+- 登录：`POST /api/auth/login`，用户名 + 密码（演示密码 `warm-flow-demo`，可用环境变量 `WARM_DEMO_PASSWORD` 覆盖），签发 `HttpOnly + SameSite=Lax` 的 HMAC 签名 Cookie（12 小时有效）。
+- 统一拦截：`DemoAuthInterceptor` 覆盖 `/api/**` 与 `/warm-flow/**`，白名单仅登录接口与设计器静态资源；未认证返回 HTTP 401。
+- 身份只来自签名 Cookie；`X-User-Name` 请求头不再作为身份来源。切换用户需退出后重新登录（Cookie 决定身份，前端无法伪造）。
+- 设计器接口裁决：`DemoDesignerAuthHandler` 实现 SDK 的 `DesignerAuthHandler` SPI（读/写/办理分级），未实现该 SPI 的宿主设计器数据接口一律 401。
+- 登出：`POST /api/auth/logout` 清除 Cookie；令牌密钥默认启动时随机生成（重启即全员下线），生产用 `warm-flow-demo.auth-secret` 固定并保密。
+
+生产接入要点：
+
+- 换成宿主自己的账号体系与密码存储，Demo 的内存用户和固定密码仅用于演示；
+- 写操作（保存流程定义、表单写入）建议在 `DesignerAuthHandler.canWrite()` 中限制为流程管理员；
+- `/warm-flow/execute/handle` 结合任务办理权限校验（`canHandleTask()`）；
+- 前后端分域时 Cookie 需 `SameSite=None; Secure`，或由网关认证后注入内部请求头。
+
+接口清单、接入方式与上线检查清单见
+[设计器接口安全接入](../warm-flow-plugin/warm-flow-plugin-ui/warm-flow-plugin-ui-sb-web/README.md)。
+
+表达式安全是另一层防护：Demo 中的 `DemoTaskListener`、`DemoOrderService`、`DemoDelegateServiceTask`
+使用 `@FlowExpressionBean` 声明可被流程表达式调用的 Bean/方法，未声明的 Bean 默认拒绝，详见
+[SpEL 表达式安全配置](../warm-flow-plugin/warm-flow-plugin-modes/warm-flow-plugin-modes-sb/README.md)。
+
+快速自检：未登录状态访问 `curl -i http://localhost:8080/warm-flow/query-def` 或
+`curl -i http://localhost:8080/api/definitions`，应返回 HTTP 401。
+
+接口调试前先登录并把 Cookie 存到 `wf-cookie.txt`（换成需要办理的用户名即可）：
+
+```bash
+curl -c wf-cookie.txt -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"warm-flow-demo"}'
+```
+
+下文 curl 示例统一用 `-b wf-cookie.txt` 携带该 Cookie；身份以登录账号为准，不再使用 `X-User-Name` 请求头。
 
 ## 说明与约束
 

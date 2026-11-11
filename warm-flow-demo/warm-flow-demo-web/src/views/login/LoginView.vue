@@ -23,7 +23,7 @@
         </div>
       </div>
 
-      <el-form label-position="top" @submit.prevent="login">
+      <el-form label-position="top" @submit.prevent="doLogin">
         <el-form-item label="演示用户">
           <el-select
             v-model="selectedUser"
@@ -41,6 +41,16 @@
           </el-select>
         </el-form-item>
 
+        <el-form-item label="密码">
+          <el-input
+            v-model="password"
+            type="password"
+            placeholder="演示密码见登录提示"
+            show-password
+            @keyup.enter="doLogin"
+          />
+        </el-form-item>
+
         <el-button
           type="primary"
           class="login-button"
@@ -55,7 +65,7 @@
       <el-alert
         type="info"
         :closable="false"
-        title="Demo 未接入真实鉴权，用户与部门来自后端内存数据。"
+        title="演示密码：warm-flow-demo（可用环境变量 WARM_DEMO_PASSWORD 覆盖）。身份由 HttpOnly Cookie 保存，仅限本机联调。"
       />
     </el-card>
   </div>
@@ -64,7 +74,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { listUsers, type DemoUser } from '../../api/users'
+import { listLoginUsers, login as loginApi, type DemoUser } from '../../api/auth'
 import { useSessionStore } from '../../stores/session'
 import { useThemeStore } from '../../stores/theme'
 
@@ -74,13 +84,14 @@ const session = useSessionStore()
 const theme = useThemeStore()
 const users = ref<DemoUser[]>([])
 const selectedUser = ref('')
+const password = ref('')
 const userLoading = ref(false)
 const submitting = ref(false)
 
 onMounted(async () => {
   userLoading.value = true
   try {
-    users.value = await listUsers()
+    users.value = await listLoginUsers()
     if (users.value.length === 1) {
       selectedUser.value = users.value[0].userName
     }
@@ -96,13 +107,18 @@ function redirectPath(): string {
   return typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/'
 }
 
-function login() {
-  if (!selectedUser.value) return
+async function doLogin() {
+  if (!selectedUser.value || !password.value) return
   submitting.value = true
-  session.setCurrentUser(selectedUser.value)
-  router.push(redirectPath()).finally(() => {
+  try {
+    const user = await loginApi({ username: selectedUser.value, password: password.value })
+    session.setCurrentUser(user.userName)
+    await router.push(redirectPath())
+  } catch {
+    // 错误提示由 http 拦截器统一弹出
+  } finally {
     submitting.value = false
-  })
+  }
 }
 </script>
 
