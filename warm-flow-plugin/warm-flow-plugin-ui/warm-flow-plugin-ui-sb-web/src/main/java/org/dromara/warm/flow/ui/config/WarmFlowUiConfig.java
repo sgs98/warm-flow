@@ -16,7 +16,6 @@
 package org.dromara.warm.flow.ui.config;
 
 import org.dromara.warm.flow.ui.controller.WarmFlowController;
-import org.dromara.warm.flow.ui.controller.WarmFlowUiController;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -30,8 +29,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  */
 @Configuration
 @ConditionalOnProperty(value = "warm-flow.ui", havingValue = "true", matchIfMissing = true)
-@Import({WarmFlowUiController.class
-    , WarmFlowController.class})
+@Import(WarmFlowController.class)
 public class WarmFlowUiConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {

@@ -1,5 +1,3 @@
-import {setTokenName, setToken, setFramework} from "@/utils/auth.js";
-import {config} from "@/api/anony.js";
 
 const useAppStore = defineStore(
   'app',
@@ -8,28 +6,13 @@ const useAppStore = defineStore(
       appParams: null
     }),
     actions: {
-      async fetchTokenName() {
+      // 认证走同源 Cookie；设计器只解析 iframe URL 上的页面参数
+      async fetchConfig() {
         const urlParams = new URLSearchParams(window.location.search);
         const params = {};
-        let tokenNames = []
-        await config().then(res => {
-          if (res.code === 200 && res.data) {
-            if (res.data.tokenNameList && res.data.tokenNameList.length > 0) {
-              tokenNames = res.data.tokenNameList
-              setTokenName(res.data.tokenNameList)
-            }
-            if (res.data.framework) {
-              setFramework(res.data.framework)
-            }
-
-          }
-        }).catch(() => {});
-        this.appParams= null
+        this.appParams = null
         for (const [key, value] of urlParams.entries()) {
           if (value && 'undefined' !== value) {
-            if (tokenNames && tokenNames.length > 0 && tokenNames.includes(key)) {
-              setToken(key, value);
-            }
             params[key] = value;
           }
         }

@@ -20,7 +20,6 @@ import lombok.Setter;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.FlowCons;
 import org.dromara.warm.flow.core.enums.ChartStatus;
-import org.dromara.warm.flow.core.enums.FrameworkType;
 import org.dromara.warm.flow.core.json.JsonConvert;
 import org.dromara.warm.flow.core.service.impl.ServiceTaskExecutor;
 import org.dromara.warm.flow.core.timer.TimerEngine;
@@ -43,11 +42,6 @@ public class WarmFlow implements Serializable {
      * 开关
      */
     private boolean enabled = true;
-
-    /**
-     * 框架类型: springboot
-     */
-    private FrameworkType framework;
 
     /**
      * 启动banner
@@ -102,11 +96,6 @@ public class WarmFlow implements Serializable {
      * ui开关
      */
     private boolean ui = true;
-
-    /**
-     * 如果需要工作流共享业务系统权限，默认Authorization，如果有多个token，用逗号分隔
-     */
-    private String tokenName = "Authorization";
 
     /**
      * 公共模型流程状态对应的三原色

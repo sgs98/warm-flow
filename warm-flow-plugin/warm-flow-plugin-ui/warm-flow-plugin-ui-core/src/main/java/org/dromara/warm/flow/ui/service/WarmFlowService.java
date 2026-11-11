@@ -54,28 +54,6 @@ import java.util.*;
 public class WarmFlowService {
 
     /**
-     * 返回流程定义的配置
-     *
-     * @return ApiResult<WarmFlowVo>
-     */
-    public static ApiResult<WarmFlowVo> config() {
-        WarmFlowVo warmFlowVo = new WarmFlowVo();
-        WarmFlow warmFlow = FlowEngine.getFlowConfig();
-        warmFlowVo.setFramework(warmFlow.getFramework().name());
-        // 获取tokenName
-        String tokenName = warmFlow.getTokenName();
-        if (StringUtils.isEmpty(tokenName)) {
-            return ApiResult.fail("未配置tokenName");
-        }
-        String[] tokenNames = tokenName.split(",");
-        List<String> tokenNameList = Arrays.stream(tokenNames).filter(StringUtils::isNotEmpty)
-            .map(String::trim).toList();
-        warmFlowVo.setTokenNameList(tokenNameList);
-
-        return ApiResult.ok(warmFlowVo);
-    }
-
-    /**
      * 保存流程json字符串
      *
      * @param defJson      流程数据集合

@@ -23,7 +23,7 @@ const appParams = computed(() => appStore.appParams);
 const component = shallowRef(null);
 const initError = ref('');
 onMounted(async () => {
-  if (!appParams.value) await appStore.fetchTokenName();
+  if (!appParams.value) await appStore.fetchConfig();
   let pathObj = {
     form: Form,
     FlowChart: FlowChart,

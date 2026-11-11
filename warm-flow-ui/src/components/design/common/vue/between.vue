@@ -298,8 +298,8 @@
               <el-option label="通过率" value="passRatio"/>
               <el-option label="固定通过人数" value="passCount"/>
               <el-option label="固定驳回人数" value="rejectCount"/>
-              <el-option label="默认表达式" value="default" v-if="framework === 'SPRING_BOOT'"/>
-              <el-option label="SpEL 表达式" value="spel" v-if="framework === 'SPRING_BOOT'"/>
+              <el-option label="默认表达式" value="default"/>
+              <el-option label="SpEL 表达式" value="spel"/>
             </el-select>
             <el-input v-model="form.nodeRatioValue" class="ratio-value" :placeholder="getNodeRatioDescription()"/>
           </div>
@@ -557,7 +557,6 @@ import listenerConfig from "./listenerConfig";
 import nodeVariables from "./nodeVariables";
 import {getPreviousNodes} from "@/components/design/common/js/tool.js";
 import {groupSignSummary, normalizeGroupSign, serializeGroupSign, validateGroupSign} from "../js/groupSign.js";
-import {getFramework} from "@/utils/auth.js";
 import {isManagedRejectSection, readRejectReturn, writeRejectReturn, RETURN_TO_REJECTOR, REJECT_RETURN_RUNTIME_KEY} from "../js/rejectReturn.js";
 const { proxy } = getCurrentInstance();
 
@@ -697,7 +696,6 @@ onBeforeUnmount(() => tabsResizeObserver?.disconnect());
 
 const form = ref(props.modelValue);
 const userVisible = ref(false);
-const framework = getFramework()
 //基础设置扩展属性
 const baseList = ref([]);
 //按钮权限

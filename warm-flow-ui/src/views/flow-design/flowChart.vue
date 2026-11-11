@@ -289,7 +289,7 @@ onMounted(async () => {
 
 
 
-  if (!appParams.value) await appStore.fetchTokenName();
+  if (!appParams.value) await appStore.fetchConfig();
   instanceId.value = appParams.value.id;
 
   // 从 URL 参数初始化暗黑模式（统一使用 composable）

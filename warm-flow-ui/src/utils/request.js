@@ -2,7 +2,6 @@ import axios from 'axios'
 import { ElNotification , ElMessage } from 'element-plus'
 import { tansParams } from '@/utils/ruoyi'
 import cache from '@/plugins/cache'
-import {getToken, getTokenName} from "./auth.js";
 
 axios.defaults.headers['Content-Type'] = 'application/json;charset=utf-8'
 // 创建axios实例
@@ -17,18 +16,7 @@ const service = axios.create({
 service.interceptors.request.use(config => {
   // 是否需要防止数据重复提交
   const isRepeatSubmit = (config.headers || {}).repeatSubmit === false
-  if (getTokenName()) {
-    let tokenName = getTokenName();
-    if (tokenName) {
-      let tokenNames = tokenName.split(",");
-      for (let i = 0; i < tokenNames.length; i++) {
-        if (getToken(tokenNames[i])) {
-          // 让每个请求携带自定义token 请根据实际情况自行修改
-          config.headers[tokenNames[i]] = getToken(tokenNames[i])
-        }
-      }
-    }
-  }
+  // 认证由同源 Cookie 自动携带，设计器不再透传 token 请求头
   // get请求映射params参数
   if (config.method === 'get' && config.params) {
     let url = config.url + '?' + tansParams(config.params);

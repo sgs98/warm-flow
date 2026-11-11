@@ -24,8 +24,8 @@
                 <el-option label="小于等于" value="le"/>
                 <el-option label="包含" value="like"/>
                 <el-option label="不包含" value="notLike"/>
-                <el-option label="默认" value="default" v-if="framework ==='SPRING_BOOT'"/>
-                <el-option label="spel" value="spel" v-if="framework ==='SPRING_BOOT'"/>
+                <el-option label="默认" value="default"/>
+                <el-option label="spel" value="spel"/>
             </el-select>
             <el-input v-model="form.conditionValue" :placeholder="getConditionDescription()" :style="{ width: expressFlag? '80%' : '43%', 'margin-left': '1%' }"/>
           </el-form-item>
@@ -37,7 +37,6 @@
 
 <script setup name="Skip">
 
-import {getFramework} from "@/utils/auth.js";
 
 const props = defineProps({
   modelValue: {
@@ -58,7 +57,6 @@ const props = defineProps({
 
 const expressFlag = ref(false)
 const form = ref(props.modelValue)
-const framework = getFramework()
 
 const rules = reactive({
     skipCondition: computed(() => {

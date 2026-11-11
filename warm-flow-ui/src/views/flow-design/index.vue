@@ -739,7 +739,7 @@ onMounted(() => {
     window.addEventListener('beforeunload', onBeforeUnload);
     // 标记当前处于设计器页面：供经典节点设计态语义色判断（业务侧实例进度图不受影响）
     window.__WF_FLOW_DESIGN_MODE__ = true;
-    if (!appParams.value) appStore.fetchTokenName();
+    if (!appParams.value) appStore.fetchConfig();
     if (appParams.value.id) {
       definitionId.value = appParams.value.id;
     }
