@@ -28,8 +28,8 @@ import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.service.event.EventConfig;
-import org.dromara.warm.flow.core.service.task.ServiceTaskConfig;
 import org.dromara.warm.flow.core.service.task.RejectConfig;
+import org.dromara.warm.flow.core.service.task.ServiceTaskConfig;
 import org.dromara.warm.flow.core.timer.TimerContext;
 import org.dromara.warm.flow.core.timer.TimerScheduleStrategies;
 
@@ -144,7 +144,7 @@ public class FlowConfigUtil {
     /**
      * 校验实际驳回目标到发起节点的唯一人工 PASS 路径，运行期显式目标也复用此门禁。
      *
-     * @param combine 当前运行定义图
+     * @param combine    当前运行定义图
      * @param sourceCode 驳回发起节点
      * @param targetCode 本次实际驳回目标
      */

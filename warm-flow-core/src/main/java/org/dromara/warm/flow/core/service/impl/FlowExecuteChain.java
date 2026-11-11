@@ -27,13 +27,12 @@ import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.exception.FlowException;
-import org.dromara.warm.flow.core.utils.*;
 import org.dromara.warm.flow.core.service.task.RejectConfig;
-
-import java.util.Objects;
+import org.dromara.warm.flow.core.utils.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -156,7 +155,9 @@ final class FlowExecuteChain {
         return Optional.empty();
     }
 
-    /** 直返限制须在监听器、委派或协作写入前判定；普通重走不增加 DAO 查询。 */
+    /**
+     * 直返限制须在监听器、委派或协作写入前判定；普通重走不增加 DAO 查询。
+     */
     private Optional<Instance> rejectReturnPreflight(FlowExecution execution) {
         String snapshot = execution.instance.getDefJson();
         if (!RejectConfig.requiresAtomicExecution(snapshot)) {
@@ -181,7 +182,7 @@ final class FlowExecuteChain {
                 .anyMatch(user -> UserType.DEPUTE.getKey().equals(user.getType())
                     && Objects.equals(execution.intent.getHandler(), user.getProcessedBy()));
             AssertUtil.isTrue((!SkipType.isPass(skipType) && !(delegatedOpinion && SkipType.isReject(skipType)))
-                || StringUtils.isNotEmpty(execution.intent.getTargetNodeCode()),
+                    || StringUtils.isNotEmpty(execution.intent.getTargetNodeCode()),
                 "持有驳回直返关联的待办不支持再次驳回或任意跳转");
             String source = returnIntent.returnNodeCode();
             AssertUtil.isTrue(!RejectConfig.parse(RejectReturnRuntime.configForNode(snapshot, source)).isReturnToRejector(),

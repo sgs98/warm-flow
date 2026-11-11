@@ -10,19 +10,10 @@ import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.service.task.AutoNodeContext;
 import org.dromara.warm.flow.core.service.task.AutoNodeExecutor;
-import org.dromara.warm.flow.core.utils.AssertUtil;
-import org.dromara.warm.flow.core.utils.CollUtil;
-import org.dromara.warm.flow.core.utils.ExpressionUtil;
-import org.dromara.warm.flow.core.utils.ListenerUtil;
-import org.dromara.warm.flow.core.utils.StreamUtils;
+import org.dromara.warm.flow.core.utils.*;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * 自动节点推进器：循环推进当前批次中的服务任务等自动节点，直到只剩人工节点或结束节点。

@@ -23,7 +23,9 @@ import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
  */
 public interface EventTaskHandler {
 
-    /** 消息或错误事件抢占前检查调用方事务；默认留给非 Spring 宿主自行保证。 */
+    /**
+     * 消息或错误事件抢占前检查调用方事务；默认留给非 Spring 宿主自行保证。
+     */
     default void checkTriggerTransaction() {
     }
 

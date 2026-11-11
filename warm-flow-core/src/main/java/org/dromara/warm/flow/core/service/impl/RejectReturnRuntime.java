@@ -17,9 +17,11 @@ import java.util.Optional;
  * @author may
  */
 final class RejectReturnRuntime {
-    private RejectReturnRuntime() { }
+    private RejectReturnRuntime() {
+    }
 
-    record ReturnIntent(Long taskId, Long sourceTaskId, String returnNodeCode) { }
+    record ReturnIntent(Long taskId, Long sourceTaskId, String returnNodeCode) {
+    }
 
     static String configForNode(String defJson, String nodeCode) {
         return nodeConfig(node(snapshot(defJson), nodeCode));
@@ -139,7 +141,9 @@ final class RejectReturnRuntime {
         return new ReturnIntent(taskId, sourceId, code);
     }
 
-    /** 未标记版本的历史同名属性不清理、不覆盖；已识别的协议严格校验。 */
+    /**
+     * 未标记版本的历史同名属性不清理、不覆盖；已识别的协议严格校验。
+     */
     private static Map<String, Object> ownedTasks(Map<String, Object> config) {
         Object value = config.get(RejectConfig.RUNTIME_KEY);
         if (!(value instanceof Map<?, ?> runtime) || !runtime.containsKey("version")) {
@@ -215,7 +219,9 @@ final class RejectReturnRuntime {
         return (Map<String, Object>) map;
     }
 
-    /** 仅本功能的 JSON 树保留 null/空值；不改变各 SPI 对普通 DTO 的省略策略。 */
+    /**
+     * 仅本功能的 JSON 树保留 null/空值；不改变各 SPI 对普通 DTO 的省略策略。
+     */
     private static String encode(Object value) {
         if (value == null) return "null";
         if (value instanceof Map<?, ?> map) {

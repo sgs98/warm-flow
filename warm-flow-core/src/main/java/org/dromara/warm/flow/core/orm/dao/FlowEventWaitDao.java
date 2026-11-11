@@ -105,7 +105,7 @@ public interface FlowEventWaitDao<T extends EventWait> extends WarmDao<T> {
      * @return 恢复成功返回 {@code true}
      */
     boolean recoverExpired(Long id, Integer version, Integer retryCount, String status,
-        Date retryAt, Date now, String error);
+                           Date retryAt, Date now, String error);
 
     /**
      * 一次性事件执行成功后直接删除记录（校验 {@code RUNNING + lock_owner + version}）。
@@ -148,16 +148,16 @@ public interface FlowEventWaitDao<T extends EventWait> extends WarmDao<T> {
      * 重复事件执行成功后重排期：更新下一次触发时间并递增触发次数
      * （校验 {@code RUNNING + lock_owner + version}，置回 {@code WAITING}）。
      *
-     * @param id           记录主键
-     * @param version      当前版本号
-     * @param workerId     工作节点标识
-     * @param now          当前时间
+     * @param id            记录主键
+     * @param version       当前版本号
+     * @param workerId      工作节点标识
+     * @param now           当前时间
      * @param nextTriggerAt 下一次触发时间
-     * @param repeatCount  递增后的已触发次数
+     * @param repeatCount   递增后的已触发次数
      * @return 重排期成功返回 {@code true}
      */
     boolean reschedule(Long id, Integer version, String workerId, Date now,
-        Date nextTriggerAt, Integer repeatCount);
+                       Date nextTriggerAt, Integer repeatCount);
 
     /**
      * 释放抢占：按抢占前的状态（WAITING / RETRY）与对应时间字段恢复记录，
@@ -175,7 +175,7 @@ public interface FlowEventWaitDao<T extends EventWait> extends WarmDao<T> {
      * @return 释放成功返回 {@code true}
      */
     boolean releaseClaim(Long id, Integer version, String workerId, String status,
-        Date nextTriggerAt, Date retryAt, Date now);
+                         Date nextTriggerAt, Date retryAt, Date now);
 
     /**
      * 取消本节点持有的一条执行中记录（执行前发现等待已失效的遗留清理）。
@@ -263,9 +263,11 @@ public interface FlowEventWaitDao<T extends EventWait> extends WarmDao<T> {
      */
     boolean claimMessage(Long id, Integer version, String workerId, Date now, Date lockUntil);
 
-    /** 抢占消息记录并原子写入本次载荷，避免并发投递覆盖获胜者的重试数据。 */
+    /**
+     * 抢占消息记录并原子写入本次载荷，避免并发投递覆盖获胜者的重试数据。
+     */
     default boolean claimMessageWithPayload(Long id, Integer version, String workerId, Date now,
-        Date lockUntil, String payload) {
+                                            Date lockUntil, String payload) {
         if (payload != null) {
             throw new UnsupportedOperationException("当前 FlowEventWaitDao 未实现消息载荷原子抢占");
         }
@@ -303,7 +305,9 @@ public interface FlowEventWaitDao<T extends EventWait> extends WarmDao<T> {
         return cancelByAttachedTaskId(attachedTaskId, now, null);
     }
 
-    /** 取消附着任务的等待记录，排除当前正在完成的事件记录。 */
+    /**
+     * 取消附着任务的等待记录，排除当前正在完成的事件记录。
+     */
     int cancelByAttachedTaskId(Long attachedTaskId, Date now, Long excludedWaitId);
 
     /**
@@ -320,7 +324,9 @@ public interface FlowEventWaitDao<T extends EventWait> extends WarmDao<T> {
         return cancelByInstanceId(instanceId, now, null);
     }
 
-    /** 取消实例等待记录，排除当前正在完成的事件记录。 */
+    /**
+     * 取消实例等待记录，排除当前正在完成的事件记录。
+     */
     int cancelByInstanceId(Long instanceId, Date now, Long excludedWaitId);
 
     /**

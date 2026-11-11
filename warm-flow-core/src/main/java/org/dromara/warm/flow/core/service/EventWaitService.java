@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 /**
  * 事件等待记录服务。
  * <p>
+ *
  * @author may
  */
 public interface EventWaitService extends IWarmService<EventWait> {
@@ -142,7 +143,7 @@ public interface EventWaitService extends IWarmService<EventWait> {
      * 匹配错误等待记录：任务级匹配附着该任务的 {@code ERROR_BOUNDARY} 等待，
      * 实例级匹配该实例的 {@code ERROR_CATCH} 等待；精确错误码优先于通配（错误码为空表示通配）。
      *
-     * @param instanceId    流程实例 ID（实例级匹配必填）
+     * @param instanceId     流程实例 ID（实例级匹配必填）
      * @param attachedTaskId 待办任务 ID（任务级边界匹配时传入，实例级匹配传 {@code null}）
      * @param errorCode      错误码
      * @return 最佳匹配的等待记录；无匹配返回 {@code null}
@@ -173,9 +174,11 @@ public interface EventWaitService extends IWarmService<EventWait> {
     boolean claimMessage(Long id, Integer version, String workerId, Date now
         , Date lockUntil);
 
-    /** 抢占消息记录并原子保存载荷；载荷为 {@code null} 时保留旧载荷。 */
+    /**
+     * 抢占消息记录并原子保存载荷；载荷为 {@code null} 时保留旧载荷。
+     */
     default boolean claimMessageWithPayload(Long id, Integer version, String workerId, Date now,
-        Date lockUntil, String payload) {
+                                            Date lockUntil, String payload) {
         throw new UnsupportedOperationException("当前 EventWaitService 未实现消息载荷原子抢占");
     }
 

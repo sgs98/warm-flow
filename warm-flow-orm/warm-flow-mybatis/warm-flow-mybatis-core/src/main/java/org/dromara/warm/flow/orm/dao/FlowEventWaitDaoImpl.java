@@ -64,7 +64,7 @@ public class FlowEventWaitDaoImpl extends WarmDaoImpl<FlowEventWait> implements 
 
     @Override
     public boolean recoverExpired(Long id, Integer version, Integer retryCount, String status,
-        Date retryAt, Date now, String error) {
+                                  Date retryAt, Date now, String error) {
         return getMapper().recoverExpired(id, version, retryCount, status, retryAt, now, error,
             notDeleteValue()) == 1;
     }
@@ -76,7 +76,7 @@ public class FlowEventWaitDaoImpl extends WarmDaoImpl<FlowEventWait> implements 
 
     @Override
     public boolean markRetry(Long id, Integer version, String workerId, Date now, Date retryAt,
-        String error) {
+                             String error) {
         return getMapper().markRetry(id, version, workerId, now, retryAt, error,
             notDeleteValue()) == 1;
     }
@@ -88,14 +88,14 @@ public class FlowEventWaitDaoImpl extends WarmDaoImpl<FlowEventWait> implements 
 
     @Override
     public boolean reschedule(Long id, Integer version, String workerId, Date now,
-        Date nextTriggerAt, Integer repeatCount) {
+                              Date nextTriggerAt, Integer repeatCount) {
         return getMapper().reschedule(id, version, workerId, now, nextTriggerAt, repeatCount,
             notDeleteValue()) == 1;
     }
 
     @Override
     public boolean releaseClaim(Long id, Integer version, String workerId, String status,
-        Date nextTriggerAt, Date retryAt, Date now) {
+                                Date nextTriggerAt, Date retryAt, Date now) {
         return getMapper().releaseClaim(id, version, workerId, status, nextTriggerAt, retryAt, now,
             notDeleteValue()) == 1;
     }
@@ -117,7 +117,7 @@ public class FlowEventWaitDaoImpl extends WarmDaoImpl<FlowEventWait> implements 
 
     @Override
     public boolean claimMessageWithPayload(Long id, Integer version, String workerId, Date now,
-        Date lockUntil, String payload) {
+                                           Date lockUntil, String payload) {
         return getMapper().claimMessageWithPayload(id, version, workerId, now, lockUntil,
             payload, notDeleteValue()) == 1;
     }

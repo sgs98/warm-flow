@@ -72,7 +72,7 @@ public enum EventType {
 
     /**
      * -- GETTER --
-     *  获取持久化值。
+     * 获取持久化值。
      *
      * @return 事件类型字符串
      */
@@ -82,10 +82,9 @@ public enum EventType {
      * 当前版本是否已具备该事件的运行时能力。
      * <p>阶段 C 开放定时类与终止结束事件，阶段 D 开放消息类事件；发布校验据此做能力门禁。</p>
      * -- GETTER --
-     *  当前版本是否已具备该事件的运行时能力。
+     * 当前版本是否已具备该事件的运行时能力。
      *
      * @return 已开放运行时返回 {@code true}
-
      */
     private final boolean runtimeEnabled;
 

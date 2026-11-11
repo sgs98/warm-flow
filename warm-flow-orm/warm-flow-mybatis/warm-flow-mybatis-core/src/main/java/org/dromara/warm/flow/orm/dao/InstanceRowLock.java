@@ -5,15 +5,20 @@ import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.invoker.FrameInvoker;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.orm.entity.FlowInstance;
-import org.dromara.warm.flow.orm.utils.TenantDeleteUtil;
 import org.dromara.warm.flow.orm.mapper.FlowInstanceMapper;
+import org.dromara.warm.flow.orm.utils.TenantDeleteUtil;
 
-/** 用单行无值变化 UPDATE 取得事务行锁，避免引入四库 FOR UPDATE 方言。 @author may */
+/**
+ * 用单行无值变化 UPDATE 取得事务行锁，避免引入四库 FOR UPDATE 方言。 @author may
+ */
 public final class InstanceRowLock {
-    private InstanceRowLock() { }
+    private InstanceRowLock() {
+    }
 
     public static void lock(Long instanceId) {
-        if (instanceId == null) { return; }
+        if (instanceId == null) {
+            return;
+        }
         lock(FrameInvoker.getBean(FlowInstanceMapper.class), instanceId);
     }
 

@@ -20,17 +20,13 @@ import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.constant.FlowCons;
 import org.dromara.warm.flow.core.dto.FlowDto;
 import org.dromara.warm.flow.core.entity.*;
-import org.dromara.warm.flow.core.enums.CooperateType;
-import org.dromara.warm.flow.core.enums.FlowStatus;
-import org.dromara.warm.flow.core.enums.NodeType;
-import org.dromara.warm.flow.core.enums.SkipType;
-import org.dromara.warm.flow.core.enums.TaskStatus;
+import org.dromara.warm.flow.core.enums.*;
 import org.dromara.warm.flow.core.exception.FlowException;
-import org.dromara.warm.flow.core.spi.Listener;
-import org.dromara.warm.flow.core.spi.ListenerVariable;
 import org.dromara.warm.flow.core.orm.dao.FlowTaskDao;
 import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.TaskService;
+import org.dromara.warm.flow.core.spi.Listener;
+import org.dromara.warm.flow.core.spi.ListenerVariable;
 import org.dromara.warm.flow.core.utils.*;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 import org.slf4j.Logger;
@@ -680,6 +676,7 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
 
         return flowDto;
     }
+
     /**
      * 对当前待办追加抄送。
      *

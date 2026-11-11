@@ -17,7 +17,9 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.function.Supplier;
 
-/** 三个内置写服务共用的同实例原子接入；空事务只允许旧重走模式。 @author may */
+/**
+ * 三个内置写服务共用的同实例原子接入；空事务只允许旧重走模式。 @author may
+ */
 final class InstanceTransactionSupport {
     private final TransactionTemplate template;
 
@@ -80,9 +82,13 @@ final class InstanceTransactionSupport {
             var source = manager.getDataSource();
             if (source == null) return false;
             Connection connection = DataSourceUtils.getConnection(source);
-            try { return connection.getTransactionIsolation() == Connection.TRANSACTION_READ_COMMITTED; }
-            catch (SQLException e) { throw new FlowException("无法确认流程事务隔离级别: " + e.getMessage()); }
-            finally { DataSourceUtils.releaseConnection(connection, source); }
+            try {
+                return connection.getTransactionIsolation() == Connection.TRANSACTION_READ_COMMITTED;
+            } catch (SQLException e) {
+                throw new FlowException("无法确认流程事务隔离级别: " + e.getMessage());
+            } finally {
+                DataSourceUtils.releaseConnection(connection, source);
+            }
         }
         return false;
     }

@@ -11,21 +11,13 @@ import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
 import org.dromara.warm.flow.core.enums.EventType;
 import org.dromara.warm.flow.core.exception.FlowException;
+import org.dromara.warm.flow.core.invoker.FrameInvoker;
 import org.dromara.warm.flow.core.orm.dao.FlowEventWaitDao;
 import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.EventWaitService;
 import org.dromara.warm.flow.core.service.event.EventConfig;
-import org.dromara.warm.flow.core.timer.EventWaitProcessor;
-import org.dromara.warm.flow.core.timer.EventTaskHandler;
-import org.dromara.warm.flow.core.timer.TimerContext;
-import org.dromara.warm.flow.core.timer.TimerScheduleStrategies;
-import org.dromara.warm.flow.core.invoker.FrameInvoker;
-import org.dromara.warm.flow.core.timer.TimerWorkerId;
-import org.dromara.warm.flow.core.utils.AssertUtil;
-import org.dromara.warm.flow.core.utils.CollUtil;
-import org.dromara.warm.flow.core.utils.ObjectUtil;
-import org.dromara.warm.flow.core.utils.StreamUtils;
-import org.dromara.warm.flow.core.utils.StringUtils;
+import org.dromara.warm.flow.core.timer.*;
+import org.dromara.warm.flow.core.utils.*;
 import org.dromara.warm.flow.core.utils.page.Page;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 import org.slf4j.Logger;
@@ -318,7 +310,7 @@ public class EventWaitServiceImpl extends WarmServiceImpl<FlowEventWaitDao<Event
      * 匹配错误等待记录：任务级匹配附着该任务的 {@code ERROR_BOUNDARY} 等待，
      * 实例级匹配该实例的 {@code ERROR_CATCH} 等待；精确错误码优先于通配（错误码为空表示通配）。
      *
-     * @param instanceId    流程实例 ID
+     * @param instanceId     流程实例 ID
      * @param attachedTaskId 待办任务 ID
      * @param errorCode      错误码
      * @return 最佳匹配的等待记录；无匹配返回 {@code null}
@@ -399,7 +391,7 @@ public class EventWaitServiceImpl extends WarmServiceImpl<FlowEventWaitDao<Event
 
     @Override
     public boolean claimMessageWithPayload(Long id, Integer version, String workerId, Date now,
-        Date lockUntil, String payload) {
+                                           Date lockUntil, String payload) {
         checkTriggerTransaction();
         return warmDao.claimMessageWithPayload(id, version, workerId, now, lockUntil, payload);
     }

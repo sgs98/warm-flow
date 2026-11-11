@@ -25,29 +25,21 @@ import org.dromara.warm.flow.core.entity.EventWait;
 import org.dromara.warm.flow.core.entity.HisTask;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Task;
-import org.dromara.warm.flow.core.enums.ActivityStatus;
-import org.dromara.warm.flow.core.enums.ChartStatus;
-import org.dromara.warm.flow.core.enums.EventType;
-import org.dromara.warm.flow.core.enums.FlowStatus;
-import org.dromara.warm.flow.core.enums.TaskStatus;
+import org.dromara.warm.flow.core.enums.*;
+import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.orm.dao.FlowInstanceDao;
 import org.dromara.warm.flow.core.orm.service.impl.WarmServiceImpl;
 import org.dromara.warm.flow.core.service.InsService;
 import org.dromara.warm.flow.core.timer.TimerWorkerId;
 import org.dromara.warm.flow.core.utils.AssertUtil;
-import org.dromara.warm.flow.core.utils.StringUtils;
-import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.MapUtil;
+import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
+import java.util.*;
 
 /**
  * 流程实例服务实现。
@@ -222,7 +214,9 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
         return FlowEngine.insService().getById(instanceId);
     }
 
-    /** 一次性等待完成后会删除记录，重复消息通过实例图元快照确认是否已处理。 */
+    /**
+     * 一次性等待完成后会删除记录，重复消息通过实例图元快照确认是否已处理。
+     */
     private boolean messageAlreadyCompleted(Instance instance, String eventName) {
         if (StringUtils.isEmpty(instance.getDefJson())) {
             return false;

@@ -18,8 +18,8 @@ package org.dromara.warm.flow.spring.boot.config;
 import org.dromara.warm.flow.core.entity.EventWait;
 import org.dromara.warm.flow.core.timer.EventTaskHandler;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 带事务边界的事件任务处理器：把一次事件推进（改任务 / 实例 / 等待记录）
@@ -51,7 +51,7 @@ public class TransactionalEventTaskHandler implements EventTaskHandler {
     private final TransactionTemplate transactionTemplate;
 
     /**
-     * @param delegate           被包装的处理器
+     * @param delegate            被包装的处理器
      * @param transactionTemplate 事务模板
      */
     public TransactionalEventTaskHandler(EventTaskHandler delegate, TransactionTemplate transactionTemplate) {

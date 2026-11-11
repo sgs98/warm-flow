@@ -7,14 +7,7 @@ import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
 import org.dromara.warm.flow.core.orm.dao.FlowEventWaitDao;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * 定时记录扫描器。
@@ -64,7 +57,9 @@ public class TimerScanner {
      */
     private Long retryCursorId;
 
-    /** 两类记录持续积压时轮流获得首批名额。 */
+    /**
+     * 两类记录持续积压时轮流获得首批名额。
+     */
     private boolean retryFirst;
 
     public TimerScanner(FlowEventWaitDao<EventWait> dao, WarmFlow config) {

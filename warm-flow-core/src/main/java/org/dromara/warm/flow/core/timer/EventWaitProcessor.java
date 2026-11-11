@@ -51,7 +51,9 @@ public class EventWaitProcessor {
 
     private static final ThreadLocal<Long> CURRENT_WAIT_ID = new ThreadLocal<>();
 
-    /** 当前线程正在处理的等待记录，用于范围取消时排除自身。 */
+    /**
+     * 当前线程正在处理的等待记录，用于范围取消时排除自身。
+     */
     public static Long currentWaitId() {
         return CURRENT_WAIT_ID.get();
     }

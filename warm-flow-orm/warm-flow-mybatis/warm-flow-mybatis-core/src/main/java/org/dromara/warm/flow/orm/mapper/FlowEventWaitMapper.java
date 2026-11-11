@@ -29,8 +29,8 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 到期的等待记录列表
      */
     List<FlowEventWait> selectWaitingDue(@Param("now") Date now, @Param("cursorAt") Date cursorAt,
-        @Param("cursorId") Long cursorId, @Param("limit") int limit, @Param("delFlag") String delFlag,
-        @Param("dataSourceType") String dataSourceType);
+                                         @Param("cursorId") Long cursorId, @Param("limit") int limit, @Param("delFlag") String delFlag,
+                                         @Param("dataSourceType") String dataSourceType);
 
     /**
      * 分页扫描到期的重试记录（RETRY，按 (retry_at, id) 游标升序）。
@@ -43,8 +43,8 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 到期的重试记录列表
      */
     List<FlowEventWait> selectRetryDue(@Param("now") Date now, @Param("cursorAt") Date cursorAt,
-        @Param("cursorId") Long cursorId, @Param("limit") int limit, @Param("delFlag") String delFlag,
-        @Param("dataSourceType") String dataSourceType);
+                                       @Param("cursorId") Long cursorId, @Param("limit") int limit, @Param("delFlag") String delFlag,
+                                       @Param("dataSourceType") String dataSourceType);
 
     /**
      * CAS 抢占：WAITING / RETRY 置 RUNNING 并写租约，校验版本号与对应到期时间字段。
@@ -58,8 +58,8 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 受影响行数（1 表示抢占成功）
      */
     int claim(@Param("id") Long id, @Param("version") Integer version,
-        @Param("workerId") String workerId, @Param("now") Date now,
-        @Param("lockUntil") Date lockUntil, @Param("delFlag") String delFlag);
+              @Param("workerId") String workerId, @Param("now") Date now,
+              @Param("lockUntil") Date lockUntil, @Param("delFlag") String delFlag);
 
     /**
      * 续租：仅当前持有者按 RUNNING + lock_owner + version 续期。
@@ -73,8 +73,8 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 受影响行数
      */
     int renewLease(@Param("id") Long id, @Param("version") Integer version,
-        @Param("workerId") String workerId, @Param("now") Date now,
-        @Param("lockUntil") Date lockUntil, @Param("delFlag") String delFlag);
+                   @Param("workerId") String workerId, @Param("now") Date now,
+                   @Param("lockUntil") Date lockUntil, @Param("delFlag") String delFlag);
 
     /**
      * 分页查询租约过期的执行中记录。
@@ -85,7 +85,7 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 租约过期的记录列表
      */
     List<FlowEventWait> selectExpired(@Param("now") Date now, @Param("limit") int limit,
-        @Param("delFlag") String delFlag, @Param("dataSourceType") String dataSourceType);
+                                      @Param("delFlag") String delFlag, @Param("dataSourceType") String dataSourceType);
 
     /**
      * 按查询条件查询等待记录（定时任务），条件见 {@code query_condition}。
@@ -98,8 +98,8 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 匹配的等待记录列表
      */
     List<FlowEventWait> selectListByQuery(@Param("entity") FlowEventWait entity,
-        @Param("query") EventWaitQuery query, @Param("order") String order,
-        @Param("page") Page<FlowEventWait> page, @Param("dataSourceType") String dataSourceType);
+                                          @Param("query") EventWaitQuery query, @Param("order") String order,
+                                          @Param("page") Page<FlowEventWait> page, @Param("dataSourceType") String dataSourceType);
 
     /**
      * 按查询条件统计等待记录数量，条件与 {@link #selectListByQuery} 一致。
@@ -124,9 +124,9 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 受影响行数
      */
     int recoverExpired(@Param("id") Long id, @Param("version") Integer version,
-        @Param("retryCount") Integer retryCount, @Param("status") String status,
-        @Param("retryAt") Date retryAt, @Param("now") Date now, @Param("error") String error,
-        @Param("delFlag") String delFlag);
+                       @Param("retryCount") Integer retryCount, @Param("status") String status,
+                       @Param("retryAt") Date retryAt, @Param("now") Date now, @Param("error") String error,
+                       @Param("delFlag") String delFlag);
 
     /**
      * 一次性事件执行成功后删除记录（校验 RUNNING + lock_owner + version）。
@@ -138,7 +138,7 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 受影响行数
      */
     int deleteCompleted(@Param("id") Long id, @Param("version") Integer version,
-        @Param("workerId") String workerId, @Param("delFlag") String delFlag);
+                        @Param("workerId") String workerId, @Param("delFlag") String delFlag);
 
     /**
      * 执行失败转重试。
@@ -153,9 +153,9 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 受影响行数
      */
     int markRetry(@Param("id") Long id, @Param("version") Integer version,
-        @Param("workerId") String workerId, @Param("now") Date now,
-        @Param("retryAt") Date retryAt, @Param("error") String error,
-        @Param("delFlag") String delFlag);
+                  @Param("workerId") String workerId, @Param("now") Date now,
+                  @Param("retryAt") Date retryAt, @Param("error") String error,
+                  @Param("delFlag") String delFlag);
 
     /**
      * 执行失败超上限转终态 DEAD，清空重试时间并保留失败原因。
@@ -169,8 +169,8 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 受影响行数
      */
     int markDead(@Param("id") Long id, @Param("version") Integer version,
-        @Param("workerId") String workerId, @Param("now") Date now,
-        @Param("error") String error, @Param("delFlag") String delFlag);
+                 @Param("workerId") String workerId, @Param("now") Date now,
+                 @Param("error") String error, @Param("delFlag") String delFlag);
 
     /**
      * 重复事件执行成功后重排期：更新下一次触发时间、递增触发次数并置回 WAITING。
@@ -185,9 +185,9 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 受影响行数
      */
     int reschedule(@Param("id") Long id, @Param("version") Integer version,
-        @Param("workerId") String workerId, @Param("now") Date now,
-        @Param("nextTriggerAt") Date nextTriggerAt, @Param("repeatCount") Integer repeatCount,
-        @Param("delFlag") String delFlag);
+                   @Param("workerId") String workerId, @Param("now") Date now,
+                   @Param("nextTriggerAt") Date nextTriggerAt, @Param("repeatCount") Integer repeatCount,
+                   @Param("delFlag") String delFlag);
 
     /**
      * 释放抢占：按抢占前状态与时间字段恢复，递增版本号并清空租约。
@@ -203,9 +203,9 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 受影响行数
      */
     int releaseClaim(@Param("id") Long id, @Param("version") Integer version,
-        @Param("workerId") String workerId, @Param("status") String status,
-        @Param("nextTriggerAt") Date nextTriggerAt, @Param("retryAt") Date retryAt,
-        @Param("now") Date now, @Param("delFlag") String delFlag);
+                     @Param("workerId") String workerId, @Param("status") String status,
+                     @Param("nextTriggerAt") Date nextTriggerAt, @Param("retryAt") Date retryAt,
+                     @Param("now") Date now, @Param("delFlag") String delFlag);
 
     /**
      * 取消本节点持有的一条执行中记录：RUNNING + lock_owner + version 匹配时置 CANCELLED、
@@ -220,8 +220,8 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 受影响行数
      */
     int cancelClaimed(@Param("id") Long id, @Param("version") Integer version,
-        @Param("workerId") String workerId, @Param("now") Date now, @Param("error") String error,
-        @Param("delFlag") String delFlag);
+                      @Param("workerId") String workerId, @Param("now") Date now, @Param("error") String error,
+                      @Param("delFlag") String delFlag);
 
     /**
      * 复活已死记录：DEAD 置回 WAITING，重试计数归零、清空重试时间与租约，写入新的下次触发时间。
@@ -234,8 +234,8 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 受影响行数
      */
     int revive(@Param("id") Long id, @Param("version") Integer version,
-        @Param("now") Date now, @Param("nextTriggerAt") Date nextTriggerAt,
-        @Param("delFlag") String delFlag);
+               @Param("now") Date now, @Param("nextTriggerAt") Date nextTriggerAt,
+               @Param("delFlag") String delFlag);
 
     /**
      * 消息记录抢占：WAITING / RETRY 置为 RUNNING 并写入租约，不校验到期时间字段。
@@ -248,13 +248,13 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 受影响行数
      */
     int claimMessage(@Param("id") Long id, @Param("version") Integer version,
-        @Param("workerId") String workerId, @Param("now") Date now,
-        @Param("lockUntil") Date lockUntil, @Param("delFlag") String delFlag);
+                     @Param("workerId") String workerId, @Param("now") Date now,
+                     @Param("lockUntil") Date lockUntil, @Param("delFlag") String delFlag);
 
     int claimMessageWithPayload(@Param("id") Long id, @Param("version") Integer version,
-        @Param("workerId") String workerId, @Param("now") Date now,
-        @Param("lockUntil") Date lockUntil, @Param("payload") String payload,
-        @Param("delFlag") String delFlag);
+                                @Param("workerId") String workerId, @Param("now") Date now,
+                                @Param("lockUntil") Date lockUntil, @Param("payload") String payload,
+                                @Param("delFlag") String delFlag);
 
     /**
      * 绑定消息载荷：WAITING / RETRY 条件下按 id + version 写入 payload，不递增版本号。
@@ -266,7 +266,7 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 受影响行数
      */
     int bindPayload(@Param("id") Long id, @Param("version") Integer version,
-        @Param("payload") String payload, @Param("delFlag") String delFlag);
+                    @Param("payload") String payload, @Param("delFlag") String delFlag);
 
     /**
      * 按边界事件附着的待办任务范围取消：WAITING / RETRY / RUNNING 置 CANCELLED，
@@ -278,8 +278,8 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 取消的记录数
      */
     int cancelByAttachedTaskId(@Param("attachedTaskId") Long attachedTaskId, @Param("now") Date now,
-        @Param("excludedWaitId") Long excludedWaitId,
-        @Param("delFlag") String delFlag);
+                               @Param("excludedWaitId") Long excludedWaitId,
+                               @Param("delFlag") String delFlag);
 
     /**
      * 按流程实例范围取消：WAITING / RETRY / RUNNING 置 CANCELLED，
@@ -291,8 +291,8 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 取消的记录数
      */
     int cancelByInstanceId(@Param("instanceId") Long instanceId, @Param("now") Date now,
-        @Param("excludedWaitId") Long excludedWaitId,
-        @Param("delFlag") String delFlag);
+                           @Param("excludedWaitId") Long excludedWaitId,
+                           @Param("delFlag") String delFlag);
 
     /**
      * 按流程定义范围取消定义级记录（instance_id 为空）：WAITING / RETRY / RUNNING 置 CANCELLED，
@@ -304,5 +304,5 @@ public interface FlowEventWaitMapper extends WarmMapper<FlowEventWait> {
      * @return 取消的记录数
      */
     int cancelByDefinitionId(@Param("definitionId") Long definitionId, @Param("now") Date now,
-        @Param("delFlag") String delFlag);
+                             @Param("delFlag") String delFlag);
 }

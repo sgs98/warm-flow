@@ -24,12 +24,7 @@ import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.utils.*;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 /**
  * 办理人调整（转办、委派、加签、减签）操作链：装配 5 个有序步骤并委托 {@link FlowPipeline} 执行。
@@ -124,7 +119,7 @@ final class FlowUpdateHandlersChain {
             sequenceTargetGuards(execution, taskUsers, ExceptionCons.IS_ALREADY_TRANSFER);
             // 顺序会签已由 sequenceTargetGuards 给出专属错误；其余普通节点只允许单目标，避免改变既有调用语义
             AssertUtil.isTrue(!CooperateType.isSequence(execution.nowNode.getCooperateType()
-                , execution.nowNode.getNodeRatio()) && addHandlers.size() > 1
+                    , execution.nowNode.getNodeRatio()) && addHandlers.size() > 1
                 , ExceptionCons.SINGLE_TRANSFER_HANDLER);
         } else if (CooperateType.DELEGATE.getKey().equals(cooperateType)) {
             AssertUtil.isNull(execution.intent.getHandler(), ExceptionCons.HANDLER_NOT_EMPTY);
@@ -213,8 +208,8 @@ final class FlowUpdateHandlersChain {
         AssertUtil.isTrue(addHandlers.stream().distinct().count() != addHandlers.size(), duplicateMessage);
         List<User> activeUsers = StreamUtils.filter(taskUsers, user -> addHandlers.contains(user.getProcessedBy())
             && (UserType.APPROVAL.getKey().equals(user.getType())
-                || UserType.TRANSFER.getKey().equals(user.getType())
-                || UserType.DEPUTE.getKey().equals(user.getType())));
+            || UserType.TRANSFER.getKey().equals(user.getType())
+            || UserType.DEPUTE.getKey().equals(user.getType())));
         AssertUtil.isNotEmpty(activeUsers, duplicateMessage);
     }
 
@@ -252,7 +247,7 @@ final class FlowUpdateHandlersChain {
                 // 不指定移除（纯新增转办 / 委派记录）是既有合法用法，保持兼容。
                 // handler 为空交给后续协作守卫报 HANDLER_NOT_EMPTY，保持原有错误语义
                 AssertUtil.isTrue(CollUtil.isNotEmpty(removeHandlers)
-                    && removeHandlers.stream().anyMatch(item -> !Objects.equals(item, handler))
+                        && removeHandlers.stream().anyMatch(item -> !Objects.equals(item, handler))
                     , ExceptionCons.NOT_AUTHORITY);
                 if (CollUtil.isNotEmpty(removeHandlers)) {
                     List<User> activeUsers = execution.usersOfTypes(UserType.APPROVAL.getKey()

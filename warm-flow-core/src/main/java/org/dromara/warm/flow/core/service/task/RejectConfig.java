@@ -42,7 +42,9 @@ public final class RejectConfig {
         return new RejectConfig(true);
     }
 
-    /** starter 在缺少事务管理器时的写前门禁，不在 core 猜测宿主事务。 */
+    /**
+     * starter 在缺少事务管理器时的写前门禁，不在 core 猜测宿主事务。
+     */
     public static boolean requiresAtomicExecution(String defJson) {
         if (StringUtils.isEmpty(defJson)) {
             return false;
@@ -71,7 +73,9 @@ public final class RejectConfig {
         return required;
     }
 
-    /** 复用配置解析，同时拒绝非对象 / 非法 JSON，不把解析失败降级为重走。 */
+    /**
+     * 复用配置解析，同时拒绝非对象 / 非法 JSON，不把解析失败降级为重走。
+     */
     public static Map<String, Object> configMap(String nodeConfig) {
         if (StringUtils.isEmpty(nodeConfig)) {
             return new java.util.LinkedHashMap<>();
@@ -94,7 +98,9 @@ public final class RejectConfig {
     private static final java.util.regex.Pattern JSON_TOKEN = java.util.regex.Pattern.compile(
         "\"(?:\\\\.|[^\"\\\\])*\"|-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?");
 
-    /** 数字先作字符串占位，再按原 token 还原，避免 Map SPI 的 Double 舍入和 snack3 指数缺陷。 */
+    /**
+     * 数字先作字符串占位，再按原 token 还原，避免 Map SPI 的 Double 舍入和 snack3 指数缺陷。
+     */
     private static Map<String, Object> exactMap(String json) {
         var strings = new java.util.HashSet<String>();
         var matcher = JSON_TOKEN.matcher(json);
@@ -116,8 +122,11 @@ public final class RejectConfig {
             if (token.indexOf('.') >= 0 || token.indexOf('e') >= 0 || token.indexOf('E') >= 0) {
                 number = new BigDecimal(token);
             } else {
-                try { number = Long.valueOf(token); }
-                catch (NumberFormatException e) { number = new java.math.BigInteger(token); }
+                try {
+                    number = Long.valueOf(token);
+                } catch (NumberFormatException e) {
+                    number = new java.math.BigInteger(token);
+                }
             }
             numbers.put(key, number);
             matcher.appendReplacement(masked, java.util.regex.Matcher.quoteReplacement("\"" + key + "\""));
@@ -148,7 +157,9 @@ public final class RejectConfig {
         return value;
     }
 
-    /** JSON 实现可能返回 Integer / Long / Double / BigDecimal，协议判断数值而非 Java 类型。 */
+    /**
+     * JSON 实现可能返回 Integer / Long / Double / BigDecimal，协议判断数值而非 Java 类型。
+     */
     public static void requireVersionOne(Object version, String field) {
         if (version instanceof Number) {
             try {

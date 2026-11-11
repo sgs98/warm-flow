@@ -8,13 +8,9 @@ import org.dromara.warm.flow.core.entity.User;
 import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.UserType;
-import org.dromara.warm.flow.core.utils.AssertUtil;
-import org.dromara.warm.flow.core.utils.CollUtil;
-import org.dromara.warm.flow.core.utils.GroupSignUtil;
-import org.dromara.warm.flow.core.utils.SequenceSignUtil;
-import org.dromara.warm.flow.core.utils.ObjectUtil;
-import org.dromara.warm.flow.core.utils.StreamUtils;
+import org.dromara.warm.flow.core.utils.*;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
+
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -65,8 +61,8 @@ final class TaskCooperationHandler {
                 return false;
             }
             AssertUtil.isTrue(entrustedUser == null
-                || !UserType.DEPUTE.getKey().equals(entrustedUser.getType())
-                || !Objects.equals(context.getHandler(), entrustedUser.getProcessedBy())
+                    || !UserType.DEPUTE.getKey().equals(entrustedUser.getType())
+                    || !Objects.equals(context.getHandler(), entrustedUser.getProcessedBy())
                 , ExceptionCons.NOT_AUTHORITY);
         } else {
             entrustedUser = entrustedUserList.get(0);

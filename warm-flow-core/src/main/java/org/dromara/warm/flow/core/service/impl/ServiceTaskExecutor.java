@@ -6,11 +6,7 @@ import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.invoker.FrameInvoker;
-import org.dromara.warm.flow.core.service.task.AutoNodeContext;
-import org.dromara.warm.flow.core.service.task.AutoNodeExecutor;
-import org.dromara.warm.flow.core.service.task.ServiceTaskConfig;
-import org.dromara.warm.flow.core.service.task.ServiceTaskContext;
-import org.dromara.warm.flow.core.service.task.ServiceTaskHandler;
+import org.dromara.warm.flow.core.service.task.*;
 import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.ExpressionUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
@@ -60,7 +56,8 @@ public final class ServiceTaskExecutor implements AutoNodeExecutor {
         if (StringUtils.isNotEmpty(config.getResultVariable())) {
             context.setVariable(config.getResultVariable(), result);
         }
-        return ctx -> { };
+        return ctx -> {
+        };
     }
 
     private ServiceTaskHandler resolveClass(String className, AutoNodeContext context) {

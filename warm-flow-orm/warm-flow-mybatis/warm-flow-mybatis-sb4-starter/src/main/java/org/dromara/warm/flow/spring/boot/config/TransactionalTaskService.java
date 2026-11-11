@@ -8,11 +8,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 
-/** 人工任务写入先锁实例再由标准办理链重新读取决策数据。 @author may */
+/**
+ * 人工任务写入先锁实例再由标准办理链重新读取决策数据。 @author may
+ */
 class TransactionalTaskService extends TaskServiceImpl {
     private final InstanceTransactionSupport transaction;
 
-    TransactionalTaskService(TransactionTemplate template) { transaction = new InstanceTransactionSupport(template); }
+    TransactionalTaskService(TransactionTemplate template) {
+        transaction = new InstanceTransactionSupport(template);
+    }
 
     @Override
     public Instance execute(Long taskId, WorkflowContext context, String skipType) {
@@ -36,7 +40,7 @@ class TransactionalTaskService extends TaskServiceImpl {
 
     @Override
     public Instance updateHandlers(Long taskId, WorkflowContext context, List<String> addHandlers,
-        List<String> removeHandlers, String cooperateType) {
+                                   List<String> removeHandlers, String cooperateType) {
         return transaction.execute(instanceIdOf(taskId),
             () -> super.updateHandlers(taskId, context, addHandlers, removeHandlers, cooperateType));
     }

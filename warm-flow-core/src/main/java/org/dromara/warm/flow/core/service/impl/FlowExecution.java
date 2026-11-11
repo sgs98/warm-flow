@@ -20,17 +20,9 @@ import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.dto.FlowCombine;
 import org.dromara.warm.flow.core.dto.PathWayData;
 import org.dromara.warm.flow.core.entity.*;
-import org.dromara.warm.flow.core.enums.ActivityStatus;
-import org.dromara.warm.flow.core.enums.EventType;
-import org.dromara.warm.flow.core.enums.FlowStatus;
-import org.dromara.warm.flow.core.enums.NodeType;
-import org.dromara.warm.flow.core.enums.SkipType;
+import org.dromara.warm.flow.core.enums.*;
 import org.dromara.warm.flow.core.spi.ListenerVariable;
-import org.dromara.warm.flow.core.utils.AssertUtil;
-import org.dromara.warm.flow.core.utils.CollUtil;
-import org.dromara.warm.flow.core.utils.MapUtil;
-import org.dromara.warm.flow.core.utils.StreamUtils;
-import org.dromara.warm.flow.core.utils.StringUtils;
+import org.dromara.warm.flow.core.utils.*;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.Arrays;
@@ -155,7 +147,7 @@ final class FlowExecution {
         List<Node> startSuccessors = FlowEngine.nodeService().getNextNodeList(startNode, null
             , SkipType.PASS.getKey(), null, new PathWayData(), combine);
         AssertUtil.isTrue(CollUtil.isNotEmpty(startSuccessors)
-            && EventType.isStart(startSuccessors.get(0).getEventType())
+                && EventType.isStart(startSuccessors.get(0).getEventType())
             , ExceptionCons.MANUAL_START_EVENT_FORBIDDEN);
         FlowExecution execution = new FlowExecution(null, null, definition, startNode, intent);
         // 已查询的定义图注入缓存：发起链经 loadCombine() 复用同一引用，不再重查
@@ -201,7 +193,9 @@ final class FlowExecution {
         return execution;
     }
 
-    /** 仅标记已确认的定时启动拓扑失效；查询和解析异常交由调度器重试。 */
+    /**
+     * 仅标记已确认的定时启动拓扑失效；查询和解析异常交由调度器重试。
+     */
     static final class TimerStartTopologyException extends RuntimeException {
         TimerStartTopologyException(String message) {
             super(message);

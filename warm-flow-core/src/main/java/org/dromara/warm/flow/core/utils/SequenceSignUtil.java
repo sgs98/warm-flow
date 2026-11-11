@@ -104,8 +104,8 @@ public final class SequenceSignUtil {
         return users.stream().anyMatch(user -> ObjectUtil.isNull(user.getSeqNo()))
             ? Comparator.comparing(User::getId, Comparator.nullsLast(Long::compareTo))
             : Comparator.comparing(User::getSeqNo)
-                .thenComparing(user -> isTransferOrDepute(user) ? 0 : 1)
-                .thenComparing(User::getId, Comparator.nullsLast(Long::compareTo));
+            .thenComparing(user -> isTransferOrDepute(user) ? 0 : 1)
+            .thenComparing(User::getId, Comparator.nullsLast(Long::compareTo));
     }
 
     private static boolean isTransferOrDepute(User user) {

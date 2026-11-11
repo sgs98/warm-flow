@@ -5,19 +5,8 @@ import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.dto.DefJson;
 import org.dromara.warm.flow.core.dto.NodeJson;
 import org.dromara.warm.flow.core.dto.PathWayData;
-import org.dromara.warm.flow.core.entity.Definition;
-import org.dromara.warm.flow.core.entity.HisTask;
-import org.dromara.warm.flow.core.entity.Instance;
-import org.dromara.warm.flow.core.entity.Node;
-import org.dromara.warm.flow.core.entity.Task;
-import org.dromara.warm.flow.core.entity.User;
-import org.dromara.warm.flow.core.enums.ActivityStatus;
-import org.dromara.warm.flow.core.enums.ChartStatus;
-import org.dromara.warm.flow.core.enums.CooperateType;
-import org.dromara.warm.flow.core.enums.FlowStatus;
-import org.dromara.warm.flow.core.enums.NodeType;
-import org.dromara.warm.flow.core.enums.SkipType;
-import org.dromara.warm.flow.core.enums.TaskStatus;
+import org.dromara.warm.flow.core.entity.*;
+import org.dromara.warm.flow.core.enums.*;
 import org.dromara.warm.flow.core.spi.ListenerVariable;
 import org.dromara.warm.flow.core.spi.PermissionHandler;
 import org.dromara.warm.flow.core.utils.AssertUtil;
@@ -26,12 +15,7 @@ import org.dromara.warm.flow.core.utils.ListenerUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -87,7 +71,7 @@ public final class InstanceRestartCoordinator {
         if (StringUtils.isNotEmpty(instance.getDefJson())) {
             DefJson snapshot = FlowEngine.jsonConvert.strToBean(instance.getDefJson(), DefJson.class);
             AssertUtil.isTrue(snapshot == null || CollUtil.isEmpty(snapshot.getNodeList())
-                || snapshot.getNodeList().stream().noneMatch(node -> targetNodeCode.equals(node.getNodeCode()))
+                    || snapshot.getNodeList().stream().noneMatch(node -> targetNodeCode.equals(node.getNodeCode()))
                 , "重启目标不在流程实例定义快照中");
         }
         AssertUtil.isFalse(NodeType.isBetween(targetNode.getNodeType())

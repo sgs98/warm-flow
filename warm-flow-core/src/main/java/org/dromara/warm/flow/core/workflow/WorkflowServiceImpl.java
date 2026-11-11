@@ -3,21 +3,13 @@ package org.dromara.warm.flow.core.workflow;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
 import org.dromara.warm.flow.core.dto.EventWaitQuery;
-import org.dromara.warm.flow.core.entity.EventWait;
-import org.dromara.warm.flow.core.entity.HisTask;
-import org.dromara.warm.flow.core.entity.Instance;
-import org.dromara.warm.flow.core.entity.Task;
-import org.dromara.warm.flow.core.entity.User;
+import org.dromara.warm.flow.core.entity.*;
 import org.dromara.warm.flow.core.enums.CooperateType;
 import org.dromara.warm.flow.core.enums.SkipType;
 import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.service.impl.InstanceRestartCoordinator;
-import org.dromara.warm.flow.core.utils.AssertUtil;
-import org.dromara.warm.flow.core.utils.CollUtil;
-import org.dromara.warm.flow.core.utils.ObjectUtil;
-import org.dromara.warm.flow.core.utils.StreamUtils;
-import org.dromara.warm.flow.core.utils.StringUtils;
+import org.dromara.warm.flow.core.utils.*;
 import org.dromara.warm.flow.core.utils.page.Page;
 import org.dromara.warm.flow.core.workflow.command.*;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
@@ -205,11 +197,11 @@ public class WorkflowServiceImpl implements WorkflowService {
     private List<String> resolveTransferHandlers(TransferCommand command) {
         List<String> targets = command.getTargetHandlers() == null ? new ArrayList<>()
             : command.getTargetHandlers().stream()
-                .filter(StringUtils::isNotEmpty)
-                .map(String::trim)
-                .filter(StringUtils::isNotEmpty)
-                .distinct()
-                .collect(Collectors.toList());
+            .filter(StringUtils::isNotEmpty)
+            .map(String::trim)
+            .filter(StringUtils::isNotEmpty)
+            .distinct()
+            .collect(Collectors.toList());
         String legacy = StringUtils.isEmpty(command.getTargetHandler())
             ? null : command.getTargetHandler().trim();
         if (targets.isEmpty()) {
