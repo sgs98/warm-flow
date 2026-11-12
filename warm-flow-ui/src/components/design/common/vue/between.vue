@@ -766,8 +766,8 @@ const parallelReplayInterval = computed(() => isParallelReplayInterval(
   { nodes: props.nodes || [], edges: props.skips || [] }, form.value.id));
 const rejectReturnAttemptError = ref('');
 const rejectReturnError = computed(() => rejectReturnState.value.error || rejectReturnAttemptError.value
-  || (rejectReturnState.value.mode === RETURN_TO_REJECTOR && (isEventNode.value || form.value.collaborativeWay !== '1')
-    ? '驳回直返仅支持普通单人 / 或签，请修改完成方式或关闭直返' : ''));
+  || (rejectReturnState.value.mode === RETURN_TO_REJECTOR && isEventNode.value
+    ? '事件节点不支持驳回直返，请关闭直返' : ''));
 const rejectReturnHint = computed(() => {
   const source = form.value.nodeName || form.value.nodeCode || '本节点';
   const target = props.nodes.find(node => node.id === form.value.anyNodeSkip);

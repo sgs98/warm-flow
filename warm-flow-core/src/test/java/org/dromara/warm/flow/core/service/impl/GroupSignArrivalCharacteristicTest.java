@@ -85,6 +85,28 @@ class GroupSignArrivalCharacteristicTest {
     }
 
     @Test
+    void ordinaryBatchLoadsDefinitionOnlyOnceAndReusesPreparedUsers() {
+        Definition definition = definition("ordinary-user-batch");
+        node(definition, "ordinary", NodeType.BETWEEN.getKey(), null, null);
+        List<Task> tasks = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            tasks.add(FlowEngine.newTask().setId(100L + i).setDefinitionId(definition.getId())
+                .setNodeCode("ordinary").setPermissionList(List.of("alice", "bob")));
+        }
+        harness.reset();
+
+        List<User> users = FlowEngine.userService().taskAddUsers(tasks);
+
+        assertEquals(6, users.size());
+        assertEquals(1, harness.daoLog.stream()
+            .filter(call -> call.startsWith("NodeMemDao.selectList[")).count(), harness.daoLog.toString());
+        harness.reset();
+        assertEquals(users, FlowEngine.userService().taskAddUsers(tasks));
+        assertEquals(0, harness.daoLog.stream()
+            .filter(call -> call.startsWith("NodeMemDao.selectList[")).count(), harness.daoLog.toString());
+    }
+
+    @Test
     void duplicateMemberIsRemovedOnlyInsideItsGroup() {
         Definition definition = definition("group-duplicates");
         Node group = groupNode(definition, "group", List.of(
@@ -355,6 +377,54 @@ class GroupSignArrivalCharacteristicTest {
             , TestFlows.context(TestFlows.HANDLER)));
 
         assertEquals(before, snapshot());
+        assertEquals(EventCons.STATUS_WAITING, harness.eventWaitDao.raw(wait.getId()).getStatus());
+    }
+
+    @Test
+    void boundaryListenerRoutingToUnresolvedGroupKeepsAllEngineRows() {
+        Definition definition = simpleFlow("listener-group-boundary", "apply", null);
+        Node boundary = node(definition, "boundary", NodeType.BETWEEN.getKey(), null
+            , EventType.MESSAGE_BOUNDARY.getValue());
+        boundary.setEventName("cancel").setAttachedToNodeCode("apply");
+        FlowEngine.nodeService().updateById(boundary);
+        node(definition, "gateway", NodeType.SERIAL.getKey(), null, null);
+        node(definition, "group", NodeType.BETWEEN.getKey(), null, null);
+        makeGroup(definition, "group");
+        node(definition, "old", NodeType.BETWEEN.getKey(), TestFlows.HANDLER, null);
+        skip(definition, "boundary", NodeType.BETWEEN.getKey(), "gateway", NodeType.SERIAL.getKey());
+        FlowEngine.skipService().save(FlowEngine.newSkip().setDefinitionId(definition.getId())
+            .setNowNodeCode("gateway").setNowNodeType(NodeType.SERIAL.getKey())
+            .setNextNodeCode("group").setNextNodeType(NodeType.BETWEEN.getKey())
+            .setSkipName("gateway_group").setSkipType(SkipType.PASS.getKey())
+            .setSkipCondition("eq@@route|new"));
+        skip(definition, "gateway", NodeType.SERIAL.getKey(), "old", NodeType.BETWEEN.getKey());
+        WorkflowContext context = TestFlows.context(TestFlows.HANDLER);
+        context.setVariables(new java.util.HashMap<>(java.util.Map.of("route", "old")));
+        Instance instance = FlowEngine.insService().start("biz-listener-group-boundary"
+            , definition.getFlowCode(), context);
+        EventWait wait = onlyWait(instance.getId());
+        AtomicInteger resolutions = new AtomicInteger();
+        resolver(members -> {
+            resolutions.incrementAndGet();
+            return List.of();
+        });
+        harness.register(GlobalListener.class, new GlobalListener() {
+            @Override
+            public void start(ListenerVariable variable) {
+                if ("boundary".equals(variable.getNode().getNodeCode())) {
+                    variable.getVariable().put("route", "new");
+                }
+            }
+        });
+        FlowEngine.initGlobalListener();
+        Snapshot before = snapshot();
+
+        assertThrows(FlowException.class, () -> new EventRuntimeHandler().handle(wait
+            , TestFlows.context(TestFlows.HANDLER)));
+
+        assertEquals(1, resolutions.get(), "监听器应选中组签出口而非默认出口");
+        assertEquals(before, snapshot());
+        assertEquals("old", harness.insDao.raw(instance.getId()).getVariableMap().get("route"));
         assertEquals(EventCons.STATUS_WAITING, harness.eventWaitDao.raw(wait.getId()).getStatus());
     }
 

@@ -1,17 +1,17 @@
 ---
 name: warm-flow-demo-testing
-description: Use when 需要通过 Warm-Flow Demo 复测流程定义与版本、实例生命周期与终态重启、网关、任务协作（含组签）、事件与定时器、权限、变量、监听器或状态映射，或排查 UI、HTTP 与数据库结果不一致。
+description: Use when 需要通过 Warm-Flow Demo 复测流程定义与版本、实例生命周期与终态重启、网关、任务协作（含组签）、驳回直返、事件与定时器、登录鉴权、权限、变量、监听器或状态映射，或排查 UI、HTTP 与数据库结果不一致。
 ---
 
 # Warm-Flow Demo 流程测试
 
 ## 目标
 
-通过 Demo 的 UI、HTTP API 和数据库状态验证真实流程行为，覆盖定义导入/导出/复制/发布/版本、实例发起/撤回/终止/重启/删除、变量、任务协作与签核、三类网关、事件与内置定时器、权限、状态映射、监听器和自动通过。每个场景必须给出输入、实际结果、UI/HTTP/数据库证据和未验证项；本 Skill 不替代独立测试仓库的多数据库、多 ORM、Spring Boot 3/4 集成测试。
+通过 Demo 的 UI、HTTP API 和数据库状态验证真实流程行为，覆盖定义导入/导出/复制/发布/版本、实例发起/撤回/终止/重启/删除、变量、任务协作与签核、组签、驳回直返、三类网关、事件与内置定时器、登录鉴权与权限、状态映射、监听器和自动通过。每个场景必须给出输入、实际结果、UI/HTTP/数据库证据和未验证项；本 Skill 不替代独立测试仓库的多数据库、多 ORM、Spring Boot 3/4 集成测试。
 
 ## 信息源与证据合同
 
-发生冲突时依次相信：当前 Controller/Service/Core 实现 → Core 特征测试 → Demo 前端 API/页面 → Demo README → 本 Skill。工作区未提交能力（如当前 restart 改动）必须标记为 `working-tree only`，不能当成已发布行为。
+发生冲突时依次相信：当前 Controller/Service/Core 实现 → Core 特征测试 → Demo 前端 API/页面 → Demo README → 本 Skill。工作区未提交能力（如本轮驳回直返、事件监听选路或登录鉴权改动）必须标记为 `working-tree only`，不能当成已发布行为。
 
 一个场景只有同时拿到 **UI 行为、HTTP 响应、数据库前后状态** 才算验证完成。API 成功不等于流程正确；负例必须保存并比较实例、任务、历史、用户和事件等待五类数据，证明没有部分写入。
 
@@ -25,7 +25,7 @@ description: Use when 需要通过 Warm-Flow Demo 复测流程定义与版本、
 6. 测事件 / 定时器前，确认 Demo 依赖的 `warm-flow` 版本已包含待测代码：Demo 一般依赖本地 `~/.m2` 的同版本坐标，先在仓库根 `mvn clean install -DskipTests` 安装当前反应堆，再启动 Demo；不要假设 Demo 会自动使用工作区源码。
 7. 测事件 / 定时器前，确认数据库已应用事件结构（`flow_node` 的 `event_type` / `event_name` / `attached_to_node_code` / `interrupting` 四列与 `flow_event_wait` 表）：对已存在的库执行对应版本升级脚本（如 `sql/mysql/v1-upgrade/warm-flow_<version>.sql`），不要重新建库或删表。
 8. 定时器开关以当前 profile 与实际启动参数为准：仓库默认 `application.yml` 将 `warm-flow.timer-enabled` 设为 `true`，Core 默认值可能不同。启动后检查有效配置和「Warm-Flow 内置定时器已启动」日志，不要为了开启功能重复覆盖配置；扫描间隔可在隔离测试环境通过启动参数调整。
-9. 办理类请求同时带 `X-User-Name` 和 body `user`，通常保持一致。Demo 的 `PermissionHandler` 从请求头上下文提供授权权限，但部分 `TaskAppService` 命令以 body `user` 构造 OperatorContext；两者不一致时分别核对授权结果和历史审计操作者，不能假定其中一个同时决定两者。发起用 `admin`，办理用节点办理人。
+9. Demo 身份只来自登录后的 HttpOnly Cookie：先 `POST /api/auth/login`，后续请求携带 Cookie。`X-User-Name` 和 body `user` 都不是身份来源，不能用于切换或冒充用户；切换身份必须退出后重新登录。发起用 `admin`，办理用节点办理人。登录缺失/空白用户名或密码应返回 400，匿名访问 `/api/**` 与 `/warm-flow/**` 应返回 401。
 
 ## 内置流程定义（复测数据从哪来）
 
@@ -75,7 +75,8 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 
 ### 3. 任务协作
 
-- 转办：必须选择目标用户；确认原办理人不再拥有当前转办待办，目标用户拥有待办，历史记录有转办信息。
+- 转办：Demo 普通节点必须选择一个目标用户；确认原办理人不再拥有当前转办待办，目标用户拥有待办，历史记录有转办信息。组签允许一人或多人接手同一组槽位；核心普通节点多目标转办能力由 Core 特征测试覆盖，不能因 Demo 门面限制判定能力不存在。
+- 驳回直返：先按第 9 节核对节点 `nodeConfig.reject.afterApproval`（`REPLAY` / `RETURN_TO_REJECTOR`），再验证实际驳回目标。普通线性区间内，返回节点通过后应直接生成驳回节点新待办，中间普通/会签/票签/顺签/组签不重建任务或历史；运行期间 `_wf_reject_return` 只存实例变量，结束后清空。
 - 委托：必须选择目标用户；确认受托人办理后按引擎语义回到原审批链路，检查历史任务。
 - 加签：候选人必须排除当前节点已有办理人和当前办理人；增加后查询 `flow_user` 确认新增权限。
 - 减签：候选人必须来自当前节点已有办理人；不能减掉全部办理人，至少保留一人；确认删除的是选中的办理人。
@@ -103,6 +104,7 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 - 终止结束（`TERMINATE_END`）：节点到达即把实例状态置为**终止**（Demo 映射 `termination`；普通完成与消息结束仍是「已完成」），并将并行分支上其它活动待办按「失效」归档。复测 `demo_event_daily_check` 的 `veto=1/0` 分支前，先确认发布定义中 `veto` 的输入来源；该夹具没有 JSON 节点默认值，不能从 `demo_timer_start` 推断其变量配置。
 - 结束事件留痕：`TERMINATE_END` / `MESSAGE_END` 到达时在 `flow_his_task` 写一条**结束事件留痕**——`task_id=0` 哨兵、`flow_status=8`（结束；demo 自定义映射下落业务码 `pass`，时间线标签显示「通过」，「结束」语义由 message 承载）、办理人为系统兜底，`message` 区分「流程由该终止结束事件终止」与「流程由该结束事件节点结束」；按 `node_code` 可筛出异常终止的实例。断言终态场景时别忘了核对这条记录的存在与文案。
 - 边界校验：事件节点的能力门禁在发布时校验（`DefServiceImpl.publish`），草稿保存不校验运行时能力；启动类事件与固定 `START` 的一致性、边界事件必须绑定宿主节点等结构规则在发布时报错。
+- 事件 start 监听器：捕获/边界事件必须**先执行 start 监听器，再解析出口**，监听器写入的变量要参与网关条件；实例无变量、payload 为空时，类路径监听器首次写入也不能丢失。边界事件仍要等后继/组签校验成功后才中断旧任务、删除用户、取消等待和写历史。覆盖消息捕获、定时捕获、消息边界、定时边界四类。
 
 ### 5. 定义与版本生命周期
 
@@ -112,7 +114,7 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 - 定义复制后修改/发布副本不得影响源定义；自动通过开关同时核对 `def_config.autoPass`、新任务状态和历史 `auto_pass`。
 - 替代发布时按定义 ID 核对 `TIMER_START` 等待的创建、取消与重建；删除仅在获批隔离环境验证。挂起/恢复仅当当前 Demo 暴露对应操作时验证。
 
-### 6. 终态实例重启（working-tree only，直到能力正式提交）
+### 6. 终态实例重启
 
 仅当当前 Controller 确实暴露 `POST /api/instances/{id}/restart` 时执行。请求指定同一实例定义快照内的普通人工 `BETWEEN` 节点和一个或多个审批人；事件型 BETWEEN、开始/结束、网关、服务任务、快照外或跨定义节点全部拒绝。
 
@@ -126,7 +128,7 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 
 ### 7. 权限、状态、变量、监听器与自动通过
 
-- 权限同时验证 admin/approver1/approver2/approver3、bare username、`user:`、部门/父部门、未知用户和缺请求头；请求头提供授权权限，body `user` 在部分命令中构造 OperatorContext/审计身份。不一致时分别断言“是否授权”和“记录谁”，不能预设必然拒绝或把 body 用户视为授权凭证。
+- 权限同时验证 admin/approver1/approver2/approver3、bare username、`user:`、部门/父部门、未知用户和未登录；身份只来自登录 Cookie，`X-User-Name` 与 body `user` 都不能改变授权或审计身份。越权负例必须直调 API 并比较五类数据，不能只依赖 UI 隐藏按钮。
 - 状态按四个维度分别断言：实例 `FlowStatus`、任务/历史 `TaskStatus`、协作 `CooperateType`、事件等待状态。自定义 `StatusMapper` 下用数据库原始码、API label 和 UI fallback 三方核对，不能硬编码默认字符串。重启审计状态显式 `taskStatus` 优先，否则取 `StatusMapper.taskStatus(RESTART)`；mapper 返回 null 时必须回落内置 `restart`，不能落 null。
 - 节点默认变量只补缺失键，调用方同名值优先；消息、错误、定时和 restart payload/默认值都要验证合并后类型和值。
 - 监听器至少核对 start/assignment/finish/create；assignment 对变量或办理人的修改必须在 `flow_user` 落库前生效，监听器异常进入错误边界或整笔事务回滚。
@@ -134,18 +136,54 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 
 ### 8. 组签（GRP）
 
-组签节点 `cooperate_type='group'`，配置在 `node_config.groupSign`（`groups[]` + `order`），`permission_flag` 为空。按 `references/test-matrix.md` 的 `GRP-01 ~ GRP-15` 执行：并行两组、顺序越序、同用户多组、组内重复成员、驳回清空全部组、单人/多人转办与二次转办、禁用动作、成员解析失败的零写入、定义往返与双模式/复制/嵌入、重启目标排除、旧模式回归、并发通过与并发转办。
+组签节点 `cooperate_type='group'`，配置在 `node_config.groupSign`（`groups[]` + `order`），`permission_flag` 为空。按 `references/test-matrix.md` 的 `GRP-01 ~ GRP-16` 执行：并行两组、顺序越序、同用户多组、组内重复成员、驳回清空全部组、单人/多人转办与二次转办、禁用动作、成员解析失败的零写入、定义往返与双模式/复制/嵌入、重启目标排除、旧模式回归、并发通过与并发转办。
 
 - 每个具体成员一行 `flow_user`，`seq_no` 是组下标（并行组签也写入）；同一组多人共享同一 `seq_no`。批准前先核对 `flow_user`，不要用 `flow_task` 数量判断组是否完成。
 - 成员解析由宿主 `PermissionHandler.resolveGroupHandlers` 完成；展开为空时发起 / 办理 / 撤回 / 事件 / 服务后继都必须在首次写入前失败，五类数据前后一致。
 - 组签定义不得发布到旧版本引擎（旧引擎会当成无办理人的或签节点）；发布前确认引擎版本并在报告中写明。
 - 顺序组签的待办可见性与 Demo SQL 顺序过滤都要验证：同组任一成员可见，后续组不可见；普通顺序会签语义不变。
+- 组签与驳回直返组合：驳回节点或返回节点为组签时，按组签规则整节点办结后才推进；直返重新进入组签必须生成全新一轮成员和 `seq_no`，不能复用上一轮 `flow_user`。
+
+### 9. 驳回直返（RR）
+
+节点设计期规则只读驳回发起节点的 `nodeConfig.reject.afterApproval`：缺失 / `null` / `REPLAY` 为重走，`RETURN_TO_REJECTOR` 开启，其它非空值明确报错；`schemaVersion` 不参与识别或版本校验。标量、数组或没有 `afterApproval` 的业务 `reject` 属性不启用直返，但含同名 `afterApproval` 的业务字段会被解释为规则，升级前必须迁移。
+
+最小可复测拓扑（自建临时定义并发布）：
+
+```text
+开始 → 申请人(admin)
+ → 会签审核(approver1 + approver2，100%)
+ → 组签确认(legal=approver1 / finance=approver2)
+ → 驳回发起(approver3，anyNodeSkip=submit)
+ → 结束
+驳回发起 → 申请人：REJECT
+驳回发起 nodeConfig：{"reject":{"afterApproval":"RETURN_TO_REJECTOR"}}
+```
+
+执行与断言：
+
+1. admin 通过申请人；approver1/approver2 完成会签；组签按组完成；approver3 驳回到申请人。
+2. 驳回后 `flow_instance.variable` 出现 `_wf_reject_return`，绑定 `nodeCode`（返回任务）、`taskId`、`sourceTaskId`、`returnNodeCode`；`def_json` 和共享节点不得写运行关联。
+3. admin 再次通过申请人后，下一步必须是驳回节点新待办；会签、组签不得重建任务或历史，首次审批意见保留，新待办是全新一轮办理人。
+4. 直返完成后 `_wf_reject_return` 清空；实例、任务、历史、用户、等待无多余写入。
+5. 并行/包容区间或仍有其它节点并行待办时，按整体退回重走，不写关联；串行网关、服务任务、事件、附着边界事件和嵌套直返拒绝，失败五类快照不变。
+6. 持有关联时再次驳回、任意跳转、撤回拒绝；委派受托人通过/提交驳回意见短路交还委托人不消费关联；转办保持关联。
+7. 直返要求匹配 `PlatformTransactionManager` 且外层 `READ_COMMITTED`；同实例行锁后重新读取任务/实例，任务、用户、历史与最新实例快照同事务提交。
+
+### 10. 登录鉴权（AUTH）
+
+- 登录：`POST /api/auth/login {username,password}`。缺失 / 空白用户名或密码返回 HTTP 400 且不签发 Cookie；错误密码不签发 Cookie（Demo 当前可能返回 HTTP 200 + 业务 `code=401`，按实际响应记录，不能当成参数校验通过）。
+- 会话：Cookie 为 `HttpOnly`、`SameSite=Lax`、有效期 12 小时；退出调用 `POST /api/auth/logout` 并清除 Cookie。前端不把 token 放 URL 或 localStorage。
+- 匿名访问：`/api/**` 与 `/warm-flow/**` 返回 HTTP 401；登录页和设计器静态资源白名单可用。
+- 设计器鉴权：`WarmFlowUiConfig` 必须同时注册 `WarmFlowController` 与 `DesignerAuthExceptionHandler`，宿主不扫描 SDK 包也能得到约定 401；`warm-flow.ui=false` 时两者都不注册。
+- 身份来源：只信签名 Cookie；`X-User-Name`、body `user`、URL token 都不能提权。切换用户必须退出后重新登录。
 
 ## 数据库核对
 
 只读核对与当前场景相关的记录：
 
-- `flow_instance`：实例状态、节点、变量、创建人。
+- `flow_instance`：实例状态、节点、变量、`def_json`、创建人。驳回直返关联必须在 `variable._wf_reject_return`，不能在 `def_json` 或共享节点；结束、终止、重启/重置后应清空。
+- `flow_node`：驳回直返读取 `node_config.reject.afterApproval`；组签读取 `cooperate_type='group'` 与 `node_config.groupSign`。
 - `flow_task`：只把 `del_flag='0'` 且未完成的记录视为活动待办。
 - `flow_his_task`：办理、驳回、转办、委托、加减签、终止等历史记录；结束事件留痕（`task_id=0`）也在这里，按 `node_code` + `task_id=0` 定位。
 - `flow_user`：按任务关联查询审批、转办、委托、抄送办理人；组签成员行的 `seq_no` 是组下标，同一组多人共享同一值，转办后仍保留原组下标。

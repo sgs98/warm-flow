@@ -323,7 +323,7 @@ class GroupSignCharacteristicTest {
     }
 
     @Test
-    void ordinaryNodeRejectsMultipleTransferTargets() {
+    void ordinaryNodeAcceptsMultipleTransferTargets() {
         Definition definition = TestFlows.serialFlow("ordinary-transfer");
         Instance instance = FlowEngine.insService().start("biz-ordinary-transfer", definition.getFlowCode()
             , TestFlows.context(TestFlows.HANDLER));
@@ -331,12 +331,13 @@ class GroupSignCharacteristicTest {
 
         TransferCommand command = new TransferCommand();
         command.setTaskId(task.getId());
-        command.setOperator(new OperatorContext(TestFlows.HANDLER));
+        OperatorContext operator = new OperatorContext(TestFlows.HANDLER);
+        operator.setIgnorePermission(true);
+        command.setOperator(operator);
         command.setTargetHandlers(List.of("dave", "erin"));
-        FlowException error = assertThrows(FlowException.class, () -> FlowEngine.workflow().transfer(command));
+        FlowEngine.workflow().transfer(command);
 
-        assertTrue(error.getMessage().contains("只能指定一个办理人"));
-        assertEquals(List.of(TestFlows.HANDLER), activeHandlers(task.getId()));
+        assertEquals(Set.of("dave", "erin"), Set.copyOf(activeHandlers(task.getId())));
     }
 
     @Test

@@ -36,7 +36,6 @@ final class TaskHistoryHandler {
     void updateFlowInfo(TaskServiceImpl taskService, Task task, Instance instance, List<Task> addTasks
         , WorkflowContext context, String skipType, List<Node> nextNodes) {
         // 先完成组签身份解析，之后才允许归档 / 删除当前待办或更新实例。
-        ArrivalPlan.prepareGroupUsers(addTasks);
         List<User> users = FlowEngine.userService().taskAddUsers(addTasks);
         FlowEngine.hisTaskService().save(FlowEngine.hisTaskService().setSkipInsHis(task, nextNodes, context, skipType));
         taskService.removeAndUserInternal(List.of(task));

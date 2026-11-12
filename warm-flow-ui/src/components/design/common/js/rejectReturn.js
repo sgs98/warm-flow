@@ -2,7 +2,7 @@ export const RETURN_TO_REJECTOR = 'RETURN_TO_REJECTOR'
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key)
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 
-/** 受管驳回规则：reject 为对象且带 afterApproval（旧业务同名属性不会被误识别）。 */
+/** 受管驳回规则：reject 为对象且带 afterApproval；同名业务字段须在升级前迁移。 */
 export function isManagedRejectSection(value) {
   return object(value) && own(value, 'afterApproval')
 }

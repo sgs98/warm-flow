@@ -141,9 +141,9 @@ public class EventRuntimeHandler implements EventTaskHandler {
         WorkflowContext context = executionContext(wait, caller);
         FlowExecution execution = loadEventExecution(instance, wait.getNodeCode(), context);
         Node eventNode = execution.nowNode;
+        ListenerUtil.executeStart(execution.contextListener(null, eventNode));
         EventFlowAdvancer.PreparedEventArrival prepared = EventFlowAdvancer.prepareFromEvent(
             execution, eventNode, null);
-        ListenerUtil.executeStart(execution.contextListener(null, eventNode));
         EventFlowAdvancer.advanceFromEvent(execution, eventNode, null, prepared);
     }
 
@@ -173,6 +173,8 @@ public class EventRuntimeHandler implements EventTaskHandler {
         Node interruptedNode = StreamUtils.filterOne(execution.loadCombineNoDef().getAllNodes()
             , node -> node.getNodeCode().equals(task.getNodeCode()));
 
+        // 监听器写入的变量参与出口选择；原任务仍在后继校验成功后才中断。
+        ListenerUtil.executeStart(execution.contextListener(null, eventNode));
         EventFlowAdvancer.PreparedEventArrival prepared = EventFlowAdvancer.prepareFromEvent(
             execution, eventNode, interruptedNode);
 
@@ -182,7 +184,6 @@ public class EventRuntimeHandler implements EventTaskHandler {
         // 取消同任务的其它边界事件等待；当前执行记录由调度器在完成阶段处理。
         FlowEngine.eventWaitService().cancelByAttachedTaskId(task.getId());
 
-        ListenerUtil.executeStart(execution.contextListener(null, eventNode));
         EventFlowAdvancer.advanceFromEvent(execution, eventNode, interruptedNode, prepared);
     }
 
@@ -208,7 +209,9 @@ public class EventRuntimeHandler implements EventTaskHandler {
      * 加载事件触发执行作用域：实例、定义、定义图与事件节点。
      */
     private FlowExecution loadEventExecution(Instance instance, String nodeCode, WorkflowContext context) {
-        return FlowExecution.loadForEvent(instance, nodeCode, context);
+        FlowExecution execution = FlowExecution.loadForEvent(instance, nodeCode, context);
+        execution.mergeVariables();
+        return execution;
     }
 
     /**

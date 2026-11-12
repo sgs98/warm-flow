@@ -76,19 +76,19 @@
 - 检查：撤回或终止后同时查询待办接口和实例历史；历史中的终态操作应为非当前记录，活动任务集合应为空。
 - 处理：历史时间线只转换非终态任务，保留草稿、退回待提交和待审核等可继续办理状态。
 
-## 办理类操作需要请求级操作者权限（Demo 形态）
+## 办理类操作需要登录 Cookie 身份（Demo 形态）
 
 - 症状：`start`、`revoke` 正常，但 `pass`/`jump`/`reject`/`terminate`/`transfer`/`depute`/`add-signature`/`reduction-signature` 全部失败，返回「无法跳转到该节点,请检查当前用户是否有权限!」或「请检查当前用户是否有权限!」，任务与实例状态不变。
-- 根因：`OperatorContext` 不再暴露 `permissions`，`WorkflowContext` 的权限只来自全局 `FlowEngine.permissionHandler()`。Demo 按请求确定操作者，若全局处理器拿不到当前用户，权限集合为空，`TaskServiceImpl.checkAuth` 与 `FlowUpdateHandlersChain.authGate` 直接判无权限。
-- 检查：Demo 侧按请求写入当前用户（`X-User-Name` 拦截器 → `DemoUserContext` → `DemoPermissionHandler.permissions()` 返回该用户的 `permissionFlags`）；curl 复测必须带 `X-User-Name`，只带 body 里的 `user` 字段不够。
+- 根因：`OperatorContext` 不再暴露 `permissions`，`WorkflowContext` 的权限只来自全局 `FlowEngine.permissionHandler()`。Demo 按登录 Cookie 确定操作者，若全局处理器拿不到当前用户，权限集合为空，`TaskServiceImpl.checkAuth` 与 `FlowUpdateHandlersChain.authGate` 直接判无权限。
+- 检查：先 `POST /api/auth/login` 并保存 Cookie（`curl -c/-b`），拦截器写入 `DemoUserContext`，`DemoPermissionHandler.permissions()` 返回该用户的 `permissionFlags`；`X-User-Name` 和 body `user` 都不能替代登录。
 - 复测要求：修复后按矩阵重跑通过/驳回/终止/转办/委派/加减签；仅验证发起与撤回不足以证明办理链路可用。
 
-## 请求头与 body 操作者不一致不能越权
+## Cookie 与请求体操作者不一致不能越权
 
-- 不变量：Demo 的授权权限来自 `X-User-Name` 请求上下文；部分命令的 OperatorContext/历史审计操作者来自 body `user`。二者必须分别验证，不能互相替代。
-- 复现：在隔离测试环境中让请求头与 body `user` 分别使用有权限和无权限身份，直接调用 pass/reject/terminate/transfer/depute/add-signature/reduction-signature。
-- 检查：断言授权只受请求头 permissions 控制；历史审计字段按当前命令构造路径核对是否记录 body 操作者；所有拒绝操作的实例、任务、历史、用户、等待五类数据前后完全一致。UI 隐藏按钮不能作为唯一鉴权证据。
-- 处理：权限负例始终直调 API，并把“是否允许办理”和“记录哪个操作者”拆成两个断言；请求头/body 不一致不是预设必拒条件。
+- 不变量：Demo 的授权权限和审计身份都来自签名 Cookie；`X-User-Name` 与 body `user` 均不是身份来源，不能切换身份或提权。
+- 复现：用 admin 登录后，分别伪造 `X-User-Name: approver1`、body `user=approver1` 调用 pass/reject/terminate/transfer/depute/add-signature/reduction-signature；再退出后用旧 Cookie 重试。
+- 检查：授权与历史 `approver` 仍为登录用户；退出后旧 Cookie 返回 401；所有拒绝操作的实例、任务、历史、用户、等待五类数据前后完全一致。UI 隐藏按钮不能作为唯一鉴权证据。
+- 处理：权限负例始终直调 API，并把“是否允许办理”和“记录谁”拆成两个断言；不要恢复请求头/body 身份通道。
 
 ## 排他网关条件变量缺失时抛错而非走无条件兜底
 
@@ -198,7 +198,7 @@
 - 边界区分：手动发起的草稿实例仍是 `draft`，两条路径语义不同属设计如此；不要以「发起后应统一为草稿」为由改回。
 - 处理（已修复）：`EventRuntimeHandler.timerStart` 触发时把实例状态置为审批中；core 特征测试 `EventRuntimeCharacteristicTest` 守护实例状态与默认变量两项断言。
 
-## 终态实例重启不变量（working-tree only，直到能力正式提交）
+## 终态实例重启不变量
 
 ### 只允许三种终态且实例不能有现存待办
 
@@ -275,3 +275,71 @@
 
 - 不变量：旧引擎把组签节点当作无办理人的或签节点，知道 taskId 的调用方可以越过组规则。
 - 处理：发布说明与运维必须要求「组签定义只发布到支持组签的引擎版本」；测试报告写明引擎版本，不能声称权限为空会安全失败。
+
+### 组签与驳回直返组合
+
+- 不变量：驳回节点或返回节点为组签时，按组签规则整节点办结后才推进；直返重新进入组签生成全新一轮成员和 `seq_no`。
+- 检查：旧一轮 `flow_user` 不得复活或复用；`_wf_reject_return` 按 RR 规则只在实例变量并清理。
+
+## 驳回直返不变量（RR-*）
+
+### 配置只认 afterApproval
+
+- 不变量：`nodeConfig.reject` 是对象且含 `afterApproval` 才受管；缺失/`null`/`REPLAY` 重走，`RETURN_TO_REJECTOR` 开启，其它非空值明确报错；`schemaVersion` 不参与识别。
+- 禁止：把标量、数组、无 `afterApproval` 的业务 `reject` 当成规则，或用 `schemaVersion` 隔离业务字段。
+- 检查：非法配置失败时实例、任务、历史、用户、等待无部分写入。
+
+### 直返跳过线性区间内的协作节点
+
+- 不变量：D 驳回 A 后，A 通过直接生成 D 新待办；普通节点、会签、票签、顺签、组签均不重建任务或历史；首次审批意见保留；新 D 为全新办理人轮次。
+- 必查：新 D 的 `flow_task`/`flow_user`、中间节点历史条数未增加、`def_json` 图状态、`_wf_reject_return` 清理。
+- 禁止：仅验证实例最终状态而不核对中间节点是否被重建。
+
+### 并行区间回退为重走
+
+- 不变量：返回区间跨并行/包容网关，或仍有其它节点并行待办时，不写直返关联，按既有整体退回重走。
+- 必查：无 `_wf_reject_return`；A 提交后重新分叉；并行分支没有被跳过。
+
+### 运行关联只存实例变量
+
+- 不变量：关联存于 `flow_instance.variable._wf_reject_return`，不写 `def_json` 或共享节点；常规变量入口过滤 `_wf_`，删除入口不能删保留键。
+- 清理：结束、终止、重启/重置清空关联；直返完成后不残留。
+- 禁止：业务变量覆盖保留键，或从实例运行图导入设计定义。
+
+### 持有关联时限制高风险动作
+
+- 不变量：持有关联时不能再次驳回、任意跳转或撤回；委派受托人通过/提交驳回意见短路交还委托人不消费关联；转办保持关联。
+- 必查：负例前后实例、任务、用户、历史、等待快照完全一致。
+
+### 事务前置与锁后当前读
+
+- 不变量：直返要求匹配 `PlatformTransactionManager` 且外层 `READ_COMMITTED`；同实例行锁后重新读取任务/实例；任务、用户、历史、实例快照同事务提交。
+- 负例：缺事务管理器、隔离级别不兼容、无法确认时启动/写操作拒绝，无部分写入。
+
+## 事件 start 监听器不变量
+
+### 监听器必须先于出口解析
+
+- 不变量：捕获事件/边界事件先执行 start 监听器，再解析后继和网关路由；监听器写入的变量参与出口选择。
+- 首次变量：实例无变量、payload 为空时，类路径监听器首次 `put` 的路由变量必须进入执行上下文，不能因空 map 被替换而丢失。
+- 安全顺序：边界事件仍要等后继/组签校验成功后才中断旧任务、删除用户、取消等待和写历史。
+- 覆盖：消息捕获、定时捕获、消息边界、定时边界；已有变量和首变量两种夹具。
+- 代码锚点：`EventRuntimeHandler`、`EventFlowAdvancer`、`ListenerUtil`。
+
+### 递归事件图元使用最终快照
+
+- 不变量：捕获/边界事件→抛出/结束→下一等待时，`def_json` 使用递归合并后的最终快照，当前事件 DONE、后继等待 TO_DO。
+- 禁止：用第一跳旧快照覆盖递归更新，导致图状态与已建任务/等待不一致。
+
+## 登录鉴权不变量
+
+### 登录参数校验先于凭据与签发
+
+- 不变量：登录 DTO 启用 `@Valid`；缺失/空白用户名或密码返回 400，不查询凭据、不签发 Cookie。
+- 必查：HTTP 状态、响应体 code/message、Set-Cookie 不存在、token 服务无调用。
+- 现状：Demo 错误密码可能返回 HTTP 200 + 业务 `code=401`，按实际响应记录，不能推断为参数校验通过。
+
+### 设计器鉴权 advice 随配置注册
+
+- 不变量：`WarmFlowUiConfig` 同时注册 Controller 与 `DesignerAuthExceptionHandler`，宿主无需组件扫描 SDK 包；`warm-flow.ui=false` 时两者都不注册。
+- 匿名：`/api/**` 与 `/warm-flow/**` 返回 HTTP 401；身份只信签名 Cookie，`X-User-Name` 与请求体 `user` 不能提权。

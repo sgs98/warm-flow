@@ -15,6 +15,12 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.github.sgs98</groupId>
             <artifactId>warm-flow-plugin-modes-sb</artifactId>
         </dependency>

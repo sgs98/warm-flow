@@ -60,8 +60,8 @@ final class ArrivalPlan {
     /**
      * 在任何到达写入前解析整批组签办理人；普通任务仍留给 assignment 监听器之后的既有构造点。
      */
-    void resolveGroupUsers() {
-        prepareGroupUsers(tasks);
+    void resolveGroupUsers(List<Node> nodes) {
+        prepareGroupUsers(tasks, nodes);
     }
 
     /**
@@ -73,19 +73,25 @@ final class ArrivalPlan {
         }
         Map<Long, List<Task>> tasksByDefinition = new LinkedHashMap<>();
         for (Task task : tasks) {
-            tasksByDefinition.computeIfAbsent(task.getDefinitionId(), key -> new ArrayList<>()).add(task);
+            if (CollUtil.isEmpty(task.getUserList())) {
+                tasksByDefinition.computeIfAbsent(task.getDefinitionId(), key -> new ArrayList<>()).add(task);
+            }
         }
         for (Map.Entry<Long, List<Task>> entry : tasksByDefinition.entrySet()) {
-            Map<String, Node> nodes = new LinkedHashMap<>();
-            for (Node node : FlowEngine.nodeService().getByDefId(entry.getKey())) {
-                nodes.put(node.getNodeCode(), node);
-            }
-            for (Task task : entry.getValue()) {
-                Node node = nodes.get(task.getNodeCode());
-                if (node != null && CooperateType.isGroup(node.getCooperateType())
-                    && CollUtil.isEmpty(task.getUserList())) {
-                    task.setUserList(resolveGroupUsers(task, node));
-                }
+            prepareGroupUsers(entry.getValue(), FlowEngine.nodeService().getByDefId(entry.getKey()));
+        }
+    }
+
+    private static void prepareGroupUsers(List<Task> tasks, List<Node> definitionNodes) {
+        Map<String, Node> nodes = new LinkedHashMap<>();
+        for (Node node : definitionNodes) {
+            nodes.put(node.getNodeCode(), node);
+        }
+        for (Task task : tasks) {
+            Node node = nodes.get(task.getNodeCode());
+            if (node != null && CooperateType.isGroup(node.getCooperateType())
+                && CollUtil.isEmpty(task.getUserList())) {
+                task.setUserList(resolveGroupUsers(task, node));
             }
         }
     }

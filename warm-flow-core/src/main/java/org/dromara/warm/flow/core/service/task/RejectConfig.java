@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 /**
- * 节点设计期驳回规则；历史无版本自定义属性不解释为引擎配置。
+ * 节点设计期驳回规则；按 reject.afterApproval 识别，schemaVersion 不参与判定。
  *
  * @author may
  */

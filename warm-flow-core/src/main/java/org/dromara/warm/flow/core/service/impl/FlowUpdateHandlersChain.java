@@ -117,10 +117,6 @@ final class FlowUpdateHandlersChain {
             AssertUtil.isNotEmpty(usersOfProcessedBy(taskUsers, addHandlers, UserType.TRANSFER.getKey())
                 , ExceptionCons.IS_ALREADY_TRANSFER);
             sequenceTargetGuards(execution, taskUsers, ExceptionCons.IS_ALREADY_TRANSFER);
-            // 顺序会签已由 sequenceTargetGuards 给出专属错误；其余普通节点只允许单目标，避免改变既有调用语义
-            AssertUtil.isTrue(!CooperateType.isSequence(execution.nowNode.getCooperateType()
-                    , execution.nowNode.getNodeRatio()) && addHandlers.size() > 1
-                , ExceptionCons.SINGLE_TRANSFER_HANDLER);
         } else if (CooperateType.DELEGATE.getKey().equals(cooperateType)) {
             AssertUtil.isNull(execution.intent.getHandler(), ExceptionCons.HANDLER_NOT_EMPTY);
             AssertUtil.isEmpty(addHandlers, ExceptionCons.NULL_DEPUTE_HANDLER);

@@ -1,5 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { runInNewContext } from 'node:vm'
 import { isManagedRejectSection, isParallelReplayInterval, readRejectReturn, writeRejectReturn, rejectReturnGraphErrors } from './rejectReturn.js'
 import { json2LogicFlowJson, logicFlowJsonToWarmFlow } from './tool.js'
 
@@ -15,6 +17,20 @@ test('defaults and preserves legacy business reject including objects', () => {
     assert.deepEqual(writeRejectReturn(legacy, 'REPLAY'), legacy)
     assert.throws(() => writeRejectReturn(legacy, DIRECT), /迁移/)
   }
+})
+
+test('property panel allows collaborative direct return but still rejects event nodes', () => {
+  const source = readFileSync(new URL('../vue/between.vue', import.meta.url), 'utf8')
+  const expression = source.match(/const rejectReturnError = computed\(([\s\S]*?)\);\r?\n/)[1]
+  const error = (collaborativeWay, event = false) => runInNewContext(`(${expression})()`, {
+    rejectReturnState: { value: { mode: DIRECT, error: '' } },
+    rejectReturnAttemptError: { value: '' },
+    RETURN_TO_REJECTOR: DIRECT,
+    isEventNode: { value: event },
+    form: { value: { collaborativeWay } }
+  })
+  for (const mode of ['1', '2', '3', '4', '5', 'group']) assert.equal(error(mode), '')
+  assert.match(error('1', true), /事件/)
 })
 
 test('managed section requires afterApproval and known mode', () => {

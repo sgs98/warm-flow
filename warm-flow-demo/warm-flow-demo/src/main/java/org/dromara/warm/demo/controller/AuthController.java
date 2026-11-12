@@ -3,6 +3,7 @@ package org.dromara.warm.demo.controller;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import org.dromara.warm.demo.common.ApiResponse;
 import org.dromara.warm.demo.config.DemoAuthInterceptor;
 import org.dromara.warm.demo.config.DemoTokenService;
@@ -48,7 +49,7 @@ public class AuthController {
      * 登录：校验用户名密码，签发 HttpOnly 会话 Cookie。
      */
     @PostMapping("/login")
-    public ApiResponse<DemoUserVo> login(@RequestBody LoginRequest request, HttpServletResponse response) {
+    public ApiResponse<DemoUserVo> login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         DemoUserVo user = userService.listApprovers().stream()
             .filter(u -> u.getUserName().equals(request.getUsername()))
             .findFirst()

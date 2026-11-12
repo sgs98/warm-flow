@@ -21,7 +21,7 @@ public class TransferCommand extends WorkflowCommand {
 
     /**
      * 接收转办的办理人标识（单目标兼容字段）。
-     * <p>新调用方应使用 {@link #targetHandlers}；组签节点允许一组多目标，普通节点仍只能单目标。</p>
+     * <p>新调用方应使用 {@link #targetHandlers}；组签节点按组槽位转办，普通非顺签节点保留多目标能力，顺签只允许单目标。</p>
      */
     private String targetHandler;
 

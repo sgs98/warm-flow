@@ -2,7 +2,7 @@
 
 ## 环境与能力记录
 
-每次执行先记录：commit 与 dirty files、JDK/Maven/Node/pnpm、后端/前端 URL、数据库与 schema、逻辑删除和定时器有效配置、当前身份、已发布定义的 id/flowCode/version、working-tree-only 能力、本轮选择的测试族和阻塞原因。连接/MCP 失败只记为当前环境阻塞，不代表数据库不存在或无访问能力。Demo 独立 POM 若解析本地 Maven 坐标，必须确认它使用当前工作树 core；必要时只做本地 `mvn -pl warm-flow-core -am -DskipTests install`，不得 deploy。
+每次执行先记录：commit 与 dirty files、JDK/Maven/Node/pnpm、后端/前端 URL、数据库与 schema、逻辑删除和定时器有效配置、登录方式与当前 Cookie 身份、已发布定义的 id/flowCode/version、working-tree-only 能力、本轮选择的测试族和阻塞原因。连接/MCP 失败只记为当前环境阻塞，不代表数据库不存在或无访问能力。Demo 独立 POM 若解析本地 Maven 坐标，必须确认它使用当前工作树 core；必要时只做本地 `mvn -pl warm-flow-core -am -DskipTests install`，不得 deploy。
 
 ## 单例证据合同
 
@@ -28,11 +28,20 @@ artifacts / cleanup status:
 
 ## 常用接口
 
-启动流程：
+身份只来自登录后的 HttpOnly Cookie；`X-User-Name` 与 body `user` 不再作为身份来源。切换用户需先退出再登录：
+
+```text
+POST /api/auth/login      {"username":"admin","password":"warm-flow-demo"}   # Set-Cookie: HttpOnly + SameSite=Lax
+POST /api/auth/logout
+GET  /api/auth/me
+GET  /api/auth/users
+```
+
+启动流程（携带登录 Cookie）：
 
 ```http
 POST /api/instances
-X-User-Name: admin
+Cookie: <login-cookie>
 Content-Type: application/json
 
 {"flowCode":"<published-flow>","businessId":"WF-D-<short-unique>","variables":{"day":"4"}}
@@ -46,12 +55,12 @@ GET /api/instances/<instanceId>/history
 GET /api/tasks/todo?pageNum=1&pageSize=100
 POST /api/instances/<instanceId>/revoke
 POST /api/instances/<instanceId>/termination
-POST /api/instances/<instanceId>/restart              # 仅当前工作树存在时；终态实例重启
+POST /api/instances/<instanceId>/restart              # 终态实例重启
 DELETE /api/instances/<instanceId>                 # 物理删除单个实例（演示清数，谨慎使用）
 DELETE /api/instances?ids=<id1>&ids=<id2>          # 批量物理删除实例（演示清数，返回删除数量；回归测试默认不用）
 ```
 
-任务操作请求统一带 `user` 和 `taskId`。按 Demo Controller 当前实际映射调用：
+任务操作请求以 Cookie 身份为准，请求体带 `taskId`；body `user` 仅作兼容字段，不能改变授权或审计身份。按 Demo Controller 当前实际映射调用：
 
 ```text
 POST /api/tasks/pass
@@ -81,7 +90,7 @@ POST /api/tasks/<taskId>/errors                    # 触发附着该任务的 ER
 消息启动与等待记录全局查询：
 
 ```text
-POST /api/instances/message                        # 消息启动 MESSAGE_START，body {"flowCode":"X","businessId":"...","eventName":"order.paid","variables":{}}；X-User-Name 可选（缺省 admin），用于写实例创建人
+POST /api/instances/message                        # 消息启动 MESSAGE_START，body {"flowCode":"X","businessId":"...","eventName":"order.paid","variables":{}}；实例创建人取登录 Cookie 身份
 GET  /api/event-waits?pageNum=1&pageSize=10        # 等待记录全局只读查询，默认只查定时类、按 next_trigger_at 升序
 GET  /api/event-waits?timerOnly=false&instanceId=<id>   # 含消息/错误类；同组条件还支持 definitionId / businessId / flowCode / status / eventType
 GET  /api/event-waits/summary                      # 同一套过滤条件下的各状态计数
@@ -116,6 +125,7 @@ DELETE /api/definitions/{id}                                        # 删除（�
 | 包容 | 0 个、1 个、多个条件命中 | 所有命中条件出口与所有无条件出口同时生效；无条件不是 fallback-only |
 | 通过 | 当前活动任务 | 当前任务归历史，目标任务正确 |
 | 驳回 | 真实 REJECT 节点 | 目标节点和历史状态正确 |
+| 驳回直返 | 驳回发起节点 `nodeConfig.reject.afterApproval`；线性区间含会签/票签/顺签/组签；并行/不支持区间负例 | 返回节点通过后直接生成驳回节点新待办；协作节点不重建任务/历史；`_wf_reject_return` 只在实例变量并清空；并行回退、非法区间拒绝且无写入 |
 | 转办 | `nextHandlers` 一个新用户 | 原用户移除，目标用户存在 |
 | 委托 | `nextHandlers` 一个新用户 | 受托办理和委托历史正确 |
 | 加签 | 新用户，排除已有用户 | 新增权限，不重复 |
@@ -125,10 +135,12 @@ DELETE /api/definitions/{id}                                        # 删除（�
 | 终态重启 | `finish/termination/invalid`、人工目标、多审批人、可选 flowStatus | 历史不变；唯一新 `pending` 任务；默认 waiting/显式状态；边界等待、变量、监听器、抄送、图状态完整 |
 | 重启负例/并发 | 非终态、已有任务、非法目标、同实例双请求 | 全部拒绝且无部分写入；并发最终只有一个成功和一份活动任务/用户 |
 | 抄送 | `copyUsers` | 抄送可查，不污染审批办理人 |
-| 权限 | 请求头/body 不一致、未知用户、部门权限、直接 API | 不得借 body 越权；UI 隐藏与服务端校验一致；负例无写入 |
+| 权限 | `X-User-Name`/body 不一致、未知用户、部门权限、直接 API | 身份只认 Cookie；`X-User-Name` 与 body 都不能越权；UI 隐藏与服务端校验一致；负例无写入 |
+| 登录鉴权 | 正确/错误密码、缺失/空白参数、匿名 API/设计器、退出后旧 Cookie | 正确登录签发 HttpOnly Cookie；缺失/空白 400 且不签发；匿名 401；设计器 advice 自动注册；退出后旧会话失效 |
 | 状态映射 | 默认与自定义 `StatusMapper` | 实例、任务、协作、事件状态独立；DB 原始码/API label/UI fallback 一致 |
 | 节点默认变量 | 调用方同名/缺失键、legacy event.variables | 只补缺失键，调用方优先，类型不丢失 |
 | 监听器 | start/assignment/finish/create 与异常 | 顺序正确；assignment 修改在办理人落库前生效；错误捕获或事务回滚完整 |
+| 事件 start 监听器 | 消息/定时捕获与边界；无变量 + 空 payload；类路径监听器首写路由变量 | 先执行 start 再解析出口；首写变量进入上下文并参与网关；边界仍在校验成功后才中断/清理 |
 | 定时捕获 | 人工A → `TIMER_CATCH`(AFTER PT3S) → 人工B | 办理人工A 后生成 WAITING 等待行、无活动待办；到期后等待行不再活动并生成人工B |
 | 定时启动 | 根据夹具实际配置发布 `TIMER_START` | 发布即建定义级等待行；手动发起被拒；到期自动建实例与首个待办；实例为 `waiting`；`demo_timer_start` 是 AFTER PT30S 且带 `veto=0`/`channel=daily`，`demo_event_daily_check` 是每日 09:00 且无这两个默认值 |
 | 定时边界 | 人工A 挂 `TIMER_BOUNDARY`(中断型, AFTER PT3S) → 人工C，不办理人工A | 生成边界等待行（`attached_task_id`=人工A任务）；到期中断人工A（历史 `flow_status=10`）并生成人工C |
@@ -142,9 +154,9 @@ DELETE /api/definitions/{id}                                        # 删除（�
 | 消息启动 | 已发布定义含 `MESSAGE_START`(eventName=X)，不手动发起 | 手动发起被拒；`POST /api/instances/message` 按消息建实例；消息名不符被拒；后继待办生成 |
 | 终止结束 | `demo_event_daily_check`，仅在确认发布图的 `veto` 输入来源后测试 `veto=1/0` | 实例终止或正常完成；另一并行分支按规则失效；检查结束事件历史留痕。该 JSON 未配置 `veto` 默认变量，勿假设自动有值 |
 
-## 终态实例重启矩阵（RST，working-tree only）
+## 终态实例重启矩阵（RST）
 
-仅在当前实现存在 restart Controller/DTO/Core API 时执行，并记录 capability 来源。UI 默认请求：
+执行前确认当前 Demo 暴露 `POST /api/instances/{id}/restart`，并记录接口与 DTO 来源。UI 默认请求：
 
 ```json
 {
@@ -282,11 +294,19 @@ FROM flow_task
 WHERE instance_id = <instanceId>
 ORDER BY id;
 
-SELECT id, instance_id, node_code, node_name, flow_status, task_id, message
+SELECT id, instance_id, node_code, node_name, target_node_code, flow_status,
+       approver, cooperate_type, collaborator, skip_type, message
 FROM flow_his_task
 WHERE instance_id = <instanceId>
 ORDER BY id;
 -- 结束事件留痕：task_id=0 的行（TERMINATE_END / MESSAGE_END 到达时写入），按 node_code 定位是哪个结束节点
+
+SELECT id, node_code, node_type, cooperate_type, node_ratio, permission_flag,
+       node_config, any_node_skip
+FROM flow_node
+WHERE definition_id = <definitionId>
+ORDER BY id;
+-- 驳回直返读 node_config.reject.afterApproval；组签读 cooperate_type='group' + node_config.groupSign
 
 SELECT *
 FROM flow_user
@@ -301,23 +321,25 @@ WHERE instance_id = <instanceId>          -- 定义级定时启动等待的 inst
 ORDER BY id;
 ```
 
-实际字段以当前数据库 `DESCRIBE` 结果为准，不凭旧 SQL 记忆字段名。
+实际字段以当前数据库 `DESCRIBE` 结果为准，不凭旧 SQL 记忆字段名。驳回直返必须读取 `flow_instance.variable._wf_reject_return`，并确认 `def_json` 与共享节点没有运行关联；组签按 `flow_user.seq_no` 核对组下标。
 
-Shell 批量测试时，活动任务 ID 要逐行保存，例如：
+Shell 批量测试时，活动任务 ID 要逐行保存，并复用登录 Cookie：
 
 ```bash
+# 先登录：curl -c cookie.txt -X POST "$base/api/auth/login" -H 'Content-Type: application/json' \
+#   -d "{\"username\":\"$user\",\"password\":\"warm-flow-demo\"}"
 while IFS= read -r task_id; do
   curl -sS -X POST "$base/api/tasks/pass" \
-    -H "X-User-Name: $user" \
+    -b cookie.txt \
     -H 'Content-Type: application/json' \
-    -d "{\"user\":\"$user\",\"taskId\":$task_id}"
+    -d "{\"taskId\":$task_id}"
 done < <(docker exec mysql mysql -uroot -proot warm-flow -Nse \
   "SELECT id FROM flow_task WHERE instance_id=<instanceId> AND del_flag='0'")
 ```
 
-普通办理请求让 `X-User-Name` 与 body `user` 保持一致；权限来自请求头上下文，但部分命令的 OperatorContext/历史操作者取 body `user`。不一致用例须分别断言授权与审计身份，不预设必然拒绝；缺请求头时权限为空，应验证服务端拒绝。
+身份只来自登录 Cookie；`X-User-Name` 和 body `user` 都不能提权。负例分别验证：未登录 401、用他人 `X-User-Name` 不改变身份、body `user` 不改变授权与历史审计操作者。
 
-## 组签（GRP-01 ~ GRP-15）
+## 组签（GRP-01 ~ GRP-16）
 
 前置：引擎与 Demo 均为当前工作树版本（`mvn clean install -DskipTests` 后启动 Demo），定义一个临时组签流程（开始 → 组签 → 结束）并发布；组签节点 `permission_flag` 为空、`node_ratio='0'`、`cooperate_type='group'`，配置写 `node_config.groupSign`。每组使用唯一业务号，不清理共享数据。
 
@@ -338,8 +360,40 @@ done < <(docker exec mysql mysql -uroot -proot warm-flow -Nse \
 | GRP-13 | 定义往返 | 设计器保存回显、导出再导入、复制、CLASSICS↔MIMIC、嵌入模式均保留 `groupSign`；旧顶层 `groups`/`groupOrder` 仍作为自定义 KV | 定义 JSON 中 `cooperate_type`、`node_config.groupSign` 与旧 KV |
 | GRP-14 | 重启 / 重置目标 | 组签节点不出现在目标列表，直调被拒绝 | 实例、任务、历史、用户、等待不变 |
 | GRP-15 | 旧模式回归与并发 | 或签 / 会签 / 票签 / 顺序会签行为不变；同一组并发通过或并发转办最多一次生效 | 旧定义待办、历史不变；并发最终只有一组完成/一次替换 |
+| GRP-16 | 组签与驳回直返组合 | 驳回节点或返回节点为组签时，整节点办结后才推进；直返重新进入组签生成全新成员与 `seq_no` | 旧一轮 `flow_user` 不复活；`_wf_reject_return` 按 RR 规则清理 |
 
 GRP-12 的失败断言必须区分「失败跳自身零写入」与「宿主事务覆盖整条调用」：core 无法回滚前序成功跳与宿主服务处理器外部副作用，跨跳/跨外部系统原子性由宿主事务承担。
+
+组签转办允许一人或多人接手同一组槽位；Demo 普通节点门面只接受单目标，核心 `WorkflowService.transfer` 的普通节点多目标能力由 Core 特征测试覆盖。
+
+## 驳回直返（RR）
+
+规则只读驳回发起节点 `node_config.reject.afterApproval`；运行关联只存实例变量 `_wf_reject_return`。最小拓扑：开始 → 申请人(admin) → 会签 → 组签 → 驳回发起(approver3，`anyNodeSkip=submit`) → 结束，驳回发起 → 申请人一条 `REJECT` 边。
+
+| Case | 场景 | 关键断言 | 数据核对 |
+| --- | --- | --- | --- |
+| RR-01 | 配置识别 | 缺失/`null`/`REPLAY` 重走；`RETURN_TO_REJECTOR` 开启；未知非空值报错；`schemaVersion` 不参与识别 | `flow_node.node_config`；非法配置无运行写入 |
+| RR-02 | 普通线性区间 | D 驳回 A → A 通过直接生成 D 新待办；B/C 无新任务/历史 | 新旧 `flow_task`、`flow_his_task` 对比 |
+| RR-03 | 会签/票签/顺签/组签区间 | 协作节点被跳过且保留首次意见；不重建任务/历史；新 D 为全新办理人轮次 | 各节点历史条数、`flow_user` 新任务行 |
+| RR-04 | 运行关联 | 驳回后 `_wf_reject_return` 绑定返回任务/原驳回任务；结束、终止、重启后清空 | `flow_instance.variable`；`def_json` 与节点无关联 |
+| RR-05 | 并行回退 | 并行/包容区间或仍有并行待办时整体退回重走，不写关联 | 无 `_wf_reject_return`；A 提交后重新分叉 |
+| RR-06 | 不支持区间 | 串行网关、服务任务、事件、附着边界事件、嵌套直返拒绝 | 五类快照前后一致，无部分写入 |
+| RR-07 | 持有关联的限制动作 | 再次驳回、任意跳转、撤回拒绝；委派短路不消费关联；转办保持关联 | 负例五类快照一致；委派/转办特殊断言 |
+| RR-08 | 事务与锁 | 缺事务管理器或隔离级别不兼容拒绝；同实例行锁后当前读；任务/用户/历史/实例同事务 | 失败无部分写入；并发/锁行为按宿主事务验证 |
+
+RR-03 必须在直返完成后重新查询活动任务，不能只看实例最终状态；RR-05 的「整体退回重走」不能误判为直返成功。
+
+## 登录鉴权（AUTH）
+
+| Case | 场景 | 关键断言 | 数据/接口核对 |
+| --- | --- | --- | --- |
+| AUTH-01 | 登录成功/失败 | 正确密码签发 Cookie；缺失/空白用户名或密码 400 且不签发；错误密码不签发（实际 HTTP/业务码按当前实现记录） | Set-Cookie、`/api/auth/me`、token 服务调用 |
+| AUTH-02 | 匿名访问 | `/api/**` 与 `/warm-flow/**` 返回 HTTP 401；登录页和设计器静态资源可用 | 响应状态与 body |
+| AUTH-03 | 设计器鉴权自动装配 | 宿主不扫描 SDK 包时 Controller 与 `DesignerAuthExceptionHandler` 都注册；`warm-flow.ui=false` 时都不注册 | 配置类测试或真实 MVC 请求 |
+| AUTH-04 | 身份来源 | 只信签名 Cookie；`X-User-Name`、body `user`、URL token 不提权；退出后旧 Cookie 失效 | 待办隔离、历史 approver、负例无写入 |
+| AUTH-05 | 会话属性 | Cookie `HttpOnly`、`SameSite=Lax`、有效期符合配置；前端不落 token | Set-Cookie 属性、localStorage/URL |
+
+AUTH-01 的错误密码在 Demo 当前可能返回 HTTP 200 + 业务 `code=401`；这是既有响应约定，报告时记录实际值，不要据此判定参数校验失败。
 
 ## 测试报告模板
 

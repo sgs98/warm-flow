@@ -134,7 +134,7 @@ public class ListenerUtil {
                             Listener listener = (Listener) FrameInvoker.getBean(clazz);
                             if (ObjectUtil.isNotNull(listener)) {
                                 Map<String, Object> variable = listenerVariable.getVariable();
-                                if (MapUtil.isEmpty(variable)) {
+                                if (variable == null) {
                                     variable = new HashMap<>();
                                 } else {
                                     variable.remove(FlowCons.WARM_LISTENER_PARAM);

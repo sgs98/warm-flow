@@ -23,6 +23,10 @@ import org.dromara.warm.flow.core.enums.TaskStatus;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.service.TaskService;
 import org.dromara.warm.flow.core.service.DefService;
+import org.dromara.warm.flow.core.service.event.EventPublisher;
+import org.dromara.warm.flow.core.spi.GlobalListener;
+import org.dromara.warm.flow.core.spi.Listener;
+import org.dromara.warm.flow.core.spi.ListenerVariable;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
 import org.dromara.warm.flow.core.test.TestFlows;
 import org.dromara.warm.flow.core.test.listener.RecordingServiceTaskHandler;
@@ -751,6 +755,207 @@ class EventRuntimeCharacteristicTest {
                 && nodeCode.equals(his.getNodeCode()))
             .reduce((a, b) -> b)
             .orElseThrow(() -> new AssertionError("缺少历史任务 " + nodeCode));
+    }
+
+    @Test
+    void catchStartListenerVariablesChooseGatewayExit() {
+        for (EventType type : List.of(EventType.MESSAGE_CATCH, EventType.TIMER_CATCH)) {
+            harness.register(GlobalListener.class,
+                org.dromara.warm.flow.core.test.listener.RecordingGlobalListener.instance());
+            FlowEngine.initGlobalListener();
+            Definition definition = eventGatewayFlow("listener-" + type.getValue(), type);
+            WorkflowContext context = TestFlows.context(TestFlows.HANDLER);
+            context.setVariables(new java.util.HashMap<>(Map.of("route", "old")));
+            Instance instance = FlowEngine.insService().start("biz-" + definition.getFlowCode()
+                , definition.getFlowCode(), context);
+            TestFlows.pass(TestFlows.currentTask(instance.getId()).getId(), TestFlows.HANDLER);
+            writeRouteOnEventStart();
+
+            triggerWait(singleWaiting(instance.getId()));
+
+            assertEquals("new", TestFlows.currentTask(instance.getId()).getNodeCode());
+        }
+    }
+
+    @Test
+    void boundaryStartListenerVariablesChooseGatewayExit() {
+        for (EventType type : List.of(EventType.MESSAGE_BOUNDARY, EventType.TIMER_BOUNDARY)) {
+            harness.register(GlobalListener.class,
+                org.dromara.warm.flow.core.test.listener.RecordingGlobalListener.instance());
+            FlowEngine.initGlobalListener();
+            Definition definition = eventGatewayFlow("listener-" + type.getValue(), type);
+            WorkflowContext context = TestFlows.context(TestFlows.HANDLER);
+            context.setVariables(new java.util.HashMap<>(Map.of("route", "old")));
+            Instance instance = FlowEngine.insService().start("biz-" + definition.getFlowCode()
+                , definition.getFlowCode(), context);
+            writeRouteOnEventStart();
+
+            triggerWait(singleWaiting(instance.getId()));
+
+            assertEquals("new", TestFlows.currentTask(instance.getId()).getNodeCode());
+            assertEquals(TaskStatus.INVALID.getKey(), hisOf(instance.getId(), "apply").getFlowStatus());
+        }
+    }
+
+    @Test
+    void catchClassPathStartListenerCreatesFirstRoutingVariable() {
+        for (EventType type : List.of(EventType.MESSAGE_CATCH, EventType.TIMER_CATCH)) {
+            Definition definition = eventGatewayFlow("first-variable-" + type.getValue(), type);
+            FirstRouteListener listener = configureFirstRouteListener(definition);
+            Instance instance = FlowEngine.insService().start("biz-" + definition.getFlowCode()
+                , definition.getFlowCode(), TestFlows.context(TestFlows.HANDLER));
+            TestFlows.pass(TestFlows.currentTask(instance.getId()).getId(), TestFlows.HANDLER);
+            assertTrue(harness.insDao.raw(instance.getId()).getVariableMap().isEmpty());
+            listener.enabled = true;
+
+            triggerWait(singleWaiting(instance.getId()));
+
+            assertEquals("new", TestFlows.currentTask(instance.getId()).getNodeCode());
+            assertEquals("new", harness.insDao.raw(instance.getId()).getVariableMap().get("route"));
+        }
+    }
+
+    @Test
+    void boundaryClassPathStartListenerCreatesFirstRoutingVariable() {
+        for (EventType type : List.of(EventType.MESSAGE_BOUNDARY, EventType.TIMER_BOUNDARY)) {
+            Definition definition = eventGatewayFlow("first-variable-" + type.getValue(), type);
+            FirstRouteListener listener = configureFirstRouteListener(definition);
+            Instance instance = FlowEngine.insService().start("biz-" + definition.getFlowCode()
+                , definition.getFlowCode(), TestFlows.context(TestFlows.HANDLER));
+            assertTrue(harness.insDao.raw(instance.getId()).getVariableMap().isEmpty());
+            listener.enabled = true;
+
+            triggerWait(singleWaiting(instance.getId()));
+
+            assertEquals("new", TestFlows.currentTask(instance.getId()).getNodeCode());
+            assertEquals("new", harness.insDao.raw(instance.getId()).getVariableMap().get("route"));
+            assertEquals(TaskStatus.INVALID.getKey(), hisOf(instance.getId(), "apply").getFlowStatus());
+        }
+    }
+
+    private FirstRouteListener configureFirstRouteListener(Definition definition) {
+        FirstRouteListener listener = new FirstRouteListener();
+        harness.register(FirstRouteListener.class, listener);
+        Node event = FlowEngine.nodeService().getByDefIdAndNodeCode(definition.getId(), "event");
+        event.setListenerType(Listener.LISTENER_START).setListenerPath(FirstRouteListener.class.getName());
+        FlowEngine.nodeService().updateById(event);
+        return listener;
+    }
+
+    public static class FirstRouteListener implements Listener {
+        private boolean enabled;
+
+        @Override
+        public void notify(ListenerVariable variable) {
+            if (enabled) {
+                assertTrue(variable.getVariable().isEmpty());
+                variable.getVariable().put("route", "new");
+            }
+        }
+    }
+
+    @Test
+    void catchThroughThrowPreservesCompletedPathAndNextWait() {
+        Definition definition = recursiveThrowFlow("catch-throw-metadata", false);
+        Instance instance = FlowEngine.insService().start("biz-catch-throw-metadata"
+            , definition.getFlowCode(), TestFlows.context(TestFlows.HANDLER));
+        TestFlows.pass(TestFlows.currentTask(instance.getId()).getId(), TestFlows.HANDLER);
+
+        triggerWait(singleWaiting(instance.getId()));
+
+        Map<String, Integer> chart = chartStatus(instance.getId());
+        assertEquals(ChartStatus.DONE.getKey(), chart.get("event"));
+        assertEquals(ChartStatus.DONE.getKey(), chart.get("throw"));
+        assertEquals(ChartStatus.TO_DO.getKey(), chart.get("next"));
+        assertEquals("next", singleWaiting(instance.getId()).getNodeCode());
+    }
+
+    @Test
+    void boundaryThroughThrowPreservesInterruptedAndSuccessorMetadata() {
+        Definition definition = recursiveThrowFlow("boundary-throw-metadata", true);
+        Instance instance = FlowEngine.insService().start("biz-boundary-throw-metadata"
+            , definition.getFlowCode(), TestFlows.context(TestFlows.HANDLER));
+
+        triggerWait(singleWaiting(instance.getId()));
+
+        Map<String, Integer> chart = chartStatus(instance.getId());
+        assertEquals(ChartStatus.DONE.getKey(), chart.get("apply"));
+        assertEquals(ChartStatus.DONE.getKey(), chart.get("event"));
+        assertEquals(ChartStatus.DONE.getKey(), chart.get("throw"));
+        assertEquals(ChartStatus.TO_DO.getKey(), chart.get("next"));
+        assertEquals("next", singleWaiting(instance.getId()).getNodeCode());
+    }
+
+    private void triggerWait(EventWait wait) {
+        if (EventType.TIMER_CATCH.getValue().equals(wait.getEventType())
+            || EventType.TIMER_BOUNDARY.getValue().equals(wait.getEventType())) {
+            claimAndProcess(wait);
+        } else {
+            FlowEngine.insService().triggerMessage(wait.getInstanceId(), wait.getEventName()
+                , Map.of(), TestFlows.context(TestFlows.HANDLER));
+        }
+    }
+
+    private void writeRouteOnEventStart() {
+        harness.register(GlobalListener.class, new GlobalListener() {
+            @Override
+            public void start(ListenerVariable variable) {
+                if ("event".equals(variable.getNode().getNodeCode())) {
+                    assertEquals("old", variable.getVariable().get("route"));
+                    variable.getVariable().put("route", "new");
+                }
+            }
+        });
+        FlowEngine.initGlobalListener();
+    }
+
+    private Definition eventGatewayFlow(String code, EventType type) {
+        Definition definition = def(code);
+        node(definition, "start", NodeType.START.getKey(), null, null, null, null, null);
+        node(definition, "apply", NodeType.BETWEEN.getKey(), TestFlows.HANDLER, null, null, null, null);
+        boolean boundary = EventType.isBoundary(type.getValue());
+        node(definition, "event", NodeType.BETWEEN.getKey(), null, type.getValue(), "continue"
+            , boundary ? "apply" : null
+            , type == EventType.TIMER_CATCH || type == EventType.TIMER_BOUNDARY ? TIMER_CONFIG : null);
+        node(definition, "gateway", NodeType.SERIAL.getKey(), null, null, null, null, null);
+        node(definition, "new", NodeType.BETWEEN.getKey(), TestFlows.HANDLER, null, null, null, null);
+        node(definition, "old", NodeType.BETWEEN.getKey(), TestFlows.HANDLER, null, null, null, null);
+        node(definition, "end", NodeType.END.getKey(), null, null, null, null, null);
+        skip(definition, "start", NodeType.START.getKey(), "apply", NodeType.BETWEEN.getKey());
+        skip(definition, "apply", NodeType.BETWEEN.getKey(), boundary ? "end" : "event"
+            , boundary ? NodeType.END.getKey() : NodeType.BETWEEN.getKey());
+        skip(definition, "event", NodeType.BETWEEN.getKey(), "gateway", NodeType.SERIAL.getKey());
+        FlowEngine.skipService().save(FlowEngine.newSkip().setDefinitionId(definition.getId())
+            .setNowNodeCode("gateway").setNowNodeType(NodeType.SERIAL.getKey())
+            .setNextNodeCode("new").setNextNodeType(NodeType.BETWEEN.getKey())
+            .setSkipName("gateway_new").setSkipType(SkipType.PASS.getKey())
+            .setSkipCondition("eq@@route|new"));
+        skip(definition, "gateway", NodeType.SERIAL.getKey(), "old", NodeType.BETWEEN.getKey());
+        skip(definition, "new", NodeType.BETWEEN.getKey(), "end", NodeType.END.getKey());
+        skip(definition, "old", NodeType.BETWEEN.getKey(), "end", NodeType.END.getKey());
+        return definition;
+    }
+
+    private Definition recursiveThrowFlow(String code, boolean boundary) {
+        harness.register(EventPublisher.class, message -> { });
+        Definition definition = def(code);
+        node(definition, "start", NodeType.START.getKey(), null, null, null, null, null);
+        node(definition, "apply", NodeType.BETWEEN.getKey(), TestFlows.HANDLER, null, null, null, null);
+        node(definition, "event", NodeType.BETWEEN.getKey(), null
+            , boundary ? EventType.MESSAGE_BOUNDARY.getValue() : EventType.MESSAGE_CATCH.getValue()
+            , "continue", boundary ? "apply" : null, null);
+        node(definition, "throw", NodeType.BETWEEN.getKey(), null, EventType.MESSAGE_THROW.getValue()
+            , "published", null, null);
+        node(definition, "next", NodeType.BETWEEN.getKey(), null, EventType.MESSAGE_CATCH.getValue()
+            , "next", null, null);
+        node(definition, "end", NodeType.END.getKey(), null, null, null, null, null);
+        skip(definition, "start", NodeType.START.getKey(), "apply", NodeType.BETWEEN.getKey());
+        skip(definition, "apply", NodeType.BETWEEN.getKey(), boundary ? "end" : "event"
+            , boundary ? NodeType.END.getKey() : NodeType.BETWEEN.getKey());
+        skip(definition, "event", NodeType.BETWEEN.getKey(), "throw", NodeType.BETWEEN.getKey());
+        skip(definition, "throw", NodeType.BETWEEN.getKey(), "next", NodeType.BETWEEN.getKey());
+        skip(definition, "next", NodeType.BETWEEN.getKey(), "end", NodeType.END.getKey());
+        return definition;
     }
 
     @Test

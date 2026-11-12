@@ -57,10 +57,11 @@ final class EventFlowAdvancer {
         if (interruptedNode != null) {
             pathWayData.getPathWayNodes().add(interruptedNode);
         }
-        String defJson = FlowEngine.chartService().skipMetadata(pathWayData);
+        // 后续抛出/结束事件沿本次第一跳快照递归合并，最终保留整条路径的图元状态。
+        instance.setDefJson(FlowEngine.chartService().skipMetadata(pathWayData));
         ArrivalPlan arrivalPlan = EventArrivalDispatcher.prepare(execution, nextNodes, SkipType.PASS.getKey());
         EventArrivalDispatcher.validateBoundaries(execution, arrivalPlan.tasks());
-        return new PreparedEventArrival(nextNodes, arrivalPlan, defJson);
+        return new PreparedEventArrival(nextNodes, arrivalPlan, instance.getDefJson());
     }
 
     static void advanceFromEvent(FlowExecution execution, Node eventNode, Node interruptedNode) {

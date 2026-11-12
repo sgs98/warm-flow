@@ -61,7 +61,9 @@ public class UserServiceImpl extends WarmServiceImpl<FlowUserDao<User>, User> im
         ArrivalPlan.prepareGroupUsers(addTasks);
         List<User> taskUserList = new ArrayList<>();
         if (CollUtil.isNotEmpty(addTasks)) {
-            StreamUtils.toList(addTasks, task -> taskUserList.addAll(taskAddUser(task)));
+            for (Task task : addTasks) {
+                taskUserList.addAll(buildTaskUsers(task));
+            }
         }
         return taskUserList;
     }
@@ -74,11 +76,11 @@ public class UserServiceImpl extends WarmServiceImpl<FlowUserDao<User>, User> im
      */
     @Override
     public List<User> taskAddUser(Task task) {
-        // 批量入口已解析过组签办理人；先返回快照，避免为每个普通任务重复加载定义节点
-        if (CollUtil.isNotEmpty(task.getUserList())) {
-            return task.getUserList();
-        }
         ArrivalPlan.prepareGroupUsers(Collections.singletonList(task));
+        return buildTaskUsers(task);
+    }
+
+    private List<User> buildTaskUsers(Task task) {
         if (CollUtil.isNotEmpty(task.getUserList())) {
             return task.getUserList();
         }

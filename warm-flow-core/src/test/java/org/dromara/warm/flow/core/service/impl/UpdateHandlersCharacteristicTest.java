@@ -98,6 +98,17 @@ class UpdateHandlersCharacteristicTest {
     }
 
     @Test
+    void ordinaryTransferStillAcceptsMultipleTargets() {
+        Instance instance = TestFlows.start("uh-multiple", "biz-u-multiple");
+        Task task = TestFlows.currentTask(instance.getId());
+
+        FlowEngine.taskService().updateHandlers(task.getId(), TestFlows.context(TestFlows.HANDLER)
+            , List.of("lisi", "wangwu"), List.of(TestFlows.HANDLER), CooperateType.TRANSFER.getKey());
+
+        assertEquals(List.of("lisi", "wangwu"), FlowEngine.userService().getPermission(task.getId()));
+    }
+
+    @Test
     void transfer_locksFullListUserQueryBaseline() {
         Instance instance = TestFlows.start("uh4", "biz-u4");
         Task task = TestFlows.currentTask(instance.getId());

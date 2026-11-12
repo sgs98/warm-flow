@@ -66,7 +66,7 @@ final class EventArrivalDispatcher {
         , boolean replacingWaits) {
         ArrivalPlan plan = new ArrivalPlan();
         prepare(execution, nodes, skipType, 0, plan, replacingWaits);
-        plan.resolveGroupUsers();
+        plan.resolveGroupUsers(execution.loadCombineNoDef().getAllNodes());
         plan.validateCommitActions();
         return plan;
     }
