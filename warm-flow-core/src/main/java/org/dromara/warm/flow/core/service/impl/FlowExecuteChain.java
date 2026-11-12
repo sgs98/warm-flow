@@ -29,6 +29,8 @@ import org.dromara.warm.flow.core.enums.UserType;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.service.task.RejectConfig;
 import org.dromara.warm.flow.core.utils.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +49,8 @@ import java.util.Optional;
  * @author warm
  */
 final class FlowExecuteChain {
+
+    private static final Logger log = LoggerFactory.getLogger(FlowExecuteChain.class);
 
     /**
      * 任务服务，复用既有任务持久化与校验能力。
@@ -163,20 +167,28 @@ final class FlowExecuteChain {
         if (!RejectConfig.requiresAtomicExecution(snapshot)) {
             return Optional.empty();
         }
-        boolean pending = RejectReturnRuntime.hasPending(snapshot);
+        boolean pending = RejectReturnRuntime.hasPending(execution.instance);
         boolean directReject = SkipType.isReject(skipType) && RejectConfig.parse(
             RejectReturnRuntime.configForNode(snapshot, execution.nowNode.getNodeCode())).isReturnToRejector();
         if (!pending && !directReject) {
             return Optional.empty();
         }
         List<Task> active = taskService.getByInsId(execution.instance.getId());
-        AssertUtil.isTrue(active.size() != 1 || !Objects.equals(active.get(0).getId(), execution.task.getId()),
-            "驳回直返仅支持单活动人工任务");
+        boolean parallel = active.stream()
+            .anyMatch(t -> !Objects.equals(t.getNodeCode(), execution.nowNode.getNodeCode()));
+        if (pending) {
+            AssertUtil.isTrue(parallel, "驳回直返运行关联与当前待办不匹配");
+        } else if (parallel) {
+            // 并行分支并存：不记录直返关联，交由既有跨分叉一票否决整体退回，A 提交后正常重走
+            log.info("并行分支并存，驳回直返退化为整体退回重走: instanceId={}, node={}",
+                execution.instance.getId(), execution.nowNode.getNodeCode());
+            return Optional.empty();
+        }
         AssertUtil.isTrue(CollUtil.isNotEmpty(FlowEngine.eventWaitService()
             .getActiveByInstanceId(execution.instance.getId())), "驳回直返不支持活动事件等待");
         FlowCombine combine = execution.loadCombineNoDef();
         if (pending) {
-            returnIntent = RejectReturnRuntime.find(snapshot, execution.nowNode.getNodeCode(), execution.task.getId())
+            returnIntent = RejectReturnRuntime.find(execution.instance, execution.nowNode.getNodeCode(), execution.task.getId())
                 .orElseThrow(() -> new FlowException("驳回直返运行关联与当前待办不匹配"));
             boolean delegatedOpinion = !execution.intent.isIgnore() && execution.task.getUserList().stream()
                 .anyMatch(user -> UserType.DEPUTE.getKey().equals(user.getType())
@@ -187,6 +199,8 @@ final class FlowExecuteChain {
             String source = returnIntent.returnNodeCode();
             AssertUtil.isTrue(!RejectConfig.parse(RejectReturnRuntime.configForNode(snapshot, source)).isReturnToRejector(),
                 "驳回直返来源规则与实例快照不匹配");
+            AssertUtil.isTrue(FlowConfigUtil.crossesParallelGateway(combine, execution.nowNode.getNodeCode(), source),
+                "驳回直返运行关联与并行区间不匹配");
             FlowConfigUtil.validateRejectReturnPath(combine, source, execution.nowNode.getNodeCode());
             boolean sourceHistory = FlowEngine.hisTaskService().getByInsId(execution.instance.getId()).stream()
                 .anyMatch(h -> Objects.equals(h.getTaskId(), returnIntent.sourceTaskId())
@@ -197,10 +211,13 @@ final class FlowExecuteChain {
         } else {
             Node target = FlowEngine.nodeService().getNextNode(execution.nowNode, execution.intent.getTargetNodeCode(),
                 skipType, new PathWayData(), combine);
+            if (FlowConfigUtil.crossesParallelGateway(combine, target.getNodeCode(), execution.nowNode.getNodeCode())) {
+                log.info("返回区间包含并行网关，驳回直返退化为整体退回重走: instanceId={}, node={}",
+                    execution.instance.getId(), execution.nowNode.getNodeCode());
+                return Optional.empty();
+            }
             rejectTargetCode = target.getNodeCode();
             FlowConfigUtil.validateRejectReturnPath(combine, execution.nowNode.getNodeCode(), rejectTargetCode);
-            AssertUtil.isTrue(RejectConfig.configMap(RejectReturnRuntime.configForNode(snapshot, rejectTargetCode))
-                .containsKey(RejectConfig.RUNTIME_KEY), "驳回直返运行段同名属性冲突，请先迁移旧业务属性");
         }
         return Optional.empty();
     }
@@ -306,13 +323,12 @@ final class FlowExecuteChain {
             Task target = addTasks.get(0);
             if (returnIntent != null) {
                 AssertUtil.isTrue(!returnIntent.returnNodeCode().equals(target.getNodeCode()), "驳回直返目标发生变化");
-                execution.instance.setDefJson(RejectReturnRuntime.remove(execution.instance.getDefJson(),
-                    execution.nowNode.getNodeCode(), execution.task.getId()));
+                RejectReturnRuntime.remove(execution.instance, execution.nowNode.getNodeCode(), execution.task.getId());
                 directReturnTaskId = target.getId();
             } else {
                 AssertUtil.isTrue(!rejectTargetCode.equals(target.getNodeCode()), "驳回目标在预校验后发生变化");
-                execution.instance.setDefJson(RejectReturnRuntime.put(execution.instance.getDefJson(),
-                    rejectTargetCode, target.getId(), execution.task.getId(), execution.nowNode.getNodeCode()));
+                RejectReturnRuntime.put(execution.instance, rejectTargetCode, target.getId(), execution.task.getId(),
+                    execution.nowNode.getNodeCode());
             }
         }
 

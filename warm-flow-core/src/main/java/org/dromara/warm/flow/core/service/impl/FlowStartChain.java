@@ -25,6 +25,7 @@ import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.ExpressionUtil;
 import org.dromara.warm.flow.core.utils.ListenerUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
+import org.dromara.warm.flow.core.utils.VariableUtil;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.Date;
@@ -235,7 +236,7 @@ final class FlowStartChain {
             .setFlowStatus(StringUtils.emptyDefault(context.getFlowStatus()
                 , FlowStatusMachine.mapper().instanceStatus(FlowStatus.DRAFT)))
             .setActivityStatus(ActivityStatus.ACTIVITY.getKey())
-            .setVariable(FlowEngine.jsonConvert.objToStr(context.getVariables()))
+            .setVariable(FlowEngine.jsonConvert.objToStr(VariableUtil.filterReserved(context.getVariables())))
             .setCreateTime(now)
             .setUpdateTime(now)
             .setCreateBy(context.getHandler())

@@ -34,7 +34,7 @@
         <template #default="{ row }">{{ row.activityStatus === 1 ? '激活' : '挂起' }}</template>
       </el-table-column>
       <el-table-column prop="updateTime" label="更新时间" width="170" />
-      <el-table-column label="操作" width="380" fixed="right">
+      <el-table-column label="操作" :width="isNarrow ? 360 : 380" :fixed="isNarrow ? false : 'right'">
         <template #default="{ row }">
           <el-button link type="primary" @click="doPublish(row)" v-if="row.isPublish !== 1">发布</el-button>
           <el-button link type="primary" @click="doCopy(row)">复制</el-button>
@@ -61,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -81,6 +81,12 @@ const pageSize = ref(10)
 const keyword = ref('')
 const loading = ref(false)
 const importing = ref(false)
+// 窄屏取消操作列固定，避免 380px 固定列覆盖整张表；改为横向滚动查看全部列
+const narrowQuery = window.matchMedia('(max-width: 768px)')
+const isNarrow = ref(narrowQuery.matches)
+const syncNarrow = () => { isNarrow.value = narrowQuery.matches }
+narrowQuery.addEventListener('change', syncNarrow)
+onBeforeUnmount(() => narrowQuery.removeEventListener('change', syncNarrow))
 const importInput = ref<HTMLInputElement | null>(null)
 const router = useRouter()
 

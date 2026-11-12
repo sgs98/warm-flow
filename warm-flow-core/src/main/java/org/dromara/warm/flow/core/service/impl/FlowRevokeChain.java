@@ -109,7 +109,7 @@ final class FlowRevokeChain {
      * @return 空表示继续执行后续步骤
      */
     private Optional<Instance> snapshotAndStart(FlowExecution execution) {
-        AssertUtil.isTrue(RejectReturnRuntime.hasPending(execution.instance.getDefJson()),
+        AssertUtil.isTrue(RejectReturnRuntime.hasPending(execution.instance),
             "持有驳回直返关联的实例不支持撤回");
         taskList = taskService.getByInsId(instanceId);
         // 撤回前记录「是否存在等待事件」：等待事件实例没有普通待办也允许撤回。

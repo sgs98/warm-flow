@@ -37,7 +37,7 @@ class RejectReturnGraphValidationTest {
         }
         b = node("B");
         d = node("D");
-        d.setNodeConfig("{\"reject\":{\"schemaVersion\":1,\"afterApproval\":\"RETURN_TO_REJECTOR\"}}");
+        d.setNodeConfig("{\"reject\":{\"afterApproval\":\"RETURN_TO_REJECTOR\"}}");
         List<String> codes = List.of("start", "A", "B", "C", "D", "end");
         for (int i = 0; i < codes.size() - 1; i++) {
             edge(codes.get(i), codes.get(i + 1), SkipType.PASS.getKey());
@@ -56,8 +56,10 @@ class RejectReturnGraphValidationTest {
     }
 
     @Test
-    void gatewayServiceEventAndBoundaryInReturnIntervalRejected() {
-        for (int type : List.of(3, 4, 5, 6)) {
+    void serialGatewayServiceEventAndBoundaryInReturnIntervalRejected() {
+        // 并行 / 包容网关区间按整体退回重走处理（见 RejectReturnCharacteristicTest 的并行用例）；
+        // 串行网关、服务任务、事件与边界事件仍拒绝。
+        for (int type : List.of(3, 6)) {
             b.setNodeType(type);
             rejected();
         }
@@ -73,17 +75,15 @@ class RejectReturnGraphValidationTest {
     }
 
     @Test
-    void cooperativeNodesRejected() {
+    void cooperativeNodesAllowedInReturnInterval() {
         for (String ratio : List.of("100", "50", "passCount:2", "0sequence")) {
             b.setNodeRatio(ratio);
-            rejected();
+            assertDoesNotThrow(() -> FlowConfigUtil.validateGraph(graph), ratio);
         }
         b.setNodeRatio("0").setCooperateType("sequence");
-        rejected();
+        assertDoesNotThrow(() -> FlowConfigUtil.validateGraph(graph));
         b.setCooperateType("group");
-        rejected();
-        b.setCooperateType(null).setNodeConfig("{\"groupSign\":{\"enabled\":true}}");
-        rejected();
+        assertDoesNotThrow(() -> FlowConfigUtil.validateGraph(graph));
     }
 
     @Test
@@ -99,14 +99,6 @@ class RejectReturnGraphValidationTest {
         rejected();
         edge("D", "A", SkipType.REJECT.getKey());
         b.getSkipList().get(0).setNextNodeCode("A");
-        rejected();
-    }
-
-    @Test
-    void runtimeSegmentInEnabledDesignRejected() {
-        node("A").setNodeConfig("{\"__rejectReturnRuntime\":{\"version\":1,\"byTaskId\":{}}}");
-        rejected();
-        node("A").setNodeConfig("{\"__rejectReturnRuntime\":\"legacy\"}");
         rejected();
     }
 

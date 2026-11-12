@@ -17,7 +17,10 @@ import java.util.Map;
  */
 @Getter
 public final class RejectConfig {
-    public static final String RUNTIME_KEY = "__rejectReturnRuntime";
+    /**
+     * 驳回直返运行关联在实例流程变量中的引擎保留键；业务变量入口会过滤 {@code _wf_} 前缀。
+     */
+    public static final String FLOW_VARIABLE_KEY = "_wf_reject_return";
     public static final String RETURN_TO_REJECTOR = "RETURN_TO_REJECTOR";
     private final boolean returnToRejector;
 
@@ -28,10 +31,9 @@ public final class RejectConfig {
     public static RejectConfig parse(String nodeConfig) {
         Map<String, Object> config = configMap(nodeConfig);
         Object value = config.get("reject");
-        if (!(value instanceof Map<?, ?> section) || !section.containsKey("schemaVersion")) {
+        if (!(value instanceof Map<?, ?> section)) {
             return new RejectConfig(false);
         }
-        requireVersionOne(section.get("schemaVersion"), "reject.schemaVersion");
         Object mode = section.get("afterApproval");
         if (mode == null || "REPLAY".equals(mode)) {
             return new RejectConfig(false);
@@ -46,8 +48,41 @@ public final class RejectConfig {
      * starter 在缺少事务管理器时的写前门禁，不在 core 猜测宿主事务。
      */
     public static boolean requiresAtomicExecution(String defJson) {
-        if (StringUtils.isEmpty(defJson)) {
+        DefJson definition = definition(defJson);
+        if (definition == null) {
             return false;
+        }
+        for (NodeJson node : definition.getNodeList()) {
+            if (parse(node.getNodeConfig()).isReturnToRejector()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 读取实例快照中指定节点的 nodeConfig。
+     *
+     * @param defJson  实例定义快照
+     * @param nodeCode 节点编码
+     * @return 节点 nodeConfig；节点不存在时返回 {@code null}
+     */
+    public static String configForNode(String defJson, String nodeCode) {
+        DefJson definition = definition(defJson);
+        if (definition == null || definition.getNodeList() == null || nodeCode == null) {
+            return null;
+        }
+        for (NodeJson node : definition.getNodeList()) {
+            if (nodeCode.equals(node.getNodeCode())) {
+                return node.getNodeConfig();
+            }
+        }
+        return null;
+    }
+
+    private static DefJson definition(String defJson) {
+        if (StringUtils.isEmpty(defJson)) {
+            return null;
         }
         DefJson definition;
         try {
@@ -58,19 +93,7 @@ public final class RejectConfig {
         if (definition == null || definition.getNodeList() == null) {
             throw new FlowException("驳回直返实例快照缺少节点");
         }
-        boolean required = false;
-        for (NodeJson node : definition.getNodeList()) {
-            required |= parse(node.getNodeConfig()).isReturnToRejector();
-            Object runtime = configMap(node.getNodeConfig()).get(RUNTIME_KEY);
-            if (runtime instanceof Map<?, ?> section && section.containsKey("version")) {
-                requireVersionOne(section.get("version"), RUNTIME_KEY + ".version");
-                if (!(section.get("byTaskId") instanceof Map<?, ?> tasks)) {
-                    throw new FlowException("驳回直返运行段 byTaskId 必须为对象");
-                }
-                required |= !tasks.isEmpty();
-            }
-        }
-        return required;
+        return definition;
     }
 
     /**
@@ -160,16 +183,4 @@ public final class RejectConfig {
     /**
      * JSON 实现可能返回 Integer / Long / Double / BigDecimal，协议判断数值而非 Java 类型。
      */
-    public static void requireVersionOne(Object version, String field) {
-        if (version instanceof Number) {
-            try {
-                if (new BigDecimal(version.toString()).compareTo(BigDecimal.ONE) == 0) {
-                    return;
-                }
-            } catch (NumberFormatException ignored) {
-                // NaN / Infinity 不属于 JSON 整数版本。
-            }
-        }
-        throw new FlowException(field + " 必须为数值整数 1");
-    }
 }

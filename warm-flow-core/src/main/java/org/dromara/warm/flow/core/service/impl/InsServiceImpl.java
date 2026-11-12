@@ -35,6 +35,7 @@ import org.dromara.warm.flow.core.utils.AssertUtil;
 import org.dromara.warm.flow.core.utils.CollUtil;
 import org.dromara.warm.flow.core.utils.MapUtil;
 import org.dromara.warm.flow.core.utils.StringUtils;
+import org.dromara.warm.flow.core.utils.VariableUtil;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -385,7 +386,9 @@ public class InsServiceImpl extends WarmServiceImpl<FlowInstanceDao<Instance>, I
         if (instance != null) {
             Map<String, Object> variableMap = instance.getVariableMap();
             for (String key : keys) {
-                variableMap.remove(key);
+                if (!VariableUtil.isReserved(key)) {
+                    variableMap.remove(key);
+                }
             }
             instance.setVariable(FlowEngine.jsonConvert.objToStr(variableMap));
             FlowEngine.insService().updateById(instance);

@@ -1,8 +1,7 @@
 package org.dromara.warm.flow.core.service.impl;
 
 import org.dromara.warm.flow.core.FlowEngine;
-import org.dromara.warm.flow.core.dto.DefJson;
-import org.dromara.warm.flow.core.dto.NodeJson;
+import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.exception.FlowException;
 import org.dromara.warm.flow.core.service.task.RejectConfig;
 import org.dromara.warm.flow.core.test.FlowTestHarness;
@@ -10,18 +9,16 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** 一次性任务关联只修改实例图，并保留未知 JSON 内容。 @author may */
+/** 一次性运行关联存放在实例流程变量的保留键中，并与业务变量隔离。 @author may */
 class RejectReturnRuntimeTest {
     private FlowTestHarness harness;
     private static final long TASK = 9007199254740993L;
-    private static final String CONFIG = "{\"variables\":{\"items\":[1,null,\"x\"]},"
-        + "\"copy\":{\"enabled\":true},\"business\":null,\"custom\":{\"k\":\"v\"}}";
+    private static final String BUSINESS = "{\"business\":{\"k\":\"v\"},\"amount\":100}";
 
     @BeforeEach
     void setUp() { harness = new FlowTestHarness(); }
@@ -30,81 +27,89 @@ class RejectReturnRuntimeTest {
     void tearDown() { harness.close(); }
 
     @Test
-    void putPreservesConfigAndExactTaskIdentity() {
-        String base = snapshot(CONFIG);
-        String updated = RejectReturnRuntime.put(base, "A", TASK, 100L, "D");
-        var intent = RejectReturnRuntime.find(updated, "A", TASK).orElseThrow();
+    void putPreservesBusinessVariablesAndExactTaskIdentity() {
+        Instance instance = instance(BUSINESS);
+        RejectReturnRuntime.put(instance, "A", TASK, 100L, "D");
+        var intent = RejectReturnRuntime.find(instance, "A", TASK).orElseThrow();
         assertEquals(TASK, intent.taskId());
         assertEquals(100L, intent.sourceTaskId());
         assertEquals("D", intent.returnNodeCode());
-        assertTrue(RejectReturnRuntime.find(updated, "A", TASK - 1).isEmpty());
-        String nodeConfig = RejectReturnRuntime.configForNode(updated, "A");
-        assertTrue(nodeConfig.contains("\"9007199254740993\""));
-        assertTrue(nodeConfig.contains("\"sourceTaskId\":\"100\""));
-        Map<String, Object> node = config(updated, "A");
-        node.remove(RejectConfig.RUNTIME_KEY);
-        assertEquals(FlowEngine.jsonConvert.strToMap(CONFIG), node);
-        assertEquals(config(base, "D"), config(updated, "D"));
-        assertThrows(FlowException.class, () -> RejectReturnRuntime.put(updated, "D", 20L, 21L, "A"));
+        assertTrue(RejectReturnRuntime.find(instance, "A", TASK - 1).isEmpty());
+        assertTrue(RejectReturnRuntime.find(instance, "B", TASK).isEmpty());
+        Map<String, Object> variables = instance.getVariableMap();
+        assertTrue(variables.containsKey(RejectConfig.FLOW_VARIABLE_KEY));
+        assertEquals(FlowEngine.jsonConvert.strToMap(BUSINESS).get("business"), variables.get("business"));
+        assertEquals(100, ((Number) variables.get("amount")).intValue());
+        assertEquals(TASK, Long.parseLong((String) ((Map<?, ?>) variables.get(RejectConfig.FLOW_VARIABLE_KEY)).get("taskId")));
+        assertThrows(FlowException.class, () -> RejectReturnRuntime.put(instance, "D", 20L, 21L, "A"));
     }
 
     @Test
-    void removePreservesOtherSections() {
-        String updated = RejectReturnRuntime.put(snapshot(CONFIG), "A", TASK, 100L, "D");
-        assertTrue(RejectReturnRuntime.hasPending(RejectReturnRuntime.remove(updated, "A", TASK - 1)));
-        String consumed = RejectReturnRuntime.remove(updated, "A", TASK);
-        assertFalse(RejectReturnRuntime.hasPending(consumed));
-        assertEquals(FlowEngine.jsonConvert.strToMap(CONFIG), config(consumed, "A"));
+    void removeOnlyMatchesNodeAndTask() {
+        Instance instance = instance(BUSINESS);
+        RejectReturnRuntime.put(instance, "A", TASK, 100L, "D");
+        RejectReturnRuntime.remove(instance, "A", TASK - 1);
+        assertTrue(RejectReturnRuntime.hasPending(instance));
+        RejectReturnRuntime.remove(instance, "B", TASK);
+        assertTrue(RejectReturnRuntime.hasPending(instance));
+        RejectReturnRuntime.remove(instance, "A", TASK);
+        assertFalse(RejectReturnRuntime.hasPending(instance));
+        assertEquals(FlowEngine.jsonConvert.strToMap(BUSINESS), instance.getVariableMap());
     }
 
     @Test
-    void clearIsIdempotentAndKeepsRules() {
-        String updated = RejectReturnRuntime.put(snapshot(CONFIG), "A", TASK, 100L, "D");
-        String cleared = RejectReturnRuntime.clear(updated);
-        assertFalse(RejectReturnRuntime.hasPending(cleared));
-        assertEquals(cleared, RejectReturnRuntime.clear(cleared));
-        assertTrue(RejectConfig.parse(RejectReturnRuntime.configForNode(cleared, "D")).isReturnToRejector());
-        assertEquals(FlowEngine.jsonConvert.strToMap(CONFIG), config(cleared, "A"));
+    void clearIsIdempotentAndKeepsBusinessVariables() {
+        Instance instance = instance(BUSINESS);
+        RejectReturnRuntime.put(instance, "A", TASK, 100L, "D");
+        RejectReturnRuntime.clear(instance);
+        assertFalse(RejectReturnRuntime.hasPending(instance));
+        RejectReturnRuntime.clear(instance);
+        assertFalse(RejectReturnRuntime.hasPending(instance));
+        assertEquals(FlowEngine.jsonConvert.strToMap(BUSINESS), instance.getVariableMap());
     }
 
     @Test
     void malformedRuntimeFails() {
-        for (String section : List.of("{\"version\":2,\"byTaskId\":{}}",
-            "{\"version\":1,\"byTaskId\":null}", "{\"version\":1,\"byTaskId\":[]}",
-            "{\"version\":1,\"byTaskId\":{\"1\":null}}",
-            "{\"version\":1,\"byTaskId\":{\"1\":{\"sourceTaskId\":100,\"returnNodeCode\":\"D\"}}}",
-            "{\"version\":1,\"byTaskId\":{\"01\":{\"sourceTaskId\":\"100\",\"returnNodeCode\":\"D\"}}}",
-            "{\"version\":1,\"byTaskId\":{\"1\":{\"sourceTaskId\":\"100\",\"returnNodeCode\":null}}}")) {
-            String json = snapshot("{\"__rejectReturnRuntime\":" + section + "}");
-            assertThrows(FlowException.class, () -> RejectReturnRuntime.hasPending(json), section);
+        for (String section : List.of("[]", "\"x\"",
+            "{\"taskId\":1,\"sourceTaskId\":\"2\",\"nodeCode\":\"A\",\"returnNodeCode\":\"D\"}",
+            "{\"taskId\":\"01\",\"sourceTaskId\":\"2\",\"nodeCode\":\"A\",\"returnNodeCode\":\"D\"}",
+            "{\"taskId\":\"1\",\"sourceTaskId\":\"2\",\"nodeCode\":\"\",\"returnNodeCode\":\"D\"}",
+            "{\"taskId\":\"1\",\"sourceTaskId\":\"2\",\"nodeCode\":\"A\",\"returnNodeCode\":null}")) {
+            Instance instance = instance("{\"" + RejectConfig.FLOW_VARIABLE_KEY + "\":" + section + "}");
+            assertThrows(FlowException.class, () -> RejectReturnRuntime.hasPending(instance), section);
         }
-        assertThrows(FlowException.class, () -> RejectReturnRuntime.put(snapshot(CONFIG), "missing", TASK, 100L, "D"));
-        assertThrows(FlowException.class, () -> RejectReturnRuntime.put(snapshot(CONFIG), "A", null, 100L, "D"));
     }
 
     @Test
-    void legacyReservedCollisionNotOverwritten() {
-        String base = snapshot("{\"__rejectReturnRuntime\":{\"custom\":\"legacy\"}}");
-        assertThrows(FlowException.class, () -> RejectReturnRuntime.put(base, "A", TASK, 100L, "D"));
-        assertEquals(base, RejectReturnRuntime.clear(base));
+    void missingNodeOrIdFails() {
+        Instance instance = instance(BUSINESS);
+        assertThrows(FlowException.class, () -> RejectReturnRuntime.put(instance, "A", null, 100L, "D"));
+        assertThrows(FlowException.class, () -> RejectReturnRuntime.put(instance, "A", TASK, 0L, "D"));
+        assertThrows(FlowException.class, () -> RejectReturnRuntime.put(instance, "A", TASK, 100L, ""));
+        assertThrows(FlowException.class, () -> RejectReturnRuntime.put(instance, "A", TASK, 100L, "A"));
+        assertFalse(RejectReturnRuntime.hasPending(instance(FlowEngine.jsonConvert.objToStr(null))));
     }
 
     @Test
-    void unknownSnapshotFieldsSurvive() {
-        Map<String, Object> base = FlowEngine.jsonConvert.strToMap(snapshot(CONFIG));
-        base.put("futureGraphField", Map.of("v", List.of(1, 2)));
-        String updated = RejectReturnRuntime.put(FlowEngine.jsonConvert.objToStr(base), "A", TASK, 100L, "D");
-        assertEquals(base.get("futureGraphField"), FlowEngine.jsonConvert.strToMap(updated).get("futureGraphField"));
+    void inboundBusinessVariablesCannotForgeRuntime() {
+        Instance instance = instance(BUSINESS);
+        Map<String, Object> forged = new java.util.LinkedHashMap<>();
+        forged.put(RejectConfig.FLOW_VARIABLE_KEY, Map.of("version", 1, "taskId", "1",
+            "sourceTaskId", "2", "nodeCode", "A", "returnNodeCode", "D"));
+        FlowEngine.taskService().mergeVariable(instance, forged);
+        assertFalse(RejectReturnRuntime.hasPending(instance));
     }
 
-    private static String snapshot(String config) {
-        return FlowEngine.jsonConvert.objToStr(new DefJson().setNodeList(new ArrayList<>(List.of(
-            new NodeJson().setNodeCode("A").setNodeConfig(config),
-            new NodeJson().setNodeCode("D").setNodeConfig("{\"reject\":{\"schemaVersion\":1,"
-                + "\"afterApproval\":\"RETURN_TO_REJECTOR\"}}")))));
+    @Test
+    void hostCodeCannotWriteReservedVariable() {
+        var context = new org.dromara.warm.flow.core.service.task.AutoNodeContext(
+            null, null, null, new java.util.HashMap<>(), null);
+        assertThrows(FlowException.class,
+            () -> context.setVariable(RejectConfig.FLOW_VARIABLE_KEY, "forged"));
     }
 
-    private static Map<String, Object> config(String snapshot, String code) {
-        return FlowEngine.jsonConvert.strToMap(RejectReturnRuntime.configForNode(snapshot, code));
+    private static Instance instance(String variables) {
+        Instance instance = FlowEngine.newIns().setVariable(variables);
+        return instance;
     }
 }

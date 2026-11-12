@@ -4,6 +4,7 @@ import lombok.Getter;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
+import org.dromara.warm.flow.core.utils.VariableUtil;
 import org.dromara.warm.flow.core.workflow.context.WorkflowContext;
 
 import java.util.Map;
@@ -48,6 +49,7 @@ public class AutoNodeContext {
      * @param value 变量值
      */
     public void setVariable(String key, Object value) {
+        VariableUtil.assertNotReserved(key);
         variables.put(key, value);
     }
 

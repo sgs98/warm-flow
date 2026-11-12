@@ -1,10 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { isManagedRejectSection, readRejectReturn, writeRejectReturn, rejectReturnGraphErrors } from './rejectReturn.js'
+import { isManagedRejectSection, isParallelReplayInterval, readRejectReturn, writeRejectReturn, rejectReturnGraphErrors } from './rejectReturn.js'
 import { json2LogicFlowJson, logicFlowJsonToWarmFlow } from './tool.js'
 
 const DIRECT = 'RETURN_TO_REJECTOR'
-const config = { reject: { schemaVersion: 1, afterApproval: DIRECT } }
+const config = { reject: { afterApproval: DIRECT } }
 
 test('defaults and preserves legacy business reject including objects', () => {
   assert.deepEqual(readRejectReturn({}), { mode: 'REPLAY', conflict: false, error: '' })
@@ -17,25 +17,15 @@ test('defaults and preserves legacy business reject including objects', () => {
   }
 })
 
-test('managed section requires numeric version one and known mode', () => {
-  for (const schemaVersion of [1, 1.0, 1e0]) assert.equal(readRejectReturn({ reject: { schemaVersion, afterApproval: DIRECT } }).mode, DIRECT)
-  for (const reject of [{ schemaVersion: '1' }, { schemaVersion: 2 }, { schemaVersion: null }, { schemaVersion: 1, afterApproval: 'unknown' }]) {
+test('managed section requires afterApproval and known mode', () => {
+  assert.equal(readRejectReturn({ reject: { afterApproval: DIRECT } }).mode, DIRECT)
+  for (const afterApproval of [null, undefined, 'REPLAY']) {
+    assert.equal(readRejectReturn({ reject: { afterApproval } }).mode, 'REPLAY')
+  }
+  for (const reject of [{ afterApproval: 'unknown' }, { afterApproval: 1 }, { afterApproval: {} }]) {
     assert.equal(isManagedRejectSection(reject), true)
     assert.ok(readRejectReturn({ reject }).error)
     assert.throws(() => writeRejectReturn({ reject }, DIRECT))
-  }
-  for (const afterApproval of [null, undefined, 'REPLAY']) assert.equal(readRejectReturn({ reject: { schemaVersion: 1, afterApproval } }).mode, 'REPLAY')
-})
-
-test('raw nodeConfig near-one versions cannot be rounded into managed version one', () => {
-  for (const version of ['1.0000000000000001', '0.99999999999999999', '1.0000000000000001e0', '9.9999999999999999e-1']) {
-    const raw = `{"reject":{"schemaVersion":${version},"afterApproval":"${DIRECT}"}}`
-    const g = graph(); g.nodes[4].properties.nodeConfig = raw
-    assert.ok(rejectReturnGraphErrors(g).some(e => e.message.includes('schemaVersion')), version)
-    assert.ok(readRejectReturn(raw).error, version)
-  }
-  for (const version of ['1', '1.0', '1e0', '1E+0', '10e-1', '0.01e2']) {
-    assert.equal(readRejectReturn(`{"reject":{"schemaVersion":${version},"afterApproval":"${DIRECT}"}}`).mode, DIRECT)
   }
 })
 
@@ -46,15 +36,14 @@ test('only changes feature fields, preserving nested values and unknown keys', (
   assert.equal(original.reject, undefined)
   assert.deepEqual(writeRejectReturn(updated, 'REPLAY'), original)
   const extended = { ...updated, reject: { ...updated.reject, custom: null } }
-  assert.deepEqual(writeRejectReturn(extended, 'REPLAY').reject, { schemaVersion: 1, custom: null })
+  assert.deepEqual(writeRejectReturn(extended, 'REPLAY').reject, { custom: null })
   assert.deepEqual(updated.variables, original.variables)
   assert.deepEqual(updated.copy, original.copy)
 })
 
-test('rejects runtime collisions instead of silently stripping business data', () => {
-  for (const runtime of [null, 'legacy', { version: 1, byTaskId: {} }]) {
-    assert.throws(() => writeRejectReturn({ __rejectReturnRuntime: runtime }, DIRECT), /运行/)
-  }
+test('legacy reject object without afterApproval is not treated as engine rule', () => {
+  assert.equal(readRejectReturn({ reject: { schemaVersion: 1 } }).mode, 'REPLAY')
+  assert.equal(readRejectReturn({ reject: { schemaVersion: 1, business: true } }).mode, 'REPLAY')
 })
 
 function graph() {
@@ -68,19 +57,63 @@ test('graph allows linear OR-sign, prioritizes fixed target and rejects unsuppor
   assert.deepEqual(rejectReturnGraphErrors(graph()), [])
   const fixed = graph(); fixed.nodes[4].properties.anyNodeSkip = 'B'
   assert.deepEqual(rejectReturnGraphErrors(fixed), [])
-  for (const mutation of [g => g.nodes[2].type = 'service', g => g.nodes[2].type = 'parallel', g => g.nodes[2].properties.eventType = 'TIMER_CATCH', g => g.nodes[2].properties.nodeRatio = '100', g => g.nodes[2].properties.cooperateType = 'sequence', g => g.nodes[2].properties.nodeConfig = '{"groupSign":{}}', g => g.edges[1].properties.skipCondition = 'x', g => g.nodes[1].properties.__unused = true]) {
+  for (const mutation of [g => g.nodes[2].type = 'service', g => g.nodes[2].type = 'serial', g => g.nodes[2].properties.eventType = 'TIMER_CATCH', g => g.edges[1].properties.skipCondition = 'x', g => g.nodes[1].properties.__unused = true]) {
     const g = graph(); mutation(g)
     if (g.nodes[1].properties.__unused) g.nodes.push({ id: 'boundary', type: 'between', properties: { attachedToNodeCode: 'B' } })
     assert.ok(rejectReturnGraphErrors(g).length)
   }
 })
 
-test('graph detects imported runtime and invalid managed rules, but allows legacy default mode', () => {
-  const g = graph(); g.nodes[1].properties.nodeConfig = '{"__rejectReturnRuntime":{"version":1,"byTaskId":{}}}'
-  assert.ok(rejectReturnGraphErrors(g).some(e => e.message.includes('运行')))
+test('graph allows countersign, sequence and group nodes to be skipped', () => {
+  for (const props of [{ nodeRatio: '100' }, { nodeRatio: '50' }, { cooperateType: 'sequence' },
+    { cooperateType: 'group', nodeConfig: '{"groupSign":{"groups":[]}}' }]) {
+    const g = graph()
+    Object.assign(g.nodes[2].properties, props)
+    assert.deepEqual(rejectReturnGraphErrors(g), [])
+  }
+})
+
+test('graph allows parallel interval as inert replay config', () => {
+  const g = graph()
+  g.nodes.splice(2, 1, { id: 'fork', type: 'parallel', properties: {} },
+    { id: 'B', type: 'between', properties: { nodeRatio: '0' } },
+    { id: 'C', type: 'between', properties: { nodeRatio: '0' } })
+  g.edges.length = 0
+  g.edges.push(
+    { sourceNodeId: 'start', targetNodeId: 'A', properties: { skipType: 'PASS' } },
+    { sourceNodeId: 'A', targetNodeId: 'fork', properties: { skipType: 'PASS' } },
+    { sourceNodeId: 'fork', targetNodeId: 'B', properties: { skipType: 'PASS' } },
+    { sourceNodeId: 'fork', targetNodeId: 'C', properties: { skipType: 'PASS' } },
+    { sourceNodeId: 'B', targetNodeId: 'D', properties: { skipType: 'PASS' } },
+    { sourceNodeId: 'C', targetNodeId: 'D', properties: { skipType: 'PASS' } },
+    { sourceNodeId: 'D', targetNodeId: 'end', properties: { skipType: 'PASS' } },
+    { sourceNodeId: 'D', targetNodeId: 'A', properties: { skipType: 'REJECT' } })
+  assert.deepEqual(rejectReturnGraphErrors(g), [])
+})
+
+test('parallel replay interval is reported to the designer', () => {
+  assert.equal(isParallelReplayInterval(graph(), 'D'), false)
+  const g = graph()
+  g.nodes.splice(2, 1, { id: 'fork', type: 'parallel', properties: {} },
+    { id: 'B', type: 'between', properties: { nodeRatio: '0' } },
+    { id: 'C', type: 'between', properties: { nodeRatio: '0' } })
+  g.edges.length = 0
+  g.edges.push(
+    { sourceNodeId: 'start', targetNodeId: 'A', properties: { skipType: 'PASS' } },
+    { sourceNodeId: 'A', targetNodeId: 'fork', properties: { skipType: 'PASS' } },
+    { sourceNodeId: 'fork', targetNodeId: 'B', properties: { skipType: 'PASS' } },
+    { sourceNodeId: 'fork', targetNodeId: 'C', properties: { skipType: 'PASS' } },
+    { sourceNodeId: 'B', targetNodeId: 'D', properties: { skipType: 'PASS' } },
+    { sourceNodeId: 'C', targetNodeId: 'D', properties: { skipType: 'PASS' } },
+    { sourceNodeId: 'D', targetNodeId: 'end', properties: { skipType: 'PASS' } },
+    { sourceNodeId: 'D', targetNodeId: 'A', properties: { skipType: 'REJECT' } })
+  assert.equal(isParallelReplayInterval(g, 'D'), true)
+})
+
+test('graph allows legacy default mode and rejects invalid managed rules', () => {
   const legacy = graph(); legacy.nodes[4].properties.nodeConfig = '{"reject":{"business":1}}'; legacy.nodes[2].type = 'parallel'
   assert.deepEqual(rejectReturnGraphErrors(legacy), [])
-  legacy.nodes[4].properties.nodeConfig = '{"reject":{"schemaVersion":2}}'
+  legacy.nodes[4].properties.nodeConfig = '{"reject":{"afterApproval":"UNKNOWN"}}'
   assert.ok(rejectReturnGraphErrors(legacy).length)
 })
 

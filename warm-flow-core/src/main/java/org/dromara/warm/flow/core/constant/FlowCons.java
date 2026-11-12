@@ -52,6 +52,11 @@ public class FlowCons {
     public static final String DEFAULT_SYSTEM_HANDLER = "system";
 
     /**
+     * 引擎保留变量前缀：以此开头的流程变量只能由引擎写入，业务入参会被过滤。
+     */
+    public static final String WF_RESERVED_PREFIX = "_wf_";
+
+    /**
      * 监听器路径解析正则，拆分监听器类路径与参数片段。
      */
     public static final Pattern LISTENER_PATTERN = Pattern.compile("^([^()]*)(.*)$");

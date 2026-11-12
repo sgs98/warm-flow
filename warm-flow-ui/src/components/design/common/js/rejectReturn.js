@@ -1,45 +1,14 @@
 export const RETURN_TO_REJECTOR = 'RETURN_TO_REJECTOR'
-export const REJECT_RETURN_RUNTIME_KEY = '__rejectReturnRuntime'
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key)
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 
+/** 受管驳回规则：reject 为对象且带 afterApproval（旧业务同名属性不会被误识别）。 */
 export function isManagedRejectSection(value) {
-  return object(value) && own(value, 'schemaVersion')
+  return object(value) && own(value, 'afterApproval')
 }
 
-// 只保留协议版本的原数值语义；其它节点属性仍走既有 JSON.parse 行为。
 export function parseRejectReturnNodeConfig(raw) {
-  const parsed = JSON.parse(raw)
-  if (!object(parsed)) return parsed
-  const tokenPattern = /"(?:\\.|[^"\\])*"|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/g
-  const strings = [...raw.matchAll(tokenPattern)].filter(match => match[0].startsWith('"')).map(match => JSON.parse(match[0]))
-  let prefix = '__rejectNumber__'
-  while (strings.some(text => text.startsWith(prefix))) prefix += '_'
-  const numbers = new Map()
-  const masked = raw.replace(tokenPattern, token => {
-    if (token.startsWith('"')) return token
-    const key = prefix + numbers.size
-    numbers.set(key, token)
-    return JSON.stringify(key)
-  })
-  const exact = JSON.parse(masked)
-  for (const [section, field] of [['reject', 'schemaVersion'], [REJECT_RETURN_RUNTIME_KEY, 'version']]) {
-    if (!object(exact[section])) continue
-    const token = numbers.get(exact[section][field])
-    if (token !== undefined && !exactVersionOne(token)) {
-      // 非法版本保留原 token 为可见错误值，不能先舍入成 1 再保存。
-      parsed[section][field] = token
-    }
-  }
-  return parsed
-}
-
-function exactVersionOne(token) {
-  const [mantissa, exponent = '0'] = token.toLowerCase().split('e')
-  const [integer, fraction = ''] = mantissa.split('.')
-  const digits = (integer + fraction).replace(/^0+/, '')
-  const significant = digits.replace(/0+$/, '')
-  return significant === '1' && BigInt(exponent) - BigInt(fraction.length) + BigInt(digits.length - significant.length) === 0n
+  return JSON.parse(raw)
 }
 
 export function readRejectReturn(config = {}) {
@@ -53,11 +22,10 @@ export function readRejectReturn(config = {}) {
     result.conflict = own(config || {}, 'reject')
     return result
   }
-  if (typeof reject.schemaVersion !== 'number' || reject.schemaVersion !== 1) {
-    result.error = 'reject.schemaVersion 必须是数值整数 1，请修正导入的节点配置'
-  } else if (reject.afterApproval == null || reject.afterApproval === 'REPLAY') {
+  if (reject.afterApproval == null || reject.afterApproval === 'REPLAY') {
     return result
-  } else if (reject.afterApproval === RETURN_TO_REJECTOR) {
+  }
+  if (reject.afterApproval === RETURN_TO_REJECTOR) {
     result.mode = RETURN_TO_REJECTOR
   } else {
     result.error = 'reject.afterApproval 必须为 REPLAY 或 RETURN_TO_REJECTOR，请修正节点配置'
@@ -72,14 +40,48 @@ export function writeRejectReturn(config = {}, mode) {
   const updated = { ...config }
   if (mode === RETURN_TO_REJECTOR) {
     if (state.conflict) throw new Error('旧业务属性 reject 与驳回规则冲突，请先在扩展属性中迁移到其它键')
-    if (own(config, REJECT_RETURN_RUNTIME_KEY)) throw new Error('节点含实例运行关联，请使用设计定义，不能覆盖运行或业务数据')
-    updated.reject = { ...config.reject, schemaVersion: 1, afterApproval: RETURN_TO_REJECTOR }
+    updated.reject = { ...config.reject, afterApproval: RETURN_TO_REJECTOR }
   } else if (isManagedRejectSection(config.reject)) {
     const { afterApproval, ...remaining } = config.reject
-    if (Object.keys(remaining).length === 1) delete updated.reject
-    else updated.reject = remaining
+    if (Object.keys(remaining).length) updated.reject = remaining
+    else delete updated.reject
   }
   return updated
+}
+
+/** 当前节点的返回区间是否跨并行 / 包容网关（跨则运行期按整体退回重走）。 */
+export function isParallelReplayInterval(graph = {}, sourceId) {
+  const nodes = graph.nodes || [], edges = graph.edges || []
+  const source = nodes.find(n => n.id === sourceId)
+  if (!source) return false
+  const reject = edges.filter(e => e.sourceNodeId === sourceId && e.properties?.skipType === 'REJECT')
+  const target = source.properties?.anyNodeSkip || (reject.length === 1 ? reject[0].targetNodeId : null)
+  return !!target && target !== sourceId && crossesParallel(nodes, edges, target, sourceId)
+}
+
+/** target → source 的任意 PASS 路径是否经过并行 / 包容网关。 */
+function crossesParallel(nodes, edges, target, source) {
+  const pass = edge => edge.properties?.skipType === 'PASS'
+  const byId = new Map(nodes.map(n => [n.id, n]))
+  const seen = new Map()
+  const queue = [[target, false]]
+  while (queue.length) {
+    const [code, hasGateway] = queue.shift()
+    if (!code) continue
+    const key = `${code}:${hasGateway}`
+    if (seen.has(key)) continue
+    seen.set(key, true)
+    const node = byId.get(code)
+    const crossed = hasGateway || node?.type === 'parallel' || node?.type === 'inclusive'
+    if (code === source) {
+      if (crossed) return true
+      continue
+    }
+    for (const edge of edges) {
+      if (edge.sourceNodeId === code && pass(edge)) queue.push([edge.targetNodeId, crossed])
+    }
+  }
+  return false
 }
 
 /** 画布保存前提示；后端仍是严格校验的最终边界。 */
@@ -95,15 +97,10 @@ export function rejectReturnGraphErrors(graph = {}) {
       configs.set(node.id, parsed)
       const state = readRejectReturn(parsed)
       if (state.error) push(node, state.error)
-      const runtime = parsed[REJECT_RETURN_RUNTIME_KEY]
-      if (object(runtime) && own(runtime, 'version')) push(node, '这是实例运行图，请改用设计定义；运行关联不能导入共享节点')
     } catch (error) { push(node, `节点配置无法解析：${error.message}`) }
   }
   const enabled = nodes.filter(n => readRejectReturn(configs.get(n.id)).mode === RETURN_TO_REJECTOR)
   if (!enabled.length) return errors
-  for (const node of nodes) {
-    if (own(configs.get(node.id) || {}, REJECT_RETURN_RUNTIME_KEY)) push(node, '直返定义不能包含实例运行段或同名业务属性，请先迁移')
-  }
   const byId = new Map(nodes.map(n => [n.id, n]))
   const pass = edge => edge.properties?.skipType === 'PASS'
   for (const source of enabled) {
@@ -111,16 +108,18 @@ export function rejectReturnGraphErrors(graph = {}) {
     const target = source.properties?.anyNodeSkip || (reject.length === 1 ? reject[0].targetNodeId : null)
     try {
       if (!target || target === source.id) throw new Error('需要唯一且早于本节点的实际驳回目标')
+      // 并行 / 包容网关区间按「整体退回重走」处理：配置合法但不启用直返
+      if (crossesParallel(nodes, edges, target, source.id)) continue
       let code = target
       const visited = new Set()
       while (true) {
-        const node = byId.get(code), props = node?.properties || {}, cfg = configs.get(code) || {}
+        const node = byId.get(code), props = node?.properties || {}
         if (!node || visited.has(code)) throw new Error('返回区间包含循环或缺失节点')
         visited.add(code)
-        if (node.type !== 'between' || props.eventType || (props.nodeRatio != null && Number(props.nodeRatio) !== 0)
-            || ['sequence', 'group'].includes(props.cooperateType) || own(cfg, 'groupSign')
+        // 会签 / 票签 / 顺签 / 组签允许被直返跳过；串行网关、服务任务、事件与边界事件仍拒绝
+        if (node.type !== 'between' || props.eventType
             || nodes.some(n => n.properties?.attachedToNodeCode === code)) {
-          throw new Error('首版仅支持无事件、无边界事件的普通单人/或签线性人工区间')
+          throw new Error('返回区间不支持串行网关、服务任务、事件或边界事件')
         }
         if (code === source.id) break
         const next = edges.filter(e => e.sourceNodeId === code && pass(e))

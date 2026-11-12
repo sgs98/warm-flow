@@ -117,7 +117,8 @@ final class FlowTerminateChain {
             .setSkipType(SkipType.PASS.getKey())
             .setPathWayNodes(Collections.singletonList(execution.nowNode))
             .setTargetNodes(Collections.singletonList(endNode));
-        execution.instance.setDefJson(RejectReturnRuntime.clear(FlowEngine.chartService().skipMetadata(pathWayData)));
+        execution.instance.setDefJson(FlowEngine.chartService().skipMetadata(pathWayData));
+        RejectReturnRuntime.clear(execution.instance);
 
         // 流程实例完成
         execution.instance.setNodeType(endNode.getNodeType())

@@ -113,10 +113,6 @@ public class FlowConfigUtil {
                 if (!RejectConfig.parse(source.getNodeConfig()).isReturnToRejector()) {
                     continue;
                 }
-                for (Node node : allNodes) {
-                    AssertUtil.isTrue(RejectConfig.configMap(node.getNodeConfig()).containsKey(RejectConfig.RUNTIME_KEY),
-                        "[" + source.getNodeCode() + "]设计定义不能包含驳回直返运行段或同名业务属性");
-                }
                 String target = source.getAnyNodeSkip();
                 if (StringUtils.isEmpty(target)) {
                     List<Skip> rejects = allSkips.stream().filter(s -> source.getNodeCode().equals(s.getNowNodeCode())
@@ -152,17 +148,30 @@ public class FlowConfigUtil {
         String prefix = "[" + sourceCode + "]驳回直返";
         Map<String, Node> nodes = StreamUtils.toMap(combine.getAllNodes(), Node::getNodeCode, node -> node);
         AssertUtil.isTrue(Objects.equals(sourceCode, targetCode), prefix + "必须返回之前的人工节点");
+        if (crossesParallelGateway(combine, targetCode, sourceCode)) {
+            // 并行 / 包容网关区间按「整体退回重走」处理：配置合法但不启用直返，
+            // 驳回由既有跨分叉一票否决完成，A 提交后重新分叉。
+            Node target = nodes.get(targetCode);
+            Node source = nodes.get(sourceCode);
+            AssertUtil.isTrue(target == null || source == null, prefix + "目标或来源节点不存在");
+            AssertUtil.isTrue(!NodeType.isBetween(target.getNodeType())
+                    || StringUtils.isNotEmpty(target.getEventType()),
+                prefix + "驳回目标必须是普通人工节点");
+            AssertUtil.isTrue(!NodeType.isBetween(source.getNodeType())
+                    || StringUtils.isNotEmpty(source.getEventType()),
+                prefix + "驳回发起节点必须是普通人工节点");
+            return;
+        }
         Set<String> interval = new HashSet<>();
         String code = targetCode;
         while (true) {
             Node node = nodes.get(code);
             AssertUtil.isTrue(node == null || !interval.add(code), prefix + "目标不存在或返回区间存在循环");
-            Map<String, Object> config = RejectConfig.configMap(node.getNodeConfig());
-            AssertUtil.isTrue(!NodeType.isBetween(node.getNodeType()) || StringUtils.isNotEmpty(node.getEventType())
-                    || !CooperateType.isOrSign(node.getNodeRatio()) || config.containsKey("groupSign")
-                    || CooperateType.isGroup(node.getCooperateType())
-                    || CooperateType.isSequence(node.getCooperateType(), node.getNodeRatio()),
-                prefix + "仅支持普通单人或或签的线性人工区间");
+            // 会签 / 票签 / 顺签 / 组签节点允许出现在区间内并被直返跳过；
+            // 网关、服务任务与事件节点仍然禁止（跳过会丢失副作用或等待语义）。
+            AssertUtil.isTrue(NodeType.isService(node.getNodeType()) || NodeType.isGateWay(node.getNodeType())
+                    || StringUtils.isNotEmpty(node.getEventType()),
+                prefix + "返回区间不支持网关、服务任务或事件节点");
             if (sourceCode.equals(code)) {
                 break;
             }
@@ -182,6 +191,54 @@ public class FlowConfigUtil {
             AssertUtil.isTrue(StringUtils.isNotEmpty(node.getAttachedToNodeCode())
                 && interval.contains(node.getAttachedToNodeCode()), prefix + "返回区间不支持附着边界事件");
         }
+    }
+
+
+    /**
+     * 判断 target → source 的任意 PASS 路径是否经过并行 / 包容网关。
+     * <p>这类区间不做直返，驳回走整体退回重走语义。</p>
+     *
+     * @param combine    流程组合数据
+     * @param targetCode 返回目标节点
+     * @param sourceCode 驳回发起节点
+     * @return 经过并行 / 包容网关返回 {@code true}
+     */
+    public static boolean crossesParallelGateway(FlowCombine combine, String targetCode, String sourceCode) {
+        if (StringUtils.isEmpty(targetCode) || StringUtils.isEmpty(sourceCode)) {
+            return false;
+        }
+        Map<String, List<Skip>> passEdges = combine.getAllSkips().stream()
+            .filter(s -> SkipType.isPass(s.getSkipType()))
+            .collect(java.util.stream.Collectors.groupingBy(Skip::getNowNodeCode));
+        Map<String, Node> nodes = StreamUtils.toMap(combine.getAllNodes(), Node::getNodeCode, node -> node);
+        Set<String> plain = new HashSet<>();
+        Set<String> crossed = new HashSet<>();
+        java.util.ArrayDeque<String[]> queue = new java.util.ArrayDeque<>();
+        queue.add(new String[]{targetCode, "0"});
+        while (!queue.isEmpty()) {
+            String[] state = queue.poll();
+            String code = state[0];
+            boolean hasGateway = "1".equals(state[1]);
+            Set<String> seen = hasGateway ? crossed : plain;
+            if (!seen.add(code)) {
+                continue;
+            }
+            Node node = nodes.get(code);
+            if (node != null && (NodeType.isGateWayParallel(node.getNodeType())
+                || NodeType.isGateWayInclusive(node.getNodeType()))) {
+                hasGateway = true;
+            }
+            if (sourceCode.equals(code)) {
+                if (hasGateway) {
+                    return true;
+                }
+                continue;
+            }
+            for (Skip skip : passEdges.getOrDefault(code, List.of())) {
+                queue.add(new String[]{skip.getNextNodeCode(), hasGateway ? "1" : "0"});
+            }
+        }
+        return false;
     }
 
     /**

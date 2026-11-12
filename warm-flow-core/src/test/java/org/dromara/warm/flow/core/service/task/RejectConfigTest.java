@@ -27,32 +27,25 @@ class RejectConfigTest {
     @Test
     void missingAndLegacySectionsKeepReplay() {
         for (String json : new String[]{null, "", "{}", "{\"reject\":\"legacy\"}",
-            "{\"reject\":null}", "{\"reject\":[1]}", "{\"reject\":{\"business\":true}}"}) {
+            "{\"reject\":null}", "{\"reject\":[1]}", "{\"reject\":{\"business\":true}}",
+            "{\"reject\":{\"schemaVersion\":1}}",
+            "{\"reject\":{\"schemaVersion\":1,\"business\":true}}"}) {
             assertFalse(RejectConfig.parse(json).isReturnToRejector(), json);
         }
     }
 
     @Test
-    void recognizedModesAndNumericVersion() {
-        for (String version : List.of("1")) {
-            assertTrue(RejectConfig.parse(config(version, "\"RETURN_TO_REJECTOR\""))
-                .isReturnToRejector());
-        }
-        for (Number version : List.of(1, 1L, 1.0, java.math.BigDecimal.ONE)) {
-            assertDoesNotThrow(() -> RejectConfig.requireVersionOne(version, "schemaVersion"));
-        }
-        assertFalse(RejectConfig.parse(config("1", "\"REPLAY\"")).isReturnToRejector());
-        assertFalse(RejectConfig.parse(config("1", "null")).isReturnToRejector());
-        assertFalse(RejectConfig.parse("{\"reject\":{\"schemaVersion\":1}}").isReturnToRejector());
+    void recognizedModes() {
+        assertTrue(RejectConfig.parse(config("\"RETURN_TO_REJECTOR\"")).isReturnToRejector());
+        assertFalse(RejectConfig.parse(config("\"REPLAY\"")).isReturnToRejector());
+        assertFalse(RejectConfig.parse(config("null")).isReturnToRejector());
+        assertFalse(RejectConfig.parse("{\"reject\":{}}").isReturnToRejector());
     }
 
     @Test
-    void recognizedInvalidVersionOrModeFails() {
-        for (String version : List.of("2", "1.1", "\"1\"", "null", "true", "{}", "[]")) {
-            assertThrows(FlowException.class, () -> RejectConfig.parse(config(version, "\"REPLAY\"")));
-        }
+    void invalidModeFails() {
         for (String mode : List.of("\"UNKNOWN\"", "1", "false", "{}", "[]")) {
-            assertThrows(FlowException.class, () -> RejectConfig.parse(config("1", mode)));
+            assertThrows(FlowException.class, () -> RejectConfig.parse(config(mode)));
         }
         assertThrows(FlowException.class, () -> RejectConfig.parse("[]"));
         assertThrows(FlowException.class, () -> RejectConfig.parse("{broken"));
@@ -61,15 +54,15 @@ class RejectConfigTest {
     @Test
     void atomicExecutionDetectedInSnapshotWithoutBusinessVariables() {
         assertFalse(RejectConfig.requiresAtomicExecution(snapshot("{\"reject\":\"legacy\"}")));
-        assertFalse(RejectConfig.requiresAtomicExecution(snapshot(config("1", "\"REPLAY\""))));
-        assertTrue(RejectConfig.requiresAtomicExecution(snapshot(config("1", "\"RETURN_TO_REJECTOR\""))));
-        assertTrue(RejectConfig.requiresAtomicExecution(snapshot("{\"__rejectReturnRuntime\":{"
-            + "\"version\":1,\"byTaskId\":{\"9007199254740993\":{\"sourceTaskId\":\"100\","
-            + "\"returnNodeCode\":\"D\"}}}}")));
+        assertFalse(RejectConfig.requiresAtomicExecution(snapshot(config("\"REPLAY\""))));
+        assertTrue(RejectConfig.requiresAtomicExecution(snapshot(config("\"RETURN_TO_REJECTOR\""))));
+        // 运行关联存放在实例流程变量中；快照里的旧运行段是惰性数据，不再触发事务门禁
+        assertFalse(RejectConfig.requiresAtomicExecution(snapshot(
+            "{\"__rejectReturnRuntime\":{\"version\":1,\"byTaskId\":{}}}")));
     }
 
-    private static String config(String version, String mode) {
-        return "{\"reject\":{\"schemaVersion\":" + version + ",\"afterApproval\":" + mode + "}}";
+    private static String config(String mode) {
+        return "{\"reject\":{\"afterApproval\":" + mode + "}}";
     }
 
     private static String snapshot(String config) {

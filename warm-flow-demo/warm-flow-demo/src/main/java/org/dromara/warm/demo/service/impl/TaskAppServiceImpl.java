@@ -44,6 +44,7 @@ import org.dromara.warm.flow.core.workflow.result.WorkflowResult;
 import org.dromara.warm.flow.orm.entity.FlowHisTask;
 import org.dromara.warm.flow.orm.entity.FlowTask;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -264,7 +265,7 @@ public class TaskAppServiceImpl implements TaskAppService {
      * @return 办理后的流程实例
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public InstanceVo pass(TaskActionRequest req) {
         checkTaskAction(req);
         Task task = support.requireTask(req.getTaskId());
@@ -285,7 +286,7 @@ public class TaskAppServiceImpl implements TaskAppService {
      * @return 办理后的流程实例
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public InstanceVo reject(TaskActionRequest req) {
         checkTaskAction(req);
         if (StringUtils.isEmpty(req.getNodeCode())) {

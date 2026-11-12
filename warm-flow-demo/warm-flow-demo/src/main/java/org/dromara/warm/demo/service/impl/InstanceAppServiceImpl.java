@@ -27,6 +27,7 @@ import org.dromara.warm.flow.core.workflow.command.StartCommand;
 import org.dromara.warm.flow.core.workflow.command.TerminateCommand;
 import org.dromara.warm.flow.core.workflow.result.WorkflowResult;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -58,7 +59,7 @@ public class InstanceAppServiceImpl implements InstanceAppService {
      * @return 发起结果
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public StartInstanceVo start(String user, StartInstanceRequest request) {
         try {
             StartCommand command = new StartCommand();
@@ -149,7 +150,7 @@ public class InstanceAppServiceImpl implements InstanceAppService {
      * @param instanceId 流程实例主键
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public void removeInstance(Long instanceId) {
         support.requireInstance(instanceId);
         instanceDeleteMapper.deleteEventWaits(instanceId);
@@ -170,7 +171,7 @@ public class InstanceAppServiceImpl implements InstanceAppService {
      * @return 实际删除的流程实例数量
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public int removeInstances(List<Long> instanceIds) {
         if (instanceIds == null || instanceIds.isEmpty()) {
             throw BizException.badRequest("请选择要删除的流程实例");
@@ -239,7 +240,7 @@ public class InstanceAppServiceImpl implements InstanceAppService {
      * @param request    重启目标和审批人
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public void restart(String user, Long instanceId, RestartInstanceRequest request) {
         try {
             instanceLockMapper.lockById(instanceId);

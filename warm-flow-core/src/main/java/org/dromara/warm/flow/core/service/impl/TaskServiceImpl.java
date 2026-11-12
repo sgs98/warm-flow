@@ -368,7 +368,7 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
                 .setFlowStatus(instanceStatusOf(finallyTask.get()));
         }
         if (NodeType.isEnd(instance.getNodeType())) {
-            instance.setDefJson(RejectReturnRuntime.clear(instance.getDefJson()));
+            RejectReturnRuntime.clear(instance);
             // 实例收口即清理本实例的事件等待：普通结束同样需要，否则完成后仍会残留等待记录，
             // 外部消息或定时到点后会去推进一个已完成的实例
             FlowEngine.eventWaitService().cancelByInstanceIds(Collections.singletonList(instance.getId()));
@@ -383,10 +383,11 @@ public class TaskServiceImpl extends WarmServiceImpl<FlowTaskDao<Task>, Task> im
      */
     @Override
     public void mergeVariable(Instance instance, Map<String, Object> variable) {
-        if (MapUtil.isNotEmpty(variable)) {
+        Map<String, Object> accepted = VariableUtil.filterReserved(variable);
+        if (MapUtil.isNotEmpty(accepted)) {
             String variableStr = instance.getVariable();
             Map<String, Object> deserialize = FlowEngine.jsonConvert.strToMap(variableStr);
-            deserialize.putAll(variable);
+            deserialize.putAll(accepted);
             instance.setVariable(FlowEngine.jsonConvert.objToStr(deserialize));
         }
     }

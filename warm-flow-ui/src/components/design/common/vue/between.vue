@@ -326,7 +326,10 @@
               <span class="radio-card-text">{{ option.label }}</span>
             </label>
           </div>
-          <div id="reject-return-hint" class="field-hint">选择直返时，{{ rejectReturnHint }}中间节点不再生成待办，本节点仍需重新审批。仅支持普通单人 / 或签的线性人工返回区间。</div>
+          <div id="reject-return-hint" class="field-hint">选择直返时，{{ rejectReturnHint }}中间节点不再生成待办，本节点仍需重新审批。会签 / 票签 / 顺签 / 组签节点会被跳过。</div>
+          <div v-if="rejectReturnState.mode === RETURN_TO_REJECTOR && parallelReplayInterval" class="field-hint">
+            返回区间包含并行 / 包容网关：运行期将整体退回重走，不会直达本节点。
+          </div>
           <div v-if="rejectReturnState.conflict" class="field-hint">旧业务属性 reject 保持原样；启用直返前，请在扩展属性中迁移到其它键。</div>
         </el-form-item>
         </form-section>
@@ -557,7 +560,7 @@ import listenerConfig from "./listenerConfig";
 import nodeVariables from "./nodeVariables";
 import {getPreviousNodes} from "@/components/design/common/js/tool.js";
 import {groupSignSummary, normalizeGroupSign, serializeGroupSign, validateGroupSign} from "../js/groupSign.js";
-import {isManagedRejectSection, readRejectReturn, writeRejectReturn, RETURN_TO_REJECTOR, REJECT_RETURN_RUNTIME_KEY} from "../js/rejectReturn.js";
+import {isManagedRejectSection, isParallelReplayInterval, readRejectReturn, writeRejectReturn, RETURN_TO_REJECTOR} from "../js/rejectReturn.js";
 const { proxy } = getCurrentInstance();
 
 const props = defineProps({
@@ -751,10 +754,6 @@ const NODE_CONFIG_RESERVED_KEYS = ['variables', '__variableMeta', 'serviceTask',
 
 function isReservedNodeConfigKey(key, config) {
   if (key === 'reject') return isManagedRejectSection(config.reject);
-  if (key === REJECT_RETURN_RUNTIME_KEY) {
-    const runtime = config[key];
-    return runtime && typeof runtime === 'object' && !Array.isArray(runtime) && Object.hasOwn(runtime, 'version');
-  }
   return NODE_CONFIG_RESERVED_KEYS.includes(key);
 }
 
@@ -763,6 +762,8 @@ const rejectReturnOptions = [
   { value: RETURN_TO_REJECTOR, label: '重新审批后返回本节点' }
 ];
 const rejectReturnState = computed(() => readRejectReturn(form.value.nodeConfig || {}));
+const parallelReplayInterval = computed(() => isParallelReplayInterval(
+  { nodes: props.nodes || [], edges: props.skips || [] }, form.value.id));
 const rejectReturnAttemptError = ref('');
 const rejectReturnError = computed(() => rejectReturnState.value.error || rejectReturnAttemptError.value
   || (rejectReturnState.value.mode === RETURN_TO_REJECTOR && (isEventNode.value || form.value.collaborativeWay !== '1')
@@ -828,10 +829,6 @@ function syncNodeConfig() {
     }
   });
   if (isManagedRejectSection(previous.reject)) config.reject = previous.reject;
-  const runtime = previous[REJECT_RETURN_RUNTIME_KEY];
-  if (runtime && typeof runtime === 'object' && !Array.isArray(runtime) && Object.hasOwn(runtime, 'version')) {
-    config[REJECT_RETURN_RUNTIME_KEY] = runtime;
-  }
   if (Object.keys(extMeta).length > 0) {
     config[EXT_META_KEY] = extMeta;
   }

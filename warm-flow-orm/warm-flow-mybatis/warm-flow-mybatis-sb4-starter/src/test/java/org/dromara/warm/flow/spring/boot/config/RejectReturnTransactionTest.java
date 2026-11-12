@@ -293,7 +293,7 @@ class RejectReturnTransactionTest {
             assertTrue(stale.get(5, TimeUnit.SECONDS).getMessage().contains("READ_COMMITTED"));
             assertEquals("D", current(instance).getNodeCode());
             assertEquals(1, FlowEngine.taskService().getByInsId(instance.getId()).size());
-            assertFalse(FlowEngine.insService().getById(instance.getId()).getDefJson().contains("__rejectReturnRuntime"));
+            assertFalse(FlowEngine.insService().getById(instance.getId()).getVariable().contains("_wf_reject_return"));
         } finally { committed.countDown(); pool.shutdownNow(); }
     }
 
@@ -370,7 +370,7 @@ class RejectReturnTransactionTest {
             Future<?> mutate = pool.submit(() -> instances.removeVariables(instance.getId(), "v"));
             approve.get(5, TimeUnit.SECONDS); mutate.get(5, TimeUnit.SECONDS);
             assertEquals("D", current(instance).getNodeCode());
-            assertFalse(FlowEngine.insService().getById(instance.getId()).getDefJson().contains("__rejectReturnRuntime"));
+            assertFalse(FlowEngine.insService().getById(instance.getId()).getVariable().contains("_wf_reject_return"));
         } finally { pool.shutdownNow(); }
     }
 
@@ -410,7 +410,7 @@ class RejectReturnTransactionTest {
             assertTrue(tasks.getByInsId(instance.getId()).isEmpty());
             Instance ended = instances.getById(instance.getId());
             assertEquals(2, ended.getNodeType());
-            assertFalse(ended.getDefJson().contains("__rejectReturnRuntime"));
+            assertFalse(String.valueOf(ended.getVariable()).contains("_wf_reject_return"));
         } finally { pool.shutdownNow(); }
     }
 
