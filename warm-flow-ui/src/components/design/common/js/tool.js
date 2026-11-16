@@ -379,7 +379,13 @@ export const applyCheckError = (style, properties) => {
   style.stroke = `rgb(${CHECK_ERROR_RGB})`;
   style.strokeWidth = 2;
   style.strokeDasharray = '';
-  style.shadow = `drop-shadow(0 0 6px rgba(${CHECK_ERROR_RGB}, 0.35))`;
+  style.shadow = {
+    dx: 0,
+    dy: 0,
+    stdDeviation: 6,
+    'flood-color': `rgb(${CHECK_ERROR_RGB})`,
+    'flood-opacity': 0.35
+  };
   style._statusColorRGB = CHECK_ERROR_RGB;
   style._statusHex = `rgb(${CHECK_ERROR_RGB})`;
   style._statusRgba = (alpha) => `rgba(${CHECK_ERROR_RGB}, ${alpha})`;
@@ -425,8 +431,14 @@ export const setCommonStyle = (style, properties, nodeType, type) => {
   style.strokeLinejoin = 'round';
   style.strokeLinecap = 'round';
 
-  // 柔和阴影（所有节点统一）
-  style.shadow = `drop-shadow(0 2px 8px rgba(${currentColor}, 0.12)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.06))`;
+  // LogicFlow 将 shadow 展开为 feDropShadow 属性，不能传 CSS drop-shadow 字符串
+  style.shadow = {
+    dx: 0,
+    dy: 2,
+    stdDeviation: 8,
+    'flood-color': `rgb(${currentColor})`,
+    'flood-opacity': 0.12
+  };
 
   // 存储当前状态色供节点 View 层使用（用于渐变、图标着色等）
   style._statusColorRGB = currentColor;
@@ -464,7 +476,13 @@ export const applyClassicDesignColor = (style, properties, rgb) => {
   style._statusHex = `rgb(${rgb})`;
   style._statusRgba = (alpha) => `rgba(${rgb}, ${alpha})`;
   // 同色系柔和阴影，替代原先发灰的投影
-  style.shadow = `drop-shadow(0 2px 6px rgba(${rgb}, 0.14)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.04))`;
+  style.shadow = {
+    dx: 0,
+    dy: 2,
+    stdDeviation: 6,
+    'flood-color': `rgb(${rgb})`,
+    'flood-opacity': 0.14
+  };
   return applyCheckError(style, properties);
 };
 
