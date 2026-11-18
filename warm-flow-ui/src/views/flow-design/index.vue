@@ -278,6 +278,7 @@ import {addBetweenNode, addServiceNode, addGatewayNode, addEventNode, gatewayAdd
 import EdgeTooltip from "@/components/design/mimic/vue/EdgeTooltip.vue";
 import DiagramSidebar from "@/components/design/common/vue/DiagramSidebar.vue";
 import { useDark } from '@/composables/useDark';
+import { setupAuthListener, cleanupAuthListener } from '@/utils/runtimeAuth';
 
 const appStore = useAppStore();
 const appParams = computed(() => useAppStore().appParams);
@@ -751,6 +752,8 @@ onMounted(() => {
 
     // 注册 postMessage 主题切换监听
     setupMessageListener();
+    // 注册 postMessage 凭证桥接：父页面发送 { method: 'auth', token, ... } 注入请求头
+    setupAuthListener();
 
     queryDef(definitionId.value).then(res => {
     jsonString.value = res.data;
@@ -963,6 +966,7 @@ onUnmounted(() => {
   lf.value?.extension?.selectionSelect?.closeSelectionSelect();
   lf.value?.extension?.miniMap?.hide();
   cleanupMessageListener();
+  cleanupAuthListener();
   clearTimeout(_panelResizeTimer);
   window.removeEventListener('resize', handleMobileResize);
   window.removeEventListener('resize', onViewportResize);

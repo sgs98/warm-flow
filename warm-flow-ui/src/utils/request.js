@@ -2,6 +2,7 @@ import axios from 'axios'
 import { ElNotification , ElMessage } from 'element-plus'
 import { tansParams } from '@/utils/ruoyi'
 import cache from '@/plugins/cache'
+import { getRuntimeAuth, waitForRuntimeAuth } from '@/utils/runtimeAuth'
 
 axios.defaults.headers['Content-Type'] = 'application/json;charset=utf-8'
 // 创建axios实例
@@ -13,10 +14,16 @@ const service = axios.create({
 })
 
 // request拦截器
-service.interceptors.request.use(config => {
+service.interceptors.request.use(async config => {
   // 是否需要防止数据重复提交
   const isRepeatSubmit = (config.headers || {}).repeatSubmit === false
-  // 认证由同源 Cookie 自动携带，设计器不再透传 token 请求头
+  // 嵌入模式下等待父页面 postMessage 凭证到位（避免首请求竞态 401；超时兜底放行）
+  await waitForRuntimeAuth()
+  // 宿主通过 postMessage 桥接的凭证头（任意认证体系，头名由宿主定义）
+  const authHeaders = getRuntimeAuth()
+  for (const [name, value] of Object.entries(authHeaders)) {
+    config.headers[name] = value
+  }
   // get请求映射params参数
   if (config.method === 'get' && config.params) {
     let url = config.url + '?' + tansParams(config.params);

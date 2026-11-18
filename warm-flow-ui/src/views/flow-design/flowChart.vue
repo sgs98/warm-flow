@@ -67,6 +67,7 @@ import useAppStore from "@/store/app";
 import {isClassics, json2LogicFlowJson} from "@/components/design/common/js/tool";
 import { queryFlowChart } from "@/api/flow/definition";
 import { useDark } from '@/composables/useDark';
+import { setupAuthListener, cleanupAuthListener } from '@/utils/runtimeAuth';
 
 const appStore = useAppStore();
 const appParams = computed(() => useAppStore().appParams);
@@ -297,6 +298,8 @@ onMounted(async () => {
 
   // 注册 postMessage 主题切换监听
   setupMessageListener();
+  // 注册 postMessage 凭证桥接（与设计器页一致，只读接口同样可能被宿主鉴权拦截）
+  setupAuthListener();
 
   if (instanceId.value) {
     queryFlowChart(instanceId.value)
@@ -607,6 +610,7 @@ function downLoad() {
 /** 组件卸载时清理 message 监听 */
 onUnmounted(() => {
   cleanupMessageListener();
+  cleanupAuthListener();
 });
 </script>
 
