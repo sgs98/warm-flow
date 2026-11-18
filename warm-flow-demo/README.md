@@ -420,14 +420,13 @@ Demo 已接入**演示级登录认证**（完整可运行的参考实现）：
 - 登录：`POST /api/auth/login`，用户名 + 密码（演示密码 `warm-flow-demo`，可用环境变量 `WARM_DEMO_PASSWORD` 覆盖），签发 `HttpOnly + SameSite=Lax` 的 HMAC 签名 Cookie（12 小时有效）。
 - 统一拦截：`DemoAuthInterceptor` 覆盖 `/api/**` 与 `/warm-flow/**`，白名单仅登录接口与设计器静态资源；未认证返回 HTTP 401。
 - 身份只来自签名 Cookie；`X-User-Name` 请求头不再作为身份来源。切换用户需退出后重新登录（Cookie 决定身份，前端无法伪造）。
-- 设计器接口裁决：`DemoDesignerAuthHandler` 实现 SDK 的 `DesignerAuthHandler` SPI（读/写/办理分级），未实现该 SPI 的宿主设计器数据接口一律 401。
+- 设计器接口裁决：`DemoDesignerAuthHandler` 实现 SDK 的 `DesignerAuthHandler` SPI（登录级，单方法 `isAuthorized()`），未实现该 SPI 的宿主设计器数据接口一律 401。
 - 登出：`POST /api/auth/logout` 清除 Cookie；令牌密钥默认启动时随机生成（重启即全员下线），生产用 `warm-flow-demo.auth-secret` 固定并保密。
 
 生产接入要点：
 
 - 换成宿主自己的账号体系与密码存储，Demo 的内存用户和固定密码仅用于演示；
-- 写操作（保存流程定义、表单写入）建议在 `DesignerAuthHandler.canWrite()` 中限制为流程管理员；
-- `/warm-flow/execute/handle` 结合任务办理权限校验（`canHandleTask()`）；
+- SPI 只做登录级裁决；写操作与任务办理的更细权限建议在宿主的网关、拦截器或业务接口注解中限制为流程管理员；
 - 前后端分域时 Cookie 需 `SameSite=None; Secure`，或由网关认证后注入内部请求头。
 
 接口清单、接入方式与上线检查清单见

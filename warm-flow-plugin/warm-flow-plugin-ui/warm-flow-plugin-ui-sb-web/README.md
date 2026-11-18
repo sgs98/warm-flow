@@ -7,7 +7,8 @@ Spring Security 配置。未接入认证时，任何能访问服务端口的人�
 **本版本起设计器数据接口默认拒绝**：宿主必须实现 `org.dromara.warm.flow.ui.service.DesignerAuthHandler`
 并注册为 Spring Bean，否则 `/warm-flow/**` 全部返回 401。静态资源 `/warm-flow-ui/**` 放行。
 旧版的 `warm-flow.ui.token-name` URL/token 透传机制与 `/warm-flow-ui/config` 接口已移除（破坏性变更），
-认证统一走 Cookie 或网关注入头，由 `DesignerAuthHandler` 实现裁决。
+认证统一走 Cookie 或网关注入头，由 `DesignerAuthHandler.isAuthorized()` 做登录级裁决——
+SPI 只有一个方法，读/写/办理统一「已登录即可」，更细的权限由宿主网关或业务接口注解把关。
 
 ## 暴露的接口与敏感级别
 

@@ -21,12 +21,14 @@ package org.dromara.warm.flow.ui.service;
  * {@code /warm-flow/**} 数据接口的强制裁决点：宿主实现本接口并注册为 Bean 后，所有设计器
  * 数据接口先经过这里判断；容器中不存在实现时，数据接口一律拒绝（401），静态资源不受影响。
  * <p>
- * 本接口不绑定凭证来源：单体应用可读会话/Cookie，微服务可读网关注入的内部请求头，
- * 由实现方决定如何识别当前请求的操作者。
+ * 只做登录级鉴权，不区分读/写/办理：更细的操作权限由宿主自己的网关、拦截器或业务接口
+ * 注解把关。本接口不绑定凭证来源：单体应用可读会话/Cookie，微服务可读网关注入的内部
+ * 请求头，由实现方决定如何识别当前请求的操作者。
  *
  * @author warm
  * @since 2.1.1
  */
+@FunctionalInterface
 public interface DesignerAuthHandler {
 
     /**
@@ -35,24 +37,4 @@ public interface DesignerAuthHandler {
      * @return 已认证返回 {@code true}
      */
     boolean isAuthorized();
-
-    /**
-     * 当前请求是否可执行设计器写操作（保存流程定义、写入表单配置）。
-     * 默认与 {@link #isAuthorized()} 一致；宿主可区分“登录用户”与“流程管理员”。
-     *
-     * @return 允许写操作返回 {@code true}
-     */
-    default boolean canWrite() {
-        return isAuthorized();
-    }
-
-    /**
-     * 当前请求是否可经设计器直接办理任务（execute/handle）。
-     * 默认与 {@link #canWrite()} 一致；宿主应结合任务办理权限判断。
-     *
-     * @return 允许办理返回 {@code true}
-     */
-    default boolean canHandleTask() {
-        return canWrite();
-    }
 }

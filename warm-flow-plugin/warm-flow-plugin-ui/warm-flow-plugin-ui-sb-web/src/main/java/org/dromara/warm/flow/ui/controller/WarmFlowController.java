@@ -33,7 +33,7 @@ import java.util.Map;
 
 /**
  * 设计器Controller，数据接口统一经 {@link DesignerAuth} 鉴权：
- * 宿主未实现 DesignerAuthHandler 时全部拒绝，实现后按读/写/办理分级放行。
+ * 宿主未实现 DesignerAuthHandler 时全部拒绝，实现后已登录即可访问（方法级权限由宿主把关）。
  *
  * @author warm
  */
@@ -53,7 +53,7 @@ public class WarmFlowController {
     @PostMapping("/save-json")
     @Transactional(rollbackFor = Exception.class)
     public ApiResult<Void> saveJson(@RequestBody DefJson defJson, @RequestHeader("onlyNodeSkip") boolean onlyNodeSkip) throws Exception {
-        DesignerAuth.checkWrite();
+        DesignerAuth.check();
         return WarmFlowService.saveJson(defJson, onlyNodeSkip);
     }
 
@@ -67,7 +67,7 @@ public class WarmFlowController {
      */
     @GetMapping(value = {"/query-def", "/query-def/{id}"})
     public ApiResult<DefJson> queryDef(@PathVariable(value = "id", required = false) Long id) {
-        DesignerAuth.checkRead();
+        DesignerAuth.check();
         return WarmFlowService.queryDef(id);
     }
 
@@ -79,7 +79,7 @@ public class WarmFlowController {
      */
     @GetMapping("/query-flow-chart/{id}")
     public ApiResult<DefJson> queryFlowChart(@PathVariable("id") Long id) {
-        DesignerAuth.checkRead();
+        DesignerAuth.check();
         return WarmFlowService.queryFlowChart(id);
     }
 
@@ -90,7 +90,7 @@ public class WarmFlowController {
      */
     @GetMapping("/handler-type")
     public ApiResult<List<String>> handlerType() {
-        DesignerAuth.checkRead();
+        DesignerAuth.check();
         return WarmFlowService.handlerType();
     }
 
@@ -101,7 +101,7 @@ public class WarmFlowController {
      */
     @GetMapping("/handler-result")
     public ApiResult<HandlerSelectVo> handlerResult(HandlerQuery query) {
-        DesignerAuth.checkRead();
+        DesignerAuth.check();
         return WarmFlowService.handlerResult(query);
     }
 
@@ -112,7 +112,7 @@ public class WarmFlowController {
      */
     @GetMapping("/handler-feedback")
     public ApiResult<List<HandlerFeedBackVo>> handlerFeedback(HandlerFeedBackDto handlerFeedBackDto) {
-        DesignerAuth.checkRead();
+        DesignerAuth.check();
         return WarmFlowService.handlerFeedback(handlerFeedBackDto);
     }
 
@@ -123,7 +123,7 @@ public class WarmFlowController {
      */
     @GetMapping("/handler-dict")
     public ApiResult<List<Dict>> handlerDict() {
-        DesignerAuth.checkRead();
+        DesignerAuth.check();
         return WarmFlowService.handlerDict();
     }
 
@@ -133,7 +133,7 @@ public class WarmFlowController {
     @Transactional(rollbackFor = Exception.class)
     @GetMapping("/published-form")
     public ApiResult<List<Form>> publishedForm() {
-        DesignerAuth.checkRead();
+        DesignerAuth.check();
         return WarmFlowService.publishedForm();
     }
 
@@ -145,7 +145,7 @@ public class WarmFlowController {
      */
     @GetMapping("/form-content/{id}")
     public ApiResult<String> getFormContent(@PathVariable("id") Long id) {
-        DesignerAuth.checkRead();
+        DesignerAuth.check();
         return WarmFlowService.getFormContent(id);
     }
 
@@ -158,7 +158,7 @@ public class WarmFlowController {
     @Transactional(rollbackFor = Exception.class)
     @PostMapping("/form-content")
     public ApiResult<Void> saveFormContent(@RequestBody FlowDto flowDto) {
-        DesignerAuth.checkWrite();
+        DesignerAuth.check();
         return WarmFlowService.saveFormContent(flowDto);
     }
 
@@ -173,7 +173,7 @@ public class WarmFlowController {
      **/
     @GetMapping(value = "/execute/load/{taskId}")
     public ApiResult<FlowDto> load(@PathVariable("taskId") Long taskId) {
-        DesignerAuth.checkRead();
+        DesignerAuth.check();
         return WarmFlowService.load(taskId);
     }
 
@@ -185,7 +185,7 @@ public class WarmFlowController {
      */
     @GetMapping(value = "/execute/hisLoad/{taskId}")
     public ApiResult<FlowDto> hisLoad(@PathVariable("taskId") Long hisTaskId) {
-        DesignerAuth.checkRead();
+        DesignerAuth.check();
         return WarmFlowService.hisLoad(hisTaskId);
     }
 
@@ -204,7 +204,7 @@ public class WarmFlowController {
     public ApiResult<Instance> handle(@RequestBody Map<String, Object> formData, @RequestParam("taskId") Long taskId
         , @RequestParam("skipType") String skipType, @RequestParam("message") String message
         , @RequestParam(value = "nodeCode", required = false) String nodeCode) {
-        DesignerAuth.checkHandleTask();
+        DesignerAuth.check();
         return WarmFlowService.handle(formData, taskId, skipType, message, nodeCode);
     }
 
@@ -215,7 +215,7 @@ public class WarmFlowController {
      */
     @GetMapping("/node-ext")
     public ApiResult<List<NodeExt>> nodeExt() {
-        DesignerAuth.checkRead();
+        DesignerAuth.check();
         return WarmFlowService.nodeExt();
     }
 
@@ -226,7 +226,7 @@ public class WarmFlowController {
      */
     @GetMapping("/listener-list")
     public ApiResult<List<ListenerVo>> listenerList() {
-        DesignerAuth.checkRead();
+        DesignerAuth.check();
         return WarmFlowService.listenerList();
     }
 
