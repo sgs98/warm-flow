@@ -1737,6 +1737,10 @@ async function downJson() {
   background: transparent !important;
   padding: 0 !important;
   height: auto !important;
+  /* 侧栏收起时用 translateX(100%) 滑到右侧画布外，会把横向可滚动区域撑宽 420px；
+     而 overflow-y:auto 会把 overflow-x 一并变成 auto，于是出现横向滚动条，
+     一滚动整个画布被推走、右侧突出一大片空白。这里显式裁掉横向溢出。 */
+  overflow-x: hidden;
 }
 .container {
   flex: 1;
