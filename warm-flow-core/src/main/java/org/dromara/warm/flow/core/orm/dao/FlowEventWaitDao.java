@@ -201,7 +201,7 @@ public interface FlowEventWaitDao<T extends EventWait> extends WarmDao<T> {
      * 周期性事件继续按原计划推进。记录已不是 {@code DEAD}（被并发复活 / 已取消 / 已删除）时
      * 返回 {@code false}，调用方不得强行覆盖其状态。
      * <p>
-     * 该能力为 2.1.1 新增：默认实现抛出异常，未适配自实现 ORM 的宿主仅在调用复活时报错，
+     * 该能力为 2.1.2 新增：默认实现抛出异常，未适配自实现 ORM 的宿主仅在调用复活时报错，
      * 其它事件功能不受影响。
      *
      * @param id            记录主键

@@ -12,8 +12,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 /**
  * 设计器鉴权失败统一映射为 HTTP 401，前端可据此跳转登录。
  *
- * @author warm
- * @since 2.1.1
+ * @author may
+ * @since 2.1.2
  */
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice

@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
  * 不存在时拒绝全部数据接口——设计器安全由宿主显式接入，不做静默放行。
  *
  * @author may
- * @since 2.1.1
+ * @since 2.1.2
  */
 public final class DesignerAuth {
 

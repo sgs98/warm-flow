@@ -1,18 +1,3 @@
-/*
- *    Copyright 2024-2025, Warm-Flow (290631660@qq.com).
- *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
- *
- *       https://www.apache.org/licenses/LICENSE-2.0
- *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
- */
 package org.dromara.warm.flow.ui.service;
 
 /**
@@ -25,8 +10,8 @@ package org.dromara.warm.flow.ui.service;
  * 注解把关。本接口不绑定凭证来源：单体应用可读会话/Cookie，微服务可读网关注入的内部
  * 请求头，由实现方决定如何识别当前请求的操作者。
  *
- * @author warm
- * @since 2.1.1
+ * @author may
+ * @since 2.1.2
  */
 @FunctionalInterface
 public interface DesignerAuthHandler {

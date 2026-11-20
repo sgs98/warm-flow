@@ -32,7 +32,7 @@ import java.util.WeakHashMap;
  * 授权结果为静态快照，启动后不再变化。配置与注解合并时方法列表取并集。
  *
  * @author may
- * @since 2.1.1
+ * @since 2.1.2
  */
 @Configuration
 public class ExpressionBeanScanner implements ApplicationContextAware, SmartInitializingSingleton {

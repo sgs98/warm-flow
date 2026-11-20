@@ -16,7 +16,7 @@ import java.lang.annotation.Target;
  * 反射、写操作与基础设施调用仍被表达式沙箱拦截；宿主仍需审查入口的业务副作用。
  *
  * @author may
- * @since 2.1.1
+ * @since 2.1.2
  */
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
