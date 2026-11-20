@@ -37,6 +37,19 @@ yarn --registry=https://registry.npmmirror.com
 # 启动服务
 yarn dev
 
-# 构建生产环境 yarn build:prod
+# 构建生产环境
+yarn build:prod
+
+# 将最新 dist 同步到设计器插件
+yarn sync:plugin
+
 # 前端访问地址 http://localhost:8083
 ```
+
+前端不属于 Maven 反应堆，`mvn clean install` 不会重新编译 Vue 源码。修改设计器后，必须先构建并同步，再从仓库根安装插件：
+
+```bash
+mvn -pl warm-flow-plugin/warm-flow-plugin-ui/warm-flow-plugin-vue3-ui -am -DskipTests install
+```
+
+`sync:plugin` 会检查源码和构建配置是否比 `dist/index.html` 更新，过期时拒绝同步，避免把旧页面打进 jar。宿主依赖本地 Maven 插件时，安装后需重启宿主，并重新打开设计器；有未保存的流程修改时请先保存或导出备份。

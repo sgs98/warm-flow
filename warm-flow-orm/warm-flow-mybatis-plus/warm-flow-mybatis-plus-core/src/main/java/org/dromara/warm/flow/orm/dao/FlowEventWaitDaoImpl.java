@@ -289,7 +289,9 @@ public class FlowEventWaitDaoImpl extends WarmDaoImpl<FlowEventWait> implements 
 
     @Override
     public List<EventWait> selectListByQuery(EventWaitQuery query) {
-        return asEventWaits(getMapper().selectList(listWrapper(query)));
+        QueryWrapper<FlowEventWait> wrapper = listWrapper(query);
+        lockRead(wrapper);
+        return asEventWaits(getMapper().selectList(wrapper));
     }
 
     @Override

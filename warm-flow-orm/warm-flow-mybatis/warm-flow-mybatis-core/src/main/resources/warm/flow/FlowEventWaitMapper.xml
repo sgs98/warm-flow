@@ -298,6 +298,7 @@
                 <include refid="paging_end"/>
             </otherwise>
         </choose>
+        <if test="page == null and @org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <sql id="includeAll">
@@ -331,6 +332,7 @@
                 <include refid="paging_end"/>
             </otherwise>
         </choose>
+        <if test="page == null and @org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <select id="selectByIds" resultMap="FlowEventWaitResult">
@@ -341,6 +343,7 @@
         </foreach>
         <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
         <if test="entity.tenantId != null  and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
+        <if test="@org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <select id="selectById" resultMap="FlowEventWaitResult">
@@ -348,6 +351,7 @@
         where t.id = #{id}
         <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
         <if test="entity.tenantId != null  and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
+        <if test="@org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <insert id="insert" parameterType="org.dromara.warm.flow.orm.entity.FlowEventWait">

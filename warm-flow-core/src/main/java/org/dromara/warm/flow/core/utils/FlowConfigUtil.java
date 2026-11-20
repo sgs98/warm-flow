@@ -108,20 +108,29 @@ public class FlowConfigUtil {
         for (Node item : allNodes) {
             nodeMap.put(item.getNodeCode(), item);
         }
+        Set<String> branchNodes = null;
         for (Node source : allNodes) {
             try {
                 if (!RejectConfig.parse(source.getNodeConfig()).isReturnToRejector()) {
                     continue;
                 }
+                // 静态目标（anyNodeSkip 或唯一退回线）存在时提前做路径预校验，把可静态发现的问题
+                // 挡在保存期；两者都没有时允许保存——目标可由办理人驳回时指定，路径合法性
+                // 由运行时 rejectReturnPreflight 的 validateRejectReturnPath 兜底（同事务回滚）。
                 String target = source.getAnyNodeSkip();
                 if (StringUtils.isEmpty(target)) {
                     List<Skip> rejects = allSkips.stream().filter(s -> source.getNodeCode().equals(s.getNowNodeCode())
                         && SkipType.isReject(s.getSkipType())).collect(java.util.stream.Collectors.toList());
-                    AssertUtil.isTrue(rejects.size() != 1,
-                        "[" + source.getNodeCode() + "]驳回直返需要固定驳回节点或唯一退回线");
-                    target = rejects.get(0).getNextNodeCode();
+                    if (rejects.size() == 1) {
+                        target = rejects.get(0).getNextNodeCode();
+                    }
                 }
-                validateRejectReturnPath(combine, source.getNodeCode(), target);
+                if (StringUtils.isNotEmpty(target)) {
+                    if (branchNodes == null) {
+                        branchNodes = parallelBranchNodes(combine);
+                    }
+                    validateRejectReturnPath(combine, source.getNodeCode(), target, branchNodes);
+                }
             } catch (FlowException e) {
                 throw new FlowException("[" + source.getNodeCode() + "]" + e.getMessage());
             }
@@ -145,12 +154,20 @@ public class FlowConfigUtil {
      * @param targetCode 本次实际驳回目标
      */
     public static void validateRejectReturnPath(FlowCombine combine, String sourceCode, String targetCode) {
+        validateRejectReturnPath(combine, sourceCode, targetCode, parallelBranchNodes(combine));
+    }
+
+    private static void validateRejectReturnPath(FlowCombine combine, String sourceCode, String targetCode,
+        Set<String> branchNodes) {
         String prefix = "[" + sourceCode + "]驳回直返";
         Map<String, Node> nodes = StreamUtils.toMap(combine.getAllNodes(), Node::getNodeCode, node -> node);
         AssertUtil.isTrue(Objects.equals(sourceCode, targetCode), prefix + "必须返回之前的人工节点");
-        if (crossesParallelGateway(combine, targetCode, sourceCode)) {
-            // 并行 / 包容网关区间按「整体退回重走」处理：配置合法但不启用直返，
-            // 驳回由既有跨分叉一票否决完成，A 提交后重新分叉。
+        Node sourceNode = nodes.get(sourceCode);
+        AssertUtil.isTrue(sourceNode == null || !NodeType.isBetween(sourceNode.getNodeType())
+            || StringUtils.isNotEmpty(sourceNode.getEventType()), prefix + "驳回发起节点必须是普通人工节点");
+        if (branchNodes.contains(sourceCode)) {
+            // 并行 / 包容区间（或驳回节点本身位于并行/包容分支内）按「整体退回重走」处理：
+            // 配置合法但不启用直返，A 提交后重新分叉或沿分支重走，不会直达驳回节点。
             Node target = nodes.get(targetCode);
             Node source = nodes.get(sourceCode);
             AssertUtil.isTrue(target == null || source == null, prefix + "目标或来源节点不存在");
@@ -162,30 +179,54 @@ public class FlowConfigUtil {
                 prefix + "驳回发起节点必须是普通人工节点");
             return;
         }
+        Map<String, List<Skip>> outgoing = combine.getAllSkips().stream().filter(skip -> SkipType.isPass(skip.getSkipType()))
+            .collect(java.util.stream.Collectors.groupingBy(Skip::getNowNodeCode));
+        Map<String, List<Skip>> incoming = combine.getAllSkips().stream().filter(skip -> SkipType.isPass(skip.getSkipType()))
+            .collect(java.util.stream.Collectors.groupingBy(Skip::getNextNodeCode));
+        Set<String> reachingSource = nodesReachingSource(incoming, sourceCode);
+        if (crossesParallelGateway(combine, targetCode, sourceCode)) {
+            validateGatewayReturnInterval(combine, nodes, outgoing, reachingSource, sourceCode, targetCode, prefix);
+            return;
+        }
         Set<String> interval = new HashSet<>();
+        // 目标与发起节点都必须是普通人工节点（网关只允许作为区间内的中转，不能被驳回或驳回）
+        Node targetNode = nodes.get(targetCode);
+        AssertUtil.isTrue(targetNode == null || !NodeType.isBetween(targetNode.getNodeType())
+                || StringUtils.isNotEmpty(targetNode.getEventType()),
+            prefix + "驳回目标必须是普通人工节点");
         String code = targetCode;
         while (true) {
             Node node = nodes.get(code);
             AssertUtil.isTrue(node == null || !interval.add(code), prefix + "目标不存在或返回区间存在循环");
             // 会签 / 票签 / 顺签 / 组签节点允许出现在区间内并被直返跳过；
-            // 网关、服务任务与事件节点仍然禁止（跳过会丢失副作用或等待语义）。
-            AssertUtil.isTrue(NodeType.isService(node.getNodeType()) || NodeType.isGateWay(node.getNodeType())
-                    || StringUtils.isNotEmpty(node.getEventType()),
-                prefix + "返回区间不支持网关、服务任务或事件节点");
+            // 排他网关为单令牌选路、直返不执行区间内节点，也允许（要求唯一一条通往驳回节点的分支）；
+            // 服务任务与事件节点仍然禁止（跳过会丢失副作用或等待语义）。
+            AssertUtil.isTrue(!NodeType.isGateWaySerial(node.getNodeType())
+                    && (NodeType.isService(node.getNodeType()) || NodeType.isGateWay(node.getNodeType())
+                    || StringUtils.isNotEmpty(node.getEventType())),
+                prefix + "返回区间不支持并行/包容网关、服务任务或事件节点");
             if (sourceCode.equals(code)) {
                 break;
             }
             String current = code;
-            List<Skip> passes = combine.getAllSkips().stream()
-                .filter(s -> current.equals(s.getNowNodeCode()) && SkipType.isPass(s.getSkipType()))
-                .collect(java.util.stream.Collectors.toList());
-            AssertUtil.isTrue(passes.size() != 1 || StringUtils.isNotEmpty(passes.get(0).getSkipCondition()),
-                prefix + "返回区间必须具有唯一无条件通过路径");
-            code = passes.get(0).getNextNodeCode();
+            List<Skip> passes = outgoing.getOrDefault(current, List.of());
+            if (NodeType.isGateWaySerial(node.getNodeType())) {
+                // 排他网关按条件选路，但直返不执行网关：只要求恰好一条分支能到达驳回节点
+                long reaching = passes.stream()
+                    .filter(s -> reachingSource.contains(s.getNextNodeCode()))
+                    .count();
+                AssertUtil.isTrue(reaching != 1, prefix + "排他网关存在多条或没有通往驳回节点的分支");
+                code = passes.stream()
+                    .filter(s -> reachingSource.contains(s.getNextNodeCode()))
+                    .findFirst().orElseThrow().getNextNodeCode();
+            } else {
+                AssertUtil.isTrue(passes.size() != 1 || StringUtils.isNotEmpty(passes.get(0).getSkipCondition()),
+                    prefix + "返回区间必须具有唯一无条件通过路径");
+                code = passes.get(0).getNextNodeCode();
+            }
             String next = code;
-            long incoming = combine.getAllSkips().stream()
-                .filter(s -> next.equals(s.getNextNodeCode()) && SkipType.isPass(s.getSkipType())).count();
-            AssertUtil.isTrue(incoming != 1, prefix + "返回区间不支持分支汇聚");
+            int incomingCount = incoming.getOrDefault(next, List.of()).size();
+            AssertUtil.isTrue(incomingCount != 1, prefix + "返回区间不支持分支汇聚");
         }
         for (Node node : combine.getAllNodes()) {
             AssertUtil.isTrue(StringUtils.isNotEmpty(node.getAttachedToNodeCode())
@@ -193,10 +234,91 @@ public class FlowConfigUtil {
         }
     }
 
+    private static void validateGatewayReturnInterval(FlowCombine combine, Map<String, Node> nodes,
+        Map<String, List<Skip>> outgoing, Set<String> reachingSource, String sourceCode, String targetCode, String prefix) {
+        Node source = nodes.get(sourceCode);
+        Node target = nodes.get(targetCode);
+        AssertUtil.isTrue(source == null || target == null || !NodeType.isBetween(source.getNodeType())
+            || !NodeType.isBetween(target.getNodeType()) || StringUtils.isNotEmpty(source.getEventType())
+            || StringUtils.isNotEmpty(target.getEventType()), prefix + "目标和来源必须是普通人工节点");
+        Set<String> interval = new HashSet<>();
+        ArrayDeque<String> pending = new ArrayDeque<>(List.of(targetCode));
+        boolean reachedSource = false;
+        while (!pending.isEmpty()) {
+            String code = pending.poll();
+            if (!interval.add(code)) continue;
+            Node node = nodes.get(code);
+            AssertUtil.isTrue(node == null || NodeType.isService(node.getNodeType())
+                || StringUtils.isNotEmpty(node.getEventType()), prefix + "返回区间不支持服务任务或事件节点");
+            if (sourceCode.equals(code)) {
+                reachedSource = true;
+                continue;
+            }
+            List<Skip> passes = outgoing.getOrDefault(code, List.of());
+            List<Skip> reaching = passes.stream().filter(skip -> reachingSource.contains(skip.getNextNodeCode()))
+                .collect(java.util.stream.Collectors.toList());
+            if (NodeType.isGateWaySerial(node.getNodeType())) {
+                AssertUtil.isTrue(reaching.size() != 1, prefix + "排他网关存在多条或没有通往驳回节点的分支");
+            } else if (NodeType.isGateWayParallel(node.getNodeType()) || NodeType.isGateWayInclusive(node.getNodeType())) {
+                AssertUtil.isTrue(reaching.isEmpty() || reaching.size() != passes.size(), prefix + "并行/包容返回分支必须完整汇聚");
+            } else {
+                AssertUtil.isTrue(!NodeType.isBetween(node.getNodeType()) || passes.size() != 1 || reaching.size() != 1
+                    || StringUtils.isNotEmpty(passes.get(0).getSkipCondition()), prefix + "人工返回路径必须唯一且无条件");
+            }
+            reaching.forEach(skip -> pending.add(skip.getNextNodeCode()));
+        }
+        AssertUtil.isFalse(reachedSource, prefix + "目标必须是之前的人工节点");
+        for (Node node : combine.getAllNodes()) {
+            AssertUtil.isTrue(StringUtils.isNotEmpty(node.getAttachedToNodeCode()) && interval.contains(node.getAttachedToNodeCode()),
+                prefix + "返回区间不支持附着边界事件");
+        }
+    }
+
+    private static Set<String> nodesReachingSource(Map<String, List<Skip>> incoming, String sourceCode) {
+        Set<String> reachable = new HashSet<>();
+        ArrayDeque<String> pending = new ArrayDeque<>(List.of(sourceCode));
+        while (!pending.isEmpty()) {
+            String code = pending.poll();
+            if (!reachable.add(code)) continue;
+            for (Skip skip : incoming.getOrDefault(code, List.of())) pending.add(skip.getNowNodeCode());
+        }
+        return reachable;
+    }
+
+    /**
+     * 判断从起始节点沿通过线能否到达目标节点（用于排他网关选路，忽略节点类型，
+     * 后续区间遍历会再校验节点是否允许被跳过）。
+     *
+     * @param fromCode 起始节点编码
+     * @param toCode   目标节点编码
+     * @param allSkips 全部连线
+     * @return 可达返回 {@code true}
+     */
+    private static boolean reaches(String fromCode, String toCode, List<Skip> allSkips) {
+        Set<String> visited = new HashSet<>();
+        java.util.ArrayDeque<String> queue = new java.util.ArrayDeque<>();
+        queue.add(fromCode);
+        while (!queue.isEmpty()) {
+            String code = queue.poll();
+            if (!visited.add(code)) {
+                continue;
+            }
+            if (toCode.equals(code)) {
+                return true;
+            }
+            for (Skip skip : allSkips) {
+                if (code.equals(skip.getNowNodeCode()) && SkipType.isPass(skip.getSkipType())) {
+                    queue.add(skip.getNextNodeCode());
+                }
+            }
+        }
+        return false;
+    }
+
 
     /**
      * 判断 target → source 的任意 PASS 路径是否经过并行 / 包容网关。
-     * <p>这类区间不做直返，驳回走整体退回重走语义。</p>
+     * <p>这里只识别网关区间；是否重走取决于驳回节点是否仍在未完整汇聚的分支内。</p>
      *
      * @param combine    流程组合数据
      * @param targetCode 返回目标节点
@@ -239,6 +361,247 @@ public class FlowConfigUtil {
             }
         }
         return false;
+    }
+
+    /**
+     * 判断节点是否位于并行 / 包容网关的分支内（可直接驳回直达的场景必须排除）。
+     * <p>
+     * 分叉仅在全部通过路径共同必经的并行/包容汇聚处闭合；部分汇聚和循环入口不会抵消外层分叉。
+     * 从分叉出口遍历到完整汇聚之前仍属于分支，单入单出网关不闭合分支。
+     *
+     * @param combine  流程组合数据
+     * @param nodeCode 待判断节点编码
+     * @return 位于并行/包容分支内返回 {@code true}
+     */
+    public static boolean inParallelBranch(FlowCombine combine, String nodeCode) {
+        if (StringUtils.isEmpty(nodeCode)) {
+            return false;
+        }
+        return parallelBranchNodes(combine).contains(nodeCode);
+    }
+
+    private static Set<String> parallelBranchNodes(FlowCombine combine) {
+        Map<String, List<Skip>> incoming = combine.getAllSkips().stream()
+            .filter(s -> SkipType.isPass(s.getSkipType()))
+            .collect(java.util.stream.Collectors.groupingBy(Skip::getNextNodeCode));
+        Map<String, List<Skip>> outgoing = combine.getAllSkips().stream()
+            .filter(s -> SkipType.isPass(s.getSkipType()))
+            .collect(java.util.stream.Collectors.groupingBy(Skip::getNowNodeCode));
+        Map<String, Node> nodes = StreamUtils.toMap(combine.getAllNodes(), Node::getNodeCode, node -> node);
+        List<Node> forks = new ArrayList<>();
+        for (Node node : nodes.values()) {
+            if ((NodeType.isGateWayParallel(node.getNodeType()) || NodeType.isGateWayInclusive(node.getNodeType()))
+                && outgoing.getOrDefault(node.getNodeCode(), List.of()).size() > 1) {
+                forks.add(node);
+            }
+        }
+        Set<String> branchNodes = new HashSet<>();
+        if (forks.isEmpty()) {
+            return branchNodes;
+        }
+        Map<String, Set<String>> dominators = postDominators(nodes, incoming, outgoing, Set.of(), true, false);
+        Map<String, Set<String>> terminalDominators = null;
+        for (Node fork : forks) {
+            String forkCode = fork.getNodeCode();
+            Map<String, Set<String>> current = dominators;
+            if (current.get(forkCode).isEmpty()) {
+                Map<String, Set<String>> entries = postDominators(nodes, outgoing, incoming, Set.of(forkCode), false, true);
+                Set<String> headers = new HashSet<>();
+                for (Skip skip : combine.getAllSkips()) {
+                    if (SkipType.isPass(skip.getSkipType())
+                        && entries.getOrDefault(skip.getNowNodeCode(), Set.of()).contains(skip.getNextNodeCode())) {
+                        headers.add(skip.getNextNodeCode());
+                    }
+                }
+                Set<String> exits = new HashSet<>();
+                for (String header : headers) {
+                    boolean nested = headers.stream().anyMatch(other -> !header.equals(other)
+                        && entries.getOrDefault(header, Set.of()).contains(other));
+                    boolean shared = outgoing.get(forkCode).stream().allMatch(skip ->
+                        reaches(skip.getNextNodeCode(), header, combine.getAllSkips()));
+                    if (!nested && shared) {
+                        exits.add(header);
+                    }
+                }
+                if (!exits.isEmpty()) {
+                    current = postDominators(nodes, incoming, outgoing, exits, true, false);
+                } else {
+                    if (terminalDominators == null) {
+                        terminalDominators = postDominators(nodes, incoming, outgoing,
+                            terminalComponentExits(nodes, incoming, outgoing), true, false);
+                    }
+                    current = terminalDominators;
+                }
+            }
+            Set<String> common = null;
+            for (Skip skip : outgoing.get(forkCode)) {
+                Set<String> next = current.getOrDefault(skip.getNextNodeCode(), Set.of());
+                if (common == null) {
+                    common = new HashSet<>(next);
+                } else {
+                    common.retainAll(next);
+                }
+            }
+            Set<String> joins = new HashSet<>();
+            for (String code : common) {
+                Node node = nodes.get(code);
+                if (!forkCode.equals(code)
+                    && (NodeType.isGateWayParallel(node.getNodeType()) || NodeType.isGateWayInclusive(node.getNodeType()))
+                    && incoming.getOrDefault(code, List.of()).size() > 1) {
+                    joins.add(code);
+                }
+            }
+            Set<String> visited = new HashSet<>();
+            java.util.ArrayDeque<String> queue = new java.util.ArrayDeque<>();
+            for (Skip skip : outgoing.get(forkCode)) {
+                if (nodes.containsKey(skip.getNextNodeCode())) {
+                    queue.add(skip.getNextNodeCode());
+                }
+            }
+            while (!queue.isEmpty()) {
+                String code = queue.poll();
+                if (!visited.add(code) || forkCode.equals(code) || joins.contains(code)) {
+                    continue;
+                }
+                branchNodes.add(code);
+                for (Skip skip : outgoing.getOrDefault(code, List.of())) {
+                    if (nodes.containsKey(skip.getNextNodeCode())) {
+                        queue.add(skip.getNextNodeCode());
+                    }
+                }
+            }
+        }
+        return branchNodes;
+    }
+
+    private static Set<String> terminalComponentExits(Map<String, Node> nodes,
+        Map<String, List<Skip>> incoming, Map<String, List<Skip>> outgoing) {
+        Set<String> visited = new HashSet<>();
+        List<String> order = new ArrayList<>();
+        ArrayDeque<String> path = new ArrayDeque<>();
+        ArrayDeque<Iterator<Skip>> successors = new ArrayDeque<>();
+        for (String code : nodes.keySet()) {
+            if (!visited.add(code)) {
+                continue;
+            }
+            path.push(code);
+            successors.push(outgoing.getOrDefault(code, List.of()).iterator());
+            while (!path.isEmpty()) {
+                Iterator<Skip> iterator = successors.peek();
+                if (!iterator.hasNext()) {
+                    order.add(path.pop());
+                    successors.pop();
+                    continue;
+                }
+                String next = iterator.next().getNextNodeCode();
+                if (nodes.containsKey(next) && visited.add(next)) {
+                    path.push(next);
+                    successors.push(outgoing.getOrDefault(next, List.of()).iterator());
+                }
+            }
+        }
+        Set<String> assigned = new HashSet<>();
+        Set<String> exits = new HashSet<>();
+        for (int index = order.size() - 1; index >= 0; index--) {
+            String code = order.get(index);
+            if (!assigned.add(code)) {
+                continue;
+            }
+            Set<String> component = new HashSet<>();
+            path.push(code);
+            while (!path.isEmpty()) {
+                String current = path.pop();
+                component.add(current);
+                for (Skip skip : incoming.getOrDefault(current, List.of())) {
+                    String previous = skip.getNowNodeCode();
+                    if (nodes.containsKey(previous) && assigned.add(previous)) {
+                        path.push(previous);
+                    }
+                }
+            }
+            boolean terminal = component.stream().allMatch(current -> outgoing.getOrDefault(current, List.of()).stream()
+                .allMatch(skip -> component.contains(skip.getNextNodeCode())));
+            if (terminal) {
+                exits.addAll(component);
+            }
+        }
+        return exits;
+    }
+
+    private static Map<String, Set<String>> postDominators(Map<String, Node> nodes,
+        Map<String, List<Skip>> incoming, Map<String, List<Skip>> outgoing, Set<String> extraExits,
+        boolean includeEnds, boolean reverse) {
+        Set<String> exits = new HashSet<>(extraExits);
+        if (includeEnds) {
+            for (String code : nodes.keySet()) {
+                if (outgoing.getOrDefault(code, List.of()).isEmpty()) {
+                    exits.add(code);
+                }
+            }
+        }
+        Set<String> reachesExit = new LinkedHashSet<>();
+        java.util.ArrayDeque<String> queue = new java.util.ArrayDeque<>(exits);
+        while (!queue.isEmpty()) {
+            String code = queue.poll();
+            if (!reachesExit.add(code)) {
+                continue;
+            }
+            for (Skip skip : incoming.getOrDefault(code, List.of())) {
+                String previous = reverse ? skip.getNextNodeCode() : skip.getNowNodeCode();
+                if (nodes.containsKey(previous)) {
+                    queue.add(previous);
+                }
+            }
+        }
+        Map<String, Set<String>> dominators = new HashMap<>();
+        for (String code : nodes.keySet()) {
+            Set<String> initial = new HashSet<>();
+            if (reachesExit.contains(code)) {
+                if (exits.contains(code)) {
+                    initial.add(code);
+                } else {
+                    initial.addAll(reachesExit);
+                }
+            }
+            dominators.put(code, initial);
+        }
+        queue.addAll(reachesExit);
+        Set<String> queued = new HashSet<>(reachesExit);
+        while (!queue.isEmpty()) {
+            String code = queue.poll();
+            queued.remove(code);
+            List<Skip> successors = outgoing.getOrDefault(code, List.of());
+            if (successors.isEmpty() || exits.contains(code)) {
+                continue;
+            }
+            Set<String> shared = null;
+            for (Skip skip : successors) {
+                String nextCode = reverse ? skip.getNowNodeCode() : skip.getNextNodeCode();
+                if (reverse && !reachesExit.contains(nextCode)) {
+                    continue;
+                }
+                Set<String> next = dominators.getOrDefault(nextCode, Set.of());
+                if (shared == null) {
+                    shared = new HashSet<>(next);
+                } else {
+                    shared.retainAll(next);
+                }
+            }
+            if (shared == null) {
+                continue;
+            }
+            shared.add(code);
+            if (!shared.equals(dominators.get(code))) {
+                dominators.put(code, shared);
+                for (Skip skip : incoming.getOrDefault(code, List.of())) {
+                    String previous = reverse ? skip.getNextNodeCode() : skip.getNowNodeCode();
+                    if (reachesExit.contains(previous) && queued.add(previous)) {
+                        queue.add(previous);
+                    }
+                }
+            }
+        }
+        return dominators;
     }
 
     /**

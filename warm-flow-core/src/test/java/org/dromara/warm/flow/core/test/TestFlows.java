@@ -132,6 +132,89 @@ public final class TestFlows {
     }
 
     /**
+     * 构建返回区间包含排他网关的直返流程：
+     * start → A → G(排他网关) → B → C → D → end，G 另有旁路分支 X → end，D → A 退回。
+     *
+     * @param flowCode    流程编码
+     * @param dNodeConfig D 节点配置（直返规则）
+     * @return 已保存的流程定义
+     */
+    public static Definition rejectReturnGatewayFlow(String flowCode, String dNodeConfig) {
+        Definition def = FlowEngine.newDef().setFlowCode(flowCode).setFlowName("排他网关直返测试流程")
+            .setVersion("1").setIsPublish(PublishStatus.PUBLISHED.getKey())
+            .setActivityStatus(ActivityStatus.ACTIVITY.getKey());
+        FlowEngine.defService().save(def);
+        node(def, "start", NodeType.START.getKey(), null);
+        node(def, "A", NodeType.BETWEEN.getKey(), HANDLER);
+        node(def, "G", NodeType.SERIAL.getKey(), null);
+        node(def, "B", NodeType.BETWEEN.getKey(), HANDLER);
+        node(def, "C", NodeType.BETWEEN.getKey(), HANDLER);
+        node(def, "D", NodeType.BETWEEN.getKey(), HANDLER);
+        node(def, "X", NodeType.BETWEEN.getKey(), HANDLER);
+        node(def, "end", NodeType.END.getKey(), null);
+        org.dromara.warm.flow.core.entity.Node d = FlowEngine.nodeService()
+            .getByDefIdAndNodeCode(def.getId(), "D");
+        d.setNodeConfig(dNodeConfig);
+        FlowEngine.nodeService().updateById(d);
+        skip(def, "start", 0, "A", 1);
+        skip(def, "A", 1, "G", NodeType.SERIAL.getKey());
+        // 排他网关默认出口（无条件）先保存，运行期取第一条无 条件出口；X 分支不回到 D
+        skip(def, "G", NodeType.SERIAL.getKey(), "B", 1);
+        skip(def, "G", NodeType.SERIAL.getKey(), "X", 1);
+        skip(def, "X", 1, "end", 2);
+        skip(def, "B", 1, "C", 1);
+        skip(def, "C", 1, "D", 1);
+        skip(def, "D", 1, "end", 2);
+        skip(def, "D", 1, "A", 1, SkipType.REJECT.getKey());
+        return def;
+    }
+
+    public static Instance startRejectReturnGatewayFlow(String flowCode, String businessId, String dNodeConfig) {
+        rejectReturnGatewayFlow(flowCode, dNodeConfig);
+        return FlowEngine.insService().start(businessId, flowCode, context(HANDLER));
+    }
+
+    /**
+     * 构建并行分支内直返流程：
+     * start → forkP(并行) → [a1 → a2]、[b1] → joinP(并行) → end，a2 → a1 退回。
+     *
+     * @param flowCode 流程编码
+     * @param a2Config a2 节点配置（直返规则）
+     * @return 已保存的流程定义
+     */
+    public static Definition parallelRejectReturnFlow(String flowCode, String a2Config) {
+        Definition def = FlowEngine.newDef().setFlowCode(flowCode).setFlowName("并行分支直返测试流程")
+            .setVersion("1").setIsPublish(PublishStatus.PUBLISHED.getKey())
+            .setActivityStatus(ActivityStatus.ACTIVITY.getKey());
+        FlowEngine.defService().save(def);
+        node(def, "start", NodeType.START.getKey(), null);
+        node(def, "forkP", NodeType.PARALLEL.getKey(), null);
+        node(def, "a1", NodeType.BETWEEN.getKey(), HANDLER);
+        node(def, "a2", NodeType.BETWEEN.getKey(), HANDLER);
+        node(def, "b1", NodeType.BETWEEN.getKey(), HANDLER);
+        node(def, "joinP", NodeType.PARALLEL.getKey(), null);
+        node(def, "end", NodeType.END.getKey(), null);
+        org.dromara.warm.flow.core.entity.Node a2 = FlowEngine.nodeService()
+            .getByDefIdAndNodeCode(def.getId(), "a2");
+        a2.setNodeConfig(a2Config);
+        FlowEngine.nodeService().updateById(a2);
+        skip(def, "start", 0, "forkP", NodeType.PARALLEL.getKey());
+        skip(def, "forkP", NodeType.PARALLEL.getKey(), "a1", 1);
+        skip(def, "forkP", NodeType.PARALLEL.getKey(), "b1", 1);
+        skip(def, "a1", 1, "a2", 1);
+        skip(def, "a2", 1, "joinP", NodeType.PARALLEL.getKey());
+        skip(def, "b1", 1, "joinP", NodeType.PARALLEL.getKey());
+        skip(def, "joinP", NodeType.PARALLEL.getKey(), "end", 2);
+        skip(def, "a2", 1, "a1", 1, SkipType.REJECT.getKey());
+        return def;
+    }
+
+    public static Instance startParallelRejectReturnFlow(String flowCode, String businessId, String a2Config) {
+        parallelRejectReturnFlow(flowCode, a2Config);
+        return FlowEngine.insService().start(businessId, flowCode, context(HANDLER));
+    }
+
+    /**
      * 构建并保存服务任务 + 人工审批流程：start(0) → s1(6) → apply(1) → end(2)，全部连线为 PASS。
      *
      * @param flowCode 流程编码

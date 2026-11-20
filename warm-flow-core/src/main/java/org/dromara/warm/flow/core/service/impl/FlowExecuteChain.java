@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * 办理（通过/驳回/跳转）操作链：装配 8 个有序步骤并委托 {@link FlowPipeline} 执行。
@@ -102,6 +103,7 @@ final class FlowExecuteChain {
     private RejectReturnRuntime.ReturnIntent returnIntent;
     private String rejectTargetCode;
     private Long directReturnTaskId;
+    private boolean replayReturnIntent;
 
     /**
      * @param taskService        任务服务
@@ -173,6 +175,12 @@ final class FlowExecuteChain {
         if (!pending && !directReject) {
             return Optional.empty();
         }
+        FlowCombine combine = execution.loadCombineNoDef();
+        if (!pending && FlowConfigUtil.inParallelBranch(combine, execution.nowNode.getNodeCode())) {
+            log.info("当前节点位于并行/包容分支内，驳回按原流程重走: instanceId={}, node={}",
+                execution.instance.getId(), execution.nowNode.getNodeCode());
+            return Optional.empty();
+        }
         List<Task> active = taskService.getByInsId(execution.instance.getId());
         boolean parallel = active.stream()
             .anyMatch(t -> !Objects.equals(t.getNodeCode(), execution.nowNode.getNodeCode()));
@@ -184,9 +192,6 @@ final class FlowExecuteChain {
                 execution.instance.getId(), execution.nowNode.getNodeCode());
             return Optional.empty();
         }
-        AssertUtil.isTrue(CollUtil.isNotEmpty(FlowEngine.eventWaitService()
-            .getActiveByInstanceId(execution.instance.getId())), "驳回直返不支持活动事件等待");
-        FlowCombine combine = execution.loadCombineNoDef();
         if (pending) {
             returnIntent = RejectReturnRuntime.find(execution.instance, execution.nowNode.getNodeCode(), execution.task.getId())
                 .orElseThrow(() -> new FlowException("驳回直返运行关联与当前待办不匹配"));
@@ -199,8 +204,7 @@ final class FlowExecuteChain {
             String source = returnIntent.returnNodeCode();
             AssertUtil.isTrue(!RejectConfig.parse(RejectReturnRuntime.configForNode(snapshot, source)).isReturnToRejector(),
                 "驳回直返来源规则与实例快照不匹配");
-            AssertUtil.isTrue(FlowConfigUtil.crossesParallelGateway(combine, execution.nowNode.getNodeCode(), source),
-                "驳回直返运行关联与并行区间不匹配");
+            boolean replay = FlowConfigUtil.inParallelBranch(combine, source);
             FlowConfigUtil.validateRejectReturnPath(combine, source, execution.nowNode.getNodeCode());
             boolean sourceHistory = FlowEngine.hisTaskService().getByInsId(execution.instance.getId()).stream()
                 .anyMatch(h -> Objects.equals(h.getTaskId(), returnIntent.sourceTaskId())
@@ -208,14 +212,22 @@ final class FlowExecuteChain {
                     && source.equals(h.getNodeCode()) && execution.nowNode.getNodeCode().equals(h.getTargetNodeCode())
                     && SkipType.isReject(h.getSkipType()) && CooperateType.NONE.getKey().equals(h.getCooperateType()));
             AssertUtil.isFalse(sourceHistory, "驳回直返来源历史与本次运行关联不匹配");
+            if (replay) {
+                replayReturnIntent = true;
+                returnIntent = null;
+                log.info("旧直返关联的来源位于并行/包容分支内，重新提交按原流程重走: instanceId={}, node={}",
+                    execution.instance.getId(), source);
+            } else {
+                AssertUtil.isTrue(CollUtil.isNotEmpty(FlowEngine.eventWaitService()
+                    .getActiveByInstanceId(execution.instance.getId())), "驳回直返不支持活动事件等待");
+            }
         } else {
+            AssertUtil.isFalse(RejectConfig.isAtomicExecutionSupported(),
+                "驳回直返需要事务管理器和同实例行锁，不能将直返配置自动改为重走");
             Node target = FlowEngine.nodeService().getNextNode(execution.nowNode, execution.intent.getTargetNodeCode(),
                 skipType, new PathWayData(), combine);
-            if (FlowConfigUtil.crossesParallelGateway(combine, target.getNodeCode(), execution.nowNode.getNodeCode())) {
-                log.info("返回区间包含并行网关，驳回直返退化为整体退回重走: instanceId={}, node={}",
-                    execution.instance.getId(), execution.nowNode.getNodeCode());
-                return Optional.empty();
-            }
+            AssertUtil.isTrue(CollUtil.isNotEmpty(FlowEngine.eventWaitService()
+                .getActiveByInstanceId(execution.instance.getId())), "驳回直返不支持活动事件等待");
             rejectTargetCode = target.getNodeCode();
             FlowConfigUtil.validateRejectReturnPath(combine, execution.nowNode.getNodeCode(), rejectTargetCode);
         }
@@ -317,6 +329,9 @@ final class FlowExecuteChain {
         arrivalPlan = EventArrivalDispatcher.prepare(execution, nextNodes, skipType);
         EventArrivalDispatcher.validateBoundaries(execution, arrivalPlan.tasks());
         addTasks = arrivalPlan.tasks();
+        if (replayReturnIntent) {
+            RejectReturnRuntime.remove(execution.instance, execution.nowNode.getNodeCode(), execution.task.getId());
+        }
         // 新 taskId 确定后，在最新状态图上写入 / 消费；随后与任务、历史、用户同事务落库。
         if (returnIntent != null || rejectTargetCode != null) {
             AssertUtil.isTrue(addTasks.size() != 1, "驳回直返必须创建唯一人工待办");
@@ -357,13 +372,13 @@ final class FlowExecuteChain {
         // 当前任务已归档：取消附着在该任务上的边界事件等待
         FlowEngine.eventWaitService().cancelByAttachedTaskId(execution.task.getId());
 
-        // 推进自动节点（服务任务）：临时待办已随本批落库，可复用汇聚判断
-        List<Task> autoCreatedTasks = advancer.advance(execution, nextNodes, addTasks);
-
         // 一票否决（谨慎使用），如果退回，退回指向节点后还存在其他正在执行的待办任务，转历史任务，状态都为失效,重走流程。
         if (CollUtil.isNotEmpty(nextNodes) && SkipType.isReject(skipType)) {
             oneVoteVeto(execution.task, nextNodes.get(0).getNodeCode(), execution.loadCombineNoDef());
         }
+
+        // 推进自动节点（服务任务）：临时待办已随本批落库，可复用汇聚判断
+        List<Task> autoCreatedTasks = advancer.advance(execution, nextNodes, addTasks);
 
         // 处理未完成的任务，当流程完成，还存在待办任务未完成，转历史任务，状态完成。
         taskService.handUndoneTask(execution.instance);
@@ -416,8 +431,9 @@ final class FlowExecuteChain {
         List<Task> noDoneTasks = new ArrayList<>();
         List<Node> suffixNodeList = FlowEngine.nodeService().suffixNodeList(nextNodeCode, flowCombine);
         List<String> suffixCodes = StreamUtils.toList(suffixNodeList, Node::getNodeCode);
+        Set<Long> createdTaskIds = StreamUtils.toSet(addTasks, Task::getId);
         for (Task flowTask : tasks) {
-            if (suffixCodes.contains(flowTask.getNodeCode())) {
+            if (suffixCodes.contains(flowTask.getNodeCode()) && !createdTaskIds.contains(flowTask.getId())) {
                 noDoneTasks.add(flowTask);
             }
         }

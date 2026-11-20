@@ -6,7 +6,8 @@
     </div>
     <div class="property-panel-body">
       <component :ref="componentType.name" :is="componentType" v-model="form" :disabled="disabled" :skipConditionShow="skipConditionShow"
-                 :nodes="nodes" :skips="skips" :form-path-list="formPathList" @edit-skip="emit('edit-skip', $event)">
+                 v-bind="componentType === between ? { nodeId: objId } : {}"
+                 :nodes="panelNodes" :skips="panelSkips" :form-path-list="formPathList" @edit-skip="emit('edit-skip', $event)">
         <template v-slot:[key]="data" v-for="(item, key) in $slots">
           <slot :name="key" v-bind="data || {}"></slot>
         </template>
@@ -93,6 +94,37 @@ const props = defineProps({
 const form = ref({});
 const objId = ref(undefined);
 const nodeCode = ref(null);
+const panelNodes = ref(props.nodes);
+const panelSkips = ref(props.skips);
+
+function syncPanelGraph() {
+  const graph = props.lf?.getGraphData?.();
+  panelNodes.value = graph?.nodes || props.nodes;
+  panelSkips.value = graph?.edges || props.skips;
+}
+
+watch(() => [props.nodes, props.skips, props.lf], syncPanelGraph, { immediate: true });
+watch(() => props.lf, (logicFlow, previous, onCleanup) => {
+  const eventCenter = logicFlow?.graphModel?.eventCenter;
+  if (!eventCenter) return;
+  let queued = false;
+  let disposed = false;
+  const refresh = () => {
+    if (queued) return;
+    queued = true;
+    nextTick(() => {
+      queued = false;
+      if (!disposed) syncPanelGraph();
+    });
+  };
+  const events = ['node:add', 'node:delete', 'node:properties-change', 'edge:add', 'edge:delete',
+    'edge:adjust', 'edge:exchange-node', 'graph:rendered', 'history:change'];
+  events.forEach(event => eventCenter.on(event, refresh));
+  onCleanup(() => {
+    disposed = true;
+    events.forEach(event => eventCenter.off(event, refresh));
+  });
+}, { immediate: true });
 // 面板根节点：校验失败时用来滚动到第一个红框项
 const panelRef = ref(null);
 const title = computed(() => {
@@ -292,6 +324,7 @@ watch(() => form.value.skipType, (n) => {
   props.lf.setProperties(objId.value, {
     skipType: n
   })
+  syncPanelGraph();
 
 });
 
@@ -510,10 +543,12 @@ function commitIdChange () {
     if (!props.lf.getEdgeModelById(nodeCode.value)) {
       props.lf.changeEdgeId(objId.value, nodeCode.value);
       objId.value = nodeCode.value;
+      syncPanelGraph();
     }
   } else if (!props.lf.getNodeModelById(nodeCode.value)) {
     props.lf.changeNodeId(objId.value, nodeCode.value);
     objId.value = nodeCode.value;
+    syncPanelGraph();
   }
 }
 
@@ -522,6 +557,7 @@ function commitIdChange () {
  * 不通过就留在当前面板（给一句明确反馈并滚到第一个红框项，避免「点了没反应」）。
  */
 async function confirmLeave () {
+  syncPanelGraph();
   if (props.disabled) {
     commitIdChange();
     return true;
@@ -556,6 +592,7 @@ function scrollToFirstError () {
 defineExpose({
   confirmLeave,
   commitIdChange,
+  syncPanelGraph,
 })
 </script>
 

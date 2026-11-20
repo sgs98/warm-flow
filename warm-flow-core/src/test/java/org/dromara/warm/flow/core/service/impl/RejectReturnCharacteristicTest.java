@@ -5,7 +5,9 @@ import org.dromara.warm.flow.core.dto.DefJson;
 import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.entity.Instance;
 import org.dromara.warm.flow.core.entity.Node;
+import org.dromara.warm.flow.core.entity.Skip;
 import org.dromara.warm.flow.core.entity.Task;
+import org.dromara.warm.flow.core.entity.User;
 import org.dromara.warm.flow.core.enums.ActivityStatus;
 import org.dromara.warm.flow.core.enums.NodeType;
 import org.dromara.warm.flow.core.enums.PublishStatus;
@@ -21,8 +23,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -67,6 +72,364 @@ class RejectReturnCharacteristicTest {
         assertNotEquals(source, a.getId());
         assertNull(FlowEngine.taskService().getById(source));
         assertTrue(RejectReturnRuntime.find(stored(instance), "A", source).isEmpty());
+    }
+
+    @Test
+    void dynamicTargetRejectWithoutStaticAnchorCreatesReturnIntent() {
+        // 无静态目标（anyNodeSkip 与退回线均无）的直返节点：办理人驳回时指定目标，
+        // 运行时兜底校验通过后建立直返关联——与静态目标路径同一契约。
+        Instance instance = atD(DIRECT);
+        removeStaticAnchors(instance, "D", "A");
+        Long source = task(instance).getId();
+        var command = new org.dromara.warm.flow.core.workflow.command.RejectCommand();
+        command.setTaskId(source);
+        command.setTargetNodeCode("A");
+        command.setOperator(operator(TestFlows.HANDLER));
+        FlowEngine.workflow().reject(command);
+        Task a = task(instance);
+        assertEquals("A", a.getNodeCode());
+        var intent = RejectReturnRuntime.find(stored(instance), "A", a.getId()).orElseThrow();
+        assertEquals(source, intent.sourceTaskId());
+        assertEquals("D", intent.returnNodeCode());
+        // A 重新审批通过后直接返回 D
+        TestFlows.pass(a.getId(), TestFlows.HANDLER);
+        assertEquals("D", task(instance).getNodeCode());
+        assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+    }
+
+    /** 删除节点的 anyNodeSkip 与 REJECT 退回线，构造「无静态目标」的直返节点。 */
+    private void removeStaticAnchors(Instance instance, String nodeCode, String rejectTarget) {
+        org.dromara.warm.flow.core.entity.Node node = FlowEngine.nodeService()
+            .getByDefIdAndNodeCode(instance.getDefinitionId(), nodeCode);
+        node.setAnyNodeSkip(null);
+        FlowEngine.nodeService().updateById(node);
+        for (org.dromara.warm.flow.core.entity.Skip skip : node.getSkipList()) {
+            if (org.dromara.warm.flow.core.enums.SkipType.isReject(skip.getSkipType())
+                && rejectTarget.equals(skip.getNextNodeCode())) {
+                harness.skipDao.deleteById(skip.getId());
+            }
+        }
+    }
+
+    @Test
+    void missingTransactionFailsWithoutChangingTheConfiguredRoute() {
+        Instance instance = atD(DIRECT);
+        Long source = task(instance).getId();
+        org.dromara.warm.flow.core.service.task.RejectConfig.setAtomicExecutionSupported(false);
+        try {
+            unchangedOnFailure(() -> TestFlows.reject(source, TestFlows.HANDLER));
+        } finally {
+            org.dromara.warm.flow.core.service.task.RejectConfig.setAtomicExecutionSupported(null);
+        }
+        assertEquals(source, task(instance).getId());
+        assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+    }
+
+    @Test
+    void missingTransactionDoesNotCancelBoundaryWaitOrSilentlyReplay() {
+        Instance instance = atD(DIRECT);
+        Long source = task(instance).getId();
+        FlowEngine.eventWaitService().save(FlowEngine.newEventWait().setInstanceId(instance.getId())
+            .setDefinitionId(instance.getDefinitionId()).setNodeCode("boundary").setAttachedTaskId(source)
+            .setStatus("WAITING").setEventType("TIMER_BOUNDARY").setVersion(0));
+        org.dromara.warm.flow.core.service.task.RejectConfig.setAtomicExecutionSupported(false);
+        try {
+            unchangedOnFailure(() -> TestFlows.reject(source, TestFlows.HANDLER));
+        } finally {
+            org.dromara.warm.flow.core.service.task.RejectConfig.setAtomicExecutionSupported(null);
+        }
+        assertEquals(source, task(instance).getId());
+        assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+        assertEquals(1, FlowEngine.eventWaitService().getActiveByInstanceId(instance.getId()).size());
+    }
+
+    @Test
+    void exclusiveGatewayInReturnIntervalIsSkippedOnDirectReturn() {
+        // 返回区间 A → 排他网关 G → B → C → D：直返不执行网关，A 通过后直接回到 D
+        Instance instance = TestFlows.startRejectReturnGatewayFlow("gatewayDirect", "bizGateway", DIRECT);
+        for (int i = 0; i < 3; i++) { TestFlows.pass(task(instance).getId(), TestFlows.HANDLER); }
+        assertEquals("D", task(instance).getNodeCode());
+        TestFlows.reject(task(instance).getId(), TestFlows.HANDLER);
+        Task a = task(instance);
+        assertEquals("A", a.getNodeCode());
+        assertEquals("D", RejectReturnRuntime.find(stored(instance), "A", a.getId())
+            .orElseThrow().returnNodeCode());
+        long histories = harness.hisTaskDao.size();
+        RecordingListener.EVENTS.clear();
+        TestFlows.pass(a.getId(), TestFlows.HANDLER);
+        assertEquals("D", task(instance).getNodeCode());
+        assertEquals(histories + 1, harness.hisTaskDao.size());
+        assertTrue(RecordingListener.EVENTS.stream().noneMatch(e -> e.contains("node=B") || e.contains("node=C")));
+        assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+    }
+
+    @Test
+    void parallelBranchRejectDegradesEvenWithoutActiveSibling() {
+        // 驳回节点位于并行分支内：即使兄弟分支已办结（无其它活动待办），也不建立直返关联，
+        // 申请节点通过后沿分支正常重走，不直达并行区间。
+        Instance instance = TestFlows.startParallelRejectReturnFlow("parallelDirect", "bizParallel", DIRECT);
+        TestFlows.pass(taskOf(instance, "a1").getId(), TestFlows.HANDLER);
+        TestFlows.pass(taskOf(instance, "b1").getId(), TestFlows.HANDLER);
+        TestFlows.reject(taskOf(instance, "a2").getId(), TestFlows.HANDLER);
+        assertEquals("a1", task(instance).getNodeCode());
+        assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+        TestFlows.pass(task(instance).getId(), TestFlows.HANDLER);
+        assertEquals("a2", task(instance).getNodeCode());
+    }
+
+    @Test
+    void nestedParallelAndInclusiveBranchesReplayWithoutReturnIntent() {
+        for (int outer : List.of(NodeType.PARALLEL.getKey(), NodeType.INCLUSIVE.getKey())) {
+            for (int inner : List.of(NodeType.PARALLEL.getKey(), NodeType.INCLUSIVE.getKey())) {
+                Instance instance = startNestedReturnFlow("nested" + outer + inner, outer, inner);
+                TestFlows.reject(task(instance).getId(), TestFlows.HANDLER);
+                assertEquals("A", task(instance).getNodeCode());
+                assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+                TestFlows.pass(task(instance).getId(), TestFlows.HANDLER);
+                assertEquals("B", task(instance).getNodeCode());
+                assertEquals(DIRECT, FlowEngine.nodeService()
+                    .getByDefIdAndNodeCode(instance.getDefinitionId(), "D").getNodeConfig());
+            }
+        }
+    }
+
+    @Test
+    void partialJoinBranchesReplayWithoutReturnIntent() {
+        for (int outer : List.of(NodeType.PARALLEL.getKey(), NodeType.INCLUSIVE.getKey())) {
+            for (int join : List.of(NodeType.PARALLEL.getKey(), NodeType.INCLUSIVE.getKey())) {
+                Instance instance = startNestedReturnFlow("partial" + outer + join, outer, join, true);
+                TestFlows.reject(task(instance).getId(), TestFlows.HANDLER);
+                assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+                TestFlows.pass(task(instance).getId(), TestFlows.HANDLER);
+                assertEquals("B", task(instance).getNodeCode());
+            }
+        }
+    }
+
+    @Test
+    void directReturnStillWorksAfterACompleteJoinInAnEndlessLoop() {
+        for (int type : List.of(NodeType.PARALLEL.getKey(), NodeType.INCLUSIVE.getKey())) {
+            Definition definition = FlowEngine.newDef().setFlowCode("closedLoop" + type).setFlowName("闭环汇聚后直返")
+                .setVersion("1").setIsPublish(PublishStatus.PUBLISHED.getKey())
+                .setActivityStatus(ActivityStatus.ACTIVITY.getKey());
+            FlowEngine.defService().save(definition);
+            Map<String, Integer> types = new LinkedHashMap<>();
+            for (String code : List.of("start", "S", "A", "F", "L", "R", "J", "B", "C", "D", "end")) {
+                int nodeType = "start".equals(code) ? NodeType.START.getKey() : "end".equals(code)
+                    ? NodeType.END.getKey() : "S".equals(code) ? NodeType.SERIAL.getKey()
+                    : List.of("F", "J").contains(code) ? type : NodeType.BETWEEN.getKey();
+                types.put(code, nodeType);
+                FlowEngine.nodeService().save(FlowEngine.newNode().setDefinitionId(definition.getId()).setNodeCode(code)
+                    .setNodeName(code).setNodeType(nodeType).setNodeRatio("0").setPermissionFlag(TestFlows.HANDLER)
+                    .setNodeConfig("D".equals(code) ? DIRECT : null).setAnyNodeSkip("D".equals(code) ? "B" : null));
+            }
+            for (String[] link : List.of(new String[]{"start", "S"}, new String[]{"S", "A"}, new String[]{"S", "end"},
+                new String[]{"A", "F"}, new String[]{"F", "L"}, new String[]{"F", "R"},
+                new String[]{"L", "J"}, new String[]{"R", "J"}, new String[]{"J", "B"},
+                new String[]{"B", "C"}, new String[]{"C", "D"}, new String[]{"D", "A"}, new String[]{"D", "B"})) {
+                FlowEngine.skipService().save(FlowEngine.newSkip().setDefinitionId(definition.getId())
+                    .setNowNodeCode(link[0]).setNextNodeCode(link[1]).setNowNodeType(types.get(link[0]))
+                    .setNextNodeType(types.get(link[1])).setSkipType("D".equals(link[0]) && "B".equals(link[1])
+                        ? SkipType.REJECT.getKey() : SkipType.PASS.getKey()));
+            }
+            Instance instance = FlowEngine.insService().start("bizLoop" + type, definition.getFlowCode(), TestFlows.context(TestFlows.HANDLER));
+            for (String code : List.of("A", "L", "R", "B", "C")) {
+                TestFlows.pass(taskOf(instance, code).getId(), TestFlows.HANDLER);
+            }
+            TestFlows.reject(task(instance).getId(), TestFlows.HANDLER);
+            assertEquals("B", task(instance).getNodeCode());
+            assertTrue(RejectReturnRuntime.hasPending(stored(instance)));
+            TestFlows.pass(task(instance).getId(), TestFlows.HANDLER);
+            assertEquals("D", task(instance).getNodeCode());
+        }
+    }
+
+    @Test
+    void directReturnWorksAfterACompleteJoinBeforeAMultiEntryClosedCycle() {
+        for (int fork : List.of(NodeType.PARALLEL.getKey(), NodeType.INCLUSIVE.getKey())) {
+            for (int join : List.of(NodeType.PARALLEL.getKey(), NodeType.INCLUSIVE.getKey())) {
+                Definition definition = FlowEngine.newDef().setFlowCode("multiEntryCycle" + fork + join)
+                    .setFlowName("多入口闭环前汇聚直返").setVersion("1").setIsPublish(PublishStatus.PUBLISHED.getKey())
+                    .setActivityStatus(ActivityStatus.ACTIVITY.getKey());
+                FlowEngine.defService().save(definition);
+                Map<String, Integer> types = new LinkedHashMap<>();
+                for (String code : List.of("start", "T", "F", "L", "R", "J", "A", "B", "D", "S", "H", "K", "end")) {
+                    int nodeType = "start".equals(code) ? NodeType.START.getKey() : "end".equals(code) ? NodeType.END.getKey()
+                        : List.of("T", "S").contains(code) ? NodeType.SERIAL.getKey() : "F".equals(code) ? fork
+                        : "J".equals(code) ? join : NodeType.BETWEEN.getKey();
+                    types.put(code, nodeType);
+                    FlowEngine.nodeService().save(FlowEngine.newNode().setDefinitionId(definition.getId()).setNodeCode(code)
+                        .setNodeName(code).setNodeType(nodeType).setNodeRatio("0").setPermissionFlag(TestFlows.HANDLER)
+                        .setNodeConfig("D".equals(code) ? DIRECT : null).setAnyNodeSkip("D".equals(code) ? "A" : null));
+                }
+                for (String[] link : List.of(new String[]{"start", "T"}, new String[]{"T", "F"}, new String[]{"T", "end"},
+                    new String[]{"F", "L"}, new String[]{"F", "R"}, new String[]{"L", "J"}, new String[]{"R", "J"},
+                    new String[]{"J", "A"}, new String[]{"A", "B"}, new String[]{"B", "D"}, new String[]{"D", "S"},
+                    new String[]{"S", "H"}, new String[]{"S", "K"}, new String[]{"H", "K"}, new String[]{"K", "H"},
+                    new String[]{"D", "A"})) {
+                    FlowEngine.skipService().save(FlowEngine.newSkip().setDefinitionId(definition.getId())
+                        .setNowNodeCode(link[0]).setNextNodeCode(link[1]).setNowNodeType(types.get(link[0]))
+                        .setNextNodeType(types.get(link[1])).setSkipType("D".equals(link[0]) && "A".equals(link[1])
+                            ? SkipType.REJECT.getKey() : SkipType.PASS.getKey()));
+                }
+                Instance instance = FlowEngine.insService().start("bizMultiEntry" + fork + join, definition.getFlowCode()
+                    , TestFlows.context(TestFlows.HANDLER));
+                for (String code : List.of("L", "R", "A", "B")) {
+                    TestFlows.pass(taskOf(instance, code).getId(), TestFlows.HANDLER);
+                }
+                TestFlows.reject(task(instance).getId(), TestFlows.HANDLER);
+                assertEquals("A", task(instance).getNodeCode());
+                assertTrue(RejectReturnRuntime.hasPending(stored(instance)));
+                TestFlows.pass(task(instance).getId(), TestFlows.HANDLER);
+                assertEquals("D", task(instance).getNodeCode());
+                assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+            }
+        }
+    }
+
+    @Test
+    void legacyReturnIntentFromNestedBranchReplaysAndClearsAssociation() {
+        Instance instance = startNestedReturnFlow("legacyNested", NodeType.PARALLEL.getKey(), NodeType.INCLUSIVE.getKey());
+        Long source = task(instance).getId();
+        TestFlows.reject(source, TestFlows.HANDLER);
+        Instance legacy = stored(instance);
+        RejectReturnRuntime.clear(legacy);
+        RejectReturnRuntime.put(legacy, "A", task(instance).getId(), source, "D");
+        FlowEngine.insService().updateById(legacy);
+        TestFlows.pass(task(instance).getId(), TestFlows.HANDLER);
+        assertEquals("B", task(instance).getNodeCode());
+        assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+        assertEquals(DIRECT, FlowEngine.nodeService()
+            .getByDefIdAndNodeCode(instance.getDefinitionId(), "D").getNodeConfig());
+    }
+
+    @Test
+    void legacyBranchReturnIntentSurvivesDelegatedOpinionUntilCompletion() {
+        Instance instance = startNestedReturnFlow("legacyDelegated", NodeType.INCLUSIVE.getKey(), NodeType.PARALLEL.getKey());
+        Long source = task(instance).getId();
+        TestFlows.reject(source, TestFlows.HANDLER);
+        Instance legacy = stored(instance);
+        RejectReturnRuntime.clear(legacy);
+        Long returned = task(instance).getId();
+        RejectReturnRuntime.put(legacy, "A", returned, source, "D");
+        FlowEngine.insService().updateById(legacy);
+        DelegateCommand delegate = new DelegateCommand();
+        delegate.setTaskId(returned);
+        delegate.setTargetHandler("lisi");
+        delegate.setOperator(operator(TestFlows.HANDLER));
+        FlowEngine.workflow().delegate(delegate);
+        TestFlows.pass(returned, "lisi");
+        assertEquals(returned, task(instance).getId());
+        assertTrue(RejectReturnRuntime.hasPending(stored(instance)));
+        TestFlows.pass(returned, TestFlows.HANDLER);
+        assertEquals("B", task(instance).getNodeCode());
+        assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+    }
+
+    @Test
+    void legacyBranchReturnIntentSurvivesPartialCooperativeApproval() {
+        for (int gateway : List.of(NodeType.PARALLEL.getKey(), NodeType.INCLUSIVE.getKey())) {
+            for (String mode : List.of("vote", "countersign", "sequence", "group-parallel", "group-sequence")) {
+                Definition definition = TestFlows.parallelRejectReturnFlow("legacyCooperative" + gateway + mode, DIRECT);
+                for (String code : List.of("forkP", "joinP")) {
+                    Node node = FlowEngine.nodeService().getByDefIdAndNodeCode(definition.getId(), code);
+                    FlowEngine.nodeService().updateById(node.setNodeType(gateway));
+                }
+                Node target = FlowEngine.nodeService().getByDefIdAndNodeCode(definition.getId(), "a1");
+                if (mode.startsWith("group")) {
+                    target.setCooperateType("group").setNodeRatio("0").setPermissionFlag(null)
+                        .setNodeConfig("{\"groupSign\":{\"groups\":[{\"id\":\"g1\",\"members\":[\"zhangsan\"]},"
+                            + "{\"id\":\"g2\",\"members\":[\"lisi\"]}],\"order\":\""
+                            + (mode.endsWith("sequence") ? "sequence" : "parallel") + "\"}}");
+                } else {
+                    target.setNodeRatio("vote".equals(mode) ? "75" : "100").setPermissionFlag("zhangsan@@lisi")
+                        .setCooperateType("sequence".equals(mode) ? "sequence" : "parallel");
+                }
+                FlowEngine.nodeService().updateById(target);
+                FlowEngine.nodeService().save(FlowEngine.newNode().setDefinitionId(definition.getId())
+                    .setNodeCode("middle").setNodeName("middle").setNodeType(NodeType.BETWEEN.getKey())
+                    .setNodeRatio("0").setPermissionFlag(TestFlows.HANDLER));
+                for (Skip skip : FlowEngine.skipService().getByDefId(definition.getId())) {
+                    if ("a1".equals(skip.getNowNodeCode()) && SkipType.isPass(skip.getSkipType())) {
+                        skip.setNextNodeCode("middle");
+                    }
+                    if (List.of("forkP", "joinP").contains(skip.getNowNodeCode())) {
+                        skip.setNowNodeType(gateway);
+                    }
+                    if (List.of("forkP", "joinP").contains(skip.getNextNodeCode())) {
+                        skip.setNextNodeType(gateway);
+                    }
+                    FlowEngine.skipService().updateById(skip);
+                }
+                FlowEngine.skipService().save(FlowEngine.newSkip().setDefinitionId(definition.getId())
+                    .setNowNodeCode("middle").setNextNodeCode("a2").setNowNodeType(NodeType.BETWEEN.getKey())
+                    .setNextNodeType(NodeType.BETWEEN.getKey()).setSkipType(SkipType.PASS.getKey()));
+                Instance instance = FlowEngine.insService().start("biz" + definition.getFlowCode(), definition.getFlowCode()
+                    , TestFlows.context(TestFlows.HANDLER));
+                TestFlows.pass(taskOf(instance, "b1").getId(), TestFlows.HANDLER);
+                TestFlows.pass(task(instance).getId(), TestFlows.HANDLER);
+                assertEquals("a1", task(instance).getNodeCode());
+                TestFlows.pass(task(instance).getId(), "lisi");
+                TestFlows.pass(task(instance).getId(), TestFlows.HANDLER);
+                Long source = task(instance).getId();
+                TestFlows.reject(source, TestFlows.HANDLER);
+                Long returned = task(instance).getId();
+                Instance legacy = stored(instance);
+                RejectReturnRuntime.put(legacy, "a1", returned, source, "a2");
+                FlowEngine.insService().updateById(legacy);
+                FlowEngine.eventWaitService().save(FlowEngine.newEventWait().setInstanceId(instance.getId())
+                    .setDefinitionId(definition.getId()).setNodeCode("boundary").setAttachedTaskId(returned)
+                    .setStatus("WAITING").setEventType("TIMER_BOUNDARY").setVersion(0));
+
+                TestFlows.pass(returned, TestFlows.HANDLER);
+
+                assertEquals(returned, task(instance).getId(), mode);
+                assertTrue(RejectReturnRuntime.find(stored(instance), "a1", returned).isPresent(), mode);
+                assertEquals(1, FlowEngine.eventWaitService().getActiveByInstanceId(instance.getId()).size(), mode);
+                assertEquals(List.of("lisi"), harness.userDao.all().stream()
+                    .filter(user -> returned.equals(user.getAssociated())).map(User::getProcessedBy).toList(), mode);
+
+                TestFlows.pass(returned, "lisi");
+
+                assertEquals("middle", task(instance).getNodeCode(), mode);
+                assertFalse(RejectReturnRuntime.hasPending(stored(instance)), mode);
+                assertTrue(FlowEngine.eventWaitService().getActiveByInstanceId(instance.getId()).isEmpty(), mode);
+                assertEquals(DIRECT, FlowEngine.nodeService()
+                    .getByDefIdAndNodeCode(definition.getId(), "a2").getNodeConfig(), mode);
+            }
+        }
+    }
+
+    @Test
+    void branchReplayDoesNotApplyDirectReturnEventWaitRestriction() {
+        Instance instance = startNestedReturnFlow("branchBoundary", NodeType.INCLUSIVE.getKey(), NodeType.PARALLEL.getKey());
+        Long source = task(instance).getId();
+        FlowEngine.eventWaitService().save(FlowEngine.newEventWait().setInstanceId(instance.getId())
+            .setDefinitionId(instance.getDefinitionId()).setNodeCode("boundary").setAttachedTaskId(source)
+            .setStatus("WAITING").setEventType("TIMER_BOUNDARY").setVersion(0));
+        assertDoesNotThrow(() -> TestFlows.reject(source, TestFlows.HANDLER));
+        assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+        assertTrue(FlowEngine.eventWaitService().getActiveByInstanceId(instance.getId()).isEmpty());
+        TestFlows.pass(task(instance).getId(), TestFlows.HANDLER);
+        assertEquals("B", task(instance).getNodeCode());
+    }
+
+    @Test
+    void legacyBranchReturnWithActiveBoundaryWaitReplaysNormally() {
+        Instance instance = startNestedReturnFlow("legacyBoundary", NodeType.PARALLEL.getKey(), NodeType.INCLUSIVE.getKey());
+        Long source = task(instance).getId();
+        TestFlows.reject(source, TestFlows.HANDLER);
+        Instance legacy = stored(instance);
+        Long returned = task(instance).getId();
+        RejectReturnRuntime.put(legacy, "A", returned, source, "D");
+        FlowEngine.insService().updateById(legacy);
+        FlowEngine.eventWaitService().save(FlowEngine.newEventWait().setInstanceId(instance.getId())
+            .setDefinitionId(instance.getDefinitionId()).setNodeCode("boundary").setAttachedTaskId(returned)
+            .setStatus("WAITING").setEventType("TIMER_BOUNDARY").setVersion(0));
+        assertDoesNotThrow(() -> TestFlows.pass(returned, TestFlows.HANDLER));
+        assertEquals("B", task(instance).getNodeCode());
+        assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+        assertTrue(FlowEngine.eventWaitService().getActiveByInstanceId(instance.getId()).isEmpty());
     }
 
     @Test
@@ -342,7 +705,7 @@ class RejectReturnCharacteristicTest {
     }
 
     @Test
-    void parallelIntervalFallsBackToWholeRejectionReplay() {
+    void completeGatewayIntervalReturnsDirectlyWithoutRebuildingBranches() {
         Definition def = parallelRejectReturnFlow("rr-par-1");
         Instance instance = FlowEngine.insService().start("biz-par-1", def.getFlowCode(), TestFlows.context(TestFlows.HANDLER));
         assertDoesNotThrow(() -> FlowConfigUtil.validateRejectReturnPath(
@@ -354,9 +717,83 @@ class RejectReturnCharacteristicTest {
         assertEquals("D", task(instance).getNodeCode());
         TestFlows.reject(task(instance).getId(), TestFlows.HANDLER);
         assertEquals("A", task(instance).getNodeCode());
-        assertFalse(RejectReturnRuntime.hasPending(stored(instance)), "并行区间不记录直返关联");
+        assertTrue(RejectReturnRuntime.hasPending(stored(instance)), "完整汇聚后的节点应记录直返关联");
+        long history = harness.hisTaskDao.all().stream().filter(task -> List.of("B", "C").contains(task.getNodeCode())).count();
         TestFlows.pass(task(instance).getId(), TestFlows.HANDLER);
-        assertEquals(List.of("B", "C"), pendingNodes(instance), "A 提交后应重新分叉重走");
+        assertEquals("D", task(instance).getNodeCode(), "A 提交后直接返回完整汇聚后的 D");
+        assertEquals(history, harness.hisTaskDao.all().stream().filter(task -> List.of("B", "C").contains(task.getNodeCode())).count());
+        assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+    }
+
+    @Test
+    void groupTargetDirectReturnSkipsCompletedParallelAndInclusiveIntervals() {
+        for (int first : List.of(NodeType.PARALLEL.getKey(), NodeType.INCLUSIVE.getKey())) {
+            for (int second : List.of(NodeType.PARALLEL.getKey(), NodeType.INCLUSIVE.getKey())) {
+                Definition definition = FlowEngine.newDef().setFlowCode("completedIntervals" + first + second)
+                    .setFlowName("完整网关后直返组签").setVersion("1").setIsPublish(PublishStatus.PUBLISHED.getKey())
+                    .setActivityStatus(ActivityStatus.ACTIVITY.getKey());
+                FlowEngine.defService().save(definition);
+                Map<String, Integer> types = new LinkedHashMap<>();
+                for (String code : List.of("start", "A", "P", "L", "R", "J", "B", "Q", "U", "V", "K", "D", "end")) {
+                    int type = "start".equals(code) ? 0 : "end".equals(code) ? 2 : List.of("P", "J").contains(code)
+                        ? first : List.of("Q", "K").contains(code) ? second : 1;
+                    types.put(code, type);
+                    String config = "D".equals(code) ? DIRECT : "A".equals(code)
+                        ? "{\"groupSign\":{\"groups\":[{\"id\":\"g1\",\"members\":[\"zhangsan\"]},{\"id\":\"g2\",\"members\":[\"lisi\"]}],\"order\":\"parallel\"}}" : null;
+                    FlowEngine.nodeService().save(FlowEngine.newNode().setDefinitionId(definition.getId()).setNodeCode(code)
+                        .setNodeName(code).setNodeType(type).setNodeRatio("0").setPermissionFlag("A".equals(code) ? null : TestFlows.HANDLER)
+                        .setCooperateType("A".equals(code) ? "group" : null).setNodeConfig(config));
+                }
+                for (String[] link : List.of(new String[]{"start", "A"}, new String[]{"A", "P"}, new String[]{"P", "L"},
+                    new String[]{"P", "R"}, new String[]{"L", "J"}, new String[]{"R", "J"}, new String[]{"J", "B"},
+                    new String[]{"B", "Q"}, new String[]{"Q", "U"}, new String[]{"Q", "V"}, new String[]{"U", "K"},
+                    new String[]{"V", "K"}, new String[]{"K", "D"}, new String[]{"D", "end"}, new String[]{"D", "A"})) {
+                    FlowEngine.skipService().save(FlowEngine.newSkip().setDefinitionId(definition.getId())
+                        .setNowNodeCode(link[0]).setNowNodeType(types.get(link[0])).setNextNodeCode(link[1]).setNextNodeType(types.get(link[1]))
+                        .setSkipType("D".equals(link[0]) && "A".equals(link[1]) ? SkipType.REJECT.getKey() : SkipType.PASS.getKey()));
+                }
+                Instance instance = FlowEngine.insService().start("biz" + definition.getFlowCode(), definition.getFlowCode(), TestFlows.context(TestFlows.HANDLER));
+                TestFlows.pass(task(instance).getId(), TestFlows.HANDLER);
+                TestFlows.pass(task(instance).getId(), "lisi");
+                for (String code : List.of("L", "R", "B", "U", "V")) {
+                    TestFlows.pass(taskOf(instance, code).getId(), TestFlows.HANDLER);
+                }
+                Long source = task(instance).getId();
+                long history = harness.hisTaskDao.all().stream().filter(task -> List.of("L", "R", "B", "U", "V").contains(task.getNodeCode())).count();
+                TestFlows.reject(source, TestFlows.HANDLER);
+                Long returned = task(instance).getId();
+                assertTrue(RejectReturnRuntime.hasPending(stored(instance)));
+                TestFlows.pass(returned, TestFlows.HANDLER);
+                assertEquals(returned, task(instance).getId());
+                assertTrue(RejectReturnRuntime.hasPending(stored(instance)));
+                TestFlows.pass(returned, "lisi");
+                assertEquals("D", task(instance).getNodeCode());
+                assertNotEquals(source, task(instance).getId());
+                assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+                assertEquals(history, harness.hisTaskDao.all().stream().filter(task -> List.of("L", "R", "B", "U", "V").contains(task.getNodeCode())).count());
+            }
+        }
+    }
+
+    @Test
+    void directReturnAcrossCompletedGatewaysStillRejectsActiveBoundaryWait() {
+        Definition definition = parallelRejectReturnFlow("parallelIntervalBoundary");
+        Instance instance = FlowEngine.insService().start("biz-parallel-interval-boundary", definition.getFlowCode()
+            , TestFlows.context(TestFlows.HANDLER));
+        TestFlows.pass(task(instance).getId(), TestFlows.HANDLER);
+        TestFlows.pass(taskAt(instance, "B").getId(), TestFlows.HANDLER);
+        TestFlows.pass(taskAt(instance, "C").getId(), TestFlows.HANDLER);
+        Long source = task(instance).getId();
+        assertEquals("D", task(instance).getNodeCode());
+        FlowEngine.eventWaitService().save(FlowEngine.newEventWait().setInstanceId(instance.getId())
+            .setDefinitionId(definition.getId()).setNodeCode("boundary").setAttachedTaskId(source)
+            .setStatus("WAITING").setEventType("TIMER_BOUNDARY").setVersion(0));
+
+        unchangedOnFailure(() -> TestFlows.reject(source, TestFlows.HANDLER));
+
+        assertEquals(source, task(instance).getId());
+        assertFalse(RejectReturnRuntime.hasPending(stored(instance)));
+        assertEquals(1, FlowEngine.eventWaitService().getActiveByInstanceId(instance.getId()).size());
     }
 
     @Test
@@ -464,6 +901,65 @@ class RejectReturnCharacteristicTest {
     }
 
     private Task task(Instance instance) { return TestFlows.currentTask(instance.getId()); }
+
+    private Instance startNestedReturnFlow(String flowCode, int outer, int inner) {
+        return startNestedReturnFlow(flowCode, outer, inner, false);
+    }
+
+    private Instance startNestedReturnFlow(String flowCode, int outer, int inner, boolean partial) {
+        Definition definition = FlowEngine.newDef().setFlowCode(flowCode).setFlowName("嵌套分支驳回重走")
+            .setVersion("1").setIsPublish(PublishStatus.PUBLISHED.getKey())
+            .setActivityStatus(ActivityStatus.ACTIVITY.getKey());
+        FlowEngine.defService().save(definition);
+        Map<String, Integer> types = new LinkedHashMap<>();
+        types.put("start", NodeType.START.getKey());
+        for (String code : List.of("outerFork", "innerFork", "innerJoin", "outerJoin")) {
+            if (partial && "innerFork".equals(code)) {
+                continue;
+            }
+            types.put(code, code.startsWith("inner") ? inner : outer);
+        }
+        for (String code : List.of("left", "right", "sibling", "A", "B", "D")) {
+            types.put(code, NodeType.BETWEEN.getKey());
+        }
+        types.put("end", NodeType.END.getKey());
+        for (Map.Entry<String, Integer> entry : types.entrySet()) {
+            FlowEngine.nodeService().save(FlowEngine.newNode().setDefinitionId(definition.getId())
+                .setNodeCode(entry.getKey()).setNodeName(entry.getKey()).setNodeType(entry.getValue())
+                .setNodeRatio("0").setPermissionFlag(TestFlows.HANDLER)
+                .setNodeConfig("D".equals(entry.getKey()) ? DIRECT : null));
+        }
+        List<String[]> links = new ArrayList<>(List.of(new String[]{"start", "outerFork"},
+            new String[]{"outerFork", "sibling"},
+            new String[]{"left", "innerJoin"}, new String[]{"right", "innerJoin"},
+            new String[]{"innerJoin", "A"}, new String[]{"A", "B"}, new String[]{"B", "D"},
+            new String[]{"D", "outerJoin"}, new String[]{"sibling", "outerJoin"},
+            new String[]{"outerJoin", "end"}, new String[]{"D", "A"}));
+        if (partial) {
+            links.add(new String[]{"outerFork", "left"});
+            links.add(new String[]{"outerFork", "right"});
+        } else {
+            links.add(new String[]{"outerFork", "innerFork"});
+            links.add(new String[]{"innerFork", "left"});
+            links.add(new String[]{"innerFork", "right"});
+        }
+        for (String[] link : links) {
+            FlowEngine.skipService().save(FlowEngine.newSkip().setDefinitionId(definition.getId())
+                .setNowNodeCode(link[0]).setNextNodeCode(link[1]).setNowNodeType(types.get(link[0]))
+                .setNextNodeType(types.get(link[1])).setSkipType("D".equals(link[0]) && "A".equals(link[1])
+                    ? SkipType.REJECT.getKey() : SkipType.PASS.getKey()));
+        }
+        Instance instance = FlowEngine.insService().start("biz" + flowCode, flowCode, TestFlows.context(TestFlows.HANDLER));
+        for (String code : List.of("sibling", "left", "right", "A", "B")) {
+            TestFlows.pass(taskOf(instance, code).getId(), TestFlows.HANDLER);
+        }
+        return instance;
+    }
+
+    private Task taskOf(Instance instance, String nodeCode) {
+        return FlowEngine.taskService().getByInsId(instance.getId()).stream()
+            .filter(t -> nodeCode.equals(t.getNodeCode())).findFirst().orElseThrow();
+    }
     private Instance stored(Instance instance) { return FlowEngine.insService().getById(instance.getId()); }
 
     private String snapshot(Instance instance) { return stored(instance).getDefJson(); }

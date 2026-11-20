@@ -80,6 +80,36 @@ public final class RejectConfig {
         return null;
     }
 
+    /**
+     * 当前操作是否具备直返关联所需的事务保障，不表示或限制事务隔离级别。
+     * <p>
+     * core 不感知框架：由 starter 在进入受保护操作时按线程标注，未标注视为 true（保持 core 单独使用的既有语义）。
+     * 非 true 时直返明确失败，不静默改变节点配置的审批路由。
+     */
+    private static final ThreadLocal<Boolean> ATOMIC_EXECUTION_SUPPORTED = new ThreadLocal<>();
+
+    /**
+     * 标注当前线程的事务能力，由 starter 在受保护操作前后设置 / 还原。
+     *
+     * @param supported 是否具备原子保障；{@code null} 表示还原为默认
+     */
+    public static void setAtomicExecutionSupported(Boolean supported) {
+        if (supported == null) {
+            ATOMIC_EXECUTION_SUPPORTED.remove();
+        } else {
+            ATOMIC_EXECUTION_SUPPORTED.set(supported);
+        }
+    }
+
+    /**
+     * 读取当前线程的事务能力标注。
+     *
+     * @return 未标注时返回 {@code true}
+     */
+    public static boolean isAtomicExecutionSupported() {
+        return !Boolean.FALSE.equals(ATOMIC_EXECUTION_SUPPORTED.get());
+    }
+
     private static DefJson definition(String defJson) {
         if (StringUtils.isEmpty(defJson)) {
             return null;

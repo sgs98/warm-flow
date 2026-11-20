@@ -17,9 +17,15 @@ package org.dromara.warm.flow.orm.dao;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.AbstractWrapper;
 import com.baomidou.mybatisplus.core.enums.SqlKeyword;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
 import org.dromara.warm.flow.core.entity.RootEntity;
+import org.dromara.warm.flow.core.entity.EventWait;
+import org.dromara.warm.flow.core.entity.HisTask;
+import org.dromara.warm.flow.core.entity.Instance;
+import org.dromara.warm.flow.core.entity.Task;
+import org.dromara.warm.flow.core.entity.User;
 import org.dromara.warm.flow.core.orm.agent.WarmQuery;
 import org.dromara.warm.flow.core.orm.dao.WarmDao;
 import org.dromara.warm.flow.core.utils.ObjectUtil;
@@ -49,6 +55,9 @@ public abstract class WarmDaoImpl<T extends RootEntity> implements WarmDao<T> {
      */
     @Override
     public T selectById(Serializable id) {
+        if (requiresCurrentRead()) {
+            return getMapper().selectOne(new QueryWrapper<T>().eq("id", id).last("FOR UPDATE"));
+        }
         return getMapper().selectById(id);
     }
 
@@ -60,6 +69,9 @@ public abstract class WarmDaoImpl<T extends RootEntity> implements WarmDao<T> {
      */
     @Override
     public List<T> selectByIds(Collection<? extends Serializable> ids) {
+        if (requiresCurrentRead() && ids != null && !ids.isEmpty()) {
+            return getMapper().selectList(new QueryWrapper<T>().in("id", ids).last("FOR UPDATE"));
+        }
         return getMapper().selectBatchIds(ids);
     }
 
@@ -86,11 +98,23 @@ public abstract class WarmDaoImpl<T extends RootEntity> implements WarmDao<T> {
     @Override
     public List<T> selectList(T entity, WarmQuery<T> query) {
         QueryWrapper<T> queryWrapper = new QueryWrapper<>(entity);
+        lockRead(queryWrapper);
         if (ObjectUtil.isNotNull(query)) {
             queryWrapper.orderBy(StringUtils.isNotEmpty(query.getOrderBy())
                 , query.getIsAsc().equals(SqlKeyword.ASC.getSqlSegment()), query.getOrderBy());
         }
         return getMapper().selectList(queryWrapper);
+    }
+
+    protected void lockRead(AbstractWrapper<T, ?, ?> wrapper) {
+        if (requiresCurrentRead()) wrapper.last("FOR UPDATE");
+    }
+
+    private boolean requiresCurrentRead() {
+        if (!InstanceRowLock.isCurrentRead()) return false;
+        T entity = newEntity();
+        return entity instanceof Instance || entity instanceof Task || entity instanceof User
+            || entity instanceof HisTask || entity instanceof EventWait;
     }
 
     @Override

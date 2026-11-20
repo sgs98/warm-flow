@@ -314,21 +314,29 @@
             />
           </el-select>
           <div v-if="isCustomCompletionRule" class="field-hint">自定义完成规则建议指定驳回节点</div>
-          <div v-else class="field-hint">驳回目标以这里为准：配了就退到该节点，否则沿当前节点的「退回线」退回</div>
+          <div v-else class="field-hint">驳回目标以这里为准：配了就退到该节点，否则沿当前节点的「退回线」退回；都没配时由办理人退回时指定</div>
         </el-form-item>
         <el-form-item v-if="!isEventNode" label="驳回后续：" class="reject-return-item" :error="rejectReturnError">
           <div class="reject-return-options" role="radiogroup" aria-label="驳回后续" aria-describedby="reject-return-hint">
             <label v-for="option in rejectReturnOptions" :key="option.value" class="radio-card-item"
-              :class="{ 'is-checked': rejectReturnState.mode === option.value }">
+              :class="{ 'is-checked': rejectReturnState.mode === option.value,
+                'is-disabled': option.value === RETURN_TO_REJECTOR && parallelBranchNode }">
               <input type="radio" name="reject-return-mode" :value="option.value"
-                :checked="rejectReturnState.mode === option.value" :disabled="disabled || !!rejectReturnState.error"
+                :checked="rejectReturnState.mode === option.value"
+                :disabled="disabled || !!rejectReturnState.error || (option.value === RETURN_TO_REJECTOR && parallelBranchNode)"
                 @change="setRejectReturnMode(option.value)" />
               <span class="radio-card-text">{{ option.label }}</span>
             </label>
           </div>
-          <div id="reject-return-hint" class="field-hint">选择直返时，{{ rejectReturnHint }}中间节点不再生成待办，本节点仍需重新审批。会签 / 票签 / 顺签 / 组签节点会被跳过。</div>
-          <div v-if="rejectReturnState.mode === RETURN_TO_REJECTOR && parallelReplayInterval" class="field-hint">
-            返回区间包含并行 / 包容网关：运行期将整体退回重走，不会直达本节点。
+          <div id="reject-return-hint" class="field-hint">
+            <template v-if="parallelBranchNode">当前节点处于并行/包容分支内，仅支持按原流程重走。退回目标重新提交后按原流程逐步办理，不会直接返回本节点。</template>
+            <template v-else>选择直返时，{{ rejectReturnHint }}中间节点不再生成待办，本节点仍需重新审批。会签 / 票签 / 顺签 / 组签节点会被跳过。</template>
+          </div>
+          <div v-if="rejectReturnState.mode === RETURN_TO_REJECTOR && parallelBranchNode" class="field-hint">
+            已有直返配置保留，但运行期按原流程重走；如需清除旧配置，请选择重走。
+          </div>
+          <div v-else-if="rejectReturnState.mode === RETURN_TO_REJECTOR && parallelReplayInterval" class="field-hint">
+            当前驳回节点位于并行/包容分支内，运行期按原流程逐步办理。
           </div>
           <div v-if="rejectReturnState.conflict" class="field-hint">旧业务属性 reject 保持原样；启用直返前，请在扩展属性中迁移到其它键。</div>
         </el-form-item>
@@ -560,7 +568,7 @@ import listenerConfig from "./listenerConfig";
 import nodeVariables from "./nodeVariables";
 import {getPreviousNodes} from "@/components/design/common/js/tool.js";
 import {groupSignSummary, normalizeGroupSign, serializeGroupSign, validateGroupSign} from "../js/groupSign.js";
-import {isManagedRejectSection, isParallelReplayInterval, readRejectReturn, writeRejectReturn, RETURN_TO_REJECTOR} from "../js/rejectReturn.js";
+import {isManagedRejectSection, isParallelBranchNode, isParallelReplayInterval, readRejectReturn, writeRejectReturn, RETURN_TO_REJECTOR} from "../js/rejectReturn.js";
 const { proxy } = getCurrentInstance();
 
 const props = defineProps({
@@ -573,6 +581,10 @@ const props = defineProps({
   disabled: { // 是否禁止
     type: Boolean,
     default: false
+  },
+  nodeId: {
+    type: String,
+    default: ''
   },
   nodes: {
     type: Array,
@@ -762,8 +774,10 @@ const rejectReturnOptions = [
   { value: RETURN_TO_REJECTOR, label: '重新审批后返回本节点' }
 ];
 const rejectReturnState = computed(() => readRejectReturn(form.value.nodeConfig || {}));
+const parallelBranchNode = computed(() => isParallelBranchNode(
+  { nodes: props.nodes || [], edges: props.skips || [] }, props.nodeId || form.value.nodeCode));
 const parallelReplayInterval = computed(() => isParallelReplayInterval(
-  { nodes: props.nodes || [], edges: props.skips || [] }, form.value.id));
+  { nodes: props.nodes || [], edges: props.skips || [] }, props.nodeId || form.value.nodeCode));
 const rejectReturnAttemptError = ref('');
 const rejectReturnError = computed(() => rejectReturnState.value.error || rejectReturnAttemptError.value
   || (rejectReturnState.value.mode === RETURN_TO_REJECTOR && isEventNode.value
@@ -771,10 +785,24 @@ const rejectReturnError = computed(() => rejectReturnState.value.error || reject
 const rejectReturnHint = computed(() => {
   const source = form.value.nodeName || form.value.nodeCode || '本节点';
   const target = props.nodes.find(node => node.id === form.value.anyNodeSkip);
-  return target ? `${source} 驳回到 ${target.text?.value || target.id}，该节点重新审批通过后直接返回 ${source}。`
-    : `按实际驳回目标处理：退回目标重新审批通过后直接返回 ${source}。`;
+  if (target) {
+    return `${source} 驳回到 ${target.text?.value || target.id}，该节点重新审批通过后直接返回 ${source}。`;
+  }
+  // 未配静态目标：有唯一退回线时按退回线目标，否则目标由办理人驳回时指定
+  const rejects = (props.skips || []).filter(e => e.sourceNodeId === (props.nodeId || form.value.nodeCode)
+    && e.properties?.skipType === 'REJECT');
+  const lineTarget = rejects.length === 1
+    ? props.nodes.find(node => node.id === rejects[0].targetNodeId)
+    : null;
+  return lineTarget
+    ? `沿退回线退到 ${lineTarget.text?.value || lineTarget.id}，其重新审批通过后直接返回 ${source}。`
+    : `未配置固定驳回目标，由办理人退回时指定；目标重新审批通过后直接返回 ${source}。`;
 });
 function setRejectReturnMode(mode) {
+  if (mode === RETURN_TO_REJECTOR && parallelBranchNode.value) {
+    rejectReturnAttemptError.value = '并行/包容分支内仅支持按原流程重走';
+    return;
+  }
   try {
     form.value.nodeConfig = writeRejectReturn(form.value.nodeConfig || {}, mode);
     rejectReturnAttemptError.value = '';
@@ -1765,7 +1793,7 @@ function addCopyInitiator() {
 // 增加行 / 删除行：由共享组件 listenerConfig 处理
 
 const filteredNodes = computed(() => {
-  let previousNodes = getPreviousNodes(props.nodes, props.skips, form.value.nodeCode)
+  let previousNodes = getPreviousNodes(props.nodes, props.skips, props.nodeId || form.value.nodeCode)
   return previousNodes.filter(node => !["start", "serial", "parallel", 'inclusive'].includes(node.type));
 });
 
@@ -1857,6 +1885,7 @@ defineExpose({
   :deep(.el-form-item__content) { display: block; min-width: 0; }
   .reject-return-options { display: flex; flex-direction: column; gap: 8px; width: 100%; }
   .radio-card-item { width: 100%; min-height: 40px; box-sizing: border-box; margin: 0; }
+  .radio-card-item.is-disabled { opacity: 0.6; cursor: not-allowed; }
   input[type="radio"] { flex: 0 0 auto; accent-color: var(--wf-primary); }
   .radio-card-text { white-space: normal; line-height: 1.5; min-width: 0; }
   .radio-card-item:focus-within { outline: 2px solid var(--wf-primary); outline-offset: 2px; }

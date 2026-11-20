@@ -30,21 +30,18 @@ class TransactionalInsService extends InsServiceImpl {
 
     @Override
     public Instance start(String businessId, String flowCode, WorkflowContext context) {
-        transaction.requireStart(flowCode, null);
         return transaction.execute(null, () -> super.start(businessId, flowCode, context));
     }
 
     @Override
     public Instance startByMessage(String businessId, String flowCode, String eventName,
         Map<String, Object> payload, WorkflowContext context) {
-        transaction.requireStart(flowCode, null);
         return transaction.execute(null, () -> super.startByMessage(businessId, flowCode, eventName, payload, context));
     }
 
     @Override
     public Instance startByTimer(String businessId, Long definitionId, String nodeCode,
         Map<String, Object> payload, WorkflowContext context) {
-        transaction.requireStart(null, definitionId);
         return transaction.execute(null, () -> super.startByTimer(businessId, definitionId, nodeCode, payload, context));
     }
 

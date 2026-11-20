@@ -57,6 +57,7 @@ public class FlowTaskDaoImpl extends WarmDaoImpl<FlowTask> implements FlowTaskDa
         LambdaQueryWrapper<FlowTask> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(FlowTask::getInstanceId, instanceId);
         queryWrapper.in(FlowTask::getNodeCode, nodeCodes);
+        lockRead(queryWrapper);
         return getMapper().selectList(queryWrapper);
     }
 }

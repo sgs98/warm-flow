@@ -77,6 +77,7 @@
                 <include refid="paging_end"/>
             </otherwise>
         </choose>
+        <if test="page == null and @org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <sql id="includeAll">
@@ -156,6 +157,7 @@
         </foreach>
         <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
         <if test="entity.tenantId != null  and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
+        <if test="@org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <select id="selectById" resultMap="FlowUserResult">
@@ -163,6 +165,7 @@
         where t.id = #{id}
         <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
         <if test="entity.tenantId != null  and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
+        <if test="@org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <select id="selectCount" parameterType="org.dromara.warm.flow.orm.entity.FlowUser" resultType="java.lang.Long">
@@ -199,6 +202,7 @@
             <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
             <if test="entity.tenantId != null  and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
         </where>
+        <if test="@org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <select id="listByProcessedBys" resultMap="FlowUserResult">
@@ -233,6 +237,7 @@
             <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
             <if test="entity.tenantId != null  and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
         </where>
+        <if test="@org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <insert id="insert" parameterType="org.dromara.warm.flow.orm.entity.FlowUser">

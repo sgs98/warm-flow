@@ -62,26 +62,26 @@ public class TransactionalEventTaskHandler implements EventTaskHandler {
 
     @Override
     public void handle(EventWait wait) {
-        transactionTemplate.executeWithoutResult(status -> {
-            InstanceRowLock.lock(wait.getInstanceId());
+        transactionTemplate.executeWithoutResult(status -> InstanceRowLock.withLock(wait.getInstanceId(), () -> {
             delegate.handle(wait);
-        });
+            return null;
+        }));
     }
 
     @Override
     public void handle(EventWait wait, WorkflowContext context) {
-        transactionTemplate.executeWithoutResult(status -> {
-            InstanceRowLock.lock(wait.getInstanceId());
+        transactionTemplate.executeWithoutResult(status -> InstanceRowLock.withLock(wait.getInstanceId(), () -> {
             delegate.handle(wait, context);
-        });
+            return null;
+        }));
     }
 
     @Override
     public void handle(EventWait wait, WorkflowContext context, Runnable completion) {
-        transactionTemplate.executeWithoutResult(status -> {
-            InstanceRowLock.lock(wait.getInstanceId());
+        transactionTemplate.executeWithoutResult(status -> InstanceRowLock.withLock(wait.getInstanceId(), () -> {
             delegate.handle(wait, context);
             completion.run();
-        });
+            return null;
+        }));
     }
 }

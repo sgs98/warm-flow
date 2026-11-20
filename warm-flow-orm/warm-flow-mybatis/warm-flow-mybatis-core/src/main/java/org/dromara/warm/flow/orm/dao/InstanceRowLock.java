@@ -8,10 +8,13 @@ import org.dromara.warm.flow.orm.entity.FlowInstance;
 import org.dromara.warm.flow.orm.mapper.FlowInstanceMapper;
 import org.dromara.warm.flow.orm.utils.TenantDeleteUtil;
 
+import java.util.function.Supplier;
+
 /**
  * 用单行无值变化 UPDATE 取得事务行锁，避免引入四库 FOR UPDATE 方言。 @author may
  */
 public final class InstanceRowLock {
+    private static final ThreadLocal<Boolean> CURRENT_READ = new ThreadLocal<>();
     private InstanceRowLock() {
     }
 
@@ -20,6 +23,22 @@ public final class InstanceRowLock {
             return;
         }
         lock(FrameInvoker.getBean(FlowInstanceMapper.class), instanceId);
+    }
+
+    public static <T> T withLock(Long instanceId, Supplier<T> work) {
+        Boolean previous = CURRENT_READ.get();
+        CURRENT_READ.set(true);
+        try {
+            lock(instanceId);
+            return work.get();
+        } finally {
+            if (previous == null) CURRENT_READ.remove();
+            else CURRENT_READ.set(previous);
+        }
+    }
+
+    public static boolean isCurrentRead() {
+        return Boolean.TRUE.equals(CURRENT_READ.get()) && !"sqlserver".equals(FlowEngine.dataSourceType());
     }
 
     static void lock(FlowInstanceMapper mapper, Long instanceId) {

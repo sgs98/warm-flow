@@ -60,6 +60,7 @@ public class FlowUserDaoImpl extends WarmDaoImpl<FlowUser> implements FlowUserDa
             }
         }
         queryWrapper.in(ArrayUtil.isNotEmpty(types), FlowUser::getType, List.of(types));
+        lockRead(queryWrapper);
         return getMapper().selectList(queryWrapper);
     }
 
@@ -75,6 +76,7 @@ public class FlowUserDaoImpl extends WarmDaoImpl<FlowUser> implements FlowUserDa
             }
         }
         queryWrapper.in(ArrayUtil.isNotEmpty(types), FlowUser::getType, types);
+        lockRead(queryWrapper);
         return getMapper().selectList(queryWrapper);
     }
 }

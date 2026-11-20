@@ -49,6 +49,7 @@ public class FlowHisTaskDaoImpl extends WarmDaoImpl<FlowHisTask> implements Flow
         queryWrapper.eq(FlowHisTask::getInstanceId, instanceId)
             .eq(FlowHisTask::getSkipType, SkipType.PASS.getKey())
             .orderByDesc(FlowHisTask::getCreateTime);
+        lockRead(queryWrapper);
         return getMapper().selectList(queryWrapper);
     }
 
@@ -58,6 +59,7 @@ public class FlowHisTaskDaoImpl extends WarmDaoImpl<FlowHisTask> implements Flow
         queryWrapper.eq(FlowHisTask::getInstanceId, instanceId)
             .in(CollUtil.isNotEmpty(nodeCodes), FlowHisTask::getNodeCode, nodeCodes)
             .orderByDesc(FlowHisTask::getCreateTime);
+        lockRead(queryWrapper);
         return getMapper().selectList(queryWrapper);
     }
 
@@ -70,6 +72,7 @@ public class FlowHisTaskDaoImpl extends WarmDaoImpl<FlowHisTask> implements Flow
     public List<FlowHisTask> listByTaskIdAndCooperateTypes(Long taskId, String[] cooperateTypes) {
         LambdaQueryWrapper<FlowHisTask> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(FlowHisTask::getTaskId, taskId).in(FlowHisTask::getCooperateType, List.of(cooperateTypes));
+        lockRead(queryWrapper);
         return getMapper().selectList(queryWrapper);
     }
 

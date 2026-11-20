@@ -63,7 +63,7 @@ class RejectReturnTransactionTest {
             "FlowHisTask", "FlowUser", "FlowForm", "FlowEventWait"};
         for (int i = 0; i < entities.length; i++) { createTable(entities[i], snake(names[i])); }
         Configuration cfg = new Configuration();
-        cfg.setLocalCacheScope(org.apache.ibatis.session.LocalCacheScope.STATEMENT);
+        cfg.setLocalCacheScope(org.apache.ibatis.session.LocalCacheScope.SESSION);
         cfg.setEnvironment(new Environment("test", new SpringManagedTransactionFactory(), ds));
         for (String name : names) {
             String xml = "warm/flow/" + name + "Mapper.xml";
@@ -127,26 +127,27 @@ class RejectReturnTransactionTest {
     }
 
     @AfterEach
-    void close() { FrameInvoker.setBeanFunction(type -> null); }
+    void close() { assertFalse(InstanceRowLock.isCurrentRead()); FrameInvoker.setBeanFunction(type -> null); }
 
     @Test
-    void noTransactionRejectsDirectModeButAllowsReplay() {
+    void noTransactionStillAllowsOrdinaryDirectModeApproval() {
         Instance direct = start(DIRECT);
         TransactionalTaskService plain = new TransactionalTaskService(null);
         plain.setDao((FlowTaskDao) new FlowTaskDaoImpl());
-        assertThrows(FlowException.class, () -> plain.execute(current(direct).getId(), context(), SkipType.PASS.getKey()));
+        // 无事务管理器不阻塞没有运行关联的普通办理。
+        assertEquals("B", plain.execute(current(direct).getId(), context(), SkipType.PASS.getKey()).getNodeCode());
         Instance replay = start(null);
         assertEquals("B", plain.execute(current(replay).getId(), context(), SkipType.PASS.getKey()).getNodeCode());
     }
 
     @Test
-    void noTransactionRejectsStartBeforeInstanceCreation() {
+    void noTransactionAllowsStartRegardlessOfDirectReturnConfig() {
         Definition definition = definition(DIRECT);
         TransactionalInsService plain = new TransactionalInsService(null);
         plain.setDao((FlowInstanceDao) new FlowInstanceDaoImpl());
-        assertThrows(FlowException.class, () -> plain.start("biz", definition.getFlowCode(), context()));
-        assertEquals(0, count("flow_instance"));
-        assertEquals(0, count("flow_task"));
+        assertDoesNotThrow(() -> plain.start("biz", definition.getFlowCode(), context()));
+        assertEquals(1, count("flow_instance"));
+        assertEquals(1, count("flow_task"));
     }
 
     @Test
@@ -175,47 +176,59 @@ class RejectReturnTransactionTest {
     }
 
     @Test
-    void ambientRepeatableReadRejectsDirectWritesBeforeChanges() {
-        Instance instance = rejected();
-        Long a = current(instance).getId();
-        String before = FlowEngine.insService().getById(instance.getId()).getDefJson();
+    void ambientRepeatableReadPreservesDirectReturnAndBusinessRollback() {
         TransactionTemplate outer = new TransactionTemplate(template.getTransactionManager());
         outer.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
-        for (Runnable action : List.<Runnable>of(
-            () -> tasks.execute(a, context(), SkipType.PASS.getKey()),
-            () -> instances.removeVariables(instance.getId(), "v"),
-            () -> tasks.terminateByInstanceId(instance.getId(), context()))) {
-            FlowException error = assertThrows(FlowException.class, () -> outer.execute(status -> {
-                FlowEngine.insService().getById(instance.getId()); // 建立外层旧读视图
-                action.run(); return null;
-            }));
-            assertTrue(error.getMessage().contains("READ_COMMITTED"));
-            assertEquals(a, current(instance).getId());
-            assertEquals(before, FlowEngine.insService().getById(instance.getId()).getDefJson());
-        }
+        Instance instance = rejected();
+        Long returned = current(instance).getId();
+        String before = instances.getById(instance.getId()).getVariable();
+        outer.execute(status -> {
+            instances.getById(instance.getId());
+            tasks.execute(returned, context(), SkipType.PASS.getKey());
+            assertEquals("D", current(instance).getNodeCode());
+            instances.removeVariables(instance.getId(), "v");
+            status.setRollbackOnly();
+            return null;
+        });
+        assertEquals(returned, current(instance).getId());
+        assertEquals(before, instances.getById(instance.getId()).getVariable());
+        outer.execute(status -> tasks.execute(returned, context(), SkipType.PASS.getKey()));
+        assertEquals("D", current(instance).getNodeCode());
     }
 
     @Test
-    void ambientDefaultRepeatableReadIsAlsoRejected() {
+    void ambientDefaultRepeatableReadAllowsDirectReturn() {
         Instance instance = rejected();
         Long a = current(instance).getId();
         ((UnpooledDataSource) ((DataSourceTransactionManager) template.getTransactionManager()).getDataSource())
             .setDefaultTransactionIsolationLevel(java.sql.Connection.TRANSACTION_REPEATABLE_READ);
         TransactionTemplate outer = new TransactionTemplate(template.getTransactionManager());
-        FlowException error = assertThrows(FlowException.class, () -> outer.execute(status ->
-            tasks.execute(a, context(), SkipType.PASS.getKey())));
-        assertTrue(error.getMessage().contains("READ_COMMITTED"));
-        assertEquals(a, current(instance).getId());
+        assertDoesNotThrow(() -> outer.execute(status -> tasks.execute(a, context(), SkipType.PASS.getKey())));
+        assertEquals("D", current(instance).getNodeCode());
     }
 
     @Test
-    void ownTransactionUsesReadCommittedWithoutChangingHostTemplate() {
+    void defaultRepeatableReadCreatesAndConsumesDirectReturnIntent() {
+        ((UnpooledDataSource) ((DataSourceTransactionManager) template.getTransactionManager()).getDataSource())
+            .setDefaultTransactionIsolationLevel(java.sql.Connection.TRANSACTION_REPEATABLE_READ);
+        Instance instance = rejected();
+        Task returned = current(instance);
+        assertEquals("A", returned.getNodeCode());
+        assertTrue(instances.getById(instance.getId()).getVariable().contains("_wf_reject_return"));
+        tasks.execute(returned.getId(), context(), SkipType.PASS.getKey());
+        assertEquals("D", current(instance).getNodeCode());
+        assertFalse(instances.getById(instance.getId()).getVariable().contains("_wf_reject_return"));
+        assertFalse(InstanceRowLock.isCurrentRead());
+    }
+
+    @Test
+    void ownTransactionPreservesHostIsolation() {
         Instance instance = start(DIRECT);
         ((UnpooledDataSource) ((DataSourceTransactionManager) template.getTransactionManager()).getDataSource())
             .setDefaultTransactionIsolationLevel(java.sql.Connection.TRANSACTION_REPEATABLE_READ);
         Integer isolation = new InstanceTransactionSupport(template).execute(instance.getId(), () ->
             jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Integer>) java.sql.Connection::getTransactionIsolation));
-        assertEquals(java.sql.Connection.TRANSACTION_READ_COMMITTED, isolation.intValue());
+        assertEquals(java.sql.Connection.TRANSACTION_REPEATABLE_READ, isolation.intValue());
         assertEquals(org.springframework.transaction.TransactionDefinition.ISOLATION_DEFAULT, template.getIsolationLevel());
     }
 
@@ -239,6 +252,9 @@ class RejectReturnTransactionTest {
                 Object result;
                 try { result = method.invoke(actual, args); }
                 catch (java.lang.reflect.InvocationTargetException e) { throw e.getCause(); }
+                if (method.getName().equals("selectById")) {
+                    assertTrue(InstanceRowLock.isCurrentRead(), "实例存在性确认也必须位于当前读作用域");
+                }
                 // 真实 SQL 先执行，只模拟驱动报告 changed rows 而不是 matched rows 的计数。
                 boolean lock = method.getName().equals("lockInstance");
                 if (method.getName().equals("update") && args != null && args.length == 2 && args[1] != null) {
@@ -251,6 +267,27 @@ class RejectReturnTransactionTest {
             tasks.execute(current(instance).getId(), context(), SkipType.PASS.getKey());
             assertEquals("D", current(instance).getNodeCode());
         } finally { beans.put(type, actual); }
+    }
+
+    @Test
+    void nestedCurrentReadScopesRestoreAfterSuccessAndFailure() {
+        Instance instance = start(null);
+        template.execute(status -> InstanceRowLock.withLock(instance.getId(), () -> {
+            assertTrue(InstanceRowLock.isCurrentRead());
+            InstanceRowLock.withLock(instance.getId(), () -> {
+                assertTrue(InstanceRowLock.isCurrentRead());
+                return null;
+            });
+            assertTrue(InstanceRowLock.isCurrentRead());
+            assertThrows(IllegalStateException.class, () -> InstanceRowLock.withLock(instance.getId(), () -> {
+                throw new IllegalStateException("nested work failed");
+            }));
+            assertTrue(InstanceRowLock.isCurrentRead());
+            assertThrows(FlowException.class, () -> InstanceRowLock.withLock(-1L, () -> null));
+            assertTrue(InstanceRowLock.isCurrentRead());
+            return null;
+        }));
+        assertFalse(InstanceRowLock.isCurrentRead());
     }
 
     @Test
@@ -278,7 +315,7 @@ class RejectReturnTransactionTest {
         outer.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
         ExecutorService pool = Executors.newSingleThreadExecutor();
         try {
-            Future<FlowException> stale = pool.submit(() -> assertThrows(FlowException.class, () -> outer.execute(status -> {
+            Future<RuntimeException> stale = pool.submit(() -> assertThrows(RuntimeException.class, () -> outer.execute(status -> {
                 assertNotNull(FlowEngine.taskService().getById(a));
                 String old = FlowEngine.insService().getById(instance.getId()).getDefJson();
                 readView.countDown();
@@ -290,7 +327,7 @@ class RejectReturnTransactionTest {
             assertTrue(readView.await(2, TimeUnit.SECONDS));
             tasks.execute(a, context(), SkipType.PASS.getKey());
             committed.countDown();
-            assertTrue(stale.get(5, TimeUnit.SECONDS).getMessage().contains("READ_COMMITTED"));
+            assertFalse(stale.get(5, TimeUnit.SECONDS).getMessage().contains("READ_COMMITTED"));
             assertEquals("D", current(instance).getNodeCode());
             assertEquals(1, FlowEngine.taskService().getByInsId(instance.getId()).size());
             assertFalse(FlowEngine.insService().getById(instance.getId()).getVariable().contains("_wf_reject_return"));
@@ -298,14 +335,14 @@ class RejectReturnTransactionTest {
     }
 
     @Test
-    void repeatableReadRejectsDirectStartButKeepsLegacyReplay() {
+    void repeatableReadAllowsStartAndLegacyReplay() {
         Definition direct = definition(DIRECT);
         TransactionTemplate outer = new TransactionTemplate(template.getTransactionManager());
         outer.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
-        FlowException error = assertThrows(FlowException.class, () -> outer.execute(status ->
+        // 启动不再受定义里的直返配置限制
+        assertDoesNotThrow(() -> outer.execute(status ->
             instances.start("biz", direct.getFlowCode(), context())));
-        assertTrue(error.getMessage().contains("READ_COMMITTED"));
-        assertEquals(0, count("flow_instance"));
+        assertEquals(1, count("flow_instance"));
         Instance replay = start(null);
         outer.execute(status -> tasks.execute(current(replay).getId(), context(), SkipType.PASS.getKey()));
         assertEquals("B", current(replay).getNodeCode());
@@ -348,13 +385,12 @@ class RejectReturnTransactionTest {
             RestartCommand command = reset ? new ResetCommand() : new RestartCommand();
             command.setInstanceId(instance.getId()); command.setTargetNodeCode("A");
             command.setHandlers(List.of("user")); command.setOperator(operator());
+            // 终态后直返关联已清空，restart / reset 不再被事务门禁阻塞
             TransactionalWorkflowService plain = new TransactionalWorkflowService(null);
             if (reset) {
-                assertThrows(FlowException.class, () -> plain.reset((ResetCommand) command));
-                FlowEngine.workflow().reset((ResetCommand) command);
+                assertDoesNotThrow(() -> plain.reset((ResetCommand) command));
             } else {
-                assertThrows(FlowException.class, () -> plain.restart(command));
-                FlowEngine.workflow().restart(command);
+                assertDoesNotThrow(() -> plain.restart(command));
             }
             assertEquals("A", current(instance).getNodeCode());
         }
@@ -416,7 +452,7 @@ class RejectReturnTransactionTest {
 
     @Test
     @SuppressWarnings({"rawtypes", "unchecked"})
-    void noTransactionGuardsEveryInstanceWriteAndEventStart() {
+    void noTransactionGuardsWritesHoldingReturnIntent() {
         Instance instance = rejected();
         Long a = current(instance).getId();
         TransactionalInsService plain = new TransactionalInsService(null);
@@ -427,12 +463,12 @@ class RejectReturnTransactionTest {
             () -> plain.removeVariables(instance.getId(), "x"), () -> plainTasks.revoke(instance.getId(), context()),
             () -> plainTasks.terminateByInstanceId(instance.getId(), context()),
             () -> plainTasks.terminateByTaskId(a, context()),
-            () -> plainTasks.updateHandlers(a, context(), List.of("other"), List.of(), "transfer"),
-            () -> plain.startByMessage("b", "flow0", "event", Map.of(), context()),
-            () -> plain.startByTimer("b", instance.getDefinitionId(), "D", Map.of(), context()));
+            () -> plainTasks.updateHandlers(a, context(), List.of("other"), List.of(), "transfer"));
+        // 持有直返关联的写操作仍需事务管理器；启动类操作不再被直返配置阻塞
         for (Runnable write : writes) {
             assertTrue(assertThrows(FlowException.class, write::run).getMessage().contains("事务管理器"));
         }
+
         assertEquals(a, current(instance).getId());
     }
 

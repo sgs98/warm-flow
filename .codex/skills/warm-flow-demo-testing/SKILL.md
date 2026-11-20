@@ -146,7 +146,7 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 
 ### 9. 驳回直返（RR）
 
-节点设计期规则只读驳回发起节点的 `nodeConfig.reject.afterApproval`：缺失 / `null` / `REPLAY` 为重走，`RETURN_TO_REJECTOR` 开启，其它非空值明确报错；`schemaVersion` 不参与识别或版本校验。标量、数组或没有 `afterApproval` 的业务 `reject` 属性不启用直返，但含同名 `afterApproval` 的业务字段会被解释为规则，升级前必须迁移。
+节点设计期规则只读驳回发起节点的 `nodeConfig.reject.afterApproval`：缺失 / `null` / `REPLAY` 为重走，`RETURN_TO_REJECTOR` 开启，其它非空值明确报错；`schemaVersion` 不参与识别或版本校验。标量、数组或没有 `afterApproval` 的业务 `reject` 属性不启用直返，但含同名 `afterApproval` 的业务字段会被解释为规则，升级前必须迁移。开启直返**不强制**静态目标：无 `anyNodeSkip` 且无唯一退回线时可保存/发布，驳回目标由办理人在 `RejectCommand.targetNodeCode` 指定；仅静态目标存在时保存/发布才预检返回路径，动态目标的路径合法性由引擎在驳回事务内 `validateRejectReturnPath` 兜底（失败同事务回滚）。
 
 最小可复测拓扑（自建临时定义并发布）：
 
@@ -166,9 +166,9 @@ Demo 的流程定义**不由 SQL 灌入**（`warm-flow-demo/src/main/resources/s
 2. 驳回后 `flow_instance.variable` 出现 `_wf_reject_return`，绑定 `nodeCode`（返回任务）、`taskId`、`sourceTaskId`、`returnNodeCode`；`def_json` 和共享节点不得写运行关联。
 3. admin 再次通过申请人后，下一步必须是驳回节点新待办；会签、组签不得重建任务或历史，首次审批意见保留，新待办是全新一轮办理人。
 4. 直返完成后 `_wf_reject_return` 清空；实例、任务、历史、用户、等待无多余写入。
-5. 并行/包容区间或仍有其它节点并行待办时，按整体退回重走，不写关联；串行网关、服务任务、事件、附着边界事件和嵌套直返拒绝，失败五类快照不变。
+5. 驳回发起节点位于未完整汇聚的并行/包容分支内，或仍有其它节点并行待办时，按原流程重走，不写关联；驳回节点已在完整汇聚后时，允许跨已完成网关直返且不重建分支任务。服务任务、事件、附着边界事件和嵌套直返拒绝；排他网关允许唯一通往驳回节点的分支，失败五类快照不变。
 6. 持有关联时再次驳回、任意跳转、撤回拒绝；委派受托人通过/提交驳回意见短路交还委托人不消费关联；转办保持关联。
-7. 直返要求匹配 `PlatformTransactionManager` 且外层 `READ_COMMITTED`；同实例行锁后重新读取任务/实例，任务、用户、历史与最新实例快照同事务提交。
+7. 直返保留宿主隔离级别，不强制 `READ_COMMITTED`，`REPEATABLE_READ` 下正常建立/消费关联，不因隔离级别降级重走。匹配的事务管理器、同实例行锁与锁内当前读取保障整体回滚；缺少真正事务时明确失败而非改路由。并发重复提交不能生成多份待办或复活旧关联；没有关联的启动/普通办理保持兼容。
 
 ### 10. 登录鉴权（AUTH）
 

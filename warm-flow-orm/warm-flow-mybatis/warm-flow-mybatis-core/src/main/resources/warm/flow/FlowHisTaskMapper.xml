@@ -127,6 +127,7 @@
                 <include refid="paging_end"/>
             </otherwise>
         </choose>
+        <if test="page == null and @org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <sql id="includeAll">
@@ -258,6 +259,7 @@
         </foreach>
         <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
         <if test="entity.tenantId != null  and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
+        <if test="@org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <select id="selectById" resultMap="FlowHisTaskResult">
@@ -265,6 +267,7 @@
         where t.id = #{id}
         <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
         <if test="entity.tenantId != null  and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
+        <if test="@org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <select id="getNoReject" resultMap="FlowHisTaskResult">
@@ -274,6 +277,7 @@
         <if test="entity.delFlag != null and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
         <if test="entity.tenantId != null and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
         order by t.create_time desc
+        <if test="@org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <select id="getByInsAndNodeCodes" resultMap="FlowHisTaskResult">
@@ -289,6 +293,7 @@
         <if test="entity.delFlag != null and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
         <if test="entity.tenantId != null and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
         order by t.create_time desc
+        <if test="@org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <select id="listByTaskIdAndCooperateTypes" resultMap="FlowHisTaskResult">
@@ -304,7 +309,7 @@
             <if test="entity.delFlag != null  and entity.delFlag != ''">and t.del_flag = #{entity.delFlag}</if>
             <if test="entity.tenantId != null  and entity.tenantId != ''">and t.tenant_id = #{entity.tenantId}</if>
         </where>
-
+        <if test="@org.dromara.warm.flow.orm.dao.InstanceRowLock@isCurrentRead()">FOR UPDATE</if>
     </select>
 
     <insert id="insert" parameterType="org.dromara.warm.flow.orm.entity.FlowHisTask">

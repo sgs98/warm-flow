@@ -1444,6 +1444,7 @@ function setEdgeSkipType(edge, skipType) {
     return;
   }
   lf.value.setProperties(edge.id, { skipType });
+  propertySettingRef.value?.syncPanelGraph?.();
   proxy.$modal.msgSuccess(skipType === 'REJECT' ? '已设为退回线' : '已设为通过线');
 }
 

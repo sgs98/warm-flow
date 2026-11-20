@@ -25,12 +25,16 @@ import org.dromara.warm.flow.core.utils.StringUtils;
 import org.dromara.warm.flow.orm.entity.FlowInstance;
 import org.dromara.warm.flow.orm.mapper.FlowInstanceMapper;
 
+import java.util.function.Supplier;
+
 /**
  * 在流程写事务中锁定实例行，使任务快照与事件到达检查串行化。
  *
  * @author may
  */
 public final class InstanceRowLock {
+
+    private static final ThreadLocal<Boolean> CURRENT_READ = new ThreadLocal<>();
 
     private InstanceRowLock() {
     }
@@ -40,6 +44,22 @@ public final class InstanceRowLock {
             return;
         }
         lock(FrameInvoker.getBean(FlowInstanceMapper.class), instanceId);
+    }
+
+    public static <T> T withLock(Long instanceId, Supplier<T> work) {
+        Boolean previous = CURRENT_READ.get();
+        CURRENT_READ.set(true);
+        try {
+            lock(instanceId);
+            return work.get();
+        } finally {
+            if (previous == null) CURRENT_READ.remove();
+            else CURRENT_READ.set(previous);
+        }
+    }
+
+    public static boolean isCurrentRead() {
+        return Boolean.TRUE.equals(CURRENT_READ.get()) && !"sqlserver".equals(FlowEngine.dataSourceType());
     }
 
     static void lock(FlowInstanceMapper mapper, Long instanceId) {
@@ -52,9 +72,11 @@ public final class InstanceRowLock {
                 .eq(StringUtils.isNotEmpty(tenant), FlowInstance::getTenantId, tenant)
                 .setSql("update_time = update_time"));
         // 无值变化 UPDATE 的 changed rows 可为 0；锁后确认同一可见边界，不作锁前 SELECT。
-        AssertUtil.isFalse(changed > 0 || mapper.selectCount(new LambdaQueryWrapper<>(FlowInstance.class)
+        AssertUtil.isFalse(changed > 0 || !mapper.selectList(new LambdaQueryWrapper<>(FlowInstance.class)
+            .select(FlowInstance::getId)
             .eq(FlowInstance::getId, instanceId)
-            .eq(StringUtils.isNotEmpty(tenant), FlowInstance::getTenantId, tenant)) > 0,
+            .eq(StringUtils.isNotEmpty(tenant), FlowInstance::getTenantId, tenant)
+            .last(isCurrentRead(), "FOR UPDATE")).isEmpty(),
             ExceptionCons.NOT_FOUNT_INSTANCE);
     }
 }
